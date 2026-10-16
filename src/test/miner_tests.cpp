@@ -4,6 +4,7 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <chainparams.h>
+#include <chainstatemanager.h>
 #include <coinsviewcache.h>
 #include <consensus/consensus.h>
 #include <consensus/merkle.h>
@@ -47,7 +48,7 @@ static CFeeRate blockMinFeeRate = CFeeRate(DEFAULT_BLOCK_MIN_TX_FEE);
 static BlockAssembler AssemblerForTest(const CChainParams& params) {
     BlockAssembler::Options options;
 
-    options.nBlockMaxSize = GetCurrentMaxBlockSize();
+    options.nBlockMaxSize = g_chainstate_manager.XFieldHistory().GetCurrentMaxBlockSize();
     options.blockMinFeeRate = blockMinFeeRate;
     return BlockAssembler(params, options);
 }
@@ -145,7 +146,7 @@ static void CreateBlocks(const CChainParams &chainparams,
             
             //block proof
             XFieldAggPubKey aggpubkeyChange;
-            CXFieldHistory().GetLatest(TAPYRUS_XFIELDTYPES::AGGPUBKEY, aggpubkeyChange);
+            g_chainstate_manager.XFieldHistory().GetLatest(TAPYRUS_XFIELDTYPES::AGGPUBKEY, aggpubkeyChange);
             CPubKey aggpubkey(aggpubkeyChange.getPubKey());
             std::vector<unsigned char> blockProof;
             createSignedBlockProof(*pblock, blockProof);
@@ -165,7 +166,7 @@ static void CreateBlocks(const CChainParams &chainparams,
     pblocktemplate = AssemblerForTest(chainparams).CreateNewBlock(scriptPubKey);
     BOOST_CHECK(pblocktemplate != nullptr);
     XFieldAggPubKey aggpubkeyChange;
-    CXFieldHistory().GetLatest(TAPYRUS_XFIELDTYPES::AGGPUBKEY, aggpubkeyChange);
+    g_chainstate_manager.XFieldHistory().GetLatest(TAPYRUS_XFIELDTYPES::AGGPUBKEY, aggpubkeyChange);
     CPubKey aggpubkey(aggpubkeyChange.getPubKey());
     std::vector<unsigned char> blockProof;
     createSignedBlockProof(pblocktemplate->block, blockProof);

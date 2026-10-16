@@ -5,6 +5,7 @@
 
 #include <bench/bench.h>
 #include <chainparams.h>
+#include <chainstatemanager.h>
 #include <coinsviewcache.h>
 #include <consensus/merkle.h>
 #include <consensus/validation.h>
@@ -50,7 +51,7 @@ static std::shared_ptr<CBlock> PrepareBlock(const CScript& coinbase_scriptPubKey
     privKey.Sign_Schnorr(blockHash, proof);
 
     XFieldAggPubKey aggpubkeyChange;
-    CXFieldHistory().GetLatest(TAPYRUS_XFIELDTYPES::AGGPUBKEY, aggpubkeyChange);
+    g_chainstate_manager.XFieldHistory().GetLatest(TAPYRUS_XFIELDTYPES::AGGPUBKEY, aggpubkeyChange);
 
     block->AbsorbBlockProof(proof, aggpubkeyChange.getPubKey());
 
@@ -76,7 +77,7 @@ static void AssembleBlock(benchmark::State& state)
     SelectParams(TAPYRUS_OP_MODE::DEV);
     SelectFederationParams(TAPYRUS_OP_MODE::DEV);
     SelectDynamicParams(ReadGenesisBlock());
-    CXFieldHistory xFieldHistory(DynamicParams().GenesisBlock());
+    g_chainstate_manager.InitXFieldHistory(DynamicParams().GenesisBlock());
 
     const CKey privKey(DecodeSecret(SIGN_BLOCK_PRIVKEY));
     const CPubKey pubkey(privKey.GetPubKey());

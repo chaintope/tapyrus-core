@@ -2,8 +2,10 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
+#include <chainstatemanager.h>
 #include <consensus/tx_verify.h>
 #include <consensus/validation.h>
+#include <dynamicparams.h>
 #include <primitives/block.h>
 #include <genesisblock.h>
 #include <xfieldhistory.h>
@@ -109,7 +111,7 @@ BOOST_AUTO_TEST_CASE(AbsorbBlockProof_test) {
     ssBlockProof << blockProof;
 
     XFieldAggPubKey aggpubkeyChange;
-    CXFieldHistory().GetLatest(TAPYRUS_XFIELDTYPES::AGGPUBKEY, aggpubkeyChange);
+    g_chainstate_manager.XFieldHistory().GetLatest(TAPYRUS_XFIELDTYPES::AGGPUBKEY, aggpubkeyChange);
     CPubKey aggpubkey(aggpubkeyChange.getPubKey());
     // add proof to the block
     BOOST_CHECK(block.AbsorbBlockProof(blockProof, aggpubkey));
@@ -140,7 +142,7 @@ BOOST_AUTO_TEST_CASE(AbsorbBlockProof_invlalid_test) {
 
     //returns false as all signatures in proof are not added to the block
     XFieldAggPubKey aggpubkeyChange;
-    CXFieldHistory().GetLatest(TAPYRUS_XFIELDTYPES::AGGPUBKEY, aggpubkeyChange);
+    g_chainstate_manager.XFieldHistory().GetLatest(TAPYRUS_XFIELDTYPES::AGGPUBKEY, aggpubkeyChange);
     CPubKey aggpubkey(aggpubkeyChange.getPubKey());
     BOOST_CHECK_EQUAL(false, block.AbsorbBlockProof(blockProof, aggpubkey));
 
@@ -280,27 +282,12 @@ BOOST_AUTO_TEST_CASE(blockHeaderWithxfieldType3_maxxfieldtype)
     BOOST_CHECK_EQUAL(blockHeader.proof.size(), 0);
 }
 
-// Adds a MAXBLOCKSIZE change to the shared xfield history and removes it again on scope exit.
-class ScopedMaxBlockSizeChange
-{
-    const XFieldChange m_change;
-public:
-    explicit ScopedMaxBlockSizeChange(const XFieldChange& change) : m_change(change)
-    {
-        CXFieldHistory().Add(TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE, m_change);
-    }
-    ~ScopedMaxBlockSizeChange()
-    {
-        CXFieldHistory().Remove(TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE, m_change);
-    }
-};
-
 // A transaction is checked against the size limit at its block's height, not the latest one.
 BOOST_AUTO_TEST_CASE(checkblock_tx_size_uses_block_height_limit)
 {
     const uint32_t laterLimit{2000};
-    // The latest limit is the one CheckTransaction used to apply, so the change must be in the shared history.
-    ScopedMaxBlockSizeChange laterChange(XFieldChange(XFieldMaxBlockSize(laterLimit), 100, uint256()));
+    CXFieldHistory history(DynamicParams().GenesisBlock());
+    history.Add(TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE, XFieldChange(XFieldMaxBlockSize(laterLimit), 100, uint256()));
 
     CMutableTransaction coinbase;
     coinbase.vin.resize(1);
@@ -320,7 +307,7 @@ BOOST_AUTO_TEST_CASE(checkblock_tx_size_uses_block_height_limit)
     bigTx.vout[0].scriptPubKey = CScript() << OP_TRUE;
 
     CValidationState txState;
-    BOOST_CHECK(!CheckTransaction(CTransaction(bigTx), txState, laterLimit));
+    BOOST_CHECK(!CheckTransaction(CTransaction(bigTx), txState, history.GetCurrentMaxBlockSize()));
     BOOST_CHECK_EQUAL(txState.GetRejectReason(), "bad-txns-oversize");
 
     CBlock block;
@@ -329,10 +316,10 @@ BOOST_AUTO_TEST_CASE(checkblock_tx_size_uses_block_height_limit)
     block.vtx.push_back(MakeTransactionRef(bigTx));
 
     CValidationState state;
-    BOOST_CHECK_MESSAGE(CheckBlock(block, state, false, false, nullptr, 50), FormatStateMessage(state));
+    BOOST_CHECK_MESSAGE(CheckBlock(block, state, history, false, false, 50), FormatStateMessage(state));
 
     CValidationState laterState;
-    BOOST_CHECK(!CheckBlock(block, laterState, false, false, nullptr, 150));
+    BOOST_CHECK(!CheckBlock(block, laterState, history, false, false, 150));
     BOOST_CHECK_EQUAL(laterState.GetRejectReason(), "bad-blk-length");
 }
 

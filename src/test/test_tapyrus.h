@@ -65,8 +65,8 @@ struct BasicTestingSetup {
 private:
     const fs::path m_path_root;
 protected:
-    // Built once on first use and kept for the test binary's lifetime,
-    // since the xfield history it wraps is process-wide state.
+    // The chain's xfield history (g_chainstate_manager's), shared by every
+    // test in the binary.
     static CXFieldHistory* pxFieldHistory;
 };
 

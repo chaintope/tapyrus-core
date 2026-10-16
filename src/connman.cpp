@@ -9,6 +9,7 @@
 #include <connman.h>
 
 #include <chainparams.h>
+#include <chainstatemanager.h>
 #include <consensus/consensus.h>
 #include <crypto/common.h>
 #include <crypto/sha256.h>
@@ -2091,7 +2092,7 @@ bool CConnman::OutboundTargetReached(bool historicalBlockServingLimit)
     {
         // keep a large enough buffer to at least relay each block once
         uint64_t timeLeftInCycle = GetMaxOutboundTimeLeftInCycle();
-        uint64_t buffer = timeLeftInCycle / 600 * GetCurrentMaxBlockSize();
+        uint64_t buffer = timeLeftInCycle / 600 * g_chainstate_manager.XFieldHistory().GetCurrentMaxBlockSize();
         if (buffer >= nMaxOutboundLimit || nMaxOutboundTotalBytesSentInCycle >= nMaxOutboundLimit - buffer)
             return true;
     }

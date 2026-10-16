@@ -22,7 +22,7 @@
  * 2. Add new class to represent the xfieldValue with all methods defined in XFieldEmpty
  * 3. Update the serialization in XFieldChange, XFieldChangeListWrapper and CXField
  * 4. Update string conversion in XFieldDataToString, GetXFieldNameForRpc and GetXFieldDBKey
- * 5. Add its initialization to CXFieldHistory constructors
+ * 5. Add its initialization to CXFieldHistory::Init
  * 6. Add code to verify the property represented by the new xfield during block validation
  */
 
@@ -124,7 +124,6 @@ public:
     inline std::string ToString() const;
     inline uint32_t GetMaxBlockSigops() { return uint32_t(data / 50); };
 
-    inline uint32_t GetMaxStandardTxSigops() { return uint32_t(GetMaxBlockSigops() / 5); };
 
 };
 
