@@ -128,6 +128,13 @@ public:
     bool Valid() const override;
     void Next() override;
 
+    /** Once the coin entries are exhausted, move to the issued-colorId entries
+     *  of the same database snapshot, so both are read from one consistent view. */
+    void SeekIssuedColorIds();
+    /** Read the issued-colorId key at the current position, as stored. */
+    bool GetIssuedColorId(std::vector<unsigned char>& colorId) const;
+    void NextIssuedColorId();
+
 private:
     CCoinsViewDBCursor(CDBIterator* pcursorIn, const uint256 &hashBlockIn):
         CCoinsViewCursor(hashBlockIn), pcursor(pcursorIn) {}

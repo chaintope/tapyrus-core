@@ -38,6 +38,15 @@ Generate list of authors:
 
     git log --format='- %aN' v(current version, e.g. 0.16.0)..v(new version, e.g. 0.16.1) | sort -fiu
 
+`doc/release-notes.md` collects notable changes between releases. At release
+time, replace its temporary-file note with the release header: the
+"Tapyrus version X.Y.Z is now available for download" line with the release
+tag and tarball links, and the How to Upgrade, Downgrading warning and
+Compatibility sections for the new version (the previous release's notes in
+`doc/release-notes/` are a template). Then copy the file to
+`doc/release-notes/release-notes-X.Y.Z.md`, and reset `doc/release-notes.md`
+to the temporary-file note alone.
+
 Tag version (or release candidate) in git
 
     git tag -s v(new version, e.g. 0.8.0)
