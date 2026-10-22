@@ -21,12 +21,14 @@
 #include <policy/packages.h>
 #include <policy/policy.h>
 #include <policy/rbf.h>
+#include <precomputedcolordata.h>
 #include <primitives/block.h>
 #include <primitives/transaction.h>
 #include <script/script.h>
 #include <script/sigcache.h>
 #include <shutdown.h>
 #include <tinyformat.h>
+#include <transactioncolorchecker.h>
 //#include <timedata.h>
 #include <trace.h>
 #include <ui_interface.h>
@@ -435,195 +437,20 @@ static bool DoAllInputsExist(const CTransaction& tx, CValidationState& state, CT
 
 bool CheckColorIdentifierValidity(const CTransaction& tx, CValidationState& state, CCoinsViewCache &inputs, int32_t blockHeight)
 {
-    // Track NFT colorId output count across the whole tx (must be exactly 1).
-    std::map<ColorIdentifier, unsigned int> nftOutputCount;
-
-    for(const auto& txout : tx.vout)
-    {
-        if(!txout.scriptPubKey.IsColoredScript())
-            continue;
-
-        ColorIdentifier outColorId(GetColorIdFromScript(txout.scriptPubKey));
-
-        // outColorId is NONE: IsColoredPayToPubkeyHash / IsColoredPayToScriptHash
-        // check both structure and type byte; reaching here means neither matched.
-        if (outColorId.type == TokenTypes::NONE) {
-            if (GetSoftForkManager().IsActive(SCRIPT_VERIFY_CP2SH_COLORED, blockHeight))
-                return state.DoS(100, false, REJECT_INVALID, "bad-txns-nonstandard-opcolor");
-            continue;
-        }
-
-        // Zero or negative token values are not allowed.
-        if(txout.nValue <= 0)
-            return state.DoS(100, false, REJECT_INVALID, "bad-txns-token-value");
-
-        if(outColorId.type == TokenTypes::NFT)
-            nftOutputCount[outColorId]++;
-
-        bool matchFound = false;
-        bool isIssuance = false;
-
-        for(auto txin : tx.vin)
-        {
-            const Coin& coin = inputs.AccessCoin(txin.prevout);
-            ColorIdentifier coinColorId;
-            ColorIdentifier cid = GetColorIdFromScript(coin.out.scriptPubKey);
-
-            if (cid.type == TokenTypes::NONE && coin.out.scriptPubKey.IsColoredScript()) {
-                if (GetSoftForkManager().IsActive(SCRIPT_VERIFY_CP2SH_COLORED, blockHeight))
-                    return state.DoS(100, false, REJECT_INVALID, "bad-txns-nonstandard-opcolor");
-                continue;
-            }
-
-            switch(cid.type)
-            {
-                case TokenTypes::NONE:
-                    // TPC input — this is a token issuance.
-                    if(outColorId.type == TokenTypes::REISSUABLE)
-                        coinColorId = ColorIdentifier(coin.out.scriptPubKey);
-                    else {
-                        COutPoint prevout = txin.prevout;
-                        coinColorId = ColorIdentifier(prevout, outColorId.type);
-                    }
-                    break;
-
-                case TokenTypes::REISSUABLE:
-                case TokenTypes::NON_REISSUABLE:
-                case TokenTypes::NFT:
-                    coinColorId = GetColorIdFromScript(coin.out.scriptPubKey);
-                    break;
-
-                default:
-                    continue;
-            }
-
-            if(coinColorId == outColorId && !coin.IsSpent())
-            {
-                matchFound = true;
-                isIssuance = (cid.type == TokenTypes::NONE);
-                break;
-            }
-        }
-
-        if(!matchFound)
-            return state.DoS(100, false, REJECT_INVALID, "bad-txns-token-noinput");
-
-        // NFT value must always be exactly 1.
-        if(outColorId.type == TokenTypes::NFT && txout.nValue != 1)
-            return state.DoS(100, false, REJECT_INVALID, "bad-txns-nft-amount");
-
-        // Global uniqueness: a NON_REISSUABLE or NFT colorId must never have been issued before.
-        // (Multiple outputs with the same NON_REISSUABLE colorId in one tx are allowed —
-        //  they split the initial supply. Re-issuance in a future block is impossible because
-        //  the defining UTXO is consumed and its colorId = Hash(prevout) is globally unique.)
-        if(isIssuance && (outColorId.type == TokenTypes::NON_REISSUABLE || outColorId.type == TokenTypes::NFT))
-        {
-            if(g_colorid_state && g_colorid_state->IsIssued(outColorId))
-                return state.DoS(100, false, REJECT_INVALID, "bad-txns-colorid-already-issued");
-        }
-    }
-
-    // NFT: exactly one output per colorId across the entire transaction.
-    for(const auto& entry : nftOutputCount)
-    {
-        if(entry.second != 1)
-            return state.DoS(100, false, REJECT_INVALID, "bad-txns-nft-output-count");
-    }
-    return true;
+    PrecomputedColorData colorData(tx, inputs, blockHeight);
+    if (g_colorid_state)
+        colorData.SetIssued(*g_colorid_state);
+    return TransactionColorChecker(colorData).CheckOutputColorIds(state);
 }
 
 bool VerifyTokenBalances(const CTransaction& tx, CValidationState& state, const CCoinsViewCache& inputs, CAmount minrelayFee, std::set<ColorIdentifier>* newIssuances, int32_t blockHeight)
 {
-    // Build input balance map from the UTXO view.
-    // Simultaneously collect TPC input outpoints for issuance detection.
-    TxColoredCoinBalancesMap inColoredCoinBalances;
-    std::vector<COutPoint> tpcInputOutpoints;
-    for (const auto& txin : tx.vin) {
-        const Coin& coin = inputs.AccessCoin(txin.prevout);
-        ColorIdentifier cid = GetColorIdFromScript(coin.out.scriptPubKey);
-        // A legacy non-standard OP_COLOR UTXO (colorId resolves to NONE) is rejected
-        // post-activation.  Pre-activation its nValue falls through to the TPC bucket.
-        if (cid.type == TokenTypes::NONE && coin.out.scriptPubKey.IsColoredScript() &&
-            GetSoftForkManager().IsActive(SCRIPT_VERIFY_CP2SH_COLORED, blockHeight))
-            return state.DoS(100, false, REJECT_INVALID, "bad-txns-nonstandard-opcolor");
-        auto it = inColoredCoinBalances.find(cid);
-        if (it == inColoredCoinBalances.end())
-            it = inColoredCoinBalances.emplace(cid, CAmount{0}).first;
-        // A reissuable token has no supply cap, so bound each value and the
-        // running sum per colorId; both stay within MAX_MONEY, so the sum
-        // cannot overflow.
-        if (!MoneyRange(coin.out.nValue) || !MoneyRange(it->second + coin.out.nValue))
-            return state.DoS(100, false, REJECT_INVALID, "bad-txns-inputvalues-outofrange");
-        it->second += coin.out.nValue;
-        if (newIssuances && cid.type == TokenTypes::NONE)
-            tpcInputOutpoints.push_back(txin.prevout);
-    }
-
-    //for every output eliminate a matching input.
-    //verify that all outputs are matched
-    TxColoredCoinBalancesMap outColoredCoinBalances;
-    for (const auto& tx_out : tx.vout) {
-        ColorIdentifier outColorId(GetColorIdFromScript(tx_out.scriptPubKey));
-
-        //collect token balances from all outputs.
-        auto iter = outColoredCoinBalances.find(outColorId);
-        if(iter == outColoredCoinBalances.end())
-            outColoredCoinBalances.emplace(outColorId, tx_out.nValue);
-        else
-            iter->second += tx_out.nValue;
-    }
-    // Tally transaction fees
-    CAmount tpcin = 0, tpcout = 0;
-    TxColoredCoinBalancesMap::const_iterator iter = inColoredCoinBalances.find(ColorIdentifier());
-    if(iter != inColoredCoinBalances.end())
-        tpcin = iter->second;
-
-    iter = outColoredCoinBalances.find(ColorIdentifier());
-        if(iter != outColoredCoinBalances.end())
-            tpcout = iter->second;
-
-    if(tpcin <= 0)
-        return state.Invalid(false, REJECT_INSUFFICIENTFEE, "bad-txns-token-without-fee");
-
-    for(auto& out:outColoredCoinBalances)
-    {
-        TxColoredCoinBalancesMap::iterator iter = inColoredCoinBalances.find(out.first);
-
-        //output does not have a corresponding input.
-        if(iter == inColoredCoinBalances.end())
-        {
-            //if TPC input is sufficiently large this is a token issue. 
-            if(tpcin < 0 || tpcin - tpcout - minrelayFee< 0)
-                return state.Invalid(false, REJECT_INSUFFICIENTFEE, "bad-txns-token-insufficient");
-        }
-        //output value is more than input
-        else if(out.second > iter->second)
-        {
-            return state.Invalid(false, REJECT_INVALID, "bad-txns-token-balance");
-        }
-        else
-        {
-            //reduce this output from the input
-            iter->second -=  out.second;
-        }
-    }
-
-    // Detect issuances: a NON_REISSUABLE or NFT output whose colorId was
-    // derived from one of the TPC inputs in this transaction.
-    if (newIssuances) {
-        for (const auto& tx_out : tx.vout) {
-            ColorIdentifier outColorId(GetColorIdFromScript(tx_out.scriptPubKey));
-            if (outColorId.type != TokenTypes::NON_REISSUABLE && outColorId.type != TokenTypes::NFT)
-                continue;
-            for (const auto& prevout : tpcInputOutpoints) {
-                if (ColorIdentifier(prevout, outColorId.type) == outColorId) {
-                    newIssuances->insert(outColorId);
-                    break;
-                }
-            }
-        }
-    }
-
+    PrecomputedColorData colorData(tx, inputs, blockHeight);
+    TransactionColorChecker checker(colorData);
+    if (!checker.CheckTokenBalances(state, minrelayFee))
+        return false;
+    if (newIssuances)
+        checker.GetNewIssuances(*newIssuances);
     return true;
 }
 

@@ -394,7 +394,7 @@ bool RewindBlockIndex();
 
 /** Verify coloured coin type related consensus rules.
  *  blockHeight is used to query the softfork manager; pass INT32_MAX to always enforce. */
-bool CheckColorIdentifierValidity(const CTransaction& tx, CValidationState& state, CCoinsViewCache &inputs, int32_t blockHeight = INT32_MAX);
+bool CheckColorIdentifierValidity(const CTransaction& tx, CValidationState& state, CCoinsViewCache &inputs, int32_t blockHeight = INT32_MAX) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 
 /** Check token input and output amounts within a transaction.
  *  blockHeight is used to query the softfork manager; pass INT32_MAX to always enforce. */
