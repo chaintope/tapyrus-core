@@ -636,7 +636,7 @@ void CTxMemPool::removeForScriptFlagChange(unsigned int newMempoolScriptFlags, i
         // was admitted under it and will pass here.  For any future softfork
         // whose flag is NOT pre-added to STANDARD, this correctly evicts txs
         // that would be invalid under the new consensus rules.
-        if (!CheckInputs(tx, state, view, true, newMempoolScriptFlags, false, false)) {
+        if (!CheckInputs(tx, state, view, true, newMempoolScriptFlags, false, false, nullptr, 0, &colorData)) {
             txToRemove.insert(it);
             continue;
         }

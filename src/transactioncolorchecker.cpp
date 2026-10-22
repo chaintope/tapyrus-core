@@ -7,8 +7,11 @@
 #include <consensus/validation.h>
 #include <precomputedcolordata.h>
 
+#include <cstddef>
 #include <cstdint>
 #include <map>
+#include <optional>
+#include <vector>
 
 bool TransactionColorChecker::CheckOutputColorIds(CValidationState& state) const
 {
@@ -89,52 +92,30 @@ bool TransactionColorChecker::CheckOutputColorIds(CValidationState& state) const
 
 bool TransactionColorChecker::CheckTokenBalances(CValidationState& state, CAmount minFee) const
 {
-    TxColoredCoinBalancesMap inBalances;
-    for (const PrecomputedColorData::Input& in : m_data.Inputs()) {
+    const std::vector<PrecomputedColorData::Input>& inputs = m_data.Inputs();
+    const std::optional<size_t> outOfRange = m_data.FirstOutOfRangeInput();
+    for (size_t i = 0; i < inputs.size(); ++i) {
         // Before the softfork a non-standard OP_COLOR input counts as TPC.
-        if (in.nonstandardColored && m_data.Cp2shColoredActive())
+        if (inputs[i].nonstandardColored && m_data.Cp2shColoredActive())
             return state.DoS(100, false, REJECT_INVALID, "bad-txns-nonstandard-opcolor");
-        auto it = inBalances.find(in.colorId);
-        if (it == inBalances.end())
-            it = inBalances.emplace(in.colorId, CAmount{0}).first;
-        // A reissuable token has no supply cap, so bound each value and the
-        // running sum per colorid to keep the sum from overflowing.
-        if (!MoneyRange(in.value) || !MoneyRange(it->second + in.value))
+        if (outOfRange == i)
             return state.DoS(100, false, REJECT_INVALID, "bad-txns-inputvalues-outofrange");
-        it->second += in.value;
     }
 
-    TxColoredCoinBalancesMap outBalances;
-    for (const PrecomputedColorData::Output& out : m_data.Outputs()) {
-        auto it = outBalances.find(out.colorId);
-        if (it == outBalances.end())
-            outBalances.emplace(out.colorId, out.value);
-        else
-            it->second += out.value;
-    }
-
-    CAmount tpcIn{0};
-    CAmount tpcOut{0};
-    auto tpcInIt = inBalances.find(ColorIdentifier());
-    if (tpcInIt != inBalances.end())
-        tpcIn = tpcInIt->second;
-    auto tpcOutIt = outBalances.find(ColorIdentifier());
-    if (tpcOutIt != outBalances.end())
-        tpcOut = tpcOutIt->second;
-
+    const CAmount tpcIn = m_data.TpcIn();
+    const CAmount tpcOut = m_data.TpcOut();
     if (tpcIn <= 0)
         return state.Invalid(false, REJECT_INSUFFICIENTFEE, "bad-txns-token-without-fee");
 
-    for (const auto& out : outBalances) {
-        auto in = inBalances.find(out.first);
+    const TxColoredCoinBalancesMap& inBalances = m_data.InputBalances();
+    for (const auto& out : m_data.OutputBalances()) {
+        const auto in = inBalances.find(out.first);
         if (in == inBalances.end()) {
             // A colorid with no input is an issuance, paid for in TPC.
             if (tpcIn < 0 || tpcIn - tpcOut - minFee < 0)
                 return state.Invalid(false, REJECT_INSUFFICIENTFEE, "bad-txns-token-insufficient");
         } else if (out.second > in->second) {
             return state.Invalid(false, REJECT_INVALID, "bad-txns-token-balance");
-        } else {
-            in->second -= out.second;
         }
     }
     return true;

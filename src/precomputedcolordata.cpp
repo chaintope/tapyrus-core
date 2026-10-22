@@ -29,6 +29,15 @@ PrecomputedColorData::PrecomputedColorData(const CTransaction& tx, const CCoinsV
             if (!in.nonstandardColored)
                 in.scriptColorId = ColorIdentifier(coin.out.scriptPubKey);
         }
+        // A reissuable token has no supply cap, so bound each value and the
+        // running sum per colorid to keep the sum from overflowing.
+        if (!m_first_out_of_range_input) {
+            CAmount& sum = m_input_balances[in.colorId];
+            if (MoneyRange(in.value) && MoneyRange(sum + in.value))
+                sum += in.value;
+            else
+                m_first_out_of_range_input = m_inputs.size();
+        }
         m_inputs.push_back(std::move(in));
     }
 
@@ -38,6 +47,7 @@ PrecomputedColorData::PrecomputedColorData(const CTransaction& tx, const CCoinsV
         out.value = txout.nValue;
         out.colorId = GetColorIdFromScript(txout.scriptPubKey);
         out.colored = txout.scriptPubKey.IsColoredScript();
+        m_output_balances[out.colorId] += out.value;
         m_outputs.push_back(std::move(out));
     }
 }
@@ -48,4 +58,16 @@ void PrecomputedColorData::SetIssued(const CIssuedColorIds& issued)
         if (out.colorId.type == TokenTypes::NON_REISSUABLE || out.colorId.type == TokenTypes::NFT)
             out.issued = issued.IsIssued(out.colorId);
     }
+}
+
+CAmount PrecomputedColorData::TpcIn() const
+{
+    const auto it = m_input_balances.find(ColorIdentifier());
+    return it == m_input_balances.end() ? CAmount{0} : it->second;
+}
+
+CAmount PrecomputedColorData::TpcOut() const
+{
+    const auto it = m_output_balances.find(ColorIdentifier());
+    return it == m_output_balances.end() ? CAmount{0} : it->second;
 }

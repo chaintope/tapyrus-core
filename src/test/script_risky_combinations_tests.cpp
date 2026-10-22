@@ -72,16 +72,21 @@ CMutableTransaction BuildSpendingTx(const CScript& scriptSig, const CTransaction
     return txSpend;
 }
 
-// Verifies exactly as production does: a fresh ColorIdentifier per call
-// (see scriptcheck.h) unless the caller wants to inspect what OP_COLOR set.
+// Verifies as production does. VerifyScript does not expose the color
+// OP_COLOR set, so when colorIdOut is given the scriptSig and scriptPubKey are
+// also run through EvalScript, VerifyScript's first two steps, to capture it.
 bool Verify(const CScript& scriptSig, const CScript& scriptPubKey, const CMutableTransaction& spendMut,
             CAmount amount, unsigned int flags, ScriptError* err, ColorIdentifier* colorIdOut = nullptr)
 {
     CTransaction spend(spendMut);
-    ColorIdentifier localColorId;
-    ColorIdentifier& colorId = colorIdOut ? *colorIdOut : localColorId;
-    return VerifyScript(scriptSig, scriptPubKey, flags,
-                         TransactionSignatureChecker(&spend, 0, amount), colorId, err);
+    TransactionSignatureChecker checker(&spend, 0, amount);
+    if (colorIdOut) {
+        std::vector<std::vector<unsigned char>> stack;
+        if (EvalScript(stack, scriptSig, flags, checker, colorIdOut, nullptr)) {
+            EvalScript(stack, scriptPubKey, flags, checker, colorIdOut, nullptr);
+        }
+    }
+    return VerifyScript(scriptSig, scriptPubKey, flags, checker, err);
 }
 
 } // namespace

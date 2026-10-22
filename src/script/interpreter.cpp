@@ -1156,6 +1156,9 @@ bool EvalScript(std::vector<std::vector<unsigned char> >& stack, const CScript& 
                         if (memcmp(colorId->payload, zero32, CSHA256::OUTPUT_SIZE) == 0)
                             return set_error(serror, SCRIPT_ERR_OP_COLORID_INVALID);
 
+                        if (!checker.CheckColorIdentifier(*colorId))
+                            return set_error(serror, SCRIPT_ERR_OP_COLORID_MISMATCH);
+
                         popstack(stack);
                     }
                     else
@@ -1190,7 +1193,7 @@ bool EvalScript(std::vector<std::vector<unsigned char> >& stack, const CScript& 
     return set_success(serror);
 }
 
-bool VerifyScript(const CScript& scriptSig, const CScript& scriptPubKey, unsigned int flags, const BaseSignatureChecker& checker, ColorIdentifier& colorId, ScriptError* serror)
+bool VerifyScript(const CScript& scriptSig, const CScript& scriptPubKey, unsigned int flags, const BaseSignatureChecker& checker, ScriptError* serror)
 {
     set_error(serror, SCRIPT_ERR_UNKNOWN_ERROR);
 
@@ -1198,6 +1201,9 @@ bool VerifyScript(const CScript& scriptSig, const CScript& scriptPubKey, unsigne
         return set_error(serror, SCRIPT_ERR_SIG_PUSHONLY);
     }
 
+    // The color OP_COLOR sets while the scripts run; only used to reject a
+    // second OP_COLOR.
+    ColorIdentifier colorId;
     std::vector<std::vector<unsigned char> > stack, stackCopy;
     if (!EvalScript(stack, scriptSig, flags, checker, &colorId, serror))
         // serror is set

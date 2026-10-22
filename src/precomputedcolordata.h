@@ -11,7 +11,9 @@
 #include <primitives/outpoint.h>
 #include <sync.h>
 
+#include <cstddef>
 #include <cstdint>
+#include <optional>
 #include <vector>
 
 class CCoinsViewCache;
@@ -55,6 +57,14 @@ public:
 
     const std::vector<Input>& Inputs() const { return m_inputs; }
     const std::vector<Output>& Outputs() const { return m_outputs; }
+    //! Input value per colorid, TPC under NONE, summed up to the first out-of-range input
+    const TxColoredCoinBalancesMap& InputBalances() const { return m_input_balances; }
+    //! Output value per colorid, TPC under NONE
+    const TxColoredCoinBalancesMap& OutputBalances() const { return m_output_balances; }
+    //! First input whose value, or its colorid's running sum, leaves MoneyRange
+    std::optional<size_t> FirstOutOfRangeInput() const { return m_first_out_of_range_input; }
+    CAmount TpcIn() const;
+    CAmount TpcOut() const;
     bool IsCoinBase() const { return m_coinbase; }
     //! CP2SH colored softfork active at the block being checked
     bool Cp2shColoredActive() const { return m_cp2sh_colored_active; }
@@ -62,6 +72,9 @@ public:
 private:
     std::vector<Input> m_inputs;
     std::vector<Output> m_outputs;
+    TxColoredCoinBalancesMap m_input_balances;
+    TxColoredCoinBalancesMap m_output_balances;
+    std::optional<size_t> m_first_out_of_range_input;
     bool m_coinbase;
     bool m_cp2sh_colored_active;
 };

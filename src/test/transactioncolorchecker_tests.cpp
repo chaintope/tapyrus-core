@@ -13,7 +13,9 @@
 #include <issuedcolorids.h>
 #include <precomputedcolordata.h>
 #include <primitives/transaction.h>
+#include <script/coloredsignaturechecker.h>
 #include <script/interpreter.h>
+#include <script/script_error.h>
 #include <script/script.h>
 #include <softforkmanager.h>
 #include <test/test_tapyrus.h>
@@ -408,6 +410,28 @@ BOOST_AUTO_TEST_CASE(checker_matches_legacy_functions)
     BOOST_CHECK_LT(outputChecksPassed, iterations);
     BOOST_CHECK_GT(balanceChecksPassed, iterations / 20);
     BOOST_CHECK_LT(balanceChecksPassed, iterations);
+}
+
+// OP_COLOR's colorid must equal the spent coin's precomputed colorid; a coin
+// without one, such as a non-standard OP_COLOR coin, is not compared.
+BOOST_AUTO_TEST_CASE(colored_signature_checker_compares_spent_colorid)
+{
+    const ColorIdentifier spent(COutPoint(InsecureRand256(), 0), TokenTypes::NON_REISSUABLE);
+    const ColorIdentifier other(COutPoint(InsecureRand256(), 1), TokenTypes::NON_REISSUABLE);
+    const CTransaction tx{CMutableTransaction()};
+
+    auto eval = [&](const ColorIdentifier& scriptColorId, const ColorIdentifier& spentColorId, ScriptError& err) {
+        std::vector<std::vector<unsigned char>> stack;
+        ColorIdentifier read;
+        const CScript script = CScript() << scriptColorId.toVector() << OP_COLOR << OP_TRUE;
+        return EvalScript(stack, script, SCRIPT_VERIFY_NONE, ColoredSignatureChecker(&tx, 0, CAmount{0}, false, spentColorId), &read, &err);
+    };
+
+    ScriptError err;
+    BOOST_CHECK(eval(spent, spent, err));
+    BOOST_CHECK(!eval(other, spent, err));
+    BOOST_CHECK_EQUAL(err, SCRIPT_ERR_OP_COLORID_MISMATCH);
+    BOOST_CHECK(eval(other, ColorIdentifier(), err));
 }
 
 BOOST_AUTO_TEST_SUITE_END()

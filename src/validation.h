@@ -34,6 +34,7 @@
 
 #include <atomic>
 
+class PrecomputedColorData;
 class CBlockIndex;
 class CBlockTreeDB;
 class CChainParams;
@@ -356,7 +357,7 @@ bool CheckSequenceLocks(const CTransaction &tx, int flags,  CCoinsViewMemPool& v
  *
  * Non-static (and re-declared) in src/test/txvalidationcache_tests.cpp
  */
-bool CheckInputs(const CTransaction& tx, CValidationState &state, const CCoinsViewCache &inputs, bool fScriptChecks, unsigned int flags, bool cacheSigStore, bool cacheFullScriptStore, std::vector<CScriptCheck> *pvChecks = nullptr, unsigned int mandatoryFlags = 0);
+bool CheckInputs(const CTransaction& tx, CValidationState &state, const CCoinsViewCache &inputs, bool fScriptChecks, unsigned int flags, bool cacheSigStore, bool cacheFullScriptStore, std::vector<CScriptCheck> *pvChecks = nullptr, unsigned int mandatoryFlags = 0, const PrecomputedColorData* colorData = nullptr);
 
 
 /** Functions for validating blocks and updating the block tree */

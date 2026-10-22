@@ -23,17 +23,16 @@ private:
     unsigned int nIn;
     unsigned int nFlags;
     bool cacheStore;
-    ColorIdentifier colorid;
+    //! Precomputed colorid of the spent coin; NONE skips the OP_COLOR comparison
+    ColorIdentifier m_spent_color_id;
 
 public:
-    CScriptCheck(): ptxTo(nullptr), nIn(0), nFlags(0), cacheStore(false), colorid(ColorIdentifier()) {}
-    CScriptCheck(const CTxOut& outIn, const CTransaction& txToIn, unsigned int nInIn, unsigned int nFlagsIn, bool cacheIn, ColorIdentifier coloridIn = ColorIdentifier()) :
-        m_tx_out(outIn), ptxTo(&txToIn), nIn(nInIn), nFlags(nFlagsIn), cacheStore(cacheIn), colorid(coloridIn) { }
+    CScriptCheck(): ptxTo(nullptr), nIn(0), nFlags(0), cacheStore(false) {}
+    CScriptCheck(const CTxOut& outIn, const CTransaction& txToIn, unsigned int nInIn, unsigned int nFlagsIn, bool cacheIn, const ColorIdentifier& spentColorId = ColorIdentifier()) :
+        m_tx_out(outIn), ptxTo(&txToIn), nIn(nInIn), nFlags(nFlagsIn), cacheStore(cacheIn), m_spent_color_id(spentColorId) { }
 
     // Returns nullopt on success, or the ScriptError on failure.
     std::optional<ScriptError> operator()();
-
-    const ColorIdentifier& GetColorIdentifier() const { return colorid; }
 };
 
 /** Initializes the script-execution cache */

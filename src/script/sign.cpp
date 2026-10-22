@@ -211,8 +211,7 @@ bool ProduceSignature(const SigningProvider& provider, const BaseSignatureCreato
 
     // Test solution using the caller-supplied flags so that post-activation
     // signings are verified with SCRIPT_VERIFY_CP2SH_COLORED included.
-    ColorIdentifier colorId;
-    sigdata.complete = solved && VerifyScript(sigdata.scriptSig, fromPubKey, scriptVerifyFlags, creator.Checker(), colorId, nullptr);
+    sigdata.complete = solved && VerifyScript(sigdata.scriptSig, fromPubKey, scriptVerifyFlags, creator.Checker(), nullptr);
     return sigdata.complete;
 }
 
@@ -262,8 +261,7 @@ SignatureData DataFromTransaction(const CMutableTransaction& tx, unsigned int nI
     // Get signatures
     MutableTransactionSignatureChecker tx_checker(&tx, nIn, txout.nValue);
     SignatureExtractorChecker extractor_checker(data, tx_checker);
-    ColorIdentifier colorId;
-    if (VerifyScript(data.scriptSig, txout.scriptPubKey, STANDARD_SCRIPT_VERIFY_FLAGS, extractor_checker, colorId, nullptr)) {
+    if (VerifyScript(data.scriptSig, txout.scriptPubKey, STANDARD_SCRIPT_VERIFY_FLAGS, extractor_checker, nullptr)) {
         data.complete = true;
         return data;
     }
@@ -402,9 +400,8 @@ bool IsSolvable(const SigningProvider& provider, const CScript& script)
     // if found in a transaction, we would still accept and relay that transaction.
     SignatureData sigs;
     if (ProduceSignature(provider, DUMMY_SIGNATURE_CREATOR, script, sigs)) {
-        ColorIdentifier colorId;
         // VerifyScript check is just defensive, and should never fail.
-        assert(VerifyScript(sigs.scriptSig, script, STANDARD_SCRIPT_VERIFY_FLAGS, DUMMY_CHECKER, colorId));
+        assert(VerifyScript(sigs.scriptSig, script, STANDARD_SCRIPT_VERIFY_FLAGS, DUMMY_CHECKER));
         return true;
     }
     return false;

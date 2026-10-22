@@ -264,14 +264,12 @@ struct FlagResult {
 // only diagnostic, not what this tool treats as success or failure.
 FlagResult RunOneFlag(const VerifyContext& ctx, unsigned int flags)
 {
-    ColorIdentifier colorId;
     ScriptError err;
     bool ok = VerifyScript(
         ctx.spending.vin[ctx.nIn].scriptSig,
         ctx.toSpend.vout[ctx.outN].scriptPubKey,
         flags,
-        MutableTransactionSignatureChecker(&ctx.spending, ctx.nIn, ctx.toSpend.vout[ctx.outN].nValue),
-        colorId, &err);
+        MutableTransactionSignatureChecker(&ctx.spending, ctx.nIn, ctx.toSpend.vout[ctx.outN].nValue), &err);
     return {ok, err};
 }
 

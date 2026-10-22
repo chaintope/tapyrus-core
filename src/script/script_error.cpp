@@ -90,6 +90,8 @@ const char* ScriptErrorString(const ScriptError serror)
             return "Multiple OP_COLOR found in script";
         case SCRIPT_ERR_OP_COLORINBRANCH:
             return "OP_COLOR is not permitted in a script branch";
+        case SCRIPT_ERR_OP_COLORID_MISMATCH:
+            return "OP_COLOR colorid does not match the spent coin";
 
         case SCRIPT_ERR_UNKNOWN_ERROR:
         case SCRIPT_ERR_ERROR_COUNT:
