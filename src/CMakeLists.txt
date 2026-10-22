@@ -336,6 +336,7 @@ add_library(tapyrus_chainstate STATIC EXCLUDE_FROM_ALL
   policy/packages.cpp
   policy/policy.cpp
   policy/rbf.cpp
+  precomputedcolordata.cpp
   script/sigcache.cpp
   txdb.cpp
   txmempool.cpp
