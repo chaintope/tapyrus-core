@@ -170,26 +170,52 @@ bool SubmitPackageToMempool(const Package& package,
     CCoinsViewVirtualMemPool* virtualView =
         dynamic_cast<CCoinsViewVirtualMemPool*>(opt.mempool_view);
 
-    for(auto &tx : package)
     {
+        // Held for the whole package so no block connects mid-package and the
+        // results below describe only what the package itself did to the mempool.
+        LOCK(::cs_main);
+        for(auto &tx : package)
         {
             opt.state = CValidationState();
             opt.coins_to_uncache.clear();
-            LOCK(::cs_main);
             AcceptToMemoryPool(tx, opt);
+
+            opt.state.missingInputs = opt.missingInputs.size() > 0;
+            results.emplace(tx->GetHashMalFix(), opt.state);
+
+            // Only add to the virtual overlay if the tx was TRULY accepted.
+            // IsValid() returns true even when missingInputs is set (DoAllInputsExist
+            // deliberately avoids calling state.Invalid() so callers can distinguish
+            // orphans from consensus failures).  Adding a missing-inputs tx to the
+            // overlay would let its outputs be found by downstream txs, causing them
+            // to spuriously pass TEST_ONLY validation.
+            if (virtualView && opt.state.IsValid() && !opt.state.missingInputs) {
+                virtualView->AddVirtualTx(*tx);
+            }
         }
 
-        opt.state.missingInputs = opt.missingInputs.size() > 0;
-        results.emplace(tx->GetHashMalFix(), opt.state);
-
-        // Only add to the virtual overlay if the tx was TRULY accepted.
-        // IsValid() returns true even when missingInputs is set (DoAllInputsExist
-        // deliberately avoids calling state.Invalid() so callers can distinguish
-        // orphans from consensus failures).  Adding a missing-inputs tx to the
-        // overlay would let its outputs be found by downstream txs, causing them
-        // to spuriously pass TEST_ONLY validation.
-        if (virtualView && opt.state.IsValid() && !opt.state.missingInputs) {
-            virtualView->AddVirtualTx(*tx);
+        // A later package tx can trim or replace one accepted before it, so report
+        // what the mempool holds now instead of what each tx saw on entry.
+        if (opt.flags != MempoolAcceptanceFlags::TEST_ONLY) {
+            std::set<uint256> replaced;
+            for (const auto& tx : opt.txnReplaced) {
+                replaced.insert(tx->GetHashMalFix());
+            }
+            for (const auto& tx : package) {
+                const uint256 hash = tx->GetHashMalFix();
+                const auto result = results.find(hash);
+                if (result == results.end() || !result->second.IsValid() || result->second.missingInputs || mempool.exists(hash)) {
+                    continue;
+                }
+                CValidationState removed;
+                if (replaced.count(hash)) {
+                    removed.Invalid(false, REJECT_PACKAGE_TX, "replaced-in-package");
+                } else {
+                    removed.DoS(0, false, REJECT_INSUFFICIENTFEE, "mempool full");
+                }
+                results.erase(result);
+                results.emplace(hash, removed);
+            }
         }
     }
 

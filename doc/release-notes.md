@@ -13,6 +13,13 @@ Updated RPCs
   covers only the UTXO set, so it stays comparable with older versions. To
   check that two nodes have the same chainstate, compare both fields.
 
+- `submitpackage` results now describe the mempool after the whole package
+  has been processed. A transaction that was accepted but then removed by a
+  later transaction in the same package used to be reported as accepted. It
+  is now rejected with `mempool full` if a later transaction pushed it out of
+  a full mempool, or with `replaced-in-package` if a later transaction
+  replaced it or one of its mempool parents.
+
 P2P
 ---
 
