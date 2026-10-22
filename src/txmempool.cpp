@@ -10,10 +10,13 @@
 #include <consensus/tx_verify.h>
 #include <consensus/validation.h>
 #include <validation.h>
+#include <issuedcolorids.h>
 #include <policy/policy.h>
 #include <policy/fees.h>
+#include <precomputedcolordata.h>
 #include <streams.h>
 #include <trace.h>
+#include <transactioncolorchecker.h>
 #include <util.h>
 #include <utilmoneystr.h>
 #include <utiltime.h>
@@ -615,6 +618,18 @@ void CTxMemPool::removeForScriptFlagChange(unsigned int newMempoolScriptFlags, i
         const CTransaction& tx = it->GetTx();
         if (tx.IsCoinBase())
             continue;
+        // Evict txs that break colour rules now active at newBlockHeight (e.g.
+        // bad-txns-nonstandard-opcolor); CheckInputs does not cover them.
+        // Colour checks run before the scripts, as in mempool acceptance.
+        PrecomputedColorData colorData(tx, view, newBlockHeight);
+        if (g_colorid_state)
+            colorData.SetIssued(*g_colorid_state);
+        const TransactionColorChecker colorChecker(colorData);
+        CValidationState colorState;
+        if (!colorChecker.CheckOutputColorIds(colorState)) {
+            txToRemove.insert(it);
+            continue;
+        }
         CValidationState state;
         // For SCRIPT_VERIFY_CP2SH_COLORED this call is a no-op: the flag is
         // already in STANDARD_SCRIPT_VERIFY_FLAGS, so every tx in the mempool
@@ -625,17 +640,9 @@ void CTxMemPool::removeForScriptFlagChange(unsigned int newMempoolScriptFlags, i
             txToRemove.insert(it);
             continue;
         }
-        // Also evict txs that violate colored-coin consensus rules now active at
-        // newBlockHeight (e.g. bad-txns-nonstandard-opcolor gated on SCRIPT_VERIFY_CP2SH_COLORED).
-        // CheckInputs alone does not cover these rules.
-        CValidationState colorState;
-        if (!CheckColorIdentifierValidity(tx, colorState, view, newBlockHeight)) {
-            txToRemove.insert(it);
-            continue;
-        }
         CValidationState balanceState;
         const CAmount minFee = ::minRelayTxFee.GetFee(it->GetTxSize());
-        if (!VerifyTokenBalances(tx, balanceState, view, minFee, nullptr, newBlockHeight)) {
+        if (!colorChecker.CheckTokenBalances(balanceState, minFee)) {
             txToRemove.insert(it);
         }
     }

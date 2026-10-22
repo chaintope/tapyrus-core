@@ -13,8 +13,10 @@
 #include <index/txindex.h>
 #include <policy/packages.h>
 #include <policy/policy.h>
+#include <precomputedcolordata.h>
 #include <shutdown.h>
 #include <trace.h>
+#include <transactioncolorchecker.h>
 #include <ui_interface.h>
 #include <warnings.h>
 #include <xfieldhistory.h>
@@ -649,6 +651,14 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
             return state.DoS(100, error("ConnectBlock(): too many sigops"),
                              REJECT_INVALID, "bad-blk-sigops");
 
+        // Colour checks run before the scripts, as in mempool acceptance.
+        PrecomputedColorData colorData(tx, view, pindex->nHeight);
+        if (g_colorid_state)
+            colorData.SetIssued(*g_colorid_state);
+        const TransactionColorChecker colorChecker(colorData);
+        if (!colorChecker.CheckOutputColorIds(state))
+            return false;
+
         if (!tx.IsCoinBase())
         {
             std::vector<CScriptCheck> vChecks;
@@ -675,20 +685,16 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
             control.Add(std::move(vChecks));
         }
 
-        //if there are colored coins in the output verify their colorids
-        if(!CheckColorIdentifierValidity(tx, state, view, pindex->nHeight))
-            return false;
-
-        //verify token balances (coinbase has no real inputs so balance check does not apply)
+        // Coinbase has no real inputs, so the balance check does not apply.
         if (!tx.IsCoinBase()) {
-            std::set<ColorIdentifier> newIssuances;
-            if (!VerifyTokenBalances(tx, state, view, txfee, !fJustCheck ? &newIssuances : nullptr, pindex->nHeight))
-                // Enforces DoS 100 at the block level and keeps VerifyTokenBalances'
+            if (!colorChecker.CheckTokenBalances(state, txfee))
+                // Enforces DoS 100 at the block level and keeps the balance check's
                 // reject reason, so a block is rejected for the same reason as its tx.
-                return state.DoS(100, error("ConnectBlock(): VerifyTokenBalances on %s failed with %s",
+                return state.DoS(100, error("ConnectBlock(): CheckTokenBalances on %s failed with %s",
                     tx.GetHashMalFix().ToString(), FormatStateMessage(state)),
                     REJECT_INVALID, state.GetRejectReason());
-            allNewIssuances.insert(newIssuances.begin(), newIssuances.end());
+            if (!fJustCheck)
+                colorChecker.GetNewIssuances(allNewIssuances);
         }
 
         CTxUndo undoDummy;

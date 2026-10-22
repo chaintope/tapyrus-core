@@ -532,8 +532,13 @@ static bool AcceptToMemoryPoolWorker(const CTransactionRef &ptx, CTxMempoolAccep
         if(!DoAllInputsExist(tx, state, opt, view))
             return false;
 
-        //if there are colored coins in the output verify their colorids
-        if(!CheckColorIdentifierValidity(tx, state, view, chainActive.Tip()->nHeight + 1))
+        // Read once here; the balance check below reuses it after the view
+        // is switched away from the mempool.
+        PrecomputedColorData colorData(tx, view, chainActive.Tip()->nHeight + 1);
+        if (g_colorid_state)
+            colorData.SetIssued(*g_colorid_state);
+        const TransactionColorChecker colorChecker(colorData);
+        if (!colorChecker.CheckOutputColorIds(state))
             return false;
 
         // Bring the best block into scope
@@ -775,7 +780,7 @@ static bool AcceptToMemoryPoolWorker(const CTransactionRef &ptx, CTxMempoolAccep
                     __func__, hash.ToString(), FormatStateMessage(state));
         }
 
-        if (!VerifyTokenBalances(tx, opt.state, view, ::minRelayTxFee.GetFee(nSize), nullptr, chainActive.Tip()->nHeight + 1))
+        if (!colorChecker.CheckTokenBalances(opt.state, ::minRelayTxFee.GetFee(nSize)))
             return false;
 
 
