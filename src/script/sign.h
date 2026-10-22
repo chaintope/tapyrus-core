@@ -11,6 +11,7 @@
 #include <hash.h>
 #include <pubkey.h>
 #include <script/interpreter.h>
+#include <script/transactionsignaturechecker.h>
 #include <streams.h>
 
 class CKey;

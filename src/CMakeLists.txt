@@ -148,6 +148,8 @@ add_library(tapyrus_consensus STATIC EXCLUDE_FROM_ALL
   script/interpreter.cpp
   script/script.cpp
   script/script_error.cpp
+  script/transactionsignaturechecker.cpp
+  script/transactionsignatureserializer.cpp
   uint256.cpp
 )
 
@@ -186,8 +188,12 @@ add_library(tapyrus_util STATIC EXCLUDE_FROM_ALL
         threadinterrupt.cpp
         ui_interface.cpp
         util.cpp
+        utilargs.cpp
+        utildatadir.cpp
+        utilfs.cpp
         utilmoneystr.cpp
         utilstrencodings.cpp
+        utilthreads.cpp
         utiltime.cpp
 )
 # support/cleanse.cpp is deliberately not compiled here: it belongs to

@@ -5,6 +5,7 @@
 
 #include <consensus/validation.h>
 #include <key.h>
+#include <script/transactionsignatureserializer.h>
 #include <validation.h>
 #include <miner.h>
 #include <pubkey.h>
