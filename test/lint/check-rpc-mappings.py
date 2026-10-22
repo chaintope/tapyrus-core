@@ -17,7 +17,9 @@ SOURCES = [
     "src/rpc/mining.cpp",
     "src/rpc/misc.cpp",
     "src/rpc/net.cpp",
+    "src/rpc/pstt.cpp",
     "src/rpc/rawtransaction.cpp",
+    "src/rpc/utxoset.cpp",
     "src/wallet/rpcwallet.cpp",
 ]
 # Source file (relative to root) containing conversion mapping

@@ -309,11 +309,12 @@ function(add_pstt_fuzz_target name source)
     )
 endfunction()
 
-# ParsePsttInputEntries/decodepstt (called by pstt_parse_fuzz.cpp/
-# pstt_decodepstt_rpc_fuzz.cpp) live in rpc/rawtransaction.cpp alongside
-# sendrawtransaction/gettxoutproof/createrawtransaction/signrawtransaction
-# and friends. A static archive is pulled in per translation unit, so
-# needing either function drags in the whole rawtransaction.cpp.o,
+# ParsePsttInputEntries (called by pstt_parse_fuzz.cpp) lives in
+# rpc/rawtransaction.cpp alongside sendrawtransaction/gettxoutproof/
+# createrawtransaction/signrawtransaction and friends, and decodepstt (called
+# by pstt_decodepstt_rpc_fuzz.cpp) lives in rpc/pstt.cpp, whose createpstt
+# calls ParsePsttInputEntries. A static archive is pulled in per translation
+# unit, so needing either function drags in the whole rawtransaction.cpp.o,
 # including those never-called siblings' own undefined references. Neither
 # ParsePsttInputEntries nor decodepstt has a chain/wallet dependency itself
 # (confirmed by reading their bodies) -- tracing the resulting undefined-
@@ -448,8 +449,8 @@ endfunction()
 # list of what to run.
 add_custom_target(fuzz_all)
 # Harnesses that reach tapyrus_rpc or tapyrus_chainstate code (e.g.
-# rpc/rawtransaction.cpp's ParsePsttInputEntries/decodepstt, rpc/server.cpp,
-# policy/policy.cpp, policy/fees.cpp) but don't need a running node need the
+# rpc/rawtransaction.cpp's ParsePsttInputEntries, rpc/pstt.cpp's decodepstt,
+# rpc/server.cpp, policy/policy.cpp, policy/fees.cpp) but don't need a running node need the
 # daemon-glue treatment above instead of the plain helper -- see
 # add_pstt_fuzz_target_with_rpc_glue()'s comment.
 set(FUZZ_TARGETS_NEEDING_RPC_GLUE
