@@ -104,9 +104,10 @@ class MempoolLimitTest(BitcoinTestFramework):
         assert_equal(raw_tx["complete"], True)
         return (tx, raw_tx['hex'])
 
-    def create_package(self, node, utxos, mempool_evicted_utxo, feerate, size=5):
+    def create_package(self, node, utxos, mempool_evicted_utxo, feerate, size=5, feerate_step=0):
         # create size-1 parent transactions and one child transaction spending all parents
         # one of the parents should spend the mempool_evicted_utxo if it is given
+        # parent i pays feerate + i * feerate_step; the child pays feerate
         self.log.info("Create package transactions")
         parent_txs = []
         package_hex =[]
@@ -121,8 +122,8 @@ class MempoolLimitTest(BitcoinTestFramework):
             spend_utxos = utxos[:size-1]
 
         # create parent transactions
-        for parent_spend in spend_utxos:
-            (parent_tx, parent_hex) = self.create_signed_raw_tx(node, parent_spend, feerate)
+        for i, parent_spend in enumerate(spend_utxos):
+            (parent_tx, parent_hex) = self.create_signed_raw_tx(node, parent_spend, feerate + i * feerate_step)
             self.log.debug("parent tx: %s spending %s" % (parent_tx.hashMalFix, parent_spend['txid']))
             parent_txs.append(parent_tx)
             package_hex.append(parent_hex)
@@ -227,12 +228,16 @@ class MempoolLimitTest(BitcoinTestFramework):
         assert low_fee_txid2 in node.getrawmempool()
         self.log.info(f"Added two low-fee anchor transactions at {low_feerate} BTC/kB")
 
-        # Create package with low fees (just 6x mempoolminfee)
+        # Create package with low fees (6x mempoolminfee and up)
         # This is high enough to pass mempoolminfee even if the low-fee anchor tx is evicted
         # (~3x after eviction), but too low to replace the high-fee transactions (50x).
+        # Each parent pays 0.5x more than the one before, well above the feerate spread from
+        # signature length, so once the anchors are gone every trim evicts an earlier parent,
+        # never the one just added.
         package_feerate = mempoolmin_feerate * 6
         utxos = [utxo for utxo in node.listunspent()if utxo['amount'] >  mempoolmin_feerate]
-        (package_hex, package_txids) = self.create_package(node, utxos, None, package_feerate, size=10)
+        (package_hex, package_txids) = self.create_package(node, utxos, None, package_feerate, size=10,
+                                                           feerate_step=mempoolmin_feerate / 2)
 
         # Fill the rest of the mempool with another high-fee transaction
         # This ensures there's not enough space for the entire package
@@ -263,10 +268,14 @@ class MempoolLimitTest(BitcoinTestFramework):
         res = self.submitpackage(node, package_hex)
 
         self.log.info("Verify package rejection due to insufficient fees")
-        # Since package has low fees (6x) and mempool is filled with high fees (50x),
+        # Since package has low fees (6x and up) and mempool is filled with high fees (50x),
         # package transactions should be rejected because:
-        # 1. They can't evict higher-fee transactions (insufficient fee - 8.3:1 ratio)
+        # 1. They can't evict higher-fee transactions (insufficient fee)
         # 2. There's not enough space without eviction (mempool full)
+
+        # The first parent is the cheapest package tx, so a later parent trims it after it
+        # was accepted. Its result must say so rather than report it as accepted.
+        assert_equal(res[package_txids[0]], {'allowed': False, 'reject-reason': '66: mempool full'})
 
         # Count transactions explicitly rejected with "mempool full"
         mempool_full_rejections = [txid for txid in package_txids
@@ -294,12 +303,15 @@ class MempoolLimitTest(BitcoinTestFramework):
         # Maximum size must never be exceeded.
         assert_greater_than(node.getmempoolinfo()["maxmempool"], node.getmempoolinfo()["bytes"])
 
-        # Verify accepted package transactions are in mempool
+        # Results match the mempool: accepted txs are in it, "mempool full" ones are not
         resulting_mempool_txids = node.getrawmempool()
         for txid in package_txids:
             if res[txid]['allowed']:
                 assert txid in resulting_mempool_txids, \
                     f"Accepted transaction {txid} not found in mempool"
+        for txid in mempool_full_rejections:
+            assert txid not in resulting_mempool_txids, \
+                f"Transaction {txid} reported as 'mempool full' but found in mempool"
 
         # Verify high-fee transactions were NOT evicted by low-fee package
         # (confirms our fee setup is working correctly)
@@ -456,8 +468,8 @@ class MempoolLimitTest(BitcoinTestFramework):
         self.log.info("submit package")
         res = self.submitpackage(node, package_hex)
 
-        # pkg_parent_tx is accepted first
-        assert_equal(res[pkg_parent_tx.hashMalFix], {'allowed': True})
+        # pkg_parent_tx is accepted first, then removed when replacement_tx replaces its parent
+        assert_equal(res[pkg_parent_tx.hashMalFix], {'allowed': False, 'reject-reason': '70: replaced-in-package'})
 
         # pkg_parent_tx and replaced_tx are replaced
         assert_equal(res[replacement_tx.hashMalFix], {'allowed': True} )
