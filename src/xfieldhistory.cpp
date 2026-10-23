@@ -7,7 +7,6 @@
 #include <xfieldhistory.h>
 #include <xfieldhistorymap.h>
 #include <univalue.h>
-#include <sync.h>
 #include <shared_mutex>
 
 CXFieldHistoryMap::CXFieldHistoryMap(const CXFieldHistoryMap& other) {
@@ -15,9 +14,21 @@ CXFieldHistoryMap::CXFieldHistoryMap(const CXFieldHistoryMap& other) {
     xfieldHistory = other.xfieldHistory;
 }
 
+XFieldChangeListWrapper& CXFieldHistoryMap::FindWithin(TAPYRUS_XFIELDTYPES type) {
+    auto it = xfieldHistory.find(type);
+    assert(it != xfieldHistory.end());
+    return it->second;
+}
+
+const XFieldChangeListWrapper& CXFieldHistoryMap::FindWithin(TAPYRUS_XFIELDTYPES type) const {
+    auto it = xfieldHistory.find(type);
+    assert(it != xfieldHistory.end());
+    return it->second;
+}
+
 bool CXFieldHistoryMap::Remove(TAPYRUS_XFIELDTYPES type, const XFieldChange& xFieldChange) {
     std::unique_lock<std::shared_mutex> lock(xfieldHistoryMutex);
-    auto& list = xfieldHistory.find(type)->second;
+    auto& list = FindWithin(type);
     if (list.size() > 1 && list.back() == xFieldChange) {
         list.xfieldChanges.pop_back();
         return true;
@@ -29,7 +40,7 @@ void CXFieldHistoryMap::Add(TAPYRUS_XFIELDTYPES type, const XFieldChange& xField
     std::unique_lock<std::shared_mutex> lock(xfieldHistoryMutex);
 
     // Check if new
-    auto& listofXfieldChanges = xfieldHistory.find(type)->second;
+    auto& listofXfieldChanges = FindWithin(type);
     for(const auto& xfieldItem : listofXfieldChanges)
         if( xfieldItem == xFieldChange )
             return;
@@ -37,21 +48,20 @@ void CXFieldHistoryMap::Add(TAPYRUS_XFIELDTYPES type, const XFieldChange& xField
     listofXfieldChanges.push_back(xFieldChange);
 }
 
-size_t CXFieldHistoryMap::GetListSize(TAPYRUS_XFIELDTYPES type) const {
-    std::shared_lock<std::shared_mutex> lock(xfieldHistoryMutex);
-    auto& listofXfieldChanges = xfieldHistory.find(type)->second;
-    return listofXfieldChanges.size();
-}
-
 XFieldChangeList CXFieldHistoryMap::GetListCopy(TAPYRUS_XFIELDTYPES type) const {
     std::shared_lock<std::shared_mutex> lock(xfieldHistoryMutex);
-    auto& listofXfieldChanges = xfieldHistory.find(type)->second;
+    auto& listofXfieldChanges = FindWithin(type);
     return listofXfieldChanges.xfieldChanges;
 }
 
-XFieldChange CXFieldHistoryMap::Get(TAPYRUS_XFIELDTYPES type, uint32_t height) {
+char CXFieldHistoryMap::DBKey(TAPYRUS_XFIELDTYPES type) const {
     std::shared_lock<std::shared_mutex> lock(xfieldHistoryMutex);
-    auto& listofXfieldChanges = xfieldHistory.find(type)->second;
+    return FindWithin(type).key;
+}
+
+XFieldChange CXFieldHistoryMap::Get(TAPYRUS_XFIELDTYPES type, uint32_t height) const {
+    std::shared_lock<std::shared_mutex> lock(xfieldHistoryMutex);
+    auto& listofXfieldChanges = FindWithin(type);
 
     if(height == 0 || listofXfieldChanges.size() == 1)
         return listofXfieldChanges[0];
@@ -92,18 +102,18 @@ void CXFieldHistory::ToUniValue(TAPYRUS_XFIELDTYPES type, UniValue* xFieldChange
     }
 }
 
-int32_t CXFieldHistoryMap::GetReorgHeight()
+int32_t CXFieldHistoryMap::GetReorgHeight() const
 {
     std::shared_lock<std::shared_mutex> lock(xfieldHistoryMutex);
     std::vector<uint32_t> changeHeights;
     for(auto x : XFIELDTYPES_INIT_LIST)
     {
-        changeHeights.push_back(xfieldHistory.find(x)->second.xfieldChanges.rbegin()->height);
+        changeHeights.push_back(FindWithin(x).back().height);
     }
     return *std::max_element(changeHeights.begin(), changeHeights.end());
 }
 
-bool IsXFieldNew(const CXField& xfield, CXFieldHistoryMap* pxfieldHistory, uint32_t parentHeight)
+bool IsXFieldNew(const CXField& xfield, const CXFieldHistoryMap* pxfieldHistory, uint32_t parentHeight)
 {
     IsXFieldLastInHistoryVisitor checkVisitor(pxfieldHistory, parentHeight);
     return xfield.IsValid()

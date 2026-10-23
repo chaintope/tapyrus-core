@@ -25,7 +25,6 @@ public:
     CXFieldHistory() = default;
     CXFieldHistory(const CXFieldHistory&) = delete;
     CXFieldHistory& operator=(const CXFieldHistory&) = delete;
-    virtual ~CXFieldHistory(){}
 
     inline explicit CXFieldHistory(const CBlock& genesis) {
         Init(genesis);
@@ -39,10 +38,10 @@ public:
 
 class IsXFieldLastInHistoryVisitor
 {
-    CXFieldHistoryMap* history;
+    const CXFieldHistoryMap* history;
     uint32_t parentHeight;
 public:
-    IsXFieldLastInHistoryVisitor(CXFieldHistoryMap* historyIn, uint32_t height)
+    IsXFieldLastInHistoryVisitor(const CXFieldHistoryMap* historyIn, uint32_t height)
         : history(historyIn), parentHeight(height) {}
 
     template <typename T>
@@ -55,6 +54,6 @@ public:
 
 };
 
-bool IsXFieldNew(const CXField& xfield, CXFieldHistoryMap* pxfieldHistory, uint32_t parentHeight);
+bool IsXFieldNew(const CXField& xfield, const CXFieldHistoryMap* pxfieldHistory, uint32_t parentHeight);
 
 #endif // TAPYRUS_XFIELDHISTORY_H

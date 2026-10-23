@@ -15,8 +15,12 @@
 #include <test/test_tapyrus.h>
 #include <test/test_keys_helper.h>
 
+#include <atomic>
+#include <thread>
+#include <vector>
+
 /*
- * xfieldhistory_tests  - add, remove, temp and serialize xfieldchange
+ * xfieldhistory_tests  - init, add, remove, readers, temp copies, concurrency and serialize xfieldchange
  * xfield_tests  -  deserialize xfieldchange and CXField
  */
 
@@ -52,12 +56,12 @@ BOOST_AUTO_TEST_CASE(xfieldhistory_size_and_temp)
 
     //verify that tempHistory is initialized correctly
     BOOST_CHECK_EQUAL(tempHistory.Map().size(), 2);
-    BOOST_CHECK_EQUAL(tempHistory.GetListSize(TAPYRUS_XFIELDTYPES::AGGPUBKEY), 4);
-    BOOST_CHECK_EQUAL(tempHistory.GetListSize(TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE), 4);
+    BOOST_CHECK_EQUAL(tempHistory.GetListCopy(TAPYRUS_XFIELDTYPES::AGGPUBKEY).size(), 4);
+    BOOST_CHECK_EQUAL(tempHistory.GetListCopy(TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE).size(), 4);
 
     BOOST_CHECK_EQUAL(tempHistory.Map().size(), InspectableXFieldHistory(history1).Map().size());
-    BOOST_CHECK_EQUAL(tempHistory.GetListSize(TAPYRUS_XFIELDTYPES::AGGPUBKEY), history1.GetListSize(TAPYRUS_XFIELDTYPES::AGGPUBKEY));
-    BOOST_CHECK_EQUAL(tempHistory.GetListSize(TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE), history1.GetListSize(TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE));
+    BOOST_CHECK_EQUAL(tempHistory.GetListCopy(TAPYRUS_XFIELDTYPES::AGGPUBKEY).size(), history1.GetListCopy(TAPYRUS_XFIELDTYPES::AGGPUBKEY).size());
+    BOOST_CHECK_EQUAL(tempHistory.GetListCopy(TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE).size(), history1.GetListCopy(TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE).size());
 
     //verify access to different elements in the map and xfield change list
     BOOST_CHECK_EQUAL(tempHistory.Get(TAPYRUS_XFIELDTYPES::AGGPUBKEY, 0).height, history1.Get(TAPYRUS_XFIELDTYPES::AGGPUBKEY, 0).height);
@@ -81,7 +85,7 @@ BOOST_AUTO_TEST_CASE(xfieldhistory_size_and_temp)
     history1.Add(TAPYRUS_XFIELDTYPES::AGGPUBKEY, XFieldChange(XFieldAggPubKey(CPubKey(ParseHex(ValidPubKeyStrings[15]))), 80, uint256()));
     history1.Add(TAPYRUS_XFIELDTYPES::AGGPUBKEY, XFieldChange(XFieldAggPubKey(CPubKey(ParseHex(ValidPubKeyStrings[0]))), 90, uint256()));
 
-    BOOST_CHECK(tempHistory1.GetListSize(TAPYRUS_XFIELDTYPES::AGGPUBKEY) != history1.GetListSize(TAPYRUS_XFIELDTYPES::AGGPUBKEY));
+    BOOST_CHECK(tempHistory1.GetListCopy(TAPYRUS_XFIELDTYPES::AGGPUBKEY).size() != history1.GetListCopy(TAPYRUS_XFIELDTYPES::AGGPUBKEY).size());
     BOOST_CHECK(tempHistory1.Get(TAPYRUS_XFIELDTYPES::AGGPUBKEY, 91).height != history1.Get(TAPYRUS_XFIELDTYPES::AGGPUBKEY, 91).height);
 
     //verify that changes in tempHistory1 object are not reflected in history1
@@ -93,8 +97,8 @@ BOOST_AUTO_TEST_CASE(xfieldhistory_size_and_temp)
 
     //verify that tempHistory is not affected
     BOOST_CHECK_EQUAL(tempHistory.Map().size(), 2);
-    BOOST_CHECK_EQUAL(tempHistory.GetListSize(TAPYRUS_XFIELDTYPES::AGGPUBKEY), 4);
-    BOOST_CHECK_EQUAL(tempHistory.GetListSize(TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE), 4);
+    BOOST_CHECK_EQUAL(tempHistory.GetListCopy(TAPYRUS_XFIELDTYPES::AGGPUBKEY).size(), 4);
+    BOOST_CHECK_EQUAL(tempHistory.GetListCopy(TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE).size(), 4);
 
     //xfield change serialize
     CDataStream stream(SER_NETWORK, PROTOCOL_VERSION);
@@ -126,18 +130,18 @@ BOOST_AUTO_TEST_CASE(xfieldhistory_size_and_temp)
 BOOST_AUTO_TEST_CASE(xfieldhistory_remove_and_reorg)
 {
     // Fixture: genesis(key0@0) + key10@20 + key11@40 + key12@60 = 4 entries
-    BOOST_CHECK_EQUAL(m_history.GetListSize(TAPYRUS_XFIELDTYPES::AGGPUBKEY), 4);
+    BOOST_CHECK_EQUAL(m_history.GetListCopy(TAPYRUS_XFIELDTYPES::AGGPUBKEY).size(), 4);
 
     // ConnectTip: rotate to key[13] at height 80
     const uint256 hashA = InsecureRand256();
     const XFieldChange changeA(XFieldAggPubKey(CPubKey(ParseHex(ValidPubKeyStrings[13]))), 80, hashA);
     m_history.Add(TAPYRUS_XFIELDTYPES::AGGPUBKEY, changeA);
-    BOOST_CHECK_EQUAL(m_history.GetListSize(TAPYRUS_XFIELDTYPES::AGGPUBKEY), 5);
+    BOOST_CHECK_EQUAL(m_history.GetListCopy(TAPYRUS_XFIELDTYPES::AGGPUBKEY).size(), 5);
     BOOST_CHECK_EQUAL(m_history.Get(TAPYRUS_XFIELDTYPES::AGGPUBKEY, 80).blockHash, hashA);
 
     // DisconnectTip: Remove that rotation entry; reverts to previous entry at height 60
     BOOST_CHECK(m_history.Remove(TAPYRUS_XFIELDTYPES::AGGPUBKEY, changeA));
-    BOOST_CHECK_EQUAL(m_history.GetListSize(TAPYRUS_XFIELDTYPES::AGGPUBKEY), 4);
+    BOOST_CHECK_EQUAL(m_history.GetListCopy(TAPYRUS_XFIELDTYPES::AGGPUBKEY).size(), 4);
     BOOST_CHECK_EQUAL(m_history.Get(TAPYRUS_XFIELDTYPES::AGGPUBKEY, 80).height, 60);
 
     // Removing a non-existent entry is a safe no-op
@@ -147,7 +151,7 @@ BOOST_AUTO_TEST_CASE(xfieldhistory_remove_and_reorg)
     const uint256 hashB = InsecureRand256();
     const XFieldChange changeB(XFieldAggPubKey(CPubKey(ParseHex(ValidPubKeyStrings[14]))), 80, hashB);
     m_history.Add(TAPYRUS_XFIELDTYPES::AGGPUBKEY, changeB);
-    BOOST_CHECK_EQUAL(m_history.GetListSize(TAPYRUS_XFIELDTYPES::AGGPUBKEY), 5);
+    BOOST_CHECK_EQUAL(m_history.GetListCopy(TAPYRUS_XFIELDTYPES::AGGPUBKEY).size(), 5);
     BOOST_CHECK_EQUAL(m_history.Get(TAPYRUS_XFIELDTYPES::AGGPUBKEY, 80).blockHash, hashB);
     // Earlier entries are unchanged
     BOOST_CHECK_EQUAL(m_history.Get(TAPYRUS_XFIELDTYPES::AGGPUBKEY, 60).height, 60);
@@ -157,7 +161,7 @@ BOOST_AUTO_TEST_CASE(xfieldhistory_remove_and_reorg)
 BOOST_AUTO_TEST_CASE(xfieldhistory_same_height_active_chain_wins)
 {
     // Fixture: genesis(key0@0) + key10@20 + key11@40 + key12@60 = 4 entries
-    BOOST_CHECK_EQUAL(m_history.GetListSize(TAPYRUS_XFIELDTYPES::AGGPUBKEY), 4);
+    BOOST_CHECK_EQUAL(m_history.GetListCopy(TAPYRUS_XFIELDTYPES::AGGPUBKEY).size(), 4);
 
     // Orphan entry added FIRST (as would happen during reindex via LoadExternalBlockFile)
     const uint256 hashOrphan = InsecureRand256();
@@ -168,7 +172,7 @@ BOOST_AUTO_TEST_CASE(xfieldhistory_same_height_active_chain_wins)
     const uint256 hashActive = InsecureRand256();
     const XFieldChange activeChange(XFieldAggPubKey(CPubKey(ParseHex(ValidPubKeyStrings[14]))), 80, hashActive);
     m_history.Add(TAPYRUS_XFIELDTYPES::AGGPUBKEY, activeChange);
-    BOOST_CHECK_EQUAL(m_history.GetListSize(TAPYRUS_XFIELDTYPES::AGGPUBKEY), 6);
+    BOOST_CHECK_EQUAL(m_history.GetListCopy(TAPYRUS_XFIELDTYPES::AGGPUBKEY).size(), 6);
 
     // Get(height) scans from the back: the most recently added (active-chain) entry wins
     BOOST_CHECK_EQUAL(m_history.Get(TAPYRUS_XFIELDTYPES::AGGPUBKEY, 80).blockHash, hashActive);
@@ -178,7 +182,7 @@ BOOST_AUTO_TEST_CASE(xfieldhistory_same_height_active_chain_wins)
 
     // After removing the active entry, the orphan entry becomes the last
     BOOST_CHECK(m_history.Remove(TAPYRUS_XFIELDTYPES::AGGPUBKEY, activeChange));
-    BOOST_CHECK_EQUAL(m_history.GetListSize(TAPYRUS_XFIELDTYPES::AGGPUBKEY), 5);
+    BOOST_CHECK_EQUAL(m_history.GetListCopy(TAPYRUS_XFIELDTYPES::AGGPUBKEY).size(), 5);
     BOOST_CHECK_EQUAL(m_history.Get(TAPYRUS_XFIELDTYPES::AGGPUBKEY, 80).blockHash, hashOrphan);
 }
 
@@ -214,6 +218,159 @@ BOOST_AUTO_TEST_CASE(is_xfield_new_consecutive_same_value)
     brandNew.xfieldType = TAPYRUS_XFIELDTYPES::AGGPUBKEY;
     brandNew.xfieldValue = XFieldAggPubKey(CPubKey(ParseHex(ValidPubKeyStrings[13])));
     BOOST_CHECK(IsXFieldNew(brandNew, &history, 65));
+}
+
+BOOST_AUTO_TEST_CASE(xfieldhistory_init_add_remove_edges)
+{
+    const CBlock& genesis = DynamicParams().GenesisBlock();
+
+    // A second Init keeps the existing entries and adds no duplicate genesis entry
+    m_history.Init(genesis);
+    BOOST_CHECK_EQUAL(m_history.GetListCopy(TAPYRUS_XFIELDTYPES::AGGPUBKEY).size(), 4);
+    BOOST_CHECK_EQUAL(m_history.GetListCopy(TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE).size(), 4);
+
+    // A fresh history holds only the genesis entries
+    CXFieldHistory fresh(genesis);
+    fresh.Init(genesis);
+    BOOST_CHECK_EQUAL(fresh.GetListCopy(TAPYRUS_XFIELDTYPES::AGGPUBKEY).size(), 1);
+    BOOST_CHECK_EQUAL(fresh.GetListCopy(TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE).size(), 1);
+    BOOST_CHECK(fresh.Get(TAPYRUS_XFIELDTYPES::AGGPUBKEY, 0).xfieldValue == genesis.xfield.xfieldValue);
+    BOOST_CHECK_EQUAL(fresh.Get(TAPYRUS_XFIELDTYPES::AGGPUBKEY, 0).blockHash, genesis.GetHash());
+    BOOST_CHECK_EQUAL(std::get<XFieldMaxBlockSize>(fresh.Get(TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE, 0).xfieldValue).data, MAX_BLOCK_SIZE);
+
+    // Adding an identical change is a no-op; the same value and height from another block is not
+    const XFieldChange latest = m_history.Get(TAPYRUS_XFIELDTYPES::AGGPUBKEY, 60);
+    m_history.Add(TAPYRUS_XFIELDTYPES::AGGPUBKEY, latest);
+    BOOST_CHECK_EQUAL(m_history.GetListCopy(TAPYRUS_XFIELDTYPES::AGGPUBKEY).size(), 4);
+    const XFieldChange otherBlock(latest.xfieldValue, latest.height, InsecureRand256());
+    m_history.Add(TAPYRUS_XFIELDTYPES::AGGPUBKEY, otherBlock);
+    BOOST_CHECK_EQUAL(m_history.GetListCopy(TAPYRUS_XFIELDTYPES::AGGPUBKEY).size(), 5);
+    BOOST_CHECK(m_history.Remove(TAPYRUS_XFIELDTYPES::AGGPUBKEY, otherBlock));
+
+    // Remove refuses an entry that is not the last one, or the last one from another block
+    BOOST_CHECK(!m_history.Remove(TAPYRUS_XFIELDTYPES::AGGPUBKEY, m_history.Get(TAPYRUS_XFIELDTYPES::AGGPUBKEY, 40)));
+    BOOST_CHECK(!m_history.Remove(TAPYRUS_XFIELDTYPES::AGGPUBKEY, XFieldChange(latest.xfieldValue, latest.height, InsecureRand256())));
+    BOOST_CHECK_EQUAL(m_history.GetListCopy(TAPYRUS_XFIELDTYPES::AGGPUBKEY).size(), 4);
+
+    // Removing every rotation from the back reverts to genesis, which is never removed
+    BOOST_CHECK(m_history.Remove(TAPYRUS_XFIELDTYPES::AGGPUBKEY, m_history.Get(TAPYRUS_XFIELDTYPES::AGGPUBKEY, 60)));
+    BOOST_CHECK(m_history.Remove(TAPYRUS_XFIELDTYPES::AGGPUBKEY, m_history.Get(TAPYRUS_XFIELDTYPES::AGGPUBKEY, 40)));
+    BOOST_CHECK(m_history.Remove(TAPYRUS_XFIELDTYPES::AGGPUBKEY, m_history.Get(TAPYRUS_XFIELDTYPES::AGGPUBKEY, 20)));
+    BOOST_CHECK_EQUAL(m_history.GetListCopy(TAPYRUS_XFIELDTYPES::AGGPUBKEY).size(), 1);
+    BOOST_CHECK(!m_history.Remove(TAPYRUS_XFIELDTYPES::AGGPUBKEY, m_history.Get(TAPYRUS_XFIELDTYPES::AGGPUBKEY, 0)));
+    BOOST_CHECK_EQUAL(m_history.GetListCopy(TAPYRUS_XFIELDTYPES::AGGPUBKEY).size(), 1);
+
+    // The other type is untouched
+    BOOST_CHECK_EQUAL(m_history.GetListCopy(TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE).size(), 4);
+}
+
+BOOST_AUTO_TEST_CASE(xfieldhistory_readers)
+{
+    XFieldAggPubKey latestKey;
+    m_history.GetLatest(TAPYRUS_XFIELDTYPES::AGGPUBKEY, latestKey);
+    BOOST_CHECK(latestKey == XFieldAggPubKey(CPubKey(ParseHex(ValidPubKeyStrings[12]))));
+    XFieldMaxBlockSize latestSize;
+    m_history.GetLatest(TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE, latestSize);
+    BOOST_CHECK_EQUAL(latestSize.data, 16000000);
+
+    BOOST_CHECK_EQUAL(m_history.GetCurrentMaxBlockSize(), 16000000);
+    BOOST_CHECK_EQUAL(m_history.GetMaxBlockSigops(), 16000000 / 50);
+
+    // The reorg height is the highest last-change height over all types
+    BOOST_CHECK_EQUAL(m_history.GetReorgHeight(), 70);
+    m_history.Add(TAPYRUS_XFIELDTYPES::AGGPUBKEY, XFieldChange(XFieldAggPubKey(CPubKey(ParseHex(ValidPubKeyStrings[13]))), 90, uint256()));
+    BOOST_CHECK_EQUAL(m_history.GetReorgHeight(), 90);
+    BOOST_CHECK_EQUAL(CXFieldHistory(DynamicParams().GenesisBlock()).GetReorgHeight(), 0);
+
+    // The db keys are part of the block tree db format
+    BOOST_CHECK_EQUAL(m_history.DBKey(TAPYRUS_XFIELDTYPES::AGGPUBKEY), '1');
+    BOOST_CHECK_EQUAL(m_history.DBKey(TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE), '2');
+
+    // ToUniValue lists every change as {value: height}, oldest first
+    UniValue sizeChanges;
+    m_history.ToUniValue(TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE, &sizeChanges);
+    BOOST_CHECK(sizeChanges.isArray());
+    BOOST_CHECK_EQUAL(sizeChanges.size(), 4);
+    BOOST_CHECK_EQUAL(sizeChanges[0]["1000000"].get_int(), 0);
+    BOOST_CHECK_EQUAL(sizeChanges[3]["16000000"].get_int(), 70);
+
+    UniValue keyChanges;
+    m_history.ToUniValue(TAPYRUS_XFIELDTYPES::AGGPUBKEY, &keyChanges);
+    BOOST_CHECK_EQUAL(keyChanges.size(), 5);
+    BOOST_CHECK_EQUAL(keyChanges[3][ValidPubKeyStrings[12]].get_int(), 60);
+    BOOST_CHECK_EQUAL(keyChanges[4][ValidPubKeyStrings[13]].get_int(), 90);
+}
+
+BOOST_AUTO_TEST_CASE(xfieldhistory_get_bounds)
+{
+    // Fixture keys: genesis@0, key10@20, key11@40, key12@60
+    const XFieldData genesisKey = DynamicParams().GenesisBlock().xfield.xfieldValue;
+    const XFieldData key10 = XFieldAggPubKey(CPubKey(ParseHex(ValidPubKeyStrings[10])));
+    const XFieldData key12 = XFieldAggPubKey(CPubKey(ParseHex(ValidPubKeyStrings[12])));
+    BOOST_CHECK(m_history.Get(TAPYRUS_XFIELDTYPES::AGGPUBKEY, 0).xfieldValue == genesisKey);
+    BOOST_CHECK(m_history.Get(TAPYRUS_XFIELDTYPES::AGGPUBKEY, 19).xfieldValue == genesisKey);
+    BOOST_CHECK(m_history.Get(TAPYRUS_XFIELDTYPES::AGGPUBKEY, 20).xfieldValue == key10);
+    BOOST_CHECK(m_history.Get(TAPYRUS_XFIELDTYPES::AGGPUBKEY, 39).xfieldValue == key10);
+    BOOST_CHECK(m_history.Get(TAPYRUS_XFIELDTYPES::AGGPUBKEY, 60).xfieldValue == key12);
+    BOOST_CHECK(m_history.Get(TAPYRUS_XFIELDTYPES::AGGPUBKEY, 1000000).xfieldValue == key12);
+
+    // Fixture sizes: genesis@0, 4000000@30, 8000000@50, 16000000@70
+    BOOST_CHECK_EQUAL(std::get<XFieldMaxBlockSize>(m_history.Get(TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE, 29).xfieldValue).data, MAX_BLOCK_SIZE);
+    BOOST_CHECK_EQUAL(std::get<XFieldMaxBlockSize>(m_history.Get(TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE, 30).xfieldValue).data, 4000000);
+    BOOST_CHECK_EQUAL(std::get<XFieldMaxBlockSize>(m_history.Get(TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE, 69).xfieldValue).data, 8000000);
+    BOOST_CHECK_EQUAL(std::get<XFieldMaxBlockSize>(m_history.Get(TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE, 70).xfieldValue).data, 16000000);
+
+    // IsXFieldNew compares against the size in effect at the given height
+    const CXField size8M(XFieldMaxBlockSize(8000000));
+    BOOST_CHECK(!IsXFieldNew(size8M, &m_history, 55));
+    BOOST_CHECK(IsXFieldNew(size8M, &m_history, 45));
+    BOOST_CHECK(IsXFieldNew(size8M, &m_history, 71));
+    BOOST_CHECK(!IsXFieldNew(CXField(XFieldMaxBlockSize(16000000)), &m_history, 71));
+
+    // A block without an xfield, or one whose type does not match its value, is never new
+    BOOST_CHECK(!IsXFieldNew(CXField(), &m_history, 71));
+    CXField mismatched(XFieldMaxBlockSize(8000000));
+    mismatched.xfieldType = TAPYRUS_XFIELDTYPES::AGGPUBKEY;
+    BOOST_CHECK(!IsXFieldNew(mismatched, &m_history, 71));
+}
+
+BOOST_AUTO_TEST_CASE(xfieldhistory_concurrent_access)
+{
+    // A writer connects and disconnects one rotation while readers query and copy the history.
+    // Boost checks are not thread safe, so the readers only count what they got wrong.
+    const XFieldChange before = m_history.Get(TAPYRUS_XFIELDTYPES::AGGPUBKEY, 60);
+    const XFieldChange rotation(XFieldAggPubKey(CPubKey(ParseHex(ValidPubKeyStrings[13]))), 80, InsecureRand256());
+    const uint32_t rounds = 2000;
+    const uint32_t readerCount = 3;
+    std::atomic<bool> stop{false};
+    std::atomic<uint32_t> badReads{0};
+
+    std::thread writer([&] {
+        for (uint32_t i = 0; i < rounds; i++) {
+            m_history.Add(TAPYRUS_XFIELDTYPES::AGGPUBKEY, rotation);
+            m_history.Remove(TAPYRUS_XFIELDTYPES::AGGPUBKEY, rotation);
+        }
+        stop = true;
+    });
+
+    std::vector<std::thread> readers;
+    for (uint32_t r = 0; r < readerCount; r++) {
+        readers.emplace_back([&] {
+            while (!stop) {
+                const XFieldChange seen = m_history.Get(TAPYRUS_XFIELDTYPES::AGGPUBKEY, 100);
+                if (!(seen == before || seen == rotation)) badReads++;
+                const CTempXFieldHistory copy(m_history);
+                const size_t copied = copy.GetListCopy(TAPYRUS_XFIELDTYPES::AGGPUBKEY).size();
+                if (copied != 4 && copied != 5) badReads++;
+                if (m_history.GetCurrentMaxBlockSize() != 16000000) badReads++;
+            }
+        });
+    }
+
+    writer.join();
+    for (auto& reader : readers) reader.join();
+    BOOST_CHECK_EQUAL(badReads.load(), 0);
+    BOOST_CHECK_EQUAL(m_history.GetListCopy(TAPYRUS_XFIELDTYPES::AGGPUBKEY).size(), 4);
 }
 
 BOOST_AUTO_TEST_SUITE_END()//xfieldhistory_tests
