@@ -11,7 +11,8 @@
 //   - AddTestCoin() reimplemented using COutPoint(uint256, n) directly.
 //   - InsecureRand256() / InsecureRand32() replace FastRandomContext helpers.
 
-#include <coins.h>
+#include <coin.h>
+#include <coinsviewcache.h>
 #include <primitives/transaction.h>
 #include <script/script.h>
 #include <sync.h>

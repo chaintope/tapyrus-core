@@ -5,8 +5,9 @@
 #include <boost/test/unit_test.hpp>
 
 #include <primitives/xfield.h>
+#include <primitives/xfieldvalues.h>
 #include <dynamicparams.h>
-#include <xfieldhistory.h>
+#include <xfieldhistorymap.h>
 #include <txdb.h>
 #include <univalue.h>
 #include <test/test_tapyrus.h>

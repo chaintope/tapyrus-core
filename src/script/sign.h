@@ -7,174 +7,18 @@
 #ifndef BITCOIN_SCRIPT_SIGN_H
 #define BITCOIN_SCRIPT_SIGN_H
 
-#include <boost/optional.hpp>
-#include <hash.h>
-#include <pubkey.h>
+#include <amount.h>
 #include <script/interpreter.h>
-#include <script/transactionsignaturechecker.h>
-#include <streams.h>
+#include <script/signaturedata.h>
 
-class CKey;
-class CKeyID;
+class BaseSignatureCreator;
 class CScript;
-class CScriptID;
 class CTransaction;
+class CTxIn;
+class CTxOut;
+class SigningProvider;
 
 struct CMutableTransaction;
-
-/** An interface to be implemented by keystores that support signing. */
-class SigningProvider
-{
-public:
-    virtual ~SigningProvider() {}
-    virtual bool GetCScript(const CScriptID &scriptid, CScript& script) const { return false; }
-    virtual bool GetPubKey(const CKeyID &address, CPubKey& pubkey) const { return false; }
-    virtual bool GetKey(const CKeyID &address, CKey& key) const { return false; }
-};
-
-extern const SigningProvider& DUMMY_SIGNING_PROVIDER;
-
-class PublicOnlySigningProvider : public SigningProvider
-{
-private:
-    const SigningProvider* m_provider;
-
-public:
-    PublicOnlySigningProvider(const SigningProvider* provider) : m_provider(provider) {}
-    bool GetCScript(const CScriptID &scriptid, CScript& script) const override;
-    bool GetPubKey(const CKeyID &address, CPubKey& pubkey) const override;
-};
-
-struct FlatSigningProvider final : public SigningProvider
-{
-    std::map<CScriptID, CScript> scripts;
-    std::map<CKeyID, CPubKey> pubkeys;
-    std::map<CKeyID, CKey> keys;
-
-    bool GetCScript(const CScriptID& scriptid, CScript& script) const override;
-    bool GetPubKey(const CKeyID& keyid, CPubKey& pubkey) const override;
-    bool GetKey(const CKeyID& keyid, CKey& key) const override;
-};
-
-FlatSigningProvider Merge(const FlatSigningProvider& a, const FlatSigningProvider& b);
-
-/** Interface for signature creators. */
-class BaseSignatureCreator {
-public:
-    virtual ~BaseSignatureCreator() {}
-    virtual const BaseSignatureChecker& Checker() const =0;
-
-    /** Create a singular (non-script) signature. */
-    virtual bool CreateSig(const SigningProvider& provider, std::vector<unsigned char>& vchSig, const CKeyID& keyid, const CScript& scriptCode) const =0;
-};
-
-/** A signature creator for transactions. */
-class MutableTransactionSignatureCreator : public BaseSignatureCreator {
-    const CMutableTransaction* txTo;
-    unsigned int nIn;
-    int nHashType;
-    CAmount amount;
-    const MutableTransactionSignatureChecker checker;
-    SignatureScheme sigScheme;
-
-public:
-    MutableTransactionSignatureCreator(const CMutableTransaction* txToIn, unsigned int nInIn, const CAmount& amountIn, int nHashTypeIn = SIGHASH_ALL, const SignatureScheme sigScheme = SignatureScheme::ECDSA);
-    const BaseSignatureChecker& Checker() const override { return checker; }
-    bool CreateSig(const SigningProvider& provider, std::vector<unsigned char>& vchSig, const CKeyID& keyid, const CScript& scriptCode) const override;
-};
-
-/** A signature creator that just produces 71-byte empty signatures. */
-extern const BaseSignatureCreator& DUMMY_SIGNATURE_CREATOR;
-/** A signature creator that just produces 72-byte empty signatures. */
-extern const BaseSignatureCreator& DUMMY_MAXIMUM_SIGNATURE_CREATOR;
-
-typedef std::pair<CPubKey, std::vector<unsigned char>> SigPair;
-
-// This struct contains information from a transaction input and also contains signatures for that input.
-// The information contained here can be used to create a signature and is also filled by ProduceSignature
-// in order to construct final scriptSigs and scriptWitnesses.
-struct SignatureData {
-    bool complete = false; ///< Stores whether the scriptSig and scriptWitness are complete
-    CScript scriptSig; ///< The scriptSig of an input. Contains complete signatures or the traditional partial signatures format
-    CScript redeem_script; ///< The redeemScript (if any) for the input
-    std::map<CKeyID, SigPair> signatures; ///< BIP 174 style partial signatures for the input. May contain all signatures necessary for producing a final scriptSig or scriptWitness.
-    std::map<CKeyID, CPubKey> misc_pubkeys;
-
-    SignatureData() {}
-    explicit SignatureData(const CScript& script) : scriptSig(script) {}
-    void MergeSignatureData(SignatureData sigdata);
-};
-
-// Takes a stream and multiple arguments and serializes them as if first serialized into a vector and then into the stream
-// The resulting output into the stream has the total serialized length of all of the objects followed by all objects concatenated with each other.
-template<typename Stream, typename... X>
-void SerializeToVector(Stream& s, const X&... args)
-{
-    WriteCompactSize(s, GetSerializeSizeMany(s, args...));
-    SerializeMany(s, args...);
-}
-
-// Takes a stream and multiple arguments and unserializes them first as a vector then each object individually in the order provided in the arguments
-template<typename Stream, typename... X>
-void UnserializeFromVector(Stream& s, X&... args)
-{
-    size_t expected_size = ReadCompactSize(s);
-    size_t remaining_before = s.size();
-    UnserializeMany(s, args...);
-    size_t remaining_after = s.size();
-    if (remaining_after + expected_size != remaining_before) {
-        throw std::ios_base::failure("Size of value was not the stated size");
-    }
-}
-
-// Deserialize HD keypaths into a map
-template<typename Stream>
-void DeserializeHDKeypaths(Stream& s, const std::vector<unsigned char>& key, std::map<CPubKey, std::vector<uint32_t>>& hd_keypaths)
-{
-    // Make sure that the key is the size of pubkey + 1
-    if (key.size() != CPubKey::PUBLIC_KEY_SIZE + 1 && key.size() != CPubKey::COMPRESSED_PUBLIC_KEY_SIZE + 1) {
-        throw std::ios_base::failure("Size of key was not the expected size for the type BIP32 keypath");
-    }
-    // Read in the pubkey from key
-    CPubKey pubkey(key.begin() + 1, key.end());
-    if (!pubkey.IsFullyValid()) {
-       throw std::ios_base::failure("Invalid pubkey");
-    }
-    if (hd_keypaths.count(pubkey) > 0) {
-        throw std::ios_base::failure("Duplicate Key, pubkey derivation path already provided");
-    }
-
-    // Read in key path
-    uint64_t value_len = ReadCompactSize(s);
-    if (value_len < sizeof(uint32_t)) {
-        throw std::ios_base::failure("HD keypath must contain at least a 4-byte fingerprint");
-    }
-    if (value_len % sizeof(uint32_t) != 0) {
-        throw std::ios_base::failure("HD keypath length is not a multiple of 4");
-    }
-    std::vector<uint32_t> keypath;
-    for (unsigned int i = 0; i < value_len; i += sizeof(uint32_t)) {
-        uint32_t index;
-        s >> index;
-        keypath.push_back(index);
-    }
-
-    // Add to map
-    hd_keypaths.emplace(pubkey, keypath);
-}
-
-// Serialize HD keypaths to a stream from a map
-template<typename Stream>
-void SerializeHDKeypaths(Stream& s, const std::map<CPubKey, std::vector<uint32_t>>& hd_keypaths, uint8_t type)
-{
-    for (auto keypath_pair : hd_keypaths) {
-        SerializeToVector(s, type, MakeSpan(keypath_pair.first));
-        WriteCompactSize(s, keypath_pair.second.size() * sizeof(uint32_t));
-        for (auto& path : keypath_pair.second) {
-            s << path;
-        }
-    }
-}
 
 /** Produce a script signature using a generic signature creator.
  *  scriptVerifyFlags controls the self-verification at the end; callers that

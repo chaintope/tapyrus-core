@@ -22,11 +22,14 @@
 #include <validation.h>
 #include <consensus/validation.h>
 #include <consensus/tx_verify.h>
-#include <coins.h>
+#include <coin.h>
+#include <coinsview.h>
+#include <coinsviewcache.h>
 #include <primitives/block.h>
 #include <primitives/transaction.h>
 #include <file_io.h>
-#include <xfieldhistory.h>
+#include <xfieldhistorymap.h>
+#include <tempxfieldhistory.h>
 #include <key.h>
 #include <coloridentifier.h>
 #include <issuedcolorids.h>

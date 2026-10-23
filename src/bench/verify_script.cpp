@@ -6,7 +6,6 @@
 #include <bench/bench.h>
 #include <key.h>
 #include <script/script.h>
-#include <script/sign.h>
 #include <script/standard.h>
 #include <script/transactionsignaturechecker.h>
 #include <script/transactionsignatureserializer.h>

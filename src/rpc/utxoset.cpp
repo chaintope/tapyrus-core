@@ -5,8 +5,9 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <cs_main.h>
-#include <chain.h>
-#include <coins.h>
+#include <blockindex.h>
+#include <coin.h>
+#include <coinsview.h>
 #include <core_io.h>
 #include <key_io.h>
 #include <validation.h>

@@ -16,6 +16,9 @@
 #include <script/script_error.h>
 #include <script/standard.h>
 #include <script/sign.h>
+#include <script/signingprovider.h>
+#include <script/signaturecreator.h>
+#include <script/signaturedata.h>
 #include <test/test_tapyrus.h>
 #include <util.h>
 #include <utilstrencodings.h>

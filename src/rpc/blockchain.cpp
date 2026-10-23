@@ -10,9 +10,10 @@
 #include <amount.h>
 #include <base58.h>
 #include <chain.h>
+#include <blockindex.h>
 #include <chainparams.h>
 #include <checkpoints.h>
-#include <coins.h>
+#include <coin.h>
 #include <consensus/validation.h>
 #include <validation.h>
 #include <blockprune.h>
@@ -22,7 +23,7 @@
 #include <policy/feerate.h>
 #include <policy/packages.h>
 #include <primitives/transaction.h>
-#include <primitives/xfield.h>
+#include <primitives/xfieldvalues.h>
 #include <rpc//protocol.h>
 #include <rpc/server.h>
 #include <rpc/jsonrpcrequest.h>

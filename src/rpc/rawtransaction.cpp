@@ -4,8 +4,10 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#include <chain.h>
-#include <coins.h>
+#include <blockindex.h>
+#include <coin.h>
+#include <coinsview.h>
+#include <coinsviewcache.h>
 #include <coloridentifier.h>
 #include <consensus/validation.h>
 #include <core_io.h>
@@ -30,6 +32,9 @@
 #include <script/script.h>
 #include <script/script_error.h>
 #include <script/sign.h>
+#include <script/signingprovider.h>
+#include <script/signaturecreator.h>
+#include <script/signaturedata.h>
 #include <script/standard.h>
 #include <softforkmanager.h>
 #include <txmempool.h>

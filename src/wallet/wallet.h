@@ -16,7 +16,6 @@
 #include <utilstrencodings.h>
 #include <validationinterface.h>
 #include <script/ismine.h>
-#include <script/sign.h>
 #include <util.h>
 #include <wallet/crypter.h>
 #include <wallet/coinselection.h>

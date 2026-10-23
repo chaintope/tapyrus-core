@@ -6,6 +6,7 @@
 #include <vector>
 #include <string>
 #include <script/sign.h>
+#include <script/signingprovider.h>
 #include <script/standard.h>
 #include <test/test_tapyrus.h>
 #include <boost/test/unit_test.hpp>
