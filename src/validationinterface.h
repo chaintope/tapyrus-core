@@ -148,7 +148,8 @@ protected:
     virtual void NewValidBlock(const CBlockIndex *pindex, const std::shared_ptr<const CBlock> &block) {};
     /**
      * Notifies listeners that every transaction in a package was successfully
-     * added to the mempool and the package as a whole should now be relayed.
+     * added to the mempool and should now be relayed. txns holds only those
+     * still in the mempool once the whole package has been processed.
      *
      * Deliberately separate from TransactionAddedToMempool(), which fires
      * once per transaction as each is individually accepted -- including for
