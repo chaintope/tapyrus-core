@@ -12,7 +12,7 @@
 #include <utilstrencodings.h>
 #include <wallet/coincontrol.h>
 #include <wallet/rpcwallet.h>
-#include <chain.h>
+#include <blockindex.h>
 #include <consensus/validation.h>
 #include <interfaces/handler.h>
 #include <connman.h>

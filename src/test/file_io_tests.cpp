@@ -2,7 +2,7 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#include <chain.h>
+#include <diskblockpos.h>
 #include <chainparams.h>
 #include <dynamicparams.h>
 #include <federationparams.h>

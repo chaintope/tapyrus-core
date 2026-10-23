@@ -5,12 +5,14 @@
 
 #include <bench/bench.h>
 
+#include <chainstatemanager.h>
 #include <crypto/sha256.h>
 #include <dynamicparams.h>
 #include <key.h>
 #include <utilstrencodings.h>
 #include <validation.h>
 #include <streams.h>
+#include <xfieldhistory.h>
 
 #include <memory>
 
@@ -73,7 +75,7 @@ int main(int argc, char** argv)
     writeTestGenesisBlockToFile(GetDataDir(false));
     SelectFederationParams(TAPYRUS_OP_MODE::PROD);
     SelectDynamicParams(ReadGenesisBlock());
-    CXFieldHistory xFieldHistory(DynamicParams().GenesisBlock());
+    g_chainstate_manager.InitXFieldHistory(DynamicParams().GenesisBlock());
 
     int64_t evaluations = gArgs.GetArg("-evals", DEFAULT_BENCH_EVALUATIONS);
     std::string regex_filter = gArgs.GetArg("-filter", DEFAULT_BENCH_FILTER);

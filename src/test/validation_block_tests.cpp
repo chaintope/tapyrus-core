@@ -6,6 +6,7 @@
 #include <boost/test/unit_test.hpp>
 
 #include <chainparams.h>
+#include <chainstatemanager.h>
 #include <consensus/merkle.h>
 #include <consensus/validation.h>
 #include <dynamicparams.h>
@@ -76,7 +77,7 @@ std::shared_ptr<CBlock> FinalizeBlock(std::shared_ptr<CBlock> pblock)
     pblock->hashImMerkleRoot = BlockMerkleRoot(*pblock, nullptr, true);
 
     XFieldAggPubKey aggpubkeyChange;
-    CXFieldHistory().GetLatest(TAPYRUS_XFIELDTYPES::AGGPUBKEY, aggpubkeyChange);
+    g_chainstate_manager.XFieldHistory().GetLatest(TAPYRUS_XFIELDTYPES::AGGPUBKEY, aggpubkeyChange);
     CPubKey aggpubkey(aggpubkeyChange.getPubKey());
     std::vector<unsigned char> blockProof;
     createSignedBlockProof(*pblock, blockProof);
@@ -167,7 +168,7 @@ BOOST_AUTO_TEST_CASE(processnewblock_signals_ordering)
                 auto block = blocks[GetRand(blocks.size() - 1)];
                 BOOST_CHECK_EQUAL(block->proof.size(), 64);
                 CValidationState state;
-                BOOST_CHECK(CheckBlockHeader(*block, state));
+                BOOST_CHECK(CheckBlockHeader(*block, state, g_chainstate_manager.XFieldHistory()));
                 ProcessNewBlock(block, true, &ignored);
             }
 
@@ -175,7 +176,7 @@ BOOST_AUTO_TEST_CASE(processnewblock_signals_ordering)
             for (auto block : blocks) {
                 BOOST_CHECK_EQUAL(block->proof.size(), 64);
                 CValidationState state;
-                BOOST_CHECK(CheckBlockHeader(*block, state));
+                BOOST_CHECK(CheckBlockHeader(*block, state, g_chainstate_manager.XFieldHistory()));
                 ProcessNewBlock(block, true, &ignored);
                 if (block->vtx.size() == 1) {
                     bool processed = ProcessNewBlock(block, true, &ignored);

@@ -9,10 +9,11 @@
 #include <primitives/transaction.h>
 #include <script/interpreter.h>
 #include <consensus/validation.h>
-#include <xfieldhistory.h>
+#include <tinyformat.h>
 
 // TODO remove the following dependencies
-#include <coins.h>
+#include <coin.h>
+#include <coinsviewcache.h>
 #include <utilmoneystr.h>
 
 bool IsFinalTx(const CTransaction &tx, int nBlockHeight, int64_t nBlockTime)
@@ -79,7 +80,7 @@ uint32_t GetTransactionSigOps(const CTransaction& tx, const CCoinsViewCache& inp
     return nSigOps;
 }
 
-bool CheckTransaction(const CTransaction& tx, CValidationState &state, bool fCheckDuplicateInputs)
+bool CheckTransaction(const CTransaction& tx, CValidationState &state, uint32_t maxBlockSize, bool fCheckDuplicateInputs)
 {
     // Basic checks that don't depend on any context
     if (tx.vin.empty())
@@ -87,7 +88,7 @@ bool CheckTransaction(const CTransaction& tx, CValidationState &state, bool fChe
     if (tx.vout.empty())
         return state.DoS(10, false, REJECT_INVALID, "bad-txns-vout-empty");
     // Size limits
-    if (::GetSerializeSize(tx, SER_NETWORK, PROTOCOL_VERSION) > GetCurrentMaxBlockSize())
+    if (::GetSerializeSize(tx, SER_NETWORK, PROTOCOL_VERSION) > maxBlockSize)
         return state.DoS(100, false, REJECT_INVALID, "bad-txns-oversize");
 
     // Check for negative or overflow output values

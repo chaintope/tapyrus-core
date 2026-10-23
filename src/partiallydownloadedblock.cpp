@@ -5,6 +5,7 @@
 
 #include <partiallydownloadedblock.h>
 
+#include <chainstatemanager.h>
 #include <consensus/consensus.h>
 #include <consensus/validation.h>
 #include <hash.h>
@@ -17,7 +18,7 @@
 ReadStatus PartiallyDownloadedBlock::InitData(const CBlockHeaderAndShortTxIDs& cmpctblock, const std::vector<std::pair<uint256, CTransactionRef>>& extra_txn) {
     if (cmpctblock.header.IsNull() || (cmpctblock.shorttxids.empty() && cmpctblock.prefilledtxn.empty()))
         return READ_STATUS_INVALID;
-    if (cmpctblock.shorttxids.size() + cmpctblock.prefilledtxn.size() > GetCurrentMaxBlockSize() / MIN_SERIALIZABLE_TRANSACTION_SIZE)
+    if (cmpctblock.shorttxids.size() + cmpctblock.prefilledtxn.size() > g_chainstate_manager.XFieldHistory().GetCurrentMaxBlockSize() / MIN_SERIALIZABLE_TRANSACTION_SIZE)
         return READ_STATUS_INVALID;
 
     if (!header.IsNull() || !txn_available.empty()) return READ_STATUS_INVALID;
@@ -172,7 +173,7 @@ ReadStatus PartiallyDownloadedBlock::FillBlock(CBlock& block, const std::vector<
         return READ_STATUS_INVALID;
 
     CValidationState state;
-    if (!CheckBlock(block, state, true, true, nullptr, nHeight)) {
+    if (!CheckBlock(block, state, g_chainstate_manager.XFieldHistory(), true, true, nHeight)) {
         // TODO: We really want to just check merkle tree manually here,
         // but that is expensive, and CheckBlock caches a block's
         // "checked-status" (in the CBlock?). CBlock should be able to

@@ -7,6 +7,7 @@
 #include <wallet/wallet.h>
 
 #include <chain.h>
+#include <blockindex.h>
 #include <wallet/coincontrol.h>
 #include <coloridentifier.h>
 #include <consensus/consensus.h>
@@ -25,6 +26,9 @@
 #include <primitives/block.h>
 #include <primitives/transaction.h>
 #include <script/script.h>
+#include <script/sign.h>
+#include <script/signaturecreator.h>
+#include <script/signaturedata.h>
 #include <shutdown.h>
 #include <txmempool.h>
 #include <utilmoneystr.h>

@@ -8,7 +8,6 @@
 #include <primitives/transaction.h>
 #include <pstt.h>
 #include <script/script.h>
-#include <script/sign.h>
 #include <serialize.h>
 #include <streams.h>
 #include <univalue.h>

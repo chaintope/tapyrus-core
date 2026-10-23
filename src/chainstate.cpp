@@ -3,6 +3,7 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <chainstate.h>
+#include <chainstatemanager.h>
 #include <chainparams.h>
 #include <dynamicparams.h>
 #include <util.h>
@@ -16,6 +17,7 @@
 #include <trace.h>
 #include <ui_interface.h>
 #include <warnings.h>
+#include <xfieldhistory.h>
 #include <file_io.h>
 #include <blockprune.h>
 
@@ -530,7 +532,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     // is enforced in ContextualCheckBlockHeader(); we wouldn't want to
     // re-enforce that rule here (at least until we make it impossible for
     // GetAdjustedTime() to go backward).
-    if (!CheckBlock(block, state, !fJustCheck, !fJustCheck, nullptr, pindex->nHeight)) {
+    if (!CheckBlock(block, state, g_chainstate_manager.XFieldHistory(), !fJustCheck, !fJustCheck, pindex->nHeight)) {
         if (state.CorruptionPossible()) {
             // We don't write down blocks to disk if they may have been
             // corrupted, so this should be impossible unless we're having hardware
@@ -643,7 +645,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         // * legacy (always)
         // * p2sh (when P2SH enabled in flags and excludes coinbase)
         nSigOpsCost += GetTransactionSigOps(tx, view, SCRIPT_VERIFY_NONE);
-        if (nSigOpsCost > GetMaxBlockSigops())
+        if (nSigOpsCost > g_chainstate_manager.XFieldHistory().GetMaxBlockSigops())
             return state.DoS(100, error("ConnectBlock(): too many sigops"),
                              REJECT_INVALID, "bad-blk-sigops");
 
@@ -813,7 +815,7 @@ bool CChainState::DisconnectTip(CValidationState& state, DisconnectedBlockTransa
     if (pindexDelete->nHeight > 0
         && std::find(XFIELDTYPES_INIT_LIST.begin(), XFIELDTYPES_INIT_LIST.end(), block.xfield.xfieldType) != XFIELDTYPES_INIT_LIST.end())
     {
-        CXFieldHistory xfieldHistory;
+        CXFieldHistory& xfieldHistory = g_chainstate_manager.XFieldHistory();
         XFieldChange removedChange(block.xfield.xfieldValue, pindexDelete->nHeight + 1, pindexDelete->GetBlockHash());
         if (xfieldHistory.Remove(block.xfield.xfieldType, removedChange))
             pblocktree->EraseXField(removedChange);
@@ -867,7 +869,7 @@ bool CChainState::ConnectTip(CValidationState& state, CBlockIndex* pindexNew, co
         // The actual writes (in-memory history + DB) are deferred until after
         // view.Flush() so the UTXO commit lands first — matching the ordering
         // used by DisconnectTip and giving a forward-recoverable crash window.
-        CXFieldHistory xfieldHistory;
+        CXFieldHistory& xfieldHistory = g_chainstate_manager.XFieldHistory();
         bool hasNewXField = blockConnecting.xfield.IsValid()
             && pindexNew->nHeight > 0
             && IsXFieldNew(blockConnecting.xfield, &xfieldHistory, static_cast<uint32_t>(pindexNew->nHeight));
@@ -1394,7 +1396,7 @@ bool CChainState::AcceptBlockHeader(const CBlockHeader& block, CValidationState&
         }
         int nBlockHeight = pindexPrev ? pindexPrev->nHeight + 1 : -1;
 
-        if (!CheckBlockHeader(block, state, pxfieldHistory, nBlockHeight))
+        if (!CheckBlockHeader(block, state, pxfieldHistory ? *pxfieldHistory : g_chainstate_manager.XFieldHistory(), nBlockHeight))
             return error("%s: Consensus::CheckBlockHeader: %s, %s", __func__, hash.ToString(), FormatStateMessage(state));
 
         if (!pindexPrev)
@@ -1484,7 +1486,7 @@ bool CChainState::AcceptBlock(const std::shared_ptr<const CBlock>& pblock, CVali
         if (fTooFarAhead) return true;        // Block height is too high
     }
 
-    if (!CheckBlock(block, state, false, true, pxfieldHistory, pindex->pprev ? pindex->pprev->nHeight + 1 : 0) ||
+    if (!CheckBlock(block, state, pxfieldHistory ? *pxfieldHistory : g_chainstate_manager.XFieldHistory(), false, true, pindex->pprev ? pindex->pprev->nHeight + 1 : 0) ||
         !ContextualCheckBlock(block, state, pindex->pprev)) {
         if (state.IsInvalid() && !state.CorruptionPossible()) {
             pindex->nStatus |= BLOCK_FAILED_VALID;
@@ -1781,8 +1783,7 @@ bool CChainState::LoadGenesisBlock()
         CBlockIndex *pindex = AddToBlockIndex(block);
         ReceivedBlockTransactions(block, pindex, blockPos);
 
-        //initialize xfield history
-        CXFieldHistory history(DynamicParams().GenesisBlock());
+        g_chainstate_manager.InitXFieldHistory(DynamicParams().GenesisBlock());
     } catch (const std::runtime_error& e) {
         return error("%s: failed to write genesis block: %s", __func__, e.what());
     }

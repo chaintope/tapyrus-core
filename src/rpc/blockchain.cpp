@@ -5,14 +5,16 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <rpc/blockchain.h>
+#include <chainstatemanager.h>
 #include <cs_main.h>
 
 #include <amount.h>
 #include <base58.h>
 #include <chain.h>
+#include <blockindex.h>
 #include <chainparams.h>
 #include <checkpoints.h>
-#include <coins.h>
+#include <coin.h>
 #include <consensus/validation.h>
 #include <validation.h>
 #include <blockprune.h>
@@ -22,7 +24,7 @@
 #include <policy/feerate.h>
 #include <policy/packages.h>
 #include <primitives/transaction.h>
-#include <primitives/xfield.h>
+#include <primitives/xfieldvalues.h>
 #include <rpc//protocol.h>
 #include <rpc/server.h>
 #include <rpc/jsonrpcrequest.h>
@@ -745,7 +747,7 @@ UniValue getblockchaininfo(const JSONRPCRequest& request)
     }
     //aggregate pubkey list with block height and block hash
     UniValue xfieldChanges(UniValue::VARR);
-    CXFieldHistory xFieldHistory;
+    CXFieldHistory& xFieldHistory = g_chainstate_manager.XFieldHistory();
     for(auto x : XFIELDTYPES_INIT_LIST)
     {
         xFieldHistory.ToUniValue(x, &xfieldChanges);
@@ -938,7 +940,7 @@ static UniValue invalidateblock(const JSONRPCRequest& request)
         }
 
         //do not allow invalidate if there is an xfield change
-        if(pblockindex->nHeight <= CXFieldHistory().GetReorgHeight())
+        if(pblockindex->nHeight <= g_chainstate_manager.XFieldHistory().GetReorgHeight())
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Cannot invalidate block as Xfield change found in chain after this block.");
 
         InvalidateBlock(state, pblockindex);
@@ -981,7 +983,7 @@ static UniValue reconsiderblock(const JSONRPCRequest& request)
         }
 
         //do not allow reorg if there is any xfield change
-        if(pblockindex->nHeight <= CXFieldHistory().GetReorgHeight())
+        if(pblockindex->nHeight <= g_chainstate_manager.XFieldHistory().GetReorgHeight())
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Cannot invalidate block as Xfield change found in chain after this block.");
 
         ResetBlockFailureFlags(pblockindex);
@@ -1240,7 +1242,7 @@ static UniValue getblockstats(const JSONRPCRequest& request)
     CAmount totalfee = 0;
     int64_t inputs = 0;
     int64_t maxtxsize = 0;
-    int64_t mintxsize = GetCurrentMaxBlockSize();
+    int64_t mintxsize = g_chainstate_manager.XFieldHistory().GetCurrentMaxBlockSize();
     int64_t outputs = 0;
     int64_t total_size = 0;
     int64_t utxo_size_inc = 0;
@@ -1340,7 +1342,7 @@ static UniValue getblockstats(const JSONRPCRequest& request)
     ret_all.pushKV("mediantxsize", CalculateTruncatedMedian(txsize_array));
     ret_all.pushKV("minfee", (minfee == MAX_MONEY) ? 0 : minfee);
     ret_all.pushKV("minfeerate", (minfeerate == MAX_MONEY) ? 0 : minfeerate);
-    ret_all.pushKV("mintxsize", mintxsize == GetCurrentMaxBlockSize() ? 0 : mintxsize);
+    ret_all.pushKV("mintxsize", mintxsize == g_chainstate_manager.XFieldHistory().GetCurrentMaxBlockSize() ? 0 : mintxsize);
     ret_all.pushKV("outs", outputs);
     ret_all.pushKV("subsidy", GetBlockSubsidy(pindex->nHeight, Params().GetConsensus()));
     ret_all.pushKV("time", pindex->GetBlockTime());

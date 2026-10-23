@@ -3,12 +3,14 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <dynamicparams.h>
+#include <chainstatemanager.h>
 #include <index/txindex.h>
 #include <policy/policy.h>
 #include <shutdown.h>
 #include <trace.h>
 #include <blockprune.h>
 #include <validation.h>
+#include <xfieldhistory.h>
 #include <file_io.h>
 #include <deque>
 #include <stdexcept>
@@ -204,7 +206,7 @@ bool LoadExternalBlockFile(FILE* fileIn, CDiskBlockPos *dbp, CXFieldHistoryMap* 
     static std::multimap<uint256, CDiskBlockPos> mapBlocksUnknownParent;
     int64_t nStart = GetTimeMillis();
 
-    uint32_t maxBlockSize = GetCurrentMaxBlockSize();
+    uint32_t maxBlockSize = g_chainstate_manager.XFieldHistory().GetCurrentMaxBlockSize();
     uint32_t bufferSize;
 
     if (dbp != nullptr) {
@@ -603,7 +605,7 @@ bool ReadBlockFromDisk(CBlock& block, const CDiskBlockPos& pos, CXFieldHistoryMa
     // Get() returns the latest aggregate key — the safe conservative choice.
     // Never use block.GetHeight() (coinbase prevout.n): that field is attacker-controlled.
     CValidationState state;
-    if(!CheckBlockHeader(block.GetBlockHeader(), state, pxfieldHistory, nHeight, true))
+    if(!CheckBlockHeader(block.GetBlockHeader(), state, pxfieldHistory ? *pxfieldHistory : g_chainstate_manager.XFieldHistory(), nHeight, true))
         return error("Errors in block header at %s while reading block: %s nHeight = %d", pos.ToString(), FormatStateMessage(state), nHeight);
 
     return true;

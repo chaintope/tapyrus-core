@@ -5,7 +5,8 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <amount.h>
-#include <chain.h>
+#include <blockindex.h>
+#include <chainstatemanager.h>
 #include <coloridentifier.h>
 #include <consensus/validation.h>
 #include <core_io.h>
@@ -27,7 +28,7 @@
 #include <rpc/rpctable.h>
 #include <rpc/rpctimerinterface.h>
 #include <rpc/util.h>
-#include <script/sign.h>
+#include <script/signaturedata.h>
 #include <shutdown.h>
 #include <tapyrusmodes.h>
 #include <util.h>
@@ -3411,7 +3412,7 @@ UniValue generate(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_WALLET_INVALID_PRIVATE_KEY, "No private key given or invalid private key.");
 
     XFieldAggPubKey aggpubkeyChange;
-    CXFieldHistory().GetLatest(TAPYRUS_XFIELDTYPES::AGGPUBKEY, aggpubkeyChange);
+    g_chainstate_manager.XFieldHistory().GetLatest(TAPYRUS_XFIELDTYPES::AGGPUBKEY, aggpubkeyChange);
 
     if(cPrivKey.GetPubKey() != aggpubkeyChange.getPubKey())
         throw JSONRPCError(RPC_WALLET_INVALID_AGGREGATE_KEY, "Given private key doesn't correspond to the Aggregate Key.");

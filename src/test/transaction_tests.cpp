@@ -8,6 +8,7 @@
 #include <test/data/tx_valid.json.h>
 #include <test/test_tapyrus.h>
 
+#include <chainstatemanager.h>
 #include <clientversion.h>
 #include <checkqueue.h>
 #include <consensus/tx_verify.h>
@@ -18,7 +19,6 @@
 #include <validation.h>
 #include <policy/policy.h>
 #include <script/script.h>
-#include <script/sign.h>
 #include <script/script_error.h>
 #include <script/standard.h>
 #include <utilstrencodings.h>
@@ -149,7 +149,7 @@ BOOST_AUTO_TEST_CASE(tx_valid)
             CTransaction tx(deserialize, stream);
 
             CValidationState state;
-            BOOST_CHECK_MESSAGE(CheckTransaction(tx, state), strTest);
+            BOOST_CHECK_MESSAGE(CheckTransaction(tx, state, g_chainstate_manager.XFieldHistory().GetCurrentMaxBlockSize()), strTest);
             BOOST_CHECK(state.IsValid());
 
             for (unsigned int i = 0; i < tx.vin.size(); i++)
@@ -237,7 +237,7 @@ BOOST_AUTO_TEST_CASE(tx_invalid)
             CTransaction tx(deserialize, stream);
 
             CValidationState state;
-            fValid = CheckTransaction(tx, state) && state.IsValid();
+            fValid = CheckTransaction(tx, state, g_chainstate_manager.XFieldHistory().GetCurrentMaxBlockSize()) && state.IsValid();
 
             for (unsigned int i = 0; i < tx.vin.size() && fValid; i++)
             {
@@ -273,11 +273,11 @@ BOOST_AUTO_TEST_CASE(basic_transaction_tests)
     CMutableTransaction tx;
     stream >> tx;
     CValidationState state;
-    BOOST_CHECK_MESSAGE(CheckTransaction(tx, state) && state.IsValid(), "Simple deserialized transaction should be valid.");
+    BOOST_CHECK_MESSAGE(CheckTransaction(tx, state, g_chainstate_manager.XFieldHistory().GetCurrentMaxBlockSize()) && state.IsValid(), "Simple deserialized transaction should be valid.");
 
     // Check that duplicate txins fail
     tx.vin.push_back(tx.vin[0]);
-    BOOST_CHECK_MESSAGE(!CheckTransaction(tx, state) || !state.IsValid(), "Transaction with duplicate txins should be invalid.");
+    BOOST_CHECK_MESSAGE(!CheckTransaction(tx, state, g_chainstate_manager.XFieldHistory().GetCurrentMaxBlockSize()) || !state.IsValid(), "Transaction with duplicate txins should be invalid.");
 }
 
 //
