@@ -12,8 +12,9 @@ from io import BytesIO
 from decimal import Decimal
 
 from test_framework.test_framework import BitcoinTestFramework
-from test_framework.util import assert_equal, assert_greater_than, assert_raises_rpc_error, bytes_to_hex_str, hex_str_to_bytes
-from test_framework.messages import CTransaction, CTxIn, CTxOut, COutPoint, COIN, ToHex
+from test_framework.util import assert_equal, assert_greater_than, assert_raises_rpc_error, bytes_to_hex_str, hex_str_to_bytes, wait_until
+from test_framework.messages import CTransaction, CTxIn, CTxOut, COutPoint, COIN, MSG_TX, ToHex
+from test_framework.mininode import mininode_lock, P2PInterface
 from test_framework.script import CScript, OP_TRUE, MAX_SCRIPT_ELEMENT_SIZE, MAX_SCRIPT_SIZE
 from test_framework.address import key_to_p2pkh
 
@@ -22,13 +23,24 @@ TX_SIZE_TOFILL_MEMPOOL = 5000000 / 100
 
 NUM_OUTPUTX_IN_LARGE_TX = 5
 
+class TxInvStore(P2PInterface):
+    # Records the txids the node announces to this peer
+    def __init__(self, time_to_connect):
+        super().__init__(time_to_connect)
+        self.txinvs = set()
+
+    def on_inv(self, message):
+        for i in message.inv:
+            if i.type == MSG_TX:
+                self.txinvs.add(format(i.hash, '064x'))
+
 tx_size = lambda tx : len(ToHex(tx))//2 + 120 * len(tx.vin) + 50
 size_package = lambda package_hex: sum(len(tx) for tx in package_hex)
 
 class MempoolLimitTest(BitcoinTestFramework):
     def set_test_params(self):
         self.setup_clean_chain = True
-        self.num_nodes = 4
+        self.num_nodes = 5
         self.extra_args = [["-maxmempool=5"]] * self.num_nodes
 
     def deduct_fee(self, tx, feerate):
@@ -491,6 +503,57 @@ class MempoolLimitTest(BitcoinTestFramework):
         assert pkg_parent_tx.hashMalFix not in resulting_mempool_txids
         assert child.hashMalFix not in resulting_mempool_txids
 
+    def test_package_relay_after_trim(self, node):
+        # this test verifies that when every package tx is accepted but a later one trims an
+        # earlier one out of a full mempool, the txs still in the mempool are relayed and the
+        # trimmed one is reported as "mempool full"
+
+        self.log.info("A package tx trimmed by a later package tx is not relayed; the rest are")
+        mempoolmin_feerate = node.getmempoolinfo()["mempoolminfee"]
+        assert_equal(mempoolmin_feerate, Decimal('0.00001000'))
+        node.generate(110, self.signblockprivkey_wif)
+        utxos = [utxo for utxo in node.listunspent() if utxo['amount'] > mempoolmin_feerate * 100]
+
+        # Fillers pay more than the cheap package tx and less than the expensive one, so a trim
+        # evicts the cheap package tx first and then fillers, never the expensive package tx.
+        filler_feerate = mempoolmin_feerate * 100
+        self.fill_mempool(node, utxos, filler_feerate)
+
+        # Leave room for the cheap package tx but not for both package txs
+        mempoolinfo = node.getmempoolinfo()
+        size_needed = mempoolinfo['maxmempool'] - mempoolinfo['usage'] - 8000
+        tx = self.create_tx_with_large_script(utxos.pop(), filler_feerate, size_needed)
+        signresult = node.signrawtransactionwithwallet(ToHex(tx))
+        node.sendrawtransaction(signresult["hex"], True)
+        mempoolinfo = node.getmempoolinfo()
+        free = mempoolinfo['maxmempool'] - mempoolinfo['usage']
+        assert 2000 < free < 17000, f"free mempool space {free} is outside the range this test is sized for"
+
+        # P1 fits in the free space; P2 is larger than it, so adding P2 trims P1
+        (p1_tx, p1_hex) = self.create_signed_raw_tx(node, utxos.pop(), mempoolmin_feerate * 6)
+        p2_tx = self.create_tx_with_large_script(utxos.pop(), mempoolmin_feerate * 200, free + 6000)
+        p2_hex = node.signrawtransactionwithwallet(ToHex(p2_tx))["hex"]
+        p1_txid = p1_tx.hashMalFix
+        p2_txid = p2_tx.hashMalFix
+
+        # Connect only now so the fillers are not announced to the peer
+        peer = node.add_p2p_connection(TxInvStore(node.time_to_connect))
+
+        res = self.submitpackage(node, [p1_hex, p2_hex])
+        assert_equal(res[p1_txid], {'allowed': False, 'reject-reason': '66: mempool full'})
+        assert_equal(res[p2_txid], {'allowed': True})
+        resulting_mempool_txids = node.getrawmempool()
+        assert p1_txid not in resulting_mempool_txids
+        assert p2_txid in resulting_mempool_txids
+
+        self.log.info("Verify only the package tx still in the mempool is announced")
+        wait_until(lambda: p2_txid in peer.txinvs, timeout=60, lock=mininode_lock)
+        peer.sync_with_ping()
+        with mininode_lock:
+            assert p1_txid not in peer.txinvs
+
+        node.disconnect_p2ps()
+
     def test_mempool_eviction(self, node):
         self.log.info('Create a mempool tx that will be evicted')
         relayfee = node.getnetworkinfo()['relayfee']
@@ -576,6 +639,9 @@ class MempoolLimitTest(BitcoinTestFramework):
 
         self.log.info("Phase 4 : Mempool eviction - package triggering mempool replacement")
         self.test_mid_package_replacement(self.nodes[3])
+
+        self.log.info("Phase 5 : Mempool eviction - package tx trimmed by a later package tx is not relayed")
+        self.test_package_relay_after_trim(self.nodes[4])
 
     def submitpackage(self, node, package_hex, debug = False):
         # Package should be submitted with enough logging.

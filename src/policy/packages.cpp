@@ -170,6 +170,8 @@ bool SubmitPackageToMempool(const Package& package,
     CCoinsViewVirtualMemPool* virtualView =
         dynamic_cast<CCoinsViewVirtualMemPool*>(opt.mempool_view);
 
+    bool all_admitted = false;
+    Package relay;
     {
         // Held for the whole package so no block connects mid-package and the
         // results below describe only what the package itself did to the mempool.
@@ -194,8 +196,12 @@ bool SubmitPackageToMempool(const Package& package,
             }
         }
 
+        // Taken before the results below are rewritten, so a tx a later package tx
+        // pushed out does not stop the rest of the package from being relayed.
+        all_admitted = ArePackageTransactionsAccepted(results);
+
         // A later package tx can trim or replace one accepted before it, so report
-        // what the mempool holds now instead of what each tx saw on entry.
+        // and relay what the mempool holds now instead of what each tx saw on entry.
         if (opt.flags != MempoolAcceptanceFlags::TEST_ONLY) {
             std::set<uint256> replaced;
             for (const auto& tx : opt.txnReplaced) {
@@ -203,8 +209,12 @@ bool SubmitPackageToMempool(const Package& package,
             }
             for (const auto& tx : package) {
                 const uint256 hash = tx->GetHashMalFix();
+                if (mempool.exists(hash)) {
+                    relay.push_back(tx);
+                    continue;
+                }
                 const auto result = results.find(hash);
-                if (result == results.end() || !result->second.IsValid() || result->second.missingInputs || mempool.exists(hash)) {
+                if (result == results.end() || !result->second.IsValid() || result->second.missingInputs) {
                     continue;
                 }
                 CValidationState removed;
@@ -221,15 +231,16 @@ bool SubmitPackageToMempool(const Package& package,
 
     bool success = ArePackageTransactionsAccepted(results);
 
-    // Relay only after the entire package has been successfully admitted.
-    // Relaying per-tx inside the loop would gossip the admitted prefix of a
-    // partially-failed package, enabling free relay amplification attacks.
+    // Relay only after every tx in the package has been admitted, and only the
+    // txs still in the mempool. Relaying per-tx inside the loop would gossip the
+    // admitted prefix of a partially-failed package, enabling free relay
+    // amplification attacks.
     // Goes through PackageTransactionsRelay() rather than calling into net
     // directly -- tapyrus_chainstate (this file) has no business linking
     // tapyrus_peer. See the comment on CValidationInterface::
     // PackageTransactionsRelay() and PeerLogicValidation's override of it.
-    if (success && opt.flags != MempoolAcceptanceFlags::TEST_ONLY) {
-        GetMainSignals().PackageTransactionsRelay(package);
+    if (all_admitted && !relay.empty()) {
+        GetMainSignals().PackageTransactionsRelay(relay);
     }
 
     return success;
