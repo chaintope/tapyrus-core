@@ -366,13 +366,14 @@ add_library(tapyrus_peer STATIC EXCLUDE_FROM_ALL
   addrman.cpp
   bloom.cpp
   blockencodings.cpp
+  connman.cpp
   localaddress.cpp
   mapport.cpp
   merkleblock.cpp
-  net.cpp
   net_processing.cpp
   netmessage.cpp
   netnode.cpp
+  partiallydownloadedblock.cpp
   timeoffsets.cpp
   torcontrol.cpp
 )

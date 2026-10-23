@@ -24,11 +24,15 @@
 #include <miner.h>
 #include <netbase.h>
 #include <net.h>
+#include <connman.h>
+#include <localaddress.h>
+#include <mapport.h>
 #include <net_processing.h>
 #include <policy/feerate.h>
 #include <policy/fees.h>
 #include <policy/policy.h>
 #include <rpc/server.h>
+#include <rpc/rpctable.h>
 #include <rpc/register.h>
 #include <rpc/blockchain.h>
 #include <script/standard.h>

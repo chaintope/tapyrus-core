@@ -14,7 +14,7 @@
 #include <vector>
 
 #include <consensus/validation.h>
-#include <rpc/server.h>
+#include <rpc/jsonrpcrequest.h>
 #include <rpc/client.h>
 #include <test/test_tapyrus.h>
 #include <validation.h>

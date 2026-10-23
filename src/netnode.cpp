@@ -4,10 +4,12 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#include <net.h>
+#include <netnode.h>
 
 #include <federationparams.h>
+#include <net.h>
 #include <netbase.h>
+#include <netmessage.h>
 
 const static std::string NET_MESSAGE_COMMAND_OTHER = "*other*";
 

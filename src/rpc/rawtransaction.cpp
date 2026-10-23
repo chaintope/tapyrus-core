@@ -17,13 +17,16 @@
 #include <validationinterface.h>
 #include <key_io.h>
 #include <merkleblock.h>
-#include <net.h>
+#include <connman.h>
+#include <netnode.h>
 #include <policy/packages.h>
 #include <policy/rbf.h>
 #include <primitives/transaction.h>
 #include <rpc/protocol.h>
 #include <rpc/rawtransaction.h>
 #include <rpc/server.h>
+#include <rpc/jsonrpcrequest.h>
+#include <rpc/rpctable.h>
 #include <script/script.h>
 #include <script/script_error.h>
 #include <script/sign.h>

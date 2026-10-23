@@ -7,7 +7,8 @@
 
 #include <addrdb.h>     // For banmap_t
 #include <amount.h>     // For CAmount
-#include <net.h>        // For CConnman::NumConnections
+#include <connman.h>    // For CConnman::NumConnections
+#include <net.h>        // For NodeId
 #include <netaddress.h> // For Network
 
 #include <functional>
@@ -21,6 +22,7 @@
 class CCoinControl;
 class CFeeRate;
 class CNodeStats;
+class COutPoint;
 class Coin;
 class RPCTimerInterface;
 class UniValue;

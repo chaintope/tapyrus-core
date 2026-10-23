@@ -8,11 +8,12 @@
 #include <key_io.h>
 #include <validation.h>
 #include <httpserver.h>
-#include <net.h>
 #include <netbase.h>
 #include <outputtype.h>
 #include <rpc/protocol.h>
 #include <rpc/server.h>
+#include <rpc/jsonrpcrequest.h>
+#include <rpc/rpctable.h>
 #include <rpc/util.h>
 #include <util.h>
 #include <utilstrencodings.h>

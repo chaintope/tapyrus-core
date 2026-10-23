@@ -28,7 +28,7 @@
 #include <core_io.h>
 #include <key.h>
 #include <rpc/protocol.h>
-#include <rpc/server.h>
+#include <rpc/jsonrpcrequest.h>
 #include <univalue.h>
 
 #include <cstdint>
