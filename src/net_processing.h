@@ -45,8 +45,8 @@ public:
      */
     void NewValidBlock(const CBlockIndex *pindex, const std::shared_ptr<const CBlock> &pblock) override;
     /**
-     * Overridden from CValidationInterface. Relays every transaction in a
-     * successfully-accepted package. See policy/packages.cpp and the
+     * Overridden from CValidationInterface. Relays the transactions of a
+     * successfully-accepted package that are still in the mempool. See policy/packages.cpp and the
      * comment on CValidationInterface::PackageTransactionsRelay().
      */
     void PackageTransactionsRelay(const std::vector<CTransactionRef>& txns) override;
