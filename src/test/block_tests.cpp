@@ -316,7 +316,8 @@ BOOST_AUTO_TEST_CASE(checkblock_tx_size_uses_block_height_limit)
     block.vtx.push_back(MakeTransactionRef(bigTx));
 
     CValidationState state;
-    BOOST_CHECK_MESSAGE(CheckBlock(block, state, history, false, false, 50), FormatStateMessage(state));
+    const bool ok = CheckBlock(block, state, history, false, false, 50);
+    BOOST_CHECK_MESSAGE(ok, FormatStateMessage(state));
 
     CValidationState laterState;
     BOOST_CHECK(!CheckBlock(block, laterState, history, false, false, 150));

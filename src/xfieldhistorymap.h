@@ -74,8 +74,6 @@ struct XFieldChangeListWrapper
     inline size_t size() const { return xfieldChanges.size();}
     inline XFieldChangeList::iterator begin() {return xfieldChanges.begin();}
     inline XFieldChangeList::iterator end() {return xfieldChanges.end();}
-    inline XFieldChangeList::reverse_iterator rbegin() {return xfieldChanges.rbegin();}
-    inline XFieldChangeList::reverse_iterator rend() {return xfieldChanges.rend();}
     inline const XFieldChange& back() const {return xfieldChanges.back();}
     inline const XFieldChange& at(size_t i) const {return xfieldChanges.at(i);}
     inline const XFieldChange& operator[](size_t i) const { return xfieldChanges.operator[](i);}
@@ -132,28 +130,33 @@ protected:
     // Copies the other history's changes; the mutex is not copied.
     CXFieldHistoryMap(const CXFieldHistoryMap& other);
 
+    // Caller holds xfieldHistoryMutex. Aborts when InitXFieldHistory() was not called.
+    XFieldChangeListWrapper& FindWithin(TAPYRUS_XFIELDTYPES type);
+    const XFieldChangeListWrapper& FindWithin(TAPYRUS_XFIELDTYPES type) const;
+
 public:
     virtual ~CXFieldHistoryMap(){}
 
     template <typename T>
     void GetLatest(TAPYRUS_XFIELDTYPES type, T & xfieldval) const {
         std::shared_lock<std::shared_mutex> lock(xfieldHistoryMutex);
-        auto& listofXfieldChanges = xfieldHistory.find(type)->second;
+        auto& listofXfieldChanges = FindWithin(type);
         xfieldval = std::get<T>(listofXfieldChanges.back().xfieldValue);
     }
 
     // Thread-safe methods to access xfield history data
-    virtual size_t GetListSize(TAPYRUS_XFIELDTYPES type) const;
-    virtual XFieldChangeList GetListCopy(TAPYRUS_XFIELDTYPES type) const;
+    XFieldChangeList GetListCopy(TAPYRUS_XFIELDTYPES type) const;
+    // The block tree db key under which this type's changes are stored.
+    char DBKey(TAPYRUS_XFIELDTYPES type) const;
 
-    virtual void Add(TAPYRUS_XFIELDTYPES type, const XFieldChange& xFieldChange);
+    void Add(TAPYRUS_XFIELDTYPES type, const XFieldChange& xFieldChange);
     // Remove the last entry for `type` if and only if its blockHash matches `xFieldChange`.
     // Returns true when an entry was removed; false when the list has only the genesis entry
     // or the last entry does not match (safe no-op in that case).
     bool Remove(TAPYRUS_XFIELDTYPES type, const XFieldChange& xFieldChange);
 
-    virtual XFieldChange Get(TAPYRUS_XFIELDTYPES type, uint32_t height);
-    int32_t GetReorgHeight();
+    XFieldChange Get(TAPYRUS_XFIELDTYPES type, uint32_t height) const;
+    int32_t GetReorgHeight() const;
 
     /** The maximum block size according to the latest xfield change */
     uint32_t GetCurrentMaxBlockSize() const;

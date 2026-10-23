@@ -1582,7 +1582,7 @@ bool AppInitMain()
                 CXFieldHistory& xFieldHistory = g_chainstate_manager.XFieldHistory();
                 for(auto x : XFIELDTYPES_INIT_LIST)
                 {
-                    const char key(std::to_string(static_cast<int8_t>(x))[0]);
+                    const char key = xFieldHistory.DBKey(x);
                     XFieldChangeListWrapper xFieldListDB(key);
                     pblocktree->ReadXField(key, xFieldListDB);
                     for(auto &XFieldDB:xFieldListDB)
