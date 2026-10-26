@@ -100,6 +100,8 @@ add_executable(test_tapyrus
         key_io_tests.cpp
         key_tests.cpp
         limitedmap_tests.cpp
+        logging_tests.cpp
+        ../debuglogfile.cpp
         main_tests.cpp
         mempool_tests.cpp
         merkle_tests.cpp

@@ -30,6 +30,7 @@
 #include <interfaces/node.h>
 #include <ui_interface.h>
 #include <uint256.h>
+#include <threadnames.h>
 #include <util.h>
 #include <warnings.h>
 
@@ -591,6 +592,7 @@ static void SetupUIArgs()
 #ifndef BITCOIN_QT_TEST
 int main(int argc, char *argv[])
 {
+    ThreadSetInternalName("main");
     SetupEnvironment();
 
     std::unique_ptr<interfaces::Node> node = interfaces::MakeNode();

@@ -6,6 +6,8 @@
 
 #include <util.h>
 
+#include <threadnames.h>
+
 #if (defined(__FreeBSD__) || defined(__OpenBSD__) || defined(__DragonFly__))
 #include <pthread.h>
 #include <pthread_np.h>
@@ -35,6 +37,7 @@ void RenameThread(const std::string& name)
     // Prevent warnings for unused parameters...
     (void)name;
 #endif
+    ThreadSetInternalName(name);
 }
 
 void TraceThread(std::string name,  std::function<void()> func)
