@@ -6,7 +6,7 @@
 
 #include <addrdb.h>
 #include <amount.h>
-#include <chain.h>
+#include <blockindex.h>
 #include <chainparams.h>
 #include <dynamicparams.h>
 #include <init.h>

@@ -16,6 +16,7 @@
 #include <txdb.h>
 #include <txmempool.h>
 #include <consensus/consensus.h>
+#include <xfieldhistory.h>
 
 #include <memory>
 

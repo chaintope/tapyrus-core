@@ -9,6 +9,7 @@
 #include <trace.h>
 #include <blockprune.h>
 #include <validation.h>
+#include <xfieldhistory.h>
 #include <file_io.h>
 #include <deque>
 #include <stdexcept>

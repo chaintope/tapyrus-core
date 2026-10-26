@@ -18,7 +18,6 @@
 #include <validation.h>
 #include <policy/policy.h>
 #include <script/script.h>
-#include <script/sign.h>
 #include <script/script_error.h>
 #include <script/standard.h>
 #include <utilstrencodings.h>

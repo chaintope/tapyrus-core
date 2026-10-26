@@ -9,7 +9,7 @@
 #include <amount.h>
 #include <consensus/merkle.h>
 #include <key_io.h>
-#include <primitives/xfield.h>
+#include <primitives/xfieldvalues.h>
 #include <script/script.h>
 #include <script/standard.h>
 #include <tinyformat.h>

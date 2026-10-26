@@ -18,6 +18,9 @@
 #include <rpc/rpctable.h>
 #include <script/script.h>
 #include <script/sign.h>
+#include <script/signingprovider.h>
+#include <script/signaturecreator.h>
+#include <script/signaturedata.h>
 #include <script/standard.h>
 #include <uint256.h>
 #include <utilstrencodings.h>

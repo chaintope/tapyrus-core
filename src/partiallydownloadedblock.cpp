@@ -11,6 +11,7 @@
 #include <txmempool.h>
 #include <validation.h>
 #include <util.h>
+#include <xfieldhistory.h>
 
 #include <unordered_map>
 

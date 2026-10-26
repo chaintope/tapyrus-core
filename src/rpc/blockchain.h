@@ -9,7 +9,7 @@
 #include <vector>
 #include <stdint.h>
 #include <amount.h>
-#include <primitives/xfield.h>
+#include <primitives/xfieldvalues.h>
 
 class CBlock;
 class CBlockIndex;

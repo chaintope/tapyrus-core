@@ -6,7 +6,7 @@
 
 #include <dynamicparams.h>
 
-#include <primitives/xfield.h>
+#include <primitives/xfieldvalues.h>
 #include <pubkey.h>
 #include <streams.h>
 #include <tinyformat.h>

@@ -10,7 +10,8 @@
 #include <tapyrus-config.h>
 
 #include <amount.h>
-#include <coins.h>
+#include <coinsview.h>
+#include <coinsviewcache.h>
 #include <fs.h>
 #include <policy/feerate.h>
 #include <script/script_error.h>
@@ -18,7 +19,9 @@
 #include <chainparams.h>
 #include <coloridentifier.h>
 #include <chain.h>
-#include <xfieldhistory.h>
+#include <blockindex.h>
+#include <diskblockpos.h>
+#include <xfieldhistorymap.h>
 #include <txmempool.h>
 #include <chainstate.h>
 

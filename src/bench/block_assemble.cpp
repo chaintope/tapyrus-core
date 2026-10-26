@@ -5,7 +5,7 @@
 
 #include <bench/bench.h>
 #include <chainparams.h>
-#include <coins.h>
+#include <coinsviewcache.h>
 #include <consensus/merkle.h>
 #include <consensus/validation.h>
 #include <dynamicparams.h>
@@ -21,6 +21,8 @@
 #include <key_io.h>
 #include <keystore.h>
 #include <script/sign.h>
+#include <script/signaturecreator.h>
+#include <script/signaturedata.h>
 #include <script/sigcache.h>
 #include <xfieldhistory.h>
 

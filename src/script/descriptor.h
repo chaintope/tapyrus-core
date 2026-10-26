@@ -6,7 +6,7 @@
 #define BITCOIN_SCRIPT_DESCRIPTOR_H
 
 #include <script/script.h>
-#include <script/sign.h>
+#include <script/signingprovider.h>
 
 #include <vector>
 
