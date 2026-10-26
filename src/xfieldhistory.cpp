@@ -7,6 +7,7 @@
 #include <xfieldhistory.h>
 #include <xfieldhistorymap.h>
 #include <univalue.h>
+#include <mutex>
 #include <shared_mutex>
 
 CXFieldHistoryMap::CXFieldHistoryMap(const CXFieldHistoryMap& other) {
