@@ -2575,7 +2575,7 @@ BOOST_AUTO_TEST_CASE(colored_coin_opcolor_validity)
     //      OP_COLOR:                color already set → SCRIPT_ERR_OP_COLORMULTIPLE
     //
     //    The COLORMULTIPLE check fires before the c1 colorId is ever evaluated.
-    //    More importantly, CheckColorIdentifierValidity rejects any output locked
+    //    More importantly, CheckOutputColorIds rejects any output locked
     //    by this scriptPubKey with "bad-txns-mischievous-opcolor" — so this UTXO
     //    can never be created on-chain in the first place.
     // ==========================================================
@@ -2605,7 +2605,7 @@ BOOST_AUTO_TEST_CASE(colored_coin_opcolor_validity)
         //   OP_1:                    [1] → success
         //
         //   GetColorIdFromScript=NONE (not CP2PKH/CP2SH). The script passes raw
-        //   execution but CheckColorIdentifierValidity rejects any output locked by
+        //   execution but CheckOutputColorIds rejects any output locked by
         //   this script with "bad-txns-nonstandard-opcolor".
         CScript swapValidCids;
         swapValidCids << reissuableCid.toVector() << OP_SWAP << OP_COLOR << OP_DROP << OP_1;
@@ -2724,7 +2724,7 @@ BOOST_AUTO_TEST_CASE(colored_coin_opcolor_validity)
         //     c3(NFT) colorId is embedded but only serves as the truthy final value.
         //
         //     GetColorIdFromScript → NONE (not CP2PKH, not CP2SH).
-        //     CheckColorIdentifierValidity rejects any output locked by this script
+        //     CheckOutputColorIds rejects any output locked by this script
         //     with "bad-txns-nonstandard-opcolor".
         CScript altDecoyNFT;
         altDecoyNFT << reissuableCid.toVector() << nftCid.toVector()
@@ -2781,7 +2781,7 @@ BOOST_AUTO_TEST_CASE(colored_coin_opcolor_validity)
         //       OP_1             → [1] → success
         //
         //     GetColorIdFromScript → NONE (not CP2PKH, not CP2SH).
-        //     CheckColorIdentifierValidity rejects with "bad-txns-nonstandard-opcolor".
+        //     CheckOutputColorIds rejects with "bad-txns-nonstandard-opcolor".
         //     Script execution (tested here) still succeeds; rejection is at the
         //     transaction validation layer, not the interpreter.
         CScript dropDecoyNFT;
@@ -2804,7 +2804,7 @@ BOOST_AUTO_TEST_CASE(colored_coin_opcolor_validity)
         //       OP_1            → [1] → success
         //
         //     The decoy_c2 does NOT grant thin-air NON_REISSUABLE issuance:
-        //     CheckColorIdentifierValidity requires a matching TPC input for each
+        //     CheckOutputColorIds requires a matching TPC input for each
         //     colored output, so decoy_c2 outputs would be rejected independently.
         //
         //     GetColorIdFromScript → NONE (not CP2PKH, not CP2SH).

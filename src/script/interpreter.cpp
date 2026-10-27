@@ -1156,9 +1156,6 @@ bool EvalScript(std::vector<std::vector<unsigned char> >& stack, const CScript& 
                         if (memcmp(colorId->payload, zero32, CSHA256::OUTPUT_SIZE) == 0)
                             return set_error(serror, SCRIPT_ERR_OP_COLORID_INVALID);
 
-                        if (!checker.CheckColorIdentifier(*colorId))
-                            return set_error(serror, SCRIPT_ERR_OP_COLORID_MISMATCH);
-
                         popstack(stack);
                     }
                     else

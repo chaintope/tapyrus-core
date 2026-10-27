@@ -337,7 +337,6 @@ add_library(tapyrus_chainstate STATIC EXCLUDE_FROM_ALL
   policy/policy.cpp
   policy/rbf.cpp
   precomputedcolordata.cpp
-  script/coloredsignaturechecker.cpp
   script/sigcache.cpp
   transactioncolorchecker.cpp
   txdb.cpp

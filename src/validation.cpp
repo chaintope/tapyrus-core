@@ -25,7 +25,6 @@
 #include <primitives/block.h>
 #include <primitives/transaction.h>
 #include <script/script.h>
-#include <script/coloredsignaturechecker.h>
 #include <script/sigcache.h>
 #include <shutdown.h>
 #include <tinyformat.h>
@@ -335,7 +334,7 @@ static bool IsCurrentForFeeEstimation()
 // Used to avoid mempool polluting consensus critical paths if CCoinsViewMempool
 // were somehow broken and returning the wrong scriptPubKeys
 static bool CheckInputsFromMempoolAndCache(ValidationContext context, const CTransaction& tx, CValidationState& state, const CCoinsViewCache& view, const CTxMemPool& pool,
-                 unsigned int flags, bool cacheSigStore, const PrecomputedColorData& colorData) {
+                 unsigned int flags, bool cacheSigStore) {
     AssertLockHeld(cs_main);
 
     // pool.cs should be locked already, but go ahead and re-take the lock here
@@ -365,7 +364,7 @@ static bool CheckInputsFromMempoolAndCache(ValidationContext context, const CTra
         }
     }
 
-    return CheckInputs(tx, state, view, true, flags, cacheSigStore, true, nullptr, 0, &colorData);
+    return CheckInputs(tx, state, view, true, flags, cacheSigStore, true);
 }
 
 static bool CheckConflictsInMempool(const CTransaction& tx, std::set<uint256>& setConflicts, CValidationState& state)
@@ -433,25 +432,6 @@ static bool DoAllInputsExist(const CTransaction& tx, CValidationState& state, CT
             return false; // fMissingInputs and !state.IsInvalid() is used to detect this condition, don't set state.Invalid()
         }
     }
-    return true;
-}
-
-bool CheckColorIdentifierValidity(const CTransaction& tx, CValidationState& state, CCoinsViewCache &inputs, int32_t blockHeight)
-{
-    PrecomputedColorData colorData(tx, inputs, blockHeight);
-    if (g_colorid_state)
-        colorData.SetIssued(*g_colorid_state);
-    return TransactionColorChecker(colorData).CheckOutputColorIds(state);
-}
-
-bool VerifyTokenBalances(const CTransaction& tx, CValidationState& state, const CCoinsViewCache& inputs, CAmount minrelayFee, std::set<ColorIdentifier>* newIssuances, int32_t blockHeight)
-{
-    PrecomputedColorData colorData(tx, inputs, blockHeight);
-    TransactionColorChecker checker(colorData);
-    if (!checker.CheckTokenBalances(state, minrelayFee))
-        return false;
-    if (newIssuances)
-        checker.GetNewIssuances(*newIssuances);
     return true;
 }
 
@@ -770,13 +750,13 @@ static bool AcceptToMemoryPoolWorker(const CTransactionRef &ptx, CTxMempoolAccep
         // Pass tipScriptFlags as mandatoryFlags so that softfork flags active at
         // nextBlockHeight are treated as mandatory even when they also appear in
         // STANDARD_SCRIPT_VERIFY_FLAGS (e.g. SCRIPT_VERIFY_CP2SH_COLORED).
-        if (!CheckInputs(tx, state, view, true, mempoolScriptFlags, true, false, nullptr, tipScriptFlags, &colorData)) {
+        if (!CheckInputs(tx, state, view, true, mempoolScriptFlags, true, false, nullptr, tipScriptFlags)) {
             return false; // state filled in by CheckInputs
         }
 
         // Cache script execution results using the same next-block flags so the
         // cache entries are valid when ConnectBlock runs at height nextBlockHeight.
-        if (!CheckInputsFromMempoolAndCache(opt.context, tx, opt.state, view, pool, tipScriptFlags, true, colorData)) {
+        if (!CheckInputsFromMempoolAndCache(opt.context, tx, opt.state, view, pool, tipScriptFlags, true)) {
             return error("%s: BUG! PLEASE REPORT THIS! CheckInputs failed against latest-block but not STANDARD flags %s, %s",
                     __func__, hash.ToString(), FormatStateMessage(state));
         }
@@ -966,7 +946,7 @@ std::optional<ScriptError> CScriptCheck::operator()() {
     const CScript &scriptSig = ptxTo->vin[nIn].scriptSig;
     ScriptError error{SCRIPT_ERR_UNKNOWN_ERROR};
     if (VerifyScript(scriptSig, m_tx_out.scriptPubKey, nFlags,
-                     ColoredSignatureChecker(ptxTo, nIn, m_tx_out.nValue, cacheStore, m_spent_color_id),
+                     CachingTransactionSignatureChecker(ptxTo, nIn, m_tx_out.nValue, cacheStore),
                      &error))
         return std::nullopt;
     return error;
@@ -991,7 +971,7 @@ void InitScriptExecutionCache() {
             (nElems*sizeof(uint256)) >>20, (nMaxCacheSize*2)>>20, nElems);
 }
 
-bool CheckInputs(const CTransaction& tx, CValidationState &state, const CCoinsViewCache &inputs, bool fScriptChecks, unsigned int flags, bool cacheSigStore, bool cacheFullScriptStore, std::vector<CScriptCheck> *pvChecks, unsigned int mandatoryFlags, const PrecomputedColorData* colorData)
+bool CheckInputs(const CTransaction& tx, CValidationState &state, const CCoinsViewCache &inputs, bool fScriptChecks, unsigned int flags, bool cacheSigStore, bool cacheFullScriptStore, std::vector<CScriptCheck> *pvChecks, unsigned int mandatoryFlags)
 {
     if (!tx.IsCoinBase())
     {
@@ -1035,8 +1015,7 @@ bool CheckInputs(const CTransaction& tx, CValidationState &state, const CCoinsVi
                 // spent being checked as a part of CScriptCheck.
 
                 // Verify signature
-                const ColorIdentifier spentColorId = colorData ? colorData->Inputs().at(i).colorId : ColorIdentifier();
-                CScriptCheck check(coin.out, tx, i, flags, cacheSigStore, spentColorId);
+                CScriptCheck check(coin.out, tx, i, flags, cacheSigStore);
                 if (pvChecks) {
                     pvChecks->emplace_back(std::move(check));
                 } else if (const auto err = check()) {
@@ -1052,7 +1031,7 @@ bool CheckInputs(const CTransaction& tx, CValidationState &state, const CCoinsVi
                         // → mempool rejects as non-standard without DoS.
                         // If check2 also fails, fall through to DoS.
                         CScriptCheck check2(coin.out, tx, i,
-                                flags & ~nonMandatory, cacheSigStore, spentColorId);
+                                flags & ~nonMandatory, cacheSigStore);
                         if (!check2().has_value()) {
                             LogPrint(BCLog::MEMPOOLREJ, "%s: tx %s input %u flags=0x%08x non-mandatory script failure: %s\n",
                                 __func__, tx.GetHashMalFix().ToString(), i, flags, ScriptErrorString(*err));

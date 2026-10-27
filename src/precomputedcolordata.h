@@ -8,7 +8,6 @@
 #include <amount.h>
 #include <coloridentifier.h>
 #include <cs_main.h>
-#include <primitives/outpoint.h>
 #include <sync.h>
 
 #include <cstddef>
@@ -28,16 +27,16 @@ class PrecomputedColorData
 {
 public:
     struct Input {
-        COutPoint prevout;
-        CAmount value{0};
         //! NONE for TPC and for an OP_COLOR script that is not CP2PKH or CP2SH
         ColorIdentifier colorId;
         //! OP_COLOR script that is not CP2PKH or CP2SH
         bool nonstandardColored{false};
         bool spent{false};
-        //! Reissuable colorid this TPC input can issue: the hash of its script
+        //! Reissuable colorid this TPC input can issue: the hash of its script.
+        //! Set only when an output is reissuable.
         ColorIdentifier scriptColorId;
-        //! Payload of the non-reissuable or NFT colorid this TPC input can issue: the hash of its outpoint
+        //! Payload of the non-reissuable or NFT colorid this TPC input can issue: the hash of its outpoint.
+        //! Set only when an output is non-reissuable or NFT.
         ColorIdentifier outpointColorId;
     };
 
@@ -50,7 +49,7 @@ public:
         bool issued{false};
     };
 
-    PrecomputedColorData(const CTransaction& tx, const CCoinsViewCache& inputs, int32_t blockHeight);
+    PrecomputedColorData(const CTransaction& tx, const CCoinsViewCache& inputs, int32_t blockHeight) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 
     /** Mark the outputs whose non-reissuable or NFT colorid is already issued. */
     void SetIssued(const CIssuedColorIds& issued) EXCLUSIVE_LOCKS_REQUIRED(cs_main);

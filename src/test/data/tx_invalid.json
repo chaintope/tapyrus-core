@@ -649,7 +649,7 @@
   ["Colored coin spends (OP_COLOR): invalid CP2PKH / CP2SH(P2PKH) variants"],
   ["Note: these only exercise script-level (VerifyScript) rejections. The"],
   ["consensus-level 'OP_COLOR must be exactly CP2PKH or CP2SH, else"],
-  ["bad-txns-nonstandard-opcolor' rule (CheckColorIdentifierValidity) is not"],
+  ["bad-txns-nonstandard-opcolor' rule (CheckOutputColorIds) is not"],
   ["reachable from this harness -- it is covered in txvalidation_tests.cpp."],
 
   ["CP2PKH invalid: signature from the wrong key (correct pubkey pushed)"],
@@ -674,7 +674,7 @@
 
   ["The following two scripts are proven ACCEPTED by the raw interpreter in"],
   ["script_risky_combinations_tests.cpp (risk_opcolor_stack_manipulation and"],
-  ["risk_opcolor_with_timelock) and rejected only by CheckColorIdentifierValidity"],
+  ["risk_opcolor_with_timelock) and rejected only by CheckOutputColorIds"],
   ["(consensus layer, see txvalidation_tests.cpp) -- a check this VerifyScript-only"],
   ["harness cannot reach. To still exercise these exact script shapes here, the"],
   ["signature is deliberately wrong, so the failure below is EVAL_FALSE (a"],

@@ -59,7 +59,7 @@ In addition, in the case of type `0xC3`, we must verify that the amount issued i
 For type `0xC1`, the payload is computed as `SHA256(scriptPubKey of the designated input)`. Because the payload depends only on the scriptPubKey and not on the outpoint, any TPC UTXO whose scriptPubKey produces the same hash may be used to issue additional tokens of the same color in a future transaction.
 For types `0xC2` and `0xC3`, the payload is computed as `SHA256(serialized COutPoint of the designated input)`. Because each outpoint is consumed exactly once, the resulting color identifier is globally unique and cannot be reproduced in any subsequent transaction.
 
-On issuance, the following checks are applied by `CheckColorIdentifierValidity`:
+On issuance, the following checks are applied by `TransactionColorChecker::CheckOutputColorIds`:
 
 * For each colored output, a TPC input is located and the expected color identifier is derived from it. If the output type is `0xC1`, the expected identifier is recomputed as `SHA256(scriptPubKey of that input)`. If the type is `0xC2` or `0xC3`, the expected identifier is recomputed as `SHA256(serialized COutPoint of that input)`. A mismatch causes the transaction to be rejected.
 * Token outputs with `nValue ≤ 0` are rejected.

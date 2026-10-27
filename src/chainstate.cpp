@@ -663,7 +663,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         {
             std::vector<CScriptCheck> vChecks;
             bool fCacheResults = fJustCheck; /* Don't cache results if we're actually connecting blocks (still consult the cache, though) */
-            if (!CheckInputs(tx, state, view, fScriptChecks, GetBlockScriptFlags(pindex), fCacheResults, fCacheResults, nScriptCheckThreads ? &vChecks : nullptr, GetBlockScriptFlags(pindex), &colorData))
+            if (!CheckInputs(tx, state, view, fScriptChecks, GetBlockScriptFlags(pindex), fCacheResults, fCacheResults, nScriptCheckThreads ? &vChecks : nullptr, GetBlockScriptFlags(pindex)))
                 // FormatStateMessage is evaluated before DoS() re-sets state, preserving
                 // the per-input detail in the log.  state.GetRejectReason() already holds
                 // the specific error string set by CheckInputs, so it is propagated as-is.

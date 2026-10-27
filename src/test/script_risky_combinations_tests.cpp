@@ -8,7 +8,7 @@
 //  1. Zero-of-N CHECKMULTISIG is a trivial anyone-can-spend pass.
 //  2. OP_COLOR accepts a color id assembled by prior stack manipulation,
 //     not just an immediate push -- closed off only at the consensus layer
-//     (CheckColorIdentifierValidity), not by the interpreter itself.
+//     (CheckOutputColorIds), not by the interpreter itself.
 //  3. OP_CHECKDATASIG(VERIFY) has no built-in binding to the spending
 //     transaction, so a (signature, message) pair replays across unrelated
 //     transactions -- unlike OP_CHECKSIG.
@@ -160,7 +160,7 @@ BOOST_AUTO_TEST_CASE(risk_checkmultisig_zero_of_n)
 
 // ---------------------------------------------------------------------------
 // Risk 2: OP_COLOR accepts a color id assembled by prior stack manipulation.
-// Closed off only by CheckColorIdentifierValidity (consensus layer), not by
+// Closed off only by CheckOutputColorIds (consensus layer), not by
 // the interpreter -- so we show the interpreter alone says OK, while the
 // standardness/consensus template matcher (IsColoredPayToPubkeyHash) would
 // have refused to recognize the script as colored at all.
@@ -386,7 +386,7 @@ BOOST_AUTO_TEST_CASE(risk_mixed_signature_schemes)
 // Risk 5: OP_CHECKLOCKTIMEVERIFY can be combined directly with OP_COLOR in a
 // single scriptPubKey at the interpreter level, even though the design
 // intends time-locked colored coins to live only inside a CP2SH redeem
-// script (CheckColorIdentifierValidity enforces that at the consensus
+// script (CheckOutputColorIds enforces that at the consensus
 // layer; the interpreter itself has no opinion).
 // ---------------------------------------------------------------------------
 BOOST_AUTO_TEST_CASE(risk_opcolor_with_timelock)
@@ -423,7 +423,7 @@ BOOST_AUTO_TEST_CASE(risk_opcolor_with_timelock)
         BOOST_CHECK(resultColorId == colorId);
 
         // The consensus-layer template matcher does not recognize this shape
-        // as colored at all -- CheckColorIdentifierValidity, not the
+        // as colored at all -- CheckOutputColorIds, not the
         // interpreter, is what actually keeps this pattern out of real blocks.
         std::vector<unsigned char> hashOut, cidOut;
         BOOST_CHECK(!scriptPubKey.IsColoredPayToPubkeyHash(hashOut, cidOut));

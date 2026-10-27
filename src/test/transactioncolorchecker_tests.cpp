@@ -13,10 +13,9 @@
 #include <issuedcolorids.h>
 #include <precomputedcolordata.h>
 #include <primitives/transaction.h>
-#include <script/coloredsignaturechecker.h>
 #include <script/interpreter.h>
-#include <script/script_error.h>
 #include <script/script.h>
+#include <script/standard.h>
 #include <softforkmanager.h>
 #include <test/test_tapyrus.h>
 #include <transactioncolorchecker.h>
@@ -412,26 +411,47 @@ BOOST_AUTO_TEST_CASE(checker_matches_legacy_functions)
     BOOST_CHECK_LT(balanceChecksPassed, iterations);
 }
 
-// OP_COLOR's colorid must equal the spent coin's precomputed colorid; a coin
-// without one, such as a non-standard OP_COLOR coin, is not compared.
-BOOST_AUTO_TEST_CASE(colored_signature_checker_compares_spent_colorid)
+// A TPC input's issuable colorids are hashed only when an output carries a
+// colorid of that kind, so an ordinary TPC transfer hashes nothing.
+BOOST_AUTO_TEST_CASE(precomputed_issuable_colorids_only_when_needed)
 {
-    const ColorIdentifier spent(COutPoint(InsecureRand256(), 0), TokenTypes::NON_REISSUABLE);
-    const ColorIdentifier other(COutPoint(InsecureRand256(), 1), TokenTypes::NON_REISSUABLE);
-    const CTransaction tx{CMutableTransaction()};
+    const CScript tpc = GetScriptForDestination(CKeyID(uint160(ParseHex("1a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d"))));
+    const COutPoint prevout(InsecureRand256(), 0);
+    CCoinsView base;
+    CCoinsViewCache view(&base);
+    Coin coin;
+    coin.out.nValue = CAmount{1000};
+    coin.nHeight = 1;
+    coin.out.scriptPubKey = tpc;
+    view.AddCoin(prevout, std::move(coin), false);
 
-    auto eval = [&](const ColorIdentifier& scriptColorId, const ColorIdentifier& spentColorId, ScriptError& err) {
-        std::vector<std::vector<unsigned char>> stack;
-        ColorIdentifier read;
-        const CScript script = CScript() << scriptColorId.toVector() << OP_COLOR << OP_TRUE;
-        return EvalScript(stack, script, SCRIPT_VERIFY_NONE, ColoredSignatureChecker(&tx, 0, CAmount{0}, false, spentColorId), &read, &err);
+    const ColorIdentifier reissuable(tpc);
+    const ColorIdentifier nonReissuable(prevout, TokenTypes::NON_REISSUABLE);
+    auto build = [&](const std::vector<CScript>& outputs) {
+        CMutableTransaction mtx;
+        mtx.vin.emplace_back(prevout);
+        for (const CScript& script : outputs)
+            mtx.vout.emplace_back(CAmount{100}, script);
+        return CTransaction(mtx);
     };
+    const CScript reissuableOut = GetScriptForDestination(CColorKeyID(CKeyID(), reissuable));
+    const CScript nonReissuableOut = GetScriptForDestination(CColorKeyID(CKeyID(), nonReissuable));
 
-    ScriptError err;
-    BOOST_CHECK(eval(spent, spent, err));
-    BOOST_CHECK(!eval(other, spent, err));
-    BOOST_CHECK_EQUAL(err, SCRIPT_ERR_OP_COLORID_MISMATCH);
-    BOOST_CHECK(eval(other, ColorIdentifier(), err));
+    LOCK(cs_main);
+    const CTransaction plain = build({tpc});
+    const PrecomputedColorData plainData(plain, view, int32_t{0});
+    BOOST_CHECK(plainData.Inputs()[0].scriptColorId == ColorIdentifier());
+    BOOST_CHECK(plainData.Inputs()[0].outpointColorId == ColorIdentifier());
+
+    const CTransaction reissue = build({reissuableOut});
+    const PrecomputedColorData reissueData(reissue, view, int32_t{0});
+    BOOST_CHECK(reissueData.Inputs()[0].scriptColorId == reissuable);
+    BOOST_CHECK(reissueData.Inputs()[0].outpointColorId == ColorIdentifier());
+
+    const CTransaction issue = build({nonReissuableOut});
+    const PrecomputedColorData issueData(issue, view, int32_t{0});
+    BOOST_CHECK(issueData.Inputs()[0].scriptColorId == ColorIdentifier());
+    BOOST_CHECK(issueData.Inputs()[0].outpointColorId == nonReissuable);
 }
 
 BOOST_AUTO_TEST_SUITE_END()

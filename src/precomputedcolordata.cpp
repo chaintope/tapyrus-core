@@ -14,42 +14,51 @@ PrecomputedColorData::PrecomputedColorData(const CTransaction& tx, const CCoinsV
     : m_coinbase(tx.IsCoinBase()),
       m_cp2sh_colored_active(GetSoftForkManager().IsActive(SCRIPT_VERIFY_CP2SH_COLORED, blockHeight))
 {
-    m_inputs.reserve(tx.vin.size());
-    for (const CTxIn& txin : tx.vin) {
-        const Coin& coin = inputs.AccessCoin(txin.prevout);
-        Input in;
-        in.prevout = txin.prevout;
-        in.value = coin.out.nValue;
-        in.colorId = GetColorIdFromScript(coin.out.scriptPubKey);
-        in.nonstandardColored = in.colorId.type == TokenTypes::NONE && coin.out.scriptPubKey.IsColoredScript();
-        in.spent = coin.IsSpent();
-        // Hash once per input instead of once per (output, input) pair.
-        if (in.colorId.type == TokenTypes::NONE) {
-            in.outpointColorId = ColorIdentifier(txin.prevout, TokenTypes::NON_REISSUABLE);
-            if (!in.nonstandardColored)
-                in.scriptColorId = ColorIdentifier(coin.out.scriptPubKey);
-        }
-        // A reissuable token has no supply cap, so bound each value and the
-        // running sum per colorid to keep the sum from overflowing.
-        if (!m_first_out_of_range_input) {
-            CAmount& sum = m_input_balances[in.colorId];
-            if (MoneyRange(in.value) && MoneyRange(sum + in.value))
-                sum += in.value;
-            else
-                m_first_out_of_range_input = m_inputs.size();
-        }
-        m_inputs.push_back(std::move(in));
-    }
-
+    // Outputs first, so the inputs hash only the colorids some output can issue.
+    bool needScriptColorId{false};
+    bool needOutpointColorId{false};
     m_outputs.reserve(tx.vout.size());
     for (const CTxOut& txout : tx.vout) {
         Output out;
         out.value = txout.nValue;
         out.colorId = GetColorIdFromScript(txout.scriptPubKey);
         out.colored = txout.scriptPubKey.IsColoredScript();
+        if (out.colorId.type == TokenTypes::REISSUABLE)
+            needScriptColorId = true;
+        else if (out.colorId.type != TokenTypes::NONE)
+            needOutpointColorId = true;
         m_output_balances[out.colorId] += out.value;
         m_outputs.push_back(std::move(out));
     }
+
+    m_inputs.reserve(tx.vin.size());
+    for (const CTxIn& txin : tx.vin) {
+        const Coin& coin = inputs.AccessCoin(txin.prevout);
+        Input in;
+        in.colorId = GetColorIdFromScript(coin.out.scriptPubKey);
+        in.nonstandardColored = in.colorId.type == TokenTypes::NONE && coin.out.scriptPubKey.IsColoredScript();
+        in.spent = coin.IsSpent();
+        // Hash once per input instead of once per (output, input) pair, and
+        // only when an output carries a colorid of that kind.
+        if (in.colorId.type == TokenTypes::NONE) {
+            if (needOutpointColorId)
+                in.outpointColorId = ColorIdentifier(txin.prevout, TokenTypes::NON_REISSUABLE);
+            if (needScriptColorId && !in.nonstandardColored)
+                in.scriptColorId = ColorIdentifier(coin.out.scriptPubKey);
+        }
+        // A reissuable token has no supply cap, so bound each value and the
+        // running sum per colorid to keep the sum from overflowing.
+        if (!m_first_out_of_range_input) {
+            CAmount& sum = m_input_balances[in.colorId];
+            const CAmount value{coin.out.nValue};
+            if (MoneyRange(value) && MoneyRange(sum + value))
+                sum += value;
+            else
+                m_first_out_of_range_input = m_inputs.size();
+        }
+        m_inputs.push_back(std::move(in));
+    }
+
 }
 
 void PrecomputedColorData::SetIssued(const CIssuedColorIds& issued)

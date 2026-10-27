@@ -56,7 +56,7 @@ built:
 - **There is no real transaction, UTXO set or block height.** Every rule
   enforced at transaction level in `validation.cpp` is structurally out
   of reach. In particular, script-level acceptance says nothing about:
-  - `CheckColorIdentifierValidity()`: colored scriptPubKeys that are not
+  - `TransactionColorChecker::CheckOutputColorIds()`: colored scriptPubKeys that are not
     exactly CP2PKH or CP2SH, on outputs or spent coins, once
     `CP2SH_COLORED` is active (`bad-txns-nonstandard-opcolor`); token
     output values of zero or less (`bad-txns-token-value`); colored
@@ -65,7 +65,7 @@ built:
     (`bad-txns-nft-amount`); more than one output per NFT colorId
     (`bad-txns-nft-output-count`); and re-issuing a non-reissuable or NFT
     colorId (`bad-txns-colorid-already-issued`).
-  - `VerifyTokenBalances()`: token outputs exceeding token inputs per
+  - `TransactionColorChecker::CheckTokenBalances()`: token outputs exceeding token inputs per
     colorId (`bad-txns-token-balance`) and the TPC fee requirements for
     token transactions (`bad-txns-token-without-fee`,
     `bad-txns-token-insufficient`).
@@ -80,5 +80,5 @@ candidates pass `VerifyScript()`, including ones that place `OP_COLOR`
 where no CP2PKH or CP2SH template allows it, yet a transaction paying to
 them would be rejected with `bad-txns-nonstandard-opcolor` once
 `CP2SH_COLORED` is active. When a colored candidate looks suspiciously
-permissive, `CheckColorIdentifierValidity()` and `VerifyTokenBalances()`
-in `validation.cpp` are where to look next.
+permissive, `CheckOutputColorIds()` and `CheckTokenBalances()` in
+`TransactionColorChecker` are where to look next.

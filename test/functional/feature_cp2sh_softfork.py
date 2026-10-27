@@ -108,7 +108,7 @@ class CP2SHSoftforkTest(BitcoinTestFramework):
         """
         Build a spending transaction for a CP2SH colored UTXO.
 
-        Includes a TPC fee input (tpc_utxo) — VerifyTokenBalances requires
+        Includes a TPC fee input (tpc_utxo) — CheckTokenBalances requires
         tpcin > 0 for any transaction that moves colored coins.
 
         scriptSig for the colored input = push(redeemScript bytes only):

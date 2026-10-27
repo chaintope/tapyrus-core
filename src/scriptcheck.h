@@ -5,7 +5,6 @@
 #ifndef TAPYRUS_SCRIPTCHECK_H
 #define TAPYRUS_SCRIPTCHECK_H
 
-#include <coloridentifier.h>
 #include <primitives/transaction.h>
 
 #include <optional>
@@ -23,13 +22,11 @@ private:
     unsigned int nIn;
     unsigned int nFlags;
     bool cacheStore;
-    //! Precomputed colorid of the spent coin; NONE skips the OP_COLOR comparison
-    ColorIdentifier m_spent_color_id;
 
 public:
     CScriptCheck(): ptxTo(nullptr), nIn(0), nFlags(0), cacheStore(false) {}
-    CScriptCheck(const CTxOut& outIn, const CTransaction& txToIn, unsigned int nInIn, unsigned int nFlagsIn, bool cacheIn, const ColorIdentifier& spentColorId = ColorIdentifier()) :
-        m_tx_out(outIn), ptxTo(&txToIn), nIn(nInIn), nFlags(nFlagsIn), cacheStore(cacheIn), m_spent_color_id(spentColorId) { }
+    CScriptCheck(const CTxOut& outIn, const CTransaction& txToIn, unsigned int nInIn, unsigned int nFlagsIn, bool cacheIn) :
+        m_tx_out(outIn), ptxTo(&txToIn), nIn(nInIn), nFlags(nFlagsIn), cacheStore(cacheIn) { }
 
     // Returns nullopt on success, or the ScriptError on failure.
     std::optional<ScriptError> operator()();

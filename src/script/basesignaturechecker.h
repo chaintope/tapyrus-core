@@ -12,7 +12,6 @@
 class CPubKey;
 class CScript;
 class CScriptNum;
-struct ColorIdentifier;
 class uint256;
 
 class BaseSignatureChecker
@@ -36,12 +35,6 @@ public:
     virtual bool CheckSequence(const CScriptNum& nSequence) const
     {
          return false;
-    }
-
-    /** The colorid OP_COLOR read matches the spent coin's; accepted unless a checker knows the coin. */
-    virtual bool CheckColorIdentifier(const ColorIdentifier& colorId) const
-    {
-        return true;
     }
 
     virtual ~BaseSignatureChecker() {}
