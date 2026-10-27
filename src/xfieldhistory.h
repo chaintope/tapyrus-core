@@ -16,38 +16,32 @@
 class UniValue;
 
 /*
- * class CXFieldHistory is an interface to access the global map of xfield changes
- * in the active chain which is guaranteed to be initialized.
- * this defines ots own constructor and other utility methods that act on the data in CXFieldHistoryMap
+ * class CXFieldHistory holds the xfield changes of the active chain.
+ * The node's instance is owned by ChainstateManager; tapyrus-genesis creates its own.
  */
 class CXFieldHistory : public CXFieldHistoryMap{
 
 public:
-    CXFieldHistory():CXFieldHistoryMap(false) {}
-    virtual ~CXFieldHistory(){}
+    CXFieldHistory() = default;
+    CXFieldHistory(const CXFieldHistory&) = delete;
+    CXFieldHistory& operator=(const CXFieldHistory&) = delete;
 
-    //constructor to initialize the confirmed global map
-    inline explicit CXFieldHistory(const CBlock& genesis):CXFieldHistoryMap(false) {
-        xfieldHistory.emplace(TAPYRUS_XFIELDTYPES::AGGPUBKEY, XFieldChangeListWrapper(XFieldAggPubKey::BLOCKTREE_DB_KEY));
-        xfieldHistory.emplace(TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE, XFieldChangeListWrapper(XFieldMaxBlockSize::BLOCKTREE_DB_KEY));
-
-        Add(TAPYRUS_XFIELDTYPES::AGGPUBKEY, XFieldChange(genesis.xfield.xfieldValue, 0, genesis.GetHash()));
-        Add(TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE, XFieldChange(MAX_BLOCK_SIZE, 0, genesis.GetHash()));
+    inline explicit CXFieldHistory(const CBlock& genesis) {
+        Init(genesis);
     }
 
-    XFieldHistoryMapType& getXFieldHistoryMap() const override {
-        return xfieldHistory;
-    }
+    // Adds the genesis block's entries; entries already present are kept.
+    void Init(const CBlock& genesis);
 
     void ToUniValue(TAPYRUS_XFIELDTYPES type, UniValue* xfieldChanges);
 };
 
 class IsXFieldLastInHistoryVisitor
 {
-    CXFieldHistoryMap* history;
+    const CXFieldHistoryMap* history;
     uint32_t parentHeight;
 public:
-    IsXFieldLastInHistoryVisitor(CXFieldHistoryMap* historyIn, uint32_t height)
+    IsXFieldLastInHistoryVisitor(const CXFieldHistoryMap* historyIn, uint32_t height)
         : history(historyIn), parentHeight(height) {}
 
     template <typename T>
@@ -60,17 +54,6 @@ public:
 
 };
 
-bool IsXFieldNew(const CXField& xfield, CXFieldHistoryMap* pxfieldHistory, uint32_t parentHeight);
-
-/** 
- * The maximum block size according the current xfield history */
-uint32_t GetCurrentMaxBlockSize();
-
-/** 
- * The maximum allowed number of signature check operations in a block (network rule) */
-uint32_t GetMaxBlockSigops();
-
-/** The maximum number of sigops we're willing to relay/mine in a single tx */
-uint32_t GetMaxStandardTxSigops();
+bool IsXFieldNew(const CXField& xfield, const CXFieldHistoryMap* pxfieldHistory, uint32_t parentHeight);
 
 #endif // TAPYRUS_XFIELDHISTORY_H

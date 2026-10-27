@@ -64,7 +64,7 @@ std::string FormatStateMessage(const CValidationState &state)
         state.GetRejectCode());
 }
 
-bool CheckBlockHeader(const CBlockHeader& block, CValidationState& state, CXFieldHistoryMap* pxfieldHistory, int nHeight, bool fCheckPOW)
+bool CheckBlockHeader(const CBlockHeader& block, CValidationState& state, CXFieldHistoryMap& xfieldHistory, int nHeight, bool fCheckPOW)
 {
     //check block features
     if(block.nFeatures != CBlock::TAPYRUS_BLOCK_FEATURES)
@@ -95,11 +95,7 @@ bool CheckBlockHeader(const CBlockHeader& block, CValidationState& state, CXFiel
     // avoiding spurious bad-proof failures against post-rotation headers.
     // nHeight == 0 is the genesis block and must use height 0 (returns genesis key).
     const uint32_t uHeight = (nHeight >= 0) ? static_cast<uint32_t>(nHeight) : UINT32_MAX;
-    XFieldAggPubKey aggregatePubkeyObj;
-    if(pxfieldHistory)
-        aggregatePubkeyObj = std::get<XFieldAggPubKey>(pxfieldHistory->Get(TAPYRUS_XFIELDTYPES::AGGPUBKEY, uHeight).xfieldValue);
-    else
-        aggregatePubkeyObj = std::get<XFieldAggPubKey>(CXFieldHistory().Get(TAPYRUS_XFIELDTYPES::AGGPUBKEY, uHeight).xfieldValue);
+    const XFieldAggPubKey aggregatePubkeyObj = std::get<XFieldAggPubKey>(xfieldHistory.Get(TAPYRUS_XFIELDTYPES::AGGPUBKEY, uHeight).xfieldValue);
     CPubKey aggregatePubkey(aggregatePubkeyObj.getPubKey());
 
     const uint256 blockHash = block.GetHashForSign();
@@ -111,7 +107,7 @@ bool CheckBlockHeader(const CBlockHeader& block, CValidationState& state, CXFiel
     return true;
 }
 
-bool CheckBlock(const CBlock& block, CValidationState& state, bool fCheckPOW, bool fCheckMerkleRoot, CXFieldHistoryMap* pxfieldHistory, int nHeight)
+bool CheckBlock(const CBlock& block, CValidationState& state, CXFieldHistoryMap& xfieldHistory, bool fCheckPOW, bool fCheckMerkleRoot, int nHeight)
 {
     // These are checks that are independent of context.
 
@@ -172,12 +168,7 @@ bool CheckBlock(const CBlock& block, CValidationState& state, bool fCheckPOW, bo
 
     // Size limits - use Get(height) to get the correct limit for this specific block height
     // This is important during reindex when processing blocks with different max block sizes
-    XFieldMaxBlockSize maxBlockSizeChange;
-    if(pxfieldHistory) {
-        maxBlockSizeChange = std::get<XFieldMaxBlockSize>(pxfieldHistory->Get(TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE, height).xfieldValue);
-    } else {
-        maxBlockSizeChange = std::get<XFieldMaxBlockSize>(CXFieldHistory().Get(TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE, height).xfieldValue);
-    }
+    XFieldMaxBlockSize maxBlockSizeChange = std::get<XFieldMaxBlockSize>(xfieldHistory.Get(TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE, height).xfieldValue);
 
     uint32_t serializedSize = ::GetSerializeSize(block, SER_NETWORK, PROTOCOL_VERSION);
     if (block.vtx.empty() || block.vtx.size() > maxBlockSizeChange.data || serializedSize > maxBlockSizeChange.data) {
@@ -186,7 +177,7 @@ bool CheckBlock(const CBlock& block, CValidationState& state, bool fCheckPOW, bo
 
     // Check that the header is valid (particularly PoW).  This is mostly
     // redundant with the call in AcceptBlockHeader.
-    if (!CheckBlockHeader(block, state, pxfieldHistory, height, fCheckPOW))
+    if (!CheckBlockHeader(block, state, xfieldHistory, height, fCheckPOW))
         return false;
 
     //the rest must not be coinbase
@@ -197,7 +188,8 @@ bool CheckBlock(const CBlock& block, CValidationState& state, bool fCheckPOW, bo
     // Check transactions
     for (const auto& tx : block.vtx)
     {
-        if (!CheckTransaction(*tx, state, true))
+        // Each transaction must fit in this block's own size limit, not the latest one.
+        if (!CheckTransaction(*tx, state, maxBlockSizeChange.data, true))
             return state.Invalid(false, state.GetRejectCode(), state.GetRejectReason(),
                                  strprintf("Transaction check failed (tx hash %s) %s", tx->GetHashMalFix().ToString(), state.GetDebugMessage()));
     }

@@ -17,13 +17,9 @@ const std::string TAPYRUS_GENESIS_FILENAME = "genesis.dat";
 
 /**
  * Holds the node state that only becomes known after tapyrusd starts:
- * the genesis block (read from disk, or freshly created) and the
- * CXFieldHistory seeded from it. Kept separate from CFederationParams
- * (which holds only static, always-available-without-genesis identity:
- * networkId, message-start bytes, DNS seeds, softfork registration) so
- * that genesis-block parsing/validation, which needs CXFieldHistory, can
- * live at the layer CXFieldHistory itself lives at, without that
- * requirement reaching down into CFederationParams's own layer.
+ * the genesis block (read from disk, or freshly created). Kept separate from
+ * CFederationParams, which holds only static, always-available-without-genesis
+ * identity: networkId, message-start bytes, DNS seeds, softfork registration.
  */
 class CDynamicParams
 {
@@ -31,8 +27,7 @@ public:
     const CBlock& GenesisBlock() const { return genesis; }
 
     /**
-     * Parses and validates genesisHex into a genesis block, then seeds
-     * CXFieldHistory from it.
+     * Parses and validates genesisHex into a genesis block.
      * @throws a std::runtime_error if genesisHex is not a valid genesis block.
      */
     explicit CDynamicParams(const std::string& genesisHex);

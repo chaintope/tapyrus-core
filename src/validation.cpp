@@ -7,6 +7,7 @@
 #include <validation.h>
 #include <cs_main.h>
 #include <issuedcolorids.h>
+#include <chainstatemanager.h>
 #include <checkpoints.h>
 #include <checkqueue.h>
 #include <consensus/merkle.h>
@@ -657,7 +658,7 @@ static bool AcceptToMemoryPoolWorker(const CTransactionRef &ptx, CTxMempoolAccep
     // missing inputs is a vector for package validation
     opt.missingInputs.clear();
 
-    if (!CheckTransaction(tx, state))
+    if (!CheckTransaction(tx, state, g_chainstate_manager.XFieldHistory().GetCurrentMaxBlockSize()))
         return false; // state filled in by CheckTransaction
 
     // Coinbase is only valid in a block, not as a loose transaction
@@ -1361,9 +1362,8 @@ bool ContextualCheckBlock(const CBlock& block, CValidationState& state, const CB
 // Exposed wrapper for AcceptBlockHeader
 bool ProcessNewBlockHeaders(const std::vector<CBlockHeader>& headers, CValidationState& state, const CBlockIndex** ppindex, CBlockHeader *first_invalid)
 {
-    // initialize temp xfield history with the global list
-    // temp list is used until we finish processing this headers message
-    CTempXFieldHistory tempFieldHistory;
+    // copy of the active chain's xfield history, used until we finish processing this headers message
+    CTempXFieldHistory tempFieldHistory(g_chainstate_manager.XFieldHistory());
     if (first_invalid != nullptr) first_invalid->SetNull();
     {
         LOCK(cs_main);
@@ -1392,7 +1392,7 @@ bool ProcessNewBlock(const std::shared_ptr<const CBlock> pblock, bool fForceProc
         CValidationState state;
         // Ensure that CheckBlock() passes before calling AcceptBlock, as
         // belt-and-suspenders.
-        bool ret = CheckBlock(*pblock, state);
+        bool ret = CheckBlock(*pblock, state, g_chainstate_manager.XFieldHistory());
 
         LOCK(cs_main);
 
@@ -1429,7 +1429,7 @@ bool TestBlockValidity(CValidationState& state, const CBlock& block, CBlockIndex
     // NOTE: CheckBlockHeader is called by CheckBlock
     if (!ContextualCheckBlockHeader(block, state, pindexPrev, GetAdjustedTime()))
         return error("%s: Consensus::ContextualCheckBlockHeader: %s", __func__, FormatStateMessage(state));
-    if (!CheckBlock(block, state, fCheckPOW, fCheckMerkleRoot, nullptr, pindexPrev->nHeight + 1))
+    if (!CheckBlock(block, state, g_chainstate_manager.XFieldHistory(), fCheckPOW, fCheckMerkleRoot, pindexPrev->nHeight + 1))
         return error("%s: Consensus::CheckBlock: %s", __func__, FormatStateMessage(state));
     if (!ContextualCheckBlock(block, state, pindexPrev))
         return error("%s: Consensus::ContextualCheckBlock: %s", __func__, FormatStateMessage(state));

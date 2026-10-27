@@ -12,7 +12,6 @@
 #include <tinyformat.h>
 #include <util.h>
 #include <utilstrencodings.h>
-#include <xfieldhistory.h>
 
 #include <assert.h>
 #include <fstream>
@@ -107,9 +106,6 @@ CDynamicParams::CDynamicParams(const std::string& genesisHex)
 
     if(!aggPubKeyToVerify.Verify_Schnorr(blockHash, genesis.proof))
         throw std::runtime_error("ReadGenesisBlock: Proof verification failed");
-
-    //initialize xfield history
-    CXFieldHistory history(genesis);
 }
 
 static std::unique_ptr<CDynamicParams> globalDynamicParams;
