@@ -6,17 +6,12 @@
 
 #include <pubkey.h>
 
+#include <eccverifyhandle.h>
 #include <secp256k1.h>
 #include <secp256k1_schnorr.h>
 #include <secp256k1_recovery.h>
 
 #include <stdexcept>
-
-namespace
-{
-/* Global secp256k1_context object used for verification. */
-secp256k1_context* secp256k1_context_verify = nullptr;
-} // namespace
 
 /** This function is taken from the libsecp256k1 distribution and implements
  *  DER parsing for ECDSA signatures, while supporting an arbitrary subset of
@@ -175,16 +170,16 @@ bool CPubKey::Verify_ECDSA(const uint256 &hash, const std::vector<unsigned char>
         return false;
     secp256k1_pubkey pubkey;
     secp256k1_ecdsa_signature sig;
-    if (!secp256k1_ec_pubkey_parse(secp256k1_context_verify, &pubkey, vch, size())) {
+    if (!secp256k1_ec_pubkey_parse(ECCVerifyHandle::Context(), &pubkey, vch, size())) {
         return false;
     }
-    if (!ecdsa_signature_parse_der_lax(secp256k1_context_verify, &sig, vchSig.data(), vchSig.size())) {
+    if (!ecdsa_signature_parse_der_lax(ECCVerifyHandle::Context(), &sig, vchSig.data(), vchSig.size())) {
         return false;
     }
     /* libsecp256k1's ECDSA verification requires lower-S signatures, which have
      * not historically been enforced in Bitcoin, so normalize them first. */
-    secp256k1_ecdsa_signature_normalize(secp256k1_context_verify, &sig, &sig);
-    return secp256k1_ecdsa_verify(secp256k1_context_verify, &sig, hash.begin(), &pubkey);
+    secp256k1_ecdsa_signature_normalize(ECCVerifyHandle::Context(), &sig, &sig);
+    return secp256k1_ecdsa_verify(ECCVerifyHandle::Context(), &sig, hash.begin(), &pubkey);
 }
 
 bool CPubKey::Verify_Schnorr(const uint256 &hash, const std::vector<unsigned char>& vchSig) const {
@@ -195,10 +190,10 @@ bool CPubKey::Verify_Schnorr(const uint256 &hash, const std::vector<unsigned cha
         return false;
 
     secp256k1_pubkey pubkey;
-    if (!secp256k1_ec_pubkey_parse(secp256k1_context_verify, &pubkey, &(*this)[0], size()))
+    if (!secp256k1_ec_pubkey_parse(ECCVerifyHandle::Context(), &pubkey, &(*this)[0], size()))
         return false;
 
-    return secp256k1_schnorr_verify(secp256k1_context_verify, &vchSig[0], hash.begin(), &pubkey);
+    return secp256k1_schnorr_verify(ECCVerifyHandle::Context(), &vchSig[0], hash.begin(), &pubkey);
 }
 
 bool CPubKey::RecoverCompact(const uint256 &hash, const std::vector<unsigned char>& vchSig) {
@@ -208,15 +203,15 @@ bool CPubKey::RecoverCompact(const uint256 &hash, const std::vector<unsigned cha
     bool fComp = ((vchSig[0] - 27) & 4) != 0;
     secp256k1_pubkey pubkey;
     secp256k1_ecdsa_recoverable_signature sig;
-    if (!secp256k1_ecdsa_recoverable_signature_parse_compact(secp256k1_context_verify, &sig, &vchSig[1], recid)) {
+    if (!secp256k1_ecdsa_recoverable_signature_parse_compact(ECCVerifyHandle::Context(), &sig, &vchSig[1], recid)) {
         return false;
     }
-    if (!secp256k1_ecdsa_recover(secp256k1_context_verify, &pubkey, &sig, hash.begin())) {
+    if (!secp256k1_ecdsa_recover(ECCVerifyHandle::Context(), &pubkey, &sig, hash.begin())) {
         return false;
     }
     unsigned char pub[PUBLIC_KEY_SIZE];
     size_t publen = PUBLIC_KEY_SIZE;
-    secp256k1_ec_pubkey_serialize(secp256k1_context_verify, pub, &publen, &pubkey, fComp ? SECP256K1_EC_COMPRESSED : SECP256K1_EC_UNCOMPRESSED);
+    secp256k1_ec_pubkey_serialize(ECCVerifyHandle::Context(), pub, &publen, &pubkey, fComp ? SECP256K1_EC_COMPRESSED : SECP256K1_EC_UNCOMPRESSED);
     Set(pub, pub + publen);
     return true;
 }
@@ -225,19 +220,19 @@ bool CPubKey::IsFullyValid() const {
     if (!IsValid())
         return false;
     secp256k1_pubkey pubkey;
-    return secp256k1_ec_pubkey_parse(secp256k1_context_verify, &pubkey, vch, size());
+    return secp256k1_ec_pubkey_parse(ECCVerifyHandle::Context(), &pubkey, vch, size());
 }
 
 bool CPubKey::Decompress() {
     if (!IsValid())
         return false;
     secp256k1_pubkey pubkey;
-    if (!secp256k1_ec_pubkey_parse(secp256k1_context_verify, &pubkey, vch, size())) {
+    if (!secp256k1_ec_pubkey_parse(ECCVerifyHandle::Context(), &pubkey, vch, size())) {
         return false;
     }
     unsigned char pub[PUBLIC_KEY_SIZE];
     size_t publen = PUBLIC_KEY_SIZE;
-    secp256k1_ec_pubkey_serialize(secp256k1_context_verify, pub, &publen, &pubkey, SECP256K1_EC_UNCOMPRESSED);
+    secp256k1_ec_pubkey_serialize(ECCVerifyHandle::Context(), pub, &publen, &pubkey, SECP256K1_EC_UNCOMPRESSED);
     Set(pub, pub + publen);
     return true;
 }
@@ -250,15 +245,15 @@ bool CPubKey::Derive(CPubKey& pubkeyChild, ChainCode &ccChild, unsigned int nChi
     BIP32Hash(cc, nChild, *begin(), begin()+1, out);
     memcpy(ccChild.begin(), out+32, 32);
     secp256k1_pubkey pubkey;
-    if (!secp256k1_ec_pubkey_parse(secp256k1_context_verify, &pubkey, vch, size())) {
+    if (!secp256k1_ec_pubkey_parse(ECCVerifyHandle::Context(), &pubkey, vch, size())) {
         return false;
     }
-    if (!secp256k1_ec_pubkey_tweak_add(secp256k1_context_verify, &pubkey, out)) {
+    if (!secp256k1_ec_pubkey_tweak_add(ECCVerifyHandle::Context(), &pubkey, out)) {
         return false;
     }
     unsigned char pub[COMPRESSED_PUBLIC_KEY_SIZE];
     size_t publen = COMPRESSED_PUBLIC_KEY_SIZE;
-    secp256k1_ec_pubkey_serialize(secp256k1_context_verify, pub, &publen, &pubkey, SECP256K1_EC_COMPRESSED);
+    secp256k1_ec_pubkey_serialize(ECCVerifyHandle::Context(), pub, &publen, &pubkey, SECP256K1_EC_COMPRESSED);
     pubkeyChild.Set(pub, pub + publen);
     return true;
 }
@@ -303,32 +298,10 @@ bool CExtPubKey::Derive(CExtPubKey &out, unsigned int _nChild) const {
 
 /* static */ bool CPubKey::CheckLowS(const std::vector<unsigned char>& vchSig) {
     secp256k1_ecdsa_signature sig;
-    if (!ecdsa_signature_parse_der_lax(secp256k1_context_verify, &sig, vchSig.data(), vchSig.size())) {
+    if (!ecdsa_signature_parse_der_lax(ECCVerifyHandle::Context(), &sig, vchSig.data(), vchSig.size())) {
         return false;
     }
-    return (!secp256k1_ecdsa_signature_normalize(secp256k1_context_verify, nullptr, &sig));
-}
-
-/* static */ int ECCVerifyHandle::refcount = 0;
-
-ECCVerifyHandle::ECCVerifyHandle()
-{
-    if (refcount == 0) {
-        assert(secp256k1_context_verify == nullptr);
-        secp256k1_context_verify = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY);
-        assert(secp256k1_context_verify != nullptr);
-    }
-    refcount++;
-}
-
-ECCVerifyHandle::~ECCVerifyHandle()
-{
-    refcount--;
-    if (refcount == 0) {
-        assert(secp256k1_context_verify != nullptr);
-        secp256k1_context_destroy(secp256k1_context_verify);
-        secp256k1_context_verify = nullptr;
-    }
+    return (!secp256k1_ecdsa_signature_normalize(ECCVerifyHandle::Context(), nullptr, &sig));
 }
 
 CPubKey PubKeyCombine(const std::vector<CPubKey> &pubkeys) {
@@ -340,7 +313,7 @@ CPubKey PubKeyCombine(const std::vector<CPubKey> &pubkeys) {
         CPubKey key = pubkeys.at(i);
         secp256k1_pubkey* my_secp256k1_pubkey = new secp256k1_pubkey;
 
-        if (!secp256k1_ec_pubkey_parse(secp256k1_context_verify, my_secp256k1_pubkey, key.data(), key.size())) {
+        if (!secp256k1_ec_pubkey_parse(ECCVerifyHandle::Context(), my_secp256k1_pubkey, key.data(), key.size())) {
             throw std::runtime_error("cannot parse\n");
         }
 
@@ -348,7 +321,7 @@ CPubKey PubKeyCombine(const std::vector<CPubKey> &pubkeys) {
     }
 
     secp256k1_pubkey result;
-    if(!secp256k1_ec_pubkey_combine(secp256k1_context_verify, &result, secp256k1_pubkeys, pubkeys.size())) {
+    if(!secp256k1_ec_pubkey_combine(ECCVerifyHandle::Context(), &result, secp256k1_pubkeys, pubkeys.size())) {
         throw std::runtime_error("combined pubkey is invalid\n");
     }
 
@@ -358,7 +331,7 @@ CPubKey PubKeyCombine(const std::vector<CPubKey> &pubkeys) {
 
     unsigned char serializedPubKey[CPubKey::COMPRESSED_PUBLIC_KEY_SIZE];
     size_t publen = CPubKey::COMPRESSED_PUBLIC_KEY_SIZE;
-    secp256k1_ec_pubkey_serialize(secp256k1_context_verify, serializedPubKey, &publen, &result, SECP256K1_EC_COMPRESSED);
+    secp256k1_ec_pubkey_serialize(ECCVerifyHandle::Context(), serializedPubKey, &publen, &result, SECP256K1_EC_COMPRESSED);
 
     CPubKey pubkey(serializedPubKey, serializedPubKey + publen);
     return pubkey;

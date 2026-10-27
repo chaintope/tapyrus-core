@@ -4,6 +4,7 @@
 
 #include <federationparams.h>
 #include <dynamicparams.h>
+#include <eccverifyhandle.h>
 #include <genesisblock.h>
 #include <softforkmanager.h>
 #include <script/interpreter.h>

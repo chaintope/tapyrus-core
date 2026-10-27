@@ -4,6 +4,7 @@
 #include <tapyrus-config.h>
 
 #include <clientversion.h>
+#include <eccverifyhandle.h>
 #include <util.h>
 #include <federationparams.h>
 #include <genesisblock.h>

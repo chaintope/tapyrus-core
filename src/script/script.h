@@ -10,6 +10,7 @@
 #include <crypto/common.h>
 #include <prevector.h>
 #include <serialize.h>
+#include <uint256.h>
 
 #include <assert.h>
 #include <climits>
@@ -566,6 +567,15 @@ public:
         CScriptBase::clear();
         shrink_to_fit();
     }
+};
+
+/** A reference to a CScript: the Hash160 of its serialization */
+class CScriptID : public uint160
+{
+public:
+    CScriptID() : uint160() {}
+    explicit CScriptID(const CScript& in);
+    CScriptID(const uint160& in) : uint160(in) {}
 };
 
 class CReserveScript

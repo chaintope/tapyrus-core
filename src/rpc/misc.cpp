@@ -5,6 +5,7 @@
 
 #include <clientversion.h>
 #include <key_io.h>
+#include <messagemagic.h>
 #include <validation.h>
 #include <httpserver.h>
 #include <netbase.h>
@@ -189,7 +190,7 @@ static UniValue verifymessage(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Malformed base64 encoding");
 
     CHashWriter ss(SER_GETHASH, 0);
-    ss << strMessageMagic;
+    ss << MESSAGE_MAGIC;
     ss << strMessage;
 
     CPubKey pubkey;
@@ -228,7 +229,7 @@ static UniValue signmessagewithprivkey(const JSONRPCRequest& request)
     }
 
     CHashWriter ss(SER_GETHASH, 0);
-    ss << strMessageMagic;
+    ss << MESSAGE_MAGIC;
     ss << strMessage;
 
     std::vector<unsigned char> vchSig;

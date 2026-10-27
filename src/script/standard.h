@@ -8,6 +8,7 @@
 #define BITCOIN_SCRIPT_STANDARD_H
 
 #include <script/interpreter.h>
+#include <script/script.h>
 #include <uint256.h>
 
 #include <variant>
@@ -18,16 +19,7 @@ static const bool DEFAULT_ACCEPT_DATACARRIER = true;
 static const bool DEFAULT_ACCEPT_MULTIPLE_DATACARRIER = false;
 
 class CKeyID;
-class CScript;
 
-/** A reference to a CScript: the Hash160 of its serialization (see script.h) */
-class CScriptID : public uint160
-{
-public:
-    CScriptID() : uint160() {}
-    explicit CScriptID(const CScript& in);
-    CScriptID(const uint160& in) : uint160(in) {}
-};
 class CColorScriptID : public uint160
 {
 public:

@@ -6,6 +6,7 @@
 
 #include <script/script.h>
 
+#include <hash.h>
 #include <tinyformat.h>
 #include <tokentypes.h>
 
@@ -376,3 +377,4 @@ bool GetScriptOp(CScriptBase::const_iterator& pc, CScriptBase::const_iterator en
     return true;
 }
 
+CScriptID::CScriptID(const CScript& in) : uint160(Hash160(in.begin(), in.end())) {}

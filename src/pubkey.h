@@ -269,18 +269,6 @@ struct CExtPubKey {
     }
 };
 
-/** Users of this module must hold an ECCVerifyHandle. The constructor and
- *  destructor of these are not allowed to run in parallel, though. */
-class ECCVerifyHandle
-{
-    static int refcount;
-
-public:
-    ECCVerifyHandle();
-    ~ECCVerifyHandle();
-};
-
-
 const unsigned int PUBKEYCOMBINE_MAX_KEY_SIZE = 15;
 /**
  * pubkeys size need to less than PUBKEYCOMBINE_MAX_KEY_SIZE.

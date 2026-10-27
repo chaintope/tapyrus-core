@@ -4,11 +4,12 @@
 #
 # Library dependency graph, laid out by hop distance from the executables
 # (each tier is "one more link_libraries() hop away" from the top, not a
-# conceptual layer), except tapyrus_consensus and tapyrus_crypto are kept
-# in the base tier with tapyrus_clientversion regardless of hop count --
-# they're genuinely foundational (tapyrus_crypto has no tapyrus_*
-# dependencies at all; tapyrus_consensus depends only on tapyrus_crypto)
-# and a couple of executables/libraries happen to reach them directly.
+# conceptual layer), except tapyrus_consensus, tapyrus_types and
+# tapyrus_crypto are kept in the base tier with tapyrus_clientversion
+# regardless of hop count -- they're genuinely foundational (tapyrus_crypto
+# has no tapyrus_* dependencies at all; tapyrus_types depends only on
+# tapyrus_crypto, and tapyrus_consensus only on those two) and a couple of
+# executables/libraries happen to reach them directly.
 # By convention (not currently lint-enforced), nothing in a lower tier ever
 # includes a header from a library in a tier above it, i.e. this diagram
 # never gains a reverse arrow. A tier is a set, not a chain: it
@@ -21,7 +22,7 @@
 #   ----------------------------------------------------------------------------------------------
 #   tapyrus_netbase  tapyrus_util
 #   ----------------------------------------------------------------------------------------------
-#   tapyrus_consensus  tapyrus_crypto  tapyrus_clientversion
+#   tapyrus_consensus  tapyrus_types  tapyrus_crypto  tapyrus_clientversion
 #
 # The exact edges (who links whom) are not readable off the diagram above
 # -- with this much fan-out, per-arrow lines would misrepresent it more
@@ -67,7 +68,8 @@
 #   tapyrus_netbase     -- tapyrus_consensus, tapyrus_util
 #   tapyrus_cli         -- none (just univalue, core_interface)
 #   tapyrus_util        -- tapyrus_clientversion, tapyrus_crypto
-#   tapyrus_consensus   -- tapyrus_crypto
+#   tapyrus_consensus   -- tapyrus_types, tapyrus_crypto
+#   tapyrus_types       -- tapyrus_crypto
 #
 # tapyrus_rpc links tapyrus_wallet, one-directionally: wallet/rpcwallet.cpp
 # and wallet/rpcdump.cpp compile into tapyrus_rpc, not tapyrus_wallet.
@@ -135,29 +137,52 @@ add_dependencies(tapyrus_clientversion generate_build_info)
 
 add_subdirectory(crypto)
 
-add_library(tapyrus_consensus STATIC EXCLUDE_FROM_ALL
+# The data types that consensus, policy, storage and the wire format all
+# share: hashes and big integers, blocks, headers, transactions, xfields,
+# scripts, colour identifiers and public keys, plus the message-signing
+# magic. Coin, the undo records, CValidationState and CAmount are
+# header-only and belong here too; compressor.cpp is their serialization.
+# ECCVerifyHandle owns the secp256k1 context CPubKey verifies with.
+add_library(tapyrus_types STATIC EXCLUDE_FROM_ALL
   arith_uint256.cpp
-  consensus/merkle.cpp
   coloridentifier.cpp
+  compressor.cpp
+  eccverifyhandle.cpp
   hash.cpp
+  messagemagic.cpp
   primitives/block.cpp
   primitives/outpoint.cpp
   primitives/transaction.cpp
   primitives/xfield.cpp
   pubkey.cpp
-  script/interpreter.cpp
   script/script.cpp
-  script/script_error.cpp
-  script/transactionsignaturechecker.cpp
-  script/transactionsignatureserializer.cpp
   uint256.cpp
 )
 
-target_link_libraries(tapyrus_consensus
+target_link_libraries(tapyrus_types
   PRIVATE
     core_interface
     tapyrus_crypto
     secp256k1
+    Boost::headers
+)
+
+# The consensus rules on top of tapyrus_types: script evaluation, the
+# signature checkers and the merkle root.
+add_library(tapyrus_consensus STATIC EXCLUDE_FROM_ALL
+  consensus/merkle.cpp
+  script/interpreter.cpp
+  script/script_error.cpp
+  script/transactionsignaturechecker.cpp
+  script/transactionsignatureserializer.cpp
+)
+
+target_link_libraries(tapyrus_consensus
+  PUBLIC
+    tapyrus_types
+  PRIVATE
+    core_interface
+    tapyrus_crypto
     Boost::headers
 )
 
@@ -268,7 +293,6 @@ target_link_libraries(tapyrus_netbase
 add_library(tapyrus_scripting STATIC EXCLUDE_FROM_ALL
   coins.cpp
   coinsviewcache.cpp
-  compressor.cpp
   dynamicparams.cpp
   key.cpp
   keystore.cpp
