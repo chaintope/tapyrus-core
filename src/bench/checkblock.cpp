@@ -6,6 +6,7 @@
 
 #include <chainparams.h>
 #include <chainstatemanager.h>
+#include <checkblock.h>
 #include <validation.h>
 #include <streams.h>
 #include <consensus/validation.h>

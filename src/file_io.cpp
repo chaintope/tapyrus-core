@@ -4,6 +4,7 @@
 
 #include <consensussettings.h>
 #include <chainstatemanager.h>
+#include <checkblock.h>
 #include <index/txindex.h>
 #include <policy/policy.h>
 #include <shutdown.h>

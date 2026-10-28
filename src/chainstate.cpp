@@ -5,6 +5,7 @@
 #include <chainstate.h>
 #include <chainstatemanager.h>
 #include <chainparams.h>
+#include <checkblock.h>
 #include <consensussettings.h>
 #include <util.h>
 #include <issuedcolorids.h>

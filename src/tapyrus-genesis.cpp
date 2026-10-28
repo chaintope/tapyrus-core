@@ -3,6 +3,7 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 #include <tapyrus-config.h>
 
+#include <checkblock.h>
 #include <clientversion.h>
 #include <eccverifyhandle.h>
 #include <util.h>

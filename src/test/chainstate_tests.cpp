@@ -18,6 +18,7 @@
  */
 
 #include <chainstate.h>
+#include <checkblock.h>
 #include <test/test_tapyrus.h>
 #include <chainstatemanager.h>
 #include <validation.h>

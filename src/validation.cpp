@@ -5,6 +5,8 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <consensussettings.h>
+#include <checkblock.h>
+#include <consensus/tx_check.h>
 #include <validation.h>
 #include <cs_main.h>
 #include <issuedcolorids.h>
@@ -1127,6 +1129,10 @@ bool ContextualCheckBlockHeader(const CBlockHeader& block, CValidationState& sta
 bool ContextualCheckBlock(const CBlock& block, CValidationState& state, const CBlockIndex* pindexPrev)
 {
     const int nHeight = pindexPrev == nullptr ? 0 : pindexPrev->nHeight + 1;
+
+    // A Tapyrus coinbase records its block's height in prevout.n.
+    if (block.GetHeight() != static_cast<uint32_t>(nHeight))
+        return state.DoS(100, false, REJECT_INVALID, "bad-cb-invalid", false, "incorrect block height in coinbase");
 
     int64_t nLockTimeCutoff = pindexPrev->GetMedianTimePast();
 
