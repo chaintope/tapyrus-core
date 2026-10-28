@@ -28,6 +28,7 @@
 
 #include <interfaces/handler.h>
 #include <interfaces/node.h>
+#include <nodecontext.h>
 #include <ui_interface.h>
 #include <uint256.h>
 #include <threadnames.h>
@@ -595,7 +596,8 @@ int main(int argc, char *argv[])
     ThreadSetInternalName("main");
     SetupEnvironment();
 
-    std::unique_ptr<interfaces::Node> node = interfaces::MakeNode();
+    NodeContext node_context;
+    std::unique_ptr<interfaces::Node> node = interfaces::MakeNode(node_context);
 
     // Do not refer to data directory yet, this can be overridden by Intro::pickDataDirectory
 

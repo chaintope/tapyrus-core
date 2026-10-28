@@ -145,7 +145,7 @@ static int test_one_input_processmessage(const uint8_t* data, size_t size)
     const std::string command = ConsumeCommand(fdp);
     const std::vector<uint8_t> payload = fdp.ConsumeRemainingBytes<uint8_t>();
 
-    FuzzPeer peer(*setup.peerLogic);
+    FuzzPeer peer(*setup.m_node.peer_logic);
     if (!peer.Deliver(command, payload)) return 0;
     peer.Process();
     return 0;

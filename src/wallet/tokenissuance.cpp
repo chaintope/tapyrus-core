@@ -17,7 +17,6 @@
 #include <coloridentifier.h>
 #include <consensus/validation.h>
 #include <key_io.h>
-#include <connman.h>
 #include <rpc/protocol.h>
 #include <script/standard.h>
 #include <util.h>
@@ -27,7 +26,7 @@
 #include <wallet/rpcwallet.h>
 #include <wallet/wallet.h>
 
-UniValue IssueReissuableToken(CWallet* const pwallet, const std::string& script, CAmount tokenValue, CCoinControl& coin_control)
+UniValue IssueReissuableToken(CWallet* const pwallet, const std::string& script, CAmount tokenValue, CCoinControl& coin_control, CConnman* connman)
 {
     LOCK2(cs_main, pwallet->cs_wallet);
 
@@ -108,7 +107,7 @@ UniValue IssueReissuableToken(CWallet* const pwallet, const std::string& script,
         }
         CValidationState state;
         mapValue_t mapValue;
-        if (!pwallet->CommitTransaction(tx1, std::move(mapValue), {} /* orderForm */, reservekey, g_connman.get(), state)) {
+        if (!pwallet->CommitTransaction(tx1, std::move(mapValue), {} /* orderForm */, reservekey, connman, state)) {
             strError = strprintf("Error: The transaction was rejected! Reason given: %s", FormatStateMessage(state));
             throw JSONRPCError(RPC_WALLET_ERROR, strError);
         }
@@ -141,7 +140,7 @@ UniValue IssueReissuableToken(CWallet* const pwallet, const std::string& script,
         }
         CValidationState state;
         mapValue_t mapValue;
-        if (!pwallet->CommitTransaction(tx2, std::move(mapValue), {} /* orderForm */, reservekey, g_connman.get(), state)) {
+        if (!pwallet->CommitTransaction(tx2, std::move(mapValue), {} /* orderForm */, reservekey, connman, state)) {
             pwallet->AbandonTransaction(tx1->GetHashMalFix());
             strError = strprintf("Error: The transaction was rejected! Reason given: %s", FormatStateMessage(state));
             throw JSONRPCError(RPC_WALLET_ERROR, strError);
@@ -162,7 +161,7 @@ UniValue IssueReissuableToken(CWallet* const pwallet, const std::string& script,
     return result;
 }
 
-UniValue IssueToken(CWallet* const pwallet, CAmount tokenValue, CCoinControl& coin_control)
+UniValue IssueToken(CWallet* const pwallet, CAmount tokenValue, CCoinControl& coin_control, CConnman* connman)
 {
     LOCK2(cs_main, pwallet->cs_wallet);
 
@@ -198,7 +197,7 @@ UniValue IssueToken(CWallet* const pwallet, CAmount tokenValue, CCoinControl& co
     }
     CValidationState state;
     mapValue_t mapValue;
-    if (!pwallet->CommitTransaction(tx, std::move(mapValue), {} /* orderForm */, reservekey, g_connman.get(), state)) {
+    if (!pwallet->CommitTransaction(tx, std::move(mapValue), {} /* orderForm */, reservekey, connman, state)) {
         strError = strprintf("Error: The transaction was rejected! Reason given: %s", FormatStateMessage(state));
         throw JSONRPCError(RPC_WALLET_ERROR, strError);
     }
@@ -210,7 +209,7 @@ UniValue IssueToken(CWallet* const pwallet, CAmount tokenValue, CCoinControl& co
     return result;
 }
 
-CTransactionRef BurnToken(CWallet * const pwallet, const ColorIdentifier& colorId, CAmount nValue)
+CTransactionRef BurnToken(CWallet * const pwallet, const ColorIdentifier& colorId, CAmount nValue, CConnman* connman)
 {
     mapValue_t mapValue;
     mapValue["comment"] = colorId.toHexString();
@@ -238,7 +237,7 @@ CTransactionRef BurnToken(CWallet * const pwallet, const ColorIdentifier& colorI
     }
 
     CValidationState state;
-    if (!pwallet->CommitTransaction(tx, std::move(mapValue), {} /* orderForm */, reservekey, g_connman.get(), state)) {
+    if (!pwallet->CommitTransaction(tx, std::move(mapValue), {} /* orderForm */, reservekey, connman, state)) {
         strError = strprintf("Error: The transaction was rejected! Reason given: %s", FormatStateMessage(state));
         throw JSONRPCError(RPC_WALLET_ERROR, strError);
     }

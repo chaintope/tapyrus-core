@@ -326,7 +326,7 @@ endfunction()
 # - Most of it (StartShutdown/uiInterface from tapyrus_util, OpenDiskFile/
 #   FlushStateToDisk/ReadBlockFromDisk/GetTransaction/AcceptToMemoryPool/etc.
 #   from tapyrus_chainstate, CMerkleBlock/CRollingBloomFilter/CConnman/
-#   g_connman from tapyrus_peer) is satisfied by linking those for real below.
+#   NodeContext from tapyrus_peer) is satisfied by linking those for real below.
 # - One chokepoint doesn't reduce this way: rawtransaction.cpp's deprecated
 #   signrawtransaction alias references three wallet/rpcwallet.cpp
 #   functions, and that one translation unit's own needs (GetWallets,

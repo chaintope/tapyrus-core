@@ -5,6 +5,7 @@
 #include <amount.h>
 #include <core_io.h>
 #include <key_io.h>
+#include <nodecontext.h>
 #include <pstt.h>
 #include <rpc/client.h>
 #include <rpc/jsonrpcrequest.h>
@@ -67,7 +68,8 @@ BOOST_FIXTURE_TEST_SUITE(pstt_wallet_tests, WalletTestingSetup)
 static UniValue CallPsttWalletRPC(const std::string& method, const UniValue& params)
 {
     BOOST_REQUIRE(tableRPC[method]);
-    JSONRPCRequest request;
+    NodeContext node;
+    JSONRPCRequest request(node);
     request.strMethod = method;
     request.params = params;
     request.fHelp = false;
@@ -94,7 +96,8 @@ static UniValue CallPsttWalletRPCFromCli(const std::string& args)
     std::string strMethod = vArgs[0];
     vArgs.erase(vArgs.begin());
     BOOST_REQUIRE(tableRPC[strMethod]);
-    JSONRPCRequest request;
+    NodeContext node;
+    JSONRPCRequest request(node);
     request.strMethod = strMethod;
     request.params = RPCConvertValues(strMethod, vArgs);
     request.fHelp = false;

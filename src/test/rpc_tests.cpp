@@ -23,13 +23,20 @@
 
 #include <rpc/blockchain.h>
 
-UniValue CallRPC(std::string args)
+//! TestingSetup whose RPC calls carry its NodeContext, as tapyrusd's do.
+class RPCTestingSetup : public TestingSetup
+{
+public:
+    UniValue CallRPC(std::string args);
+};
+
+UniValue RPCTestingSetup::CallRPC(std::string args)
 {
     std::vector<std::string> vArgs;
     boost::split(vArgs, args, boost::is_any_of(" \t"));
     std::string strMethod = vArgs[0];
     vArgs.erase(vArgs.begin());
-    JSONRPCRequest request;
+    JSONRPCRequest request(m_node);
     request.strMethod = strMethod;
     request.params = RPCConvertValues(strMethod, vArgs);
     request.fHelp = false;
@@ -45,7 +52,7 @@ UniValue CallRPC(std::string args)
 }
 
 
-BOOST_FIXTURE_TEST_SUITE(rpc_tests, TestingSetup)
+BOOST_FIXTURE_TEST_SUITE(rpc_tests, RPCTestingSetup)
 
 BOOST_AUTO_TEST_CASE(rpc_rawparams)
 {
