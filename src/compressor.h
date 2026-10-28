@@ -6,6 +6,7 @@
 #ifndef BITCOIN_COMPRESSOR_H
 #define BITCOIN_COMPRESSOR_H
 
+#include <consensusconstants.h>
 #include <prevector.h>
 #include <primitives/transaction.h>
 #include <script/script.h>
@@ -78,7 +79,7 @@ public:
             return;
         }
         nSize -= nSpecialScripts;
-        if (nSize > MAX_SCRIPT_SIZE) {
+        if (nSize > ConsensusConstants::MAX_SCRIPT_SIZE) {
             // Overly long script, replace with a short invalid one
             script << OP_RETURN;
             s.ignore(nSize);

@@ -8,7 +8,7 @@
 #include <amount.h>
 #include <blockindex.h>
 #include <chainparams.h>
-#include <dynamicparams.h>
+#include <consensussettings.h>
 #include <init.h>
 #include <interfaces/handler.h>
 #include <interfaces/wallet.h>
@@ -179,7 +179,7 @@ public:
         if (::chainActive.Tip()) {
             return ::chainActive.Tip()->GetBlockTime();
         }
-        return DynamicParams().GenesisBlock().GetBlockTime(); // Genesis block's time of current network
+        return g_consensus_settings->GenesisBlock().GetBlockTime(); // Genesis block's time of current network
     }
     double getVerificationProgress() override
     {

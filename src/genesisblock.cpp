@@ -25,7 +25,7 @@ CBlock createGenesisBlock(const CPubKey& aggregatePubkey, const CKey& privateKey
     txNew.vout.resize(1);
     txNew.vin[0].prevout.n = 0;
     txNew.vin[0].scriptSig = CScript();
-    txNew.vout[0].nValue = 50 * COIN;
+    txNew.vout[0].nValue = 50 * ConsensusConstants::COIN;
     if (payToaddress.empty()) {
         txNew.vout[0].scriptPubKey = CScript() << OP_DUP << OP_HASH160 << ToByteVector(aggregatePubkey.GetID()) << OP_EQUALVERIFY << OP_CHECKSIG;
     } else {

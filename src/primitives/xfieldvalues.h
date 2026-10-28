@@ -5,6 +5,7 @@
 #ifndef TAPYRUS_PRIMITIVES_XFIELDVALUES_H
 #define TAPYRUS_PRIMITIVES_XFIELDVALUES_H
 
+#include <consensusconstants.h>
 #include <pubkey.h>
 #include <serialize.h>
 #include <streams.h>
@@ -122,7 +123,7 @@ public:
     }
 
     inline std::string ToString() const;
-    inline uint32_t GetMaxBlockSigops() { return uint32_t(data / 50); };
+    inline uint32_t GetMaxBlockSigops() { return uint32_t(data / ConsensusConstants::BLOCK_SIZE_PER_SIGOP); };
 
 
 };

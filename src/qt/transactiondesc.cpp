@@ -11,7 +11,7 @@
 #include <qt/paymentserver.h>
 #include <qt/transactionrecord.h>
 
-#include <consensus/consensus.h>
+#include <consensusconstants.h>
 #include <interfaces/node.h>
 #include <key_io.h>
 #include <validation.h>
@@ -28,7 +28,7 @@ QString TransactionDesc::FormatTxStatus(const interfaces::WalletTx& wtx, const i
 {
     if (!status.is_final)
     {
-        if (wtx.tx->nLockTime < LOCKTIME_THRESHOLD)
+        if (wtx.tx->nLockTime < ConsensusConstants::LOCKTIME_THRESHOLD)
             return tr("Open for %n more block(s)", "", wtx.tx->nLockTime - numBlocks);
         else
             return tr("Open until %1").arg(GUIUtil::dateTimeStr(wtx.tx->nLockTime));

@@ -39,9 +39,9 @@ static void CoinSelection(benchmark::State& state)
     // Add coins.
     std::vector<OutputGroup> groups;
     for (int i = 0; i < 1000; ++i) {
-        addCoin(1000 * COIN, wallet, groups);
+        addCoin(1000 * ConsensusConstants::COIN, wallet, groups);
     }
-    addCoin(3 * COIN, wallet, groups);
+    addCoin(3 * ConsensusConstants::COIN, wallet, groups);
 
     const CoinEligibilityFilter filter_standard(1, 6, 0);
     const CoinSelectionParams coin_selection_params(true, 34, 148, CFeeRate(0), 0);
@@ -49,9 +49,9 @@ static void CoinSelection(benchmark::State& state)
         std::set<CInputCoin> setCoinsRet;
         CAmount nValueRet;
         bool bnb_used;
-        bool success = wallet.SelectCoinsMinConf(1003 * COIN, filter_standard, groups, setCoinsRet, nValueRet, coin_selection_params, bnb_used, ColorIdentifier());
+        bool success = wallet.SelectCoinsMinConf(1003 * ConsensusConstants::COIN, filter_standard, groups, setCoinsRet, nValueRet, coin_selection_params, bnb_used, ColorIdentifier());
         assert(success);
-        assert(nValueRet == 1003 * COIN);
+        assert(nValueRet == 1003 * ConsensusConstants::COIN);
         assert(setCoinsRet.size() == 2);
     }
 }
