@@ -30,7 +30,7 @@
 // By default, checks a given pair against every one of Tapyrus's 64
 // runtime-selectable SCRIPT_VERIFY_* flag combinations (script/interpreter.h)
 // and reports where the result changes -- this includes flags=0 (no
-// optional rule) and the exact STANDARD_SCRIPT_VERIFY_FLAGS combination,
+// optional rule) and the exact PolicyConstants::STANDARD_SCRIPT_VERIFY_FLAGS combination,
 // both being unions of those same flags. --flags=<spec> runs
 // one set instead of the full matrix.
 //
@@ -57,6 +57,7 @@
 #include <coloridentifier.h>
 #include <eccverifyhandle.h>
 #include <federationparams.h>
+#include <policy/policyconstants.h>
 #include <primitives/transaction.h>
 #include <pubkey.h>
 #include <script/interpreter.h>
@@ -320,7 +321,7 @@ bool ParseHexUInt32(const std::string& hex, unsigned int& out)
 
 bool ParseFlags(const std::string& spec, unsigned int& outFlags)
 {
-    if (spec == "standard") { outFlags = STANDARD_SCRIPT_VERIFY_FLAGS; return true; }
+    if (spec == "standard") { outFlags = PolicyConstants::STANDARD_SCRIPT_VERIFY_FLAGS; return true; }
     if (spec == "none") { outFlags = SCRIPT_VERIFY_NONE; return true; }
     if (spec.size() > 2 && spec[0] == '0' && (spec[1] == 'x' || spec[1] == 'X')) {
         if (!ParseHexUInt32(spec.substr(2), outFlags)) {
@@ -381,7 +382,7 @@ int RunSingleFlags(const VerifyContext& ctx, unsigned int flags)
 
 // Runs the pair against all 64 combinations of the named flags --
 // including flags=0 (no optional rule) and the exact
-// STANDARD_SCRIPT_VERIFY_FLAGS combination, both
+// PolicyConstants::STANDARD_SCRIPT_VERIFY_FLAGS combination, both
 // being unions of these same named flags -- and reports where the
 // result changes. Also checks the soft-fork monotonicity invariant
 // script/interpreter.h documents (adding flags can only shrink the

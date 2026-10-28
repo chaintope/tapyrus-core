@@ -11,6 +11,7 @@
 
 #include <key.h>
 #include <policy/policy.h>
+#include <policy/policyconstants.h>
 #include <primitives/transaction.h>
 #include <script/standard.h>
 #include <script/transactionsignatureserializer.h>
@@ -245,7 +246,7 @@ struct Stacks
     Stacks() = delete;
     Stacks(const Stacks&) = delete;
     explicit Stacks(const SignatureData& data) {
-        EvalScript(script, data.scriptSig, STANDARD_SCRIPT_VERIFY_FLAGS, BaseSignatureChecker());
+        EvalScript(script, data.scriptSig, PolicyConstants::STANDARD_SCRIPT_VERIFY_FLAGS, BaseSignatureChecker());
     }
 };
 }
@@ -261,7 +262,7 @@ SignatureData DataFromTransaction(const CMutableTransaction& tx, unsigned int nI
     // Get signatures
     MutableTransactionSignatureChecker tx_checker(&tx, nIn, txout.nValue);
     SignatureExtractorChecker extractor_checker(data, tx_checker);
-    if (VerifyScript(data.scriptSig, txout.scriptPubKey, STANDARD_SCRIPT_VERIFY_FLAGS, extractor_checker, nullptr)) {
+    if (VerifyScript(data.scriptSig, txout.scriptPubKey, PolicyConstants::STANDARD_SCRIPT_VERIFY_FLAGS, extractor_checker, nullptr)) {
         data.complete = true;
         return data;
     }
@@ -401,7 +402,7 @@ bool IsSolvable(const SigningProvider& provider, const CScript& script)
     SignatureData sigs;
     if (ProduceSignature(provider, DUMMY_SIGNATURE_CREATOR, script, sigs)) {
         // VerifyScript check is just defensive, and should never fail.
-        assert(VerifyScript(sigs.scriptSig, script, STANDARD_SCRIPT_VERIFY_FLAGS, DUMMY_CHECKER));
+        assert(VerifyScript(sigs.scriptSig, script, PolicyConstants::STANDARD_SCRIPT_VERIFY_FLAGS, DUMMY_CHECKER));
         return true;
     }
     return false;

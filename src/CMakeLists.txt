@@ -357,6 +357,7 @@ add_library(tapyrus_chainstate STATIC EXCLUDE_FROM_ALL
   policy/fees.cpp
   policy/packages.cpp
   policy/policy.cpp
+  policy/policysettings.cpp
   policy/rbf.cpp
   precomputedcolordata.cpp
   script/sigcache.cpp
