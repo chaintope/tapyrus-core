@@ -180,12 +180,11 @@ class BitcoinTestFramework(metaclass=BitcoinTestMetaClass):
             success = TestStatus.PASSED
         except JSONRPCException as e:
             self.log.exception("JSONRPC error")
-        except TimeoutError as e:
+        except (TimeoutError, TimeoutExpired):
             success = TestStatus.TIMEOUT
-            self.log.warning("Timeout. %s" % e.strerror)
-        except TimeoutExpired as e:
-            success = TestStatus.TIMEOUT
-            self.log.warning("Timeout. %s" % e.stderr)
+            # exception() keeps the message and traceback; e.strerror is None
+            # for a TimeoutError raised with only a message.
+            self.log.exception("Timeout")
         except SkipTest as e:
             self.log.warning("Test Skipped: %s" % e.message)
             success = TestStatus.SKIPPED
