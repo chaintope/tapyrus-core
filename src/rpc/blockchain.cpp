@@ -4,6 +4,7 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
+#include <consensussettings.h>
 #include <rpc/blockchain.h>
 #include <chainstatemanager.h>
 #include <cs_main.h>
@@ -1236,8 +1237,8 @@ static UniValue getblockstats(const JSONRPCRequest& request)
 
     CAmount maxfee = 0;
     CAmount maxfeerate = 0;
-    CAmount minfee = MAX_MONEY;
-    CAmount minfeerate = MAX_MONEY;
+    CAmount minfee = ConsensusConstants::MAX_MONEY;
+    CAmount minfeerate = ConsensusConstants::MAX_MONEY;
     CAmount total_out = 0;
     CAmount totalfee = 0;
     int64_t inputs = 0;
@@ -1340,11 +1341,11 @@ static UniValue getblockstats(const JSONRPCRequest& request)
     ret_all.pushKV("medianfee", CalculateTruncatedMedian(fee_array));
     ret_all.pushKV("mediantime", pindex->GetMedianTimePast());
     ret_all.pushKV("mediantxsize", CalculateTruncatedMedian(txsize_array));
-    ret_all.pushKV("minfee", (minfee == MAX_MONEY) ? 0 : minfee);
-    ret_all.pushKV("minfeerate", (minfeerate == MAX_MONEY) ? 0 : minfeerate);
+    ret_all.pushKV("minfee", (minfee == ConsensusConstants::MAX_MONEY) ? 0 : minfee);
+    ret_all.pushKV("minfeerate", (minfeerate == ConsensusConstants::MAX_MONEY) ? 0 : minfeerate);
     ret_all.pushKV("mintxsize", mintxsize == g_chainstate_manager.XFieldHistory().GetCurrentMaxBlockSize() ? 0 : mintxsize);
     ret_all.pushKV("outs", outputs);
-    ret_all.pushKV("subsidy", GetBlockSubsidy(pindex->nHeight, Params().GetConsensus()));
+    ret_all.pushKV("subsidy", g_consensus_settings->BlockSubsidy(pindex->nHeight));
     ret_all.pushKV("time", pindex->GetBlockTime());
     ret_all.pushKV("total_out", total_out);
     ret_all.pushKV("total_size", total_size);

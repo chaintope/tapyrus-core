@@ -6,7 +6,7 @@
 #include <partiallydownloadedblock.h>
 
 #include <chainstatemanager.h>
-#include <consensus/consensus.h>
+#include <consensusconstants.h>
 #include <consensus/validation.h>
 #include <hash.h>
 #include <txmempool.h>
@@ -18,7 +18,7 @@
 ReadStatus PartiallyDownloadedBlock::InitData(const CBlockHeaderAndShortTxIDs& cmpctblock, const std::vector<std::pair<uint256, CTransactionRef>>& extra_txn) {
     if (cmpctblock.header.IsNull() || (cmpctblock.shorttxids.empty() && cmpctblock.prefilledtxn.empty()))
         return READ_STATUS_INVALID;
-    if (cmpctblock.shorttxids.size() + cmpctblock.prefilledtxn.size() > g_chainstate_manager.XFieldHistory().GetCurrentMaxBlockSize() / MIN_SERIALIZABLE_TRANSACTION_SIZE)
+    if (cmpctblock.shorttxids.size() + cmpctblock.prefilledtxn.size() > g_chainstate_manager.XFieldHistory().GetCurrentMaxBlockSize() / ConsensusConstants::MIN_SERIALIZABLE_TRANSACTION_SIZE)
         return READ_STATUS_INVALID;
 
     if (!header.IsNull() || !txn_available.empty()) return READ_STATUS_INVALID;

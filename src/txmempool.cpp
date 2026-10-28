@@ -6,7 +6,7 @@
 
 #include <txmempool.h>
 
-#include <consensus/consensus.h>
+#include <consensusconstants.h>
 #include <consensus/tx_verify.h>
 #include <consensus/validation.h>
 #include <validation.h>

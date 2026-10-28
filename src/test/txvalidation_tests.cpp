@@ -1515,7 +1515,7 @@ BOOST_FIXTURE_TEST_CASE(tx_mempool_burn_script, TestChainSetup)
     coinbaseSpendTx.vout.resize(1);
     coinbaseSpendTx.vin[0].prevout.hashMalFix = m_coinbase_txns[5]->GetHashMalFix();
     coinbaseSpendTx.vin[0].prevout.n = 0;
-    coinbaseSpendTx.vout[0].nValue = 49 * COIN;
+    coinbaseSpendTx.vout[0].nValue = 49 * ConsensusConstants::COIN;
     coinbaseSpendTx.vout[0].scriptPubKey = tpcP2PKH0;
 
     std::vector<unsigned char> vchSig;
@@ -1562,7 +1562,7 @@ BOOST_FIXTURE_TEST_CASE(tx_mempool_burn_script, TestChainSetup)
     tokenBurnTx.vout[0].scriptPubKey = burnScript;
     tokenBurnTx.vout[1].nValue = 70 * CENT;    // change — CP2PKH key1
     tokenBurnTx.vout[1].scriptPubKey = cp2pkhKey1;
-    tokenBurnTx.vout[2].nValue = 49 * COIN;    // TPC change
+    tokenBurnTx.vout[2].nValue = 49 * ConsensusConstants::COIN;    // TPC change
     tokenBurnTx.vout[2].scriptPubKey = tpcP2PKH0;
 
     Sign(vchSig, key0, tokenIssueTx.vout[0].scriptPubKey, tokenIssueTx, 0, tokenBurnTx, 0);
@@ -1592,7 +1592,7 @@ BOOST_FIXTURE_TEST_CASE(tx_mempool_burn_script, TestChainSetup)
     spendChangeTx.vin[1].prevout.n = 0;
     spendChangeTx.vout[0].nValue = 70 * CENT;
     spendChangeTx.vout[0].scriptPubKey = cp2pkhKey2;
-    spendChangeTx.vout[1].nValue = 49 * COIN;
+    spendChangeTx.vout[1].nValue = 49 * ConsensusConstants::COIN;
     spendChangeTx.vout[1].scriptPubKey = tpcP2PKH0;
 
     Sign(vchSig, key1, tokenBurnTx.vout[1].scriptPubKey, tokenBurnTx, 0, spendChangeTx, 0);
@@ -1625,7 +1625,7 @@ BOOST_FIXTURE_TEST_CASE(tx_mempool_risk_checkmultisig_zero_of_n, TestChainSetup)
     fundTx.vout.resize(1);
     fundTx.vin[0].prevout.hashMalFix = m_coinbase_txns[0]->GetHashMalFix();
     fundTx.vin[0].prevout.n = 0;
-    fundTx.vout[0].nValue = 49 * COIN;
+    fundTx.vout[0].nValue = 49 * ConsensusConstants::COIN;
     fundTx.vout[0].scriptPubKey = zeroOfTwoScript;
 
     std::vector<unsigned char> vchSig;
@@ -1643,7 +1643,7 @@ BOOST_FIXTURE_TEST_CASE(tx_mempool_risk_checkmultisig_zero_of_n, TestChainSetup)
     spendTx.vin[0].prevout.hashMalFix = fundTx.GetHashMalFix();
     spendTx.vin[0].prevout.n = 0;
     spendTx.vin[0].scriptSig = CScript() << OP_0;
-    spendTx.vout[0].nValue = 48 * COIN;
+    spendTx.vout[0].nValue = 48 * ConsensusConstants::COIN;
     spendTx.vout[0].scriptPubKey = CScript() << ToByteVector(pubkey0) << OP_CHECKSIG;
 
     testTx(this, MakeTransactionRef(spendTx), true); // accepted end-to-end: mempool AND mined into a block
@@ -1672,7 +1672,7 @@ BOOST_FIXTURE_TEST_CASE(tx_mempool_risk_checkdatasig_replay, TestChainSetup)
         fundTx.vout.resize(1);
         fundTx.vin[0].prevout.hashMalFix = m_coinbase_txns[coinbaseIdx]->GetHashMalFix();
         fundTx.vin[0].prevout.n = 0;
-        fundTx.vout[0].nValue = 49 * COIN;
+        fundTx.vout[0].nValue = 49 * ConsensusConstants::COIN;
         fundTx.vout[0].scriptPubKey = dataSigScript;
         std::vector<unsigned char> vchSig;
         CMutableTransaction coinbaseIn(*m_coinbase_txns[coinbaseIdx]);
@@ -1700,7 +1700,7 @@ BOOST_FIXTURE_TEST_CASE(tx_mempool_risk_checkdatasig_replay, TestChainSetup)
     spendA.vin[0].prevout.hashMalFix = fundA.GetHashMalFix();
     spendA.vin[0].prevout.n = 0;
     spendA.vin[0].scriptSig = identicalScriptSig;
-    spendA.vout[0].nValue = 48 * COIN;
+    spendA.vout[0].nValue = 48 * ConsensusConstants::COIN;
     spendA.vout[0].scriptPubKey = CScript() << OP_TRUE;
     testTx(this, MakeTransactionRef(spendA), true);
 
@@ -1716,7 +1716,7 @@ BOOST_FIXTURE_TEST_CASE(tx_mempool_risk_checkdatasig_replay, TestChainSetup)
     spendB.vin[0].prevout.hashMalFix = fundB.GetHashMalFix();
     spendB.vin[0].prevout.n = 0;
     spendB.vin[0].scriptSig = identicalScriptSig;
-    spendB.vout[0].nValue = 10 * COIN;
+    spendB.vout[0].nValue = 10 * ConsensusConstants::COIN;
     spendB.vout[0].scriptPubKey = CScript() << OP_DUP << OP_HASH160 << ToByteVector(pubkeyHash2) << OP_EQUALVERIFY << OP_CHECKSIG;
 
     testTx(this, MakeTransactionRef(spendB), true); // the replayed witness is accepted end-to-end again
@@ -1743,7 +1743,7 @@ BOOST_FIXTURE_TEST_CASE(tx_mempool_risk_mixed_signature_schemes, TestChainSetup)
         fundTx.vout.resize(1);
         fundTx.vin[0].prevout.hashMalFix = m_coinbase_txns[coinbaseIdx]->GetHashMalFix();
         fundTx.vin[0].prevout.n = 0;
-        fundTx.vout[0].nValue = 49 * COIN;
+        fundTx.vout[0].nValue = 49 * ConsensusConstants::COIN;
         fundTx.vout[0].scriptPubKey = branchScript;
         std::vector<unsigned char> vchSig;
         CMutableTransaction coinbaseIn(*m_coinbase_txns[coinbaseIdx]);
@@ -1763,7 +1763,7 @@ BOOST_FIXTURE_TEST_CASE(tx_mempool_risk_mixed_signature_schemes, TestChainSetup)
     spendA.vout.resize(1);
     spendA.vin[0].prevout.hashMalFix = fundA.GetHashMalFix();
     spendA.vin[0].prevout.n = 0;
-    spendA.vout[0].nValue = 48 * COIN;
+    spendA.vout[0].nValue = 48 * ConsensusConstants::COIN;
     spendA.vout[0].scriptPubKey = CScript() << OP_TRUE;
     uint256 hashA = SignatureHash(branchScript, spendA, 0, SIGHASH_ALL, fundA.vout[0].nValue);
     std::vector<unsigned char> sigA;
@@ -1780,7 +1780,7 @@ BOOST_FIXTURE_TEST_CASE(tx_mempool_risk_mixed_signature_schemes, TestChainSetup)
     spendB.vout.resize(1);
     spendB.vin[0].prevout.hashMalFix = fundB.GetHashMalFix();
     spendB.vin[0].prevout.n = 0;
-    spendB.vout[0].nValue = 48 * COIN;
+    spendB.vout[0].nValue = 48 * ConsensusConstants::COIN;
     spendB.vout[0].scriptPubKey = CScript() << OP_TRUE;
     uint256 hashB = SignatureHash(branchScript, spendB, 0, SIGHASH_ALL, fundB.vout[0].nValue);
     std::vector<unsigned char> sigB;

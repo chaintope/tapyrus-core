@@ -5,7 +5,7 @@
 #include <chainstate.h>
 #include <chainstatemanager.h>
 #include <chainparams.h>
-#include <dynamicparams.h>
+#include <consensussettings.h>
 #include <util.h>
 #include <issuedcolorids.h>
 
@@ -550,7 +550,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
 
     // Special case for the genesis block, skipping connection of its transactions
     // (its coinbase is unspendable)
-    if (block.GetHash() == DynamicParams().GenesisBlock().GetHash()) {
+    if (block.GetHash() == g_consensus_settings->GenesisBlock().GetHash()) {
         if (!fJustCheck)
             view.SetBestBlock(pindex->GetBlockHash());
         return true;
@@ -585,7 +585,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     LogPrint(BCLog::BENCH, "    - Sanity checks: %.2fms [%.2fs (%.2fms/blk)]\n", MILLI * (nTime1 - nTimeStart), nTimeCheck * MICRO, nTimeCheck * MILLI / nBlocksTotal);
 
     // Start enforcing BIP68 (sequence locks) and BIP112 (CHECKSEQUENCEVERIFY) using versionbits logic.
-    int nLockTimeFlags = LOCKTIME_VERIFY_SEQUENCE;
+    int nLockTimeFlags = ConsensusConstants::LOCKTIME_VERIFY_SEQUENCE;
 
     int64_t nTime2 = GetTimeMicros(); nTimeForks += nTime2 - nTime1;
     LogPrint(BCLog::BENCH, "    - Fork checks: %.2fms [%.2fs (%.2fms/blk)]\n", MILLI * (nTime2 - nTime1), nTimeForks * MICRO, nTimeForks * MILLI / nBlocksTotal);
@@ -706,7 +706,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     int64_t nTime3 = GetTimeMicros(); nTimeConnect += nTime3 - nTime2;
     LogPrint(BCLog::BENCH, "      - Connect %u transactions: %.2fms (%.3fms/tx, %.3fms/txin) [%.2fs (%.2fms/blk)]\n", (unsigned)block.vtx.size(), MILLI * (nTime3 - nTime2), MILLI * (nTime3 - nTime2) / block.vtx.size(), nInputs <= 1 ? 0 : MILLI * (nTime3 - nTime2) / (nInputs-1), nTimeConnect * MICRO, nTimeConnect * MILLI / nBlocksTotal);
 
-    CAmount blockReward = nFees + GetBlockSubsidy(pindex->nHeight, Params().GetConsensus());
+    CAmount blockReward = nFees + g_consensus_settings->BlockSubsidy(pindex->nHeight);
     if (block.vtx[0]->GetValueOut(ColorIdentifier()) > blockReward)
         return state.DoS(100,
                          error("ConnectBlock(): coinbase pays too much (actual=%d vs limit=%d)",
@@ -1381,7 +1381,7 @@ bool CChainState::AcceptBlockHeader(const CBlockHeader& block, CValidationState&
     uint256 hash = block.GetHash();
     BlockMap::iterator miSelf = mapBlockIndex.find(hash);
     CBlockIndex *pindex = nullptr;
-    if (hash != DynamicParams().GenesisBlock().GetHash()) {
+    if (hash != g_consensus_settings->GenesisBlock().GetHash()) {
         if (miSelf != mapBlockIndex.end()) {
             // Block header is already known.
             pindex = miSelf->second;
@@ -1764,11 +1764,11 @@ bool CChainState::LoadGenesisBlock()
     // mapBlockIndex. Note that we can't use chainActive here, since it is
     // set based on the coins db, not the block index db, which is the only
     // thing loaded at this point.
-    if (mapBlockIndex.count(DynamicParams().GenesisBlock().GetHash()))
+    if (mapBlockIndex.count(g_consensus_settings->GenesisBlock().GetHash()))
         return true;
 
     try {
-        CBlock &block = const_cast<CBlock&>(DynamicParams().GenesisBlock());
+        CBlock &block = const_cast<CBlock&>(g_consensus_settings->GenesisBlock());
         CDiskBlockPos blockPos;
 
         if (fReindex && fs::exists(GetBlocksDir() / strprintf("blk%05u.dat", 0))) {
@@ -1789,7 +1789,7 @@ bool CChainState::LoadGenesisBlock()
         CBlockIndex *pindex = AddToBlockIndex(block);
         ReceivedBlockTransactions(block, pindex, blockPos);
 
-        g_chainstate_manager.InitXFieldHistory(DynamicParams().GenesisBlock());
+        g_chainstate_manager.InitXFieldHistory(g_consensus_settings->GenesisBlock());
     } catch (const std::runtime_error& e) {
         return error("%s: failed to write genesis block: %s", __func__, e.what());
     }
@@ -1851,7 +1851,7 @@ void CChainState::CheckBlockIndex()
         // Begin: actual consistency checks.
         if (pindex->pprev == nullptr) {
             // Genesis block checks.
-            assert(pindex->GetBlockHash() == DynamicParams().GenesisBlock().GetHash()); // Genesis block's hash must match.
+            assert(pindex->GetBlockHash() == g_consensus_settings->GenesisBlock().GetHash()); // Genesis block's hash must match.
             assert(pindex == chainActive.Genesis()); // The current active chain's genesis block must be this block.
         }
         if (pindex->nChainTx == 0) assert(pindex->nSequenceId <= 0);  // nSequenceId can't be set positive for blocks that aren't linked (negative is used for preciousblock)

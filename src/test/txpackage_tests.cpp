@@ -269,10 +269,10 @@ BOOST_FIXTURE_TEST_CASE(package_validation_tests, PackageTestSetup)
     // both in mempool
     {
         COutPoint spend_coinbase(m_coinbase_txns[index_cb]->GetHashMalFix(), 0);
-        CMutableTransaction mtx_parent = CreateValidMempoolTransaction(mempool, spend_coinbase, CAmount(49 * COIN), parent_locking_script);
+        CMutableTransaction mtx_parent = CreateValidMempoolTransaction(mempool, spend_coinbase, CAmount(49 * ConsensusConstants::COIN), parent_locking_script);
 
         COutPoint spend_parent(mtx_parent.GetHashMalFix(), 0);
-        CMutableTransaction mtx_child = CreateValidMempoolTransaction(mempool, spend_parent, CAmount(48 * COIN), child_locking_script);
+        CMutableTransaction mtx_child = CreateValidMempoolTransaction(mempool, spend_parent, CAmount(48 * ConsensusConstants::COIN), child_locking_script);
 
         Package package_parent_child{MakeTransactionRef(mtx_parent), MakeTransactionRef(mtx_child)};
 
@@ -296,15 +296,15 @@ BOOST_FIXTURE_TEST_CASE(package_validation_tests, PackageTestSetup)
         std::vector<unsigned char> vchSig;
 
         COutPoint spend_cb(m_coinbase_txns[index_cb]->GetHashMalFix(), 0);
-        auto mtx_parent = CreateValidTransaction(spend_cb, CAmount(49 * COIN), {CScript() << OP_TRUE << OP_EQUAL});
+        auto mtx_parent = CreateValidTransaction(spend_cb, CAmount(49 * ConsensusConstants::COIN), {CScript() << OP_TRUE << OP_EQUAL});
         Sign(vchSig, coinbaseKey, m_coinbase_txns[index_cb]->vout[0].scriptPubKey, 0, mtx_parent, 0);
         mtx_parent.vin[0].scriptSig = CScript() << vchSig;
 
         COutPoint spend_parent(mtx_parent.GetHashMalFix(), 0);
-        auto mtx_child = CreateValidTransaction(spend_parent, CAmount(44 * COIN), child_locking_script);
+        auto mtx_child = CreateValidTransaction(spend_parent, CAmount(44 * ConsensusConstants::COIN), child_locking_script);
         mtx_child.vin[0].scriptSig = CScript() << OP_TRUE;
         for(int x = 0; x < 4; ++x)
-            mtx_child.vout.push_back(CTxOut(CAmount(1 * COIN), {CScript() << OP_TRUE << OP_EQUAL}));
+            mtx_child.vout.push_back(CTxOut(CAmount(1 * ConsensusConstants::COIN), {CScript() << OP_TRUE << OP_EQUAL}));
 
         Package package_parent_child{MakeTransactionRef(mtx_parent), MakeTransactionRef(mtx_child)};
         validationState.clear();
@@ -329,15 +329,15 @@ BOOST_FIXTURE_TEST_CASE(package_validation_tests, PackageTestSetup)
         std::vector<unsigned char> vchSig;
 
         COutPoint spend_cb(m_coinbase_txns[index_cb]->GetHashMalFix(), 0);
-        auto mtx_parent = CreateValidMempoolTransaction(mempool, spend_cb, CAmount(49 * COIN), {CScript() << OP_TRUE << OP_EQUAL});
+        auto mtx_parent = CreateValidMempoolTransaction(mempool, spend_cb, CAmount(49 * ConsensusConstants::COIN), {CScript() << OP_TRUE << OP_EQUAL});
         Sign(vchSig, coinbaseKey, m_coinbase_txns[index_cb]->vout[0].scriptPubKey, 0, mtx_parent, 0);
         mtx_parent.vin[0].scriptSig = CScript() << vchSig;
 
         COutPoint spend_parent(mtx_parent.GetHashMalFix(), 0);
-        auto mtx_child = CreateValidTransaction(spend_parent, CAmount(44 * COIN), child_locking_script);
+        auto mtx_child = CreateValidTransaction(spend_parent, CAmount(44 * ConsensusConstants::COIN), child_locking_script);
         mtx_child.vin[0].scriptSig = CScript() << OP_TRUE;
         for(int x = 0; x < 4; ++x)
-            mtx_child.vout.push_back(CTxOut(CAmount(1 * COIN), {CScript() << OP_TRUE << OP_EQUAL}));
+            mtx_child.vout.push_back(CTxOut(CAmount(1 * ConsensusConstants::COIN), {CScript() << OP_TRUE << OP_EQUAL}));
 
         Package package_parent_child{MakeTransactionRef(mtx_parent), MakeTransactionRef(mtx_child)};
         validationState.clear();
@@ -381,24 +381,24 @@ BOOST_FIXTURE_TEST_CASE(testmempoolaccept_chained_package, PackageTestSetup)
 
     // tx1: spends a coinbase, output is OP_TRUE OP_EQUAL
     COutPoint spend_cb(m_coinbase_txns[index_cb]->GetHashMalFix(), 0);
-    auto mtx1 = CreateValidTransaction(spend_cb, CAmount(49 * COIN), {CScript() << OP_TRUE << OP_EQUAL});
+    auto mtx1 = CreateValidTransaction(spend_cb, CAmount(49 * ConsensusConstants::COIN), {CScript() << OP_TRUE << OP_EQUAL});
     Sign(vchSig, coinbaseKey, m_coinbase_txns[index_cb]->vout[0].scriptPubKey, 0, mtx1, 0);
     mtx1.vin[0].scriptSig = CScript() << vchSig;
 
     // tx2: spends tx1 (not in mempool — only resolvable via virtual overlay)
     // Pad with 4 extra vouts to exceed the 82-byte minimum standard tx size.
     COutPoint spend_tx1(mtx1.GetHashMalFix(), 0);
-    auto mtx2 = CreateValidTransaction(spend_tx1, CAmount(44 * COIN), {CScript() << OP_TRUE << OP_EQUAL});
+    auto mtx2 = CreateValidTransaction(spend_tx1, CAmount(44 * ConsensusConstants::COIN), {CScript() << OP_TRUE << OP_EQUAL});
     mtx2.vin[0].scriptSig = CScript() << OP_TRUE;
     for (int i = 0; i < 4; ++i)
-        mtx2.vout.push_back(CTxOut(CAmount(1 * COIN), {CScript() << OP_TRUE << OP_EQUAL}));
+        mtx2.vout.push_back(CTxOut(CAmount(1 * ConsensusConstants::COIN), {CScript() << OP_TRUE << OP_EQUAL}));
 
     // tx3: spends tx2 output 0
     COutPoint spend_tx2(mtx2.GetHashMalFix(), 0);
-    auto mtx3 = CreateValidTransaction(spend_tx2, CAmount(39 * COIN), child_locking_script);
+    auto mtx3 = CreateValidTransaction(spend_tx2, CAmount(39 * ConsensusConstants::COIN), child_locking_script);
     mtx3.vin[0].scriptSig = CScript() << OP_TRUE;
     for (int i = 0; i < 4; ++i)
-        mtx3.vout.push_back(CTxOut(CAmount(1 * COIN), child_locking_script));
+        mtx3.vout.push_back(CTxOut(CAmount(1 * ConsensusConstants::COIN), child_locking_script));
 
     Package package{MakeTransactionRef(mtx1), MakeTransactionRef(mtx2), MakeTransactionRef(mtx3)};
     auto result = SubmitPackageToMempool(package, state, validationState, opt);
@@ -437,13 +437,13 @@ BOOST_FIXTURE_TEST_CASE(package_orphan_tx_tests, PackageTestSetup)
         std::vector<unsigned char> vchSig;
 
         COutPoint spend_cb(m_coinbase_txns[index_cb]->GetHashMalFix(), 0);
-        auto mtx_parent = CreateValidTransaction(spend_cb, CAmount(49 * COIN), {CScript() << OP_TRUE << OP_EQUAL});
+        auto mtx_parent = CreateValidTransaction(spend_cb, CAmount(49 * ConsensusConstants::COIN), {CScript() << OP_TRUE << OP_EQUAL});
         Sign(vchSig, coinbaseKey, m_coinbase_txns[index_cb]->vout[0].scriptPubKey, 0, mtx_parent, 0);
         mtx_parent.vin[0].scriptSig = CScript() << vchSig;
         auto tx_parent{MakeTransactionRef(mtx_parent)};
 
         COutPoint spend_parent(mtx_parent.GetHashMalFix(), 0);
-        auto mtx_orphan = CreateValidTransaction(spend_parent, CAmount(48 * COIN), spend_script);
+        auto mtx_orphan = CreateValidTransaction(spend_parent, CAmount(48 * ConsensusConstants::COIN), spend_script);
         mtx_orphan.vin[0].scriptSig = CScript() << OP_TRUE;
         auto tx_orphan{MakeTransactionRef(mtx_orphan)};
 
@@ -456,7 +456,7 @@ BOOST_FIXTURE_TEST_CASE(package_orphan_tx_tests, PackageTestSetup)
         }
 
         COutPoint spend_child(mtx_orphan.GetHashMalFix(), 0);
-        auto mtx_gchild = CreateValidTransaction(spend_child, CAmount(47 * COIN), spend_script);
+        auto mtx_gchild = CreateValidTransaction(spend_child, CAmount(47 * ConsensusConstants::COIN), spend_script);
         Sign(vchSig, spend_key, mtx_orphan.vout[0].scriptPubKey, 0, mtx_gchild, 0);
         mtx_gchild.vin[0].scriptSig = CScript() << vchSig;
         //mtx_gchild.vin[0].scriptSig = CScript() << OP_TRUE;
@@ -488,19 +488,19 @@ BOOST_FIXTURE_TEST_CASE(package_orphan_tx_tests, PackageTestSetup)
         std::vector<unsigned char> vchSig;
 
         COutPoint spend_cb(m_coinbase_txns[index_cb]->GetHashMalFix(), 0);
-        auto mtx_parent = CreateValidTransaction(spend_cb, CAmount(49 * COIN), {CScript() << OP_TRUE << OP_EQUAL});
+        auto mtx_parent = CreateValidTransaction(spend_cb, CAmount(49 * ConsensusConstants::COIN), {CScript() << OP_TRUE << OP_EQUAL});
         Sign(vchSig, coinbaseKey, m_coinbase_txns[index_cb]->vout[0].scriptPubKey, 0, mtx_parent, 0);
         mtx_parent.vin[0].scriptSig = CScript() << vchSig;
 
         //this tx has so many outputs as workaround for "tx-size-small" error when only one/two outputs are given
         COutPoint spend_parent(mtx_parent.GetHashMalFix(), 0);
-        auto mtx_child = CreateValidTransaction(spend_parent, CAmount(44 * COIN), {CScript() << OP_TRUE << OP_EQUAL});
+        auto mtx_child = CreateValidTransaction(spend_parent, CAmount(44 * ConsensusConstants::COIN), {CScript() << OP_TRUE << OP_EQUAL});
         for(int x = 0; x < 4; ++x)
-            mtx_child.vout.push_back(CTxOut(CAmount(1 * COIN), {CScript() << OP_TRUE << OP_EQUAL}));
+            mtx_child.vout.push_back(CTxOut(CAmount(1 * ConsensusConstants::COIN), {CScript() << OP_TRUE << OP_EQUAL}));
         mtx_child.vin[0].scriptSig = CScript() << OP_TRUE;
 
         COutPoint spend_child(mtx_child.GetHashMalFix(), 0);
-        auto mtx_orphan = CreateValidTransaction(spend_child, CAmount(39 * COIN), spend_script);
+        auto mtx_orphan = CreateValidTransaction(spend_child, CAmount(39 * ConsensusConstants::COIN), spend_script);
         mtx_orphan.vin[0].scriptSig = CScript() << OP_TRUE;
 
         //This is the orphan tx as its parent is not known yet
@@ -556,11 +556,11 @@ BOOST_FIXTURE_TEST_CASE(noncontextual_package_tests, PackageTestSetup)
     {
         ++index_cb;
         COutPoint spend_coinbase(m_coinbase_txns[index_cb]->GetHashMalFix(), 0);
-        auto mtx_parent = CreateValidMempoolTransaction(mempool, spend_coinbase, CAmount(49 * COIN), spk);
+        auto mtx_parent = CreateValidMempoolTransaction(mempool, spend_coinbase, CAmount(49 * ConsensusConstants::COIN), spk);
         const CTransactionRef tx_parent{MakeTransactionRef(mtx_parent)};
 
         COutPoint spend_parent(tx_parent->GetHashMalFix(), 0);
-        auto mtx_child = CreateValidMempoolTransaction(mempool, spend_parent, CAmount(48 * COIN), spk2);
+        auto mtx_child = CreateValidMempoolTransaction(mempool, spend_parent, CAmount(48 * ConsensusConstants::COIN), spk2);
 
         const CTransactionRef tx_child{MakeTransactionRef(mtx_child)};
         CValidationState state;
@@ -580,11 +580,11 @@ BOOST_FIXTURE_TEST_CASE(noncontextual_package_tests, PackageTestSetup)
         CMutableTransaction child;
         for (unsigned long i{index_cb}; i < final_index; ++i, ++index_cb) {
             COutPoint spend_cb(m_coinbase_txns[index_cb]->GetHashMalFix(), 0);
-            auto tx_parent = CreateValidTransaction(spend_cb, COIN, {CScript() << OP_TRUE});
+            auto tx_parent = CreateValidTransaction(spend_cb, ConsensusConstants::COIN, {CScript() << OP_TRUE});
             package.emplace_back(MakeTransactionRef(tx_parent));
             child.vin.emplace_back(COutPoint(tx_parent.GetHashMalFix(), 0));
         }
-        child.vout.emplace_back(47 * COIN, spk2);
+        child.vout.emplace_back(47 * ConsensusConstants::COIN, spk2);
 
         CValidationState state;
         package.emplace_back(MakeTransactionRef(child));
@@ -622,19 +622,19 @@ BOOST_FIXTURE_TEST_CASE(noncontextual_package_tests, PackageTestSetup)
         ++index_cb;
         CMutableTransaction mtx_parent;
         mtx_parent.vin.emplace_back(COutPoint(m_coinbase_txns[index_cb]->GetHashMalFix(), 0));
-        mtx_parent.vout.emplace_back(20 * COIN, spk);
-        mtx_parent.vout.emplace_back(20 * COIN, spk2);
+        mtx_parent.vout.emplace_back(20 * ConsensusConstants::COIN, spk);
+        mtx_parent.vout.emplace_back(20 * ConsensusConstants::COIN, spk2);
         CTransactionRef tx_parent{MakeTransactionRef(mtx_parent)};
 
         CMutableTransaction mtx_parent_also_child;
         mtx_parent_also_child.vin.emplace_back(COutPoint(tx_parent->GetHashMalFix(), 0));
-        mtx_parent_also_child.vout.emplace_back(20 * COIN, spk);
+        mtx_parent_also_child.vout.emplace_back(20 * ConsensusConstants::COIN, spk);
         CTransactionRef tx_parent_also_child{MakeTransactionRef(mtx_parent_also_child)};
 
         CMutableTransaction mtx_child;
         mtx_child.vin.emplace_back(COutPoint(tx_parent->GetHashMalFix(), 1));
         mtx_child.vin.emplace_back(COutPoint(tx_parent_also_child->GetHashMalFix(), 0));
-        mtx_child.vout.emplace_back(39 * COIN, spk);
+        mtx_child.vout.emplace_back(39 * ConsensusConstants::COIN, spk);
         CTransactionRef tx_child{MakeTransactionRef(mtx_child)};
 
         CValidationState state;
@@ -664,13 +664,13 @@ BOOST_FIXTURE_TEST_CASE(package_submission_tests, PackageTestSetup)
     PackageValidationState packageState;
     CTxMempoolAcceptanceOptions opt;
     opt.context = ValidationContext::PACKAGE;
-    opt.nAbsurdFee = 1 * COIN;
+    opt.nAbsurdFee = 1 * ConsensusConstants::COIN;
 
     auto final_index = index_cb + 10;
     std::vector<unsigned char> vchSig;
     for (unsigned long i{index_cb}; i < final_index; ++i, ++index_cb) {
         COutPoint spend_coinbase(m_coinbase_txns[index_cb]->GetHashMalFix(), 0);
-        CMutableTransaction mtx_parent = CreateValidTransaction(spend_coinbase, CAmount(49 * COIN), {CScript() << OP_TRUE});
+        CMutableTransaction mtx_parent = CreateValidTransaction(spend_coinbase, CAmount(49 * ConsensusConstants::COIN), {CScript() << OP_TRUE});
         Sign(vchSig, coinbaseKey, m_coinbase_txns[index_cb]->vout[0].scriptPubKey, 0, mtx_parent, 0);
         mtx_parent.vin[0].scriptSig = CScript() << vchSig;
         package_unrelated.emplace_back(MakeTransactionRef(mtx_parent));
@@ -694,7 +694,7 @@ BOOST_FIXTURE_TEST_CASE(package_submission_tests, PackageTestSetup)
     Package package_parent_child;
     Package package_3gen;
     COutPoint spend_cbase(m_coinbase_txns[index_cb]->GetHashMalFix(), 0);
-    CMutableTransaction mtx_parent = CreateValidTransaction(spend_cbase, CAmount(49 * COIN), {CScript() << OP_TRUE << OP_EQUAL});
+    CMutableTransaction mtx_parent = CreateValidTransaction(spend_cbase, CAmount(49 * ConsensusConstants::COIN), {CScript() << OP_TRUE << OP_EQUAL});
     Sign(vchSig, coinbaseKey, m_coinbase_txns[index_cb]->vout[0].scriptPubKey, 0, mtx_parent, 0);
     mtx_parent.vin[0].scriptSig = CScript() << vchSig;
     CTransactionRef tx_parent{MakeTransactionRef(mtx_parent)};
@@ -705,19 +705,19 @@ BOOST_FIXTURE_TEST_CASE(package_submission_tests, PackageTestSetup)
     child_key.MakeNewKey(true);
     CScript child_locking_script = GetScriptForDestination(child_key.GetPubKey().GetID());
     COutPoint spend_parent(tx_parent->GetHashMalFix(), 0);
-    CMutableTransaction mtx_child = CreateValidTransaction(spend_parent, CAmount(44 * COIN), {CScript() << OP_TRUE << OP_EQUAL});
+    CMutableTransaction mtx_child = CreateValidTransaction(spend_parent, CAmount(44 * ConsensusConstants::COIN), {CScript() << OP_TRUE << OP_EQUAL});
     mtx_child.vin[0].scriptSig = CScript() << OP_TRUE;
     for(int x = 0; x < 4; ++x)
-        mtx_child.vout.push_back(CTxOut(CAmount(1 * COIN), {CScript() << OP_TRUE << OP_EQUAL}));
+        mtx_child.vout.push_back(CTxOut(CAmount(1 * ConsensusConstants::COIN), {CScript() << OP_TRUE << OP_EQUAL}));
     CTransactionRef tx_child{MakeTransactionRef(mtx_child)};
     package_parent_child.push_back(tx_child);
     package_3gen.push_back(tx_child);
 
     COutPoint spend_child(tx_child->GetHashMalFix(), 0);
-    CMutableTransaction mtx_grandchild = CreateValidTransaction(spend_child, CAmount(39 * COIN), CScript() << OP_TRUE << OP_EQUAL );
+    CMutableTransaction mtx_grandchild = CreateValidTransaction(spend_child, CAmount(39 * ConsensusConstants::COIN), CScript() << OP_TRUE << OP_EQUAL );
     mtx_grandchild.vin[0].scriptSig = CScript() << OP_TRUE;
     for(int x = 0; x < 4; ++x)
-        mtx_grandchild.vout.push_back(CTxOut(CAmount(1 * COIN), {CScript() << OP_TRUE << OP_EQUAL}));
+        mtx_grandchild.vout.push_back(CTxOut(CAmount(1 * ConsensusConstants::COIN), {CScript() << OP_TRUE << OP_EQUAL}));
     CTransactionRef tx_grandchild{MakeTransactionRef(mtx_grandchild)};
     package_3gen.push_back(tx_grandchild);
 
@@ -753,7 +753,7 @@ BOOST_FIXTURE_TEST_CASE(package_submission_tests, PackageTestSetup)
     // Parent and child package with unknown inputs
     {
         ++index_cb;
-        CMutableTransaction mtx_parent_invalid = CreateValidTransaction(spend_cbase, CAmount(49 * COIN), {CScript() << OP_TRUE << OP_EQUAL});
+        CMutableTransaction mtx_parent_invalid = CreateValidTransaction(spend_cbase, CAmount(49 * ConsensusConstants::COIN), {CScript() << OP_TRUE << OP_EQUAL});
         mtx_parent_invalid.vin[0].prevout.hashMalFix = InsecureRand256();
         CTransactionRef tx_parent_invalid{MakeTransactionRef(mtx_parent_invalid)};
         Package package_invalid_parent{tx_parent_invalid, tx_child};
@@ -772,19 +772,19 @@ BOOST_FIXTURE_TEST_CASE(package_submission_tests, PackageTestSetup)
 
     // high fee tx.
     {
-        opt.nAbsurdFee = 0.5 * COIN;
+        opt.nAbsurdFee = 0.5 * ConsensusConstants::COIN;
 
         ++index_cb;
         COutPoint spend_cbase(m_coinbase_txns[index_cb]->GetHashMalFix(), 0);
-        CMutableTransaction mtx_parent = CreateValidTransaction(spend_cbase, CAmount(49 * COIN), {CScript() << OP_TRUE << OP_EQUAL});
+        CMutableTransaction mtx_parent = CreateValidTransaction(spend_cbase, CAmount(49 * ConsensusConstants::COIN), {CScript() << OP_TRUE << OP_EQUAL});
         Sign(vchSig, coinbaseKey, m_coinbase_txns[index_cb]->vout[0].scriptPubKey, 0, mtx_parent, 0);
         mtx_parent.vin[0].scriptSig = CScript() << vchSig;
         CTransactionRef tx_parent{MakeTransactionRef(mtx_parent)};
 
         COutPoint spend_parent(tx_parent->GetHashMalFix(), 0);
-        CMutableTransaction mtx_child2 = CreateValidTransaction(spend_parent, CAmount(5 * COIN), {CScript() << OP_TRUE << OP_EQUAL});
+        CMutableTransaction mtx_child2 = CreateValidTransaction(spend_parent, CAmount(5 * ConsensusConstants::COIN), {CScript() << OP_TRUE << OP_EQUAL});
         mtx_child2.vin[0].scriptSig = CScript() << OP_TRUE;
-        mtx_child2.vout.push_back(CTxOut(CAmount(1 * COIN), {CScript() << OP_TRUE << OP_EQUAL}));
+        mtx_child2.vout.push_back(CTxOut(CAmount(1 * ConsensusConstants::COIN), {CScript() << OP_TRUE << OP_EQUAL}));
         CTransactionRef tx_child2{MakeTransactionRef(mtx_child2)};
 
         Package package_high_fee{tx_parent, tx_child2};
@@ -821,15 +821,15 @@ BOOST_FIXTURE_TEST_CASE(testmempoolaccept_missing_inputs_no_overlay_leak, Packag
     // tx_orphan: spends a non-existent outpoint — will get missing-inputs.
     COutPoint nonexistent(InsecureRand256(), 0);
     CScript op_true_eq = CScript() << OP_TRUE << OP_EQUAL;
-    auto mtx_orphan = CreateValidTransaction(nonexistent, CAmount(49 * COIN), op_true_eq);
+    auto mtx_orphan = CreateValidTransaction(nonexistent, CAmount(49 * ConsensusConstants::COIN), op_true_eq);
 
     // tx_child: spends tx_orphan's output 0.
     COutPoint spend_orphan(mtx_orphan.GetHashMalFix(), 0);
     CScript op_true_eq2 = CScript() << OP_TRUE << OP_EQUAL;
-    auto mtx_child = CreateValidTransaction(spend_orphan, CAmount(44 * COIN), op_true_eq2);
+    auto mtx_child = CreateValidTransaction(spend_orphan, CAmount(44 * ConsensusConstants::COIN), op_true_eq2);
     mtx_child.vin[0].scriptSig = CScript() << OP_TRUE;
     for (int i = 0; i < 4; ++i)
-        mtx_child.vout.push_back(CTxOut(CAmount(1 * COIN), op_true_eq2));
+        mtx_child.vout.push_back(CTxOut(CAmount(1 * ConsensusConstants::COIN), op_true_eq2));
 
     Package package{MakeTransactionRef(mtx_orphan), MakeTransactionRef(mtx_child)};
     auto result = SubmitPackageToMempool(package, state, validationState, opt);

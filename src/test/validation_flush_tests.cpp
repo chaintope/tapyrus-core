@@ -42,7 +42,7 @@ static void AddTestCoin(CCoinsViewCache& view)
     Coin coin;
     COutPoint outpoint{InsecureRand256(), /*n=*/0};
     coin.nHeight = 1;
-    coin.out.nValue = static_cast<CAmount>(InsecureRandRange(21000000LL * COIN) + 1);
+    coin.out.nValue = static_cast<CAmount>(InsecureRandRange(21000000LL * ConsensusConstants::COIN) + 1);
     coin.out.scriptPubKey.assign(56, static_cast<unsigned char>(1));
     view.AddCoin(outpoint, std::move(coin), /*possible_overwrite=*/false);
 }

@@ -233,27 +233,27 @@ BOOST_AUTO_TEST_CASE(rpc_format_monetary_values)
     BOOST_CHECK(ValueFromAmount(2099999999999999LL).write() == "20999999.99999999");
 
     BOOST_CHECK_EQUAL(ValueFromAmount(0).write(), "0.00000000");
-    BOOST_CHECK_EQUAL(ValueFromAmount((COIN/10000)*123456789).write(), "12345.67890000");
-    BOOST_CHECK_EQUAL(ValueFromAmount(-COIN).write(), "-1.00000000");
-    BOOST_CHECK_EQUAL(ValueFromAmount(-COIN/10).write(), "-0.10000000");
+    BOOST_CHECK_EQUAL(ValueFromAmount((ConsensusConstants::COIN/10000)*123456789).write(), "12345.67890000");
+    BOOST_CHECK_EQUAL(ValueFromAmount(-ConsensusConstants::COIN).write(), "-1.00000000");
+    BOOST_CHECK_EQUAL(ValueFromAmount(-ConsensusConstants::COIN/10).write(), "-0.10000000");
 
-    BOOST_CHECK_EQUAL(ValueFromAmount(COIN*100000000).write(), "100000000.00000000");
-    BOOST_CHECK_EQUAL(ValueFromAmount(COIN*10000000).write(), "10000000.00000000");
-    BOOST_CHECK_EQUAL(ValueFromAmount(COIN*1000000).write(), "1000000.00000000");
-    BOOST_CHECK_EQUAL(ValueFromAmount(COIN*100000).write(), "100000.00000000");
-    BOOST_CHECK_EQUAL(ValueFromAmount(COIN*10000).write(), "10000.00000000");
-    BOOST_CHECK_EQUAL(ValueFromAmount(COIN*1000).write(), "1000.00000000");
-    BOOST_CHECK_EQUAL(ValueFromAmount(COIN*100).write(), "100.00000000");
-    BOOST_CHECK_EQUAL(ValueFromAmount(COIN*10).write(), "10.00000000");
-    BOOST_CHECK_EQUAL(ValueFromAmount(COIN).write(), "1.00000000");
-    BOOST_CHECK_EQUAL(ValueFromAmount(COIN/10).write(), "0.10000000");
-    BOOST_CHECK_EQUAL(ValueFromAmount(COIN/100).write(), "0.01000000");
-    BOOST_CHECK_EQUAL(ValueFromAmount(COIN/1000).write(), "0.00100000");
-    BOOST_CHECK_EQUAL(ValueFromAmount(COIN/10000).write(), "0.00010000");
-    BOOST_CHECK_EQUAL(ValueFromAmount(COIN/100000).write(), "0.00001000");
-    BOOST_CHECK_EQUAL(ValueFromAmount(COIN/1000000).write(), "0.00000100");
-    BOOST_CHECK_EQUAL(ValueFromAmount(COIN/10000000).write(), "0.00000010");
-    BOOST_CHECK_EQUAL(ValueFromAmount(COIN/100000000).write(), "0.00000001");
+    BOOST_CHECK_EQUAL(ValueFromAmount(ConsensusConstants::COIN*100000000).write(), "100000000.00000000");
+    BOOST_CHECK_EQUAL(ValueFromAmount(ConsensusConstants::COIN*10000000).write(), "10000000.00000000");
+    BOOST_CHECK_EQUAL(ValueFromAmount(ConsensusConstants::COIN*1000000).write(), "1000000.00000000");
+    BOOST_CHECK_EQUAL(ValueFromAmount(ConsensusConstants::COIN*100000).write(), "100000.00000000");
+    BOOST_CHECK_EQUAL(ValueFromAmount(ConsensusConstants::COIN*10000).write(), "10000.00000000");
+    BOOST_CHECK_EQUAL(ValueFromAmount(ConsensusConstants::COIN*1000).write(), "1000.00000000");
+    BOOST_CHECK_EQUAL(ValueFromAmount(ConsensusConstants::COIN*100).write(), "100.00000000");
+    BOOST_CHECK_EQUAL(ValueFromAmount(ConsensusConstants::COIN*10).write(), "10.00000000");
+    BOOST_CHECK_EQUAL(ValueFromAmount(ConsensusConstants::COIN).write(), "1.00000000");
+    BOOST_CHECK_EQUAL(ValueFromAmount(ConsensusConstants::COIN/10).write(), "0.10000000");
+    BOOST_CHECK_EQUAL(ValueFromAmount(ConsensusConstants::COIN/100).write(), "0.01000000");
+    BOOST_CHECK_EQUAL(ValueFromAmount(ConsensusConstants::COIN/1000).write(), "0.00100000");
+    BOOST_CHECK_EQUAL(ValueFromAmount(ConsensusConstants::COIN/10000).write(), "0.00010000");
+    BOOST_CHECK_EQUAL(ValueFromAmount(ConsensusConstants::COIN/100000).write(), "0.00001000");
+    BOOST_CHECK_EQUAL(ValueFromAmount(ConsensusConstants::COIN/1000000).write(), "0.00000100");
+    BOOST_CHECK_EQUAL(ValueFromAmount(ConsensusConstants::COIN/10000000).write(), "0.00000010");
+    BOOST_CHECK_EQUAL(ValueFromAmount(ConsensusConstants::COIN/100000000).write(), "0.00000001");
 }
 
 static UniValue ValueFromString(const std::string &str)
@@ -277,12 +277,12 @@ BOOST_AUTO_TEST_CASE(rpc_parse_monetary_values)
     BOOST_CHECK_EQUAL(AmountFromValue(ValueFromString("20999999.9999999")), 2099999999999990LL);
     BOOST_CHECK_EQUAL(AmountFromValue(ValueFromString("20999999.99999999")), 2099999999999999LL);
 
-    BOOST_CHECK_EQUAL(AmountFromValue(ValueFromString("1e-8")), COIN/100000000);
-    BOOST_CHECK_EQUAL(AmountFromValue(ValueFromString("0.1e-7")), COIN/100000000);
-    BOOST_CHECK_EQUAL(AmountFromValue(ValueFromString("0.01e-6")), COIN/100000000);
-    BOOST_CHECK_EQUAL(AmountFromValue(ValueFromString("0.0000000000000000000000000000000000000000000000000000000000000000000000000001e+68")), COIN/100000000);
-    BOOST_CHECK_EQUAL(AmountFromValue(ValueFromString("10000000000000000000000000000000000000000000000000000000000000000e-64")), COIN);
-    BOOST_CHECK_EQUAL(AmountFromValue(ValueFromString("0.000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000e64")), COIN);
+    BOOST_CHECK_EQUAL(AmountFromValue(ValueFromString("1e-8")), ConsensusConstants::COIN/100000000);
+    BOOST_CHECK_EQUAL(AmountFromValue(ValueFromString("0.1e-7")), ConsensusConstants::COIN/100000000);
+    BOOST_CHECK_EQUAL(AmountFromValue(ValueFromString("0.01e-6")), ConsensusConstants::COIN/100000000);
+    BOOST_CHECK_EQUAL(AmountFromValue(ValueFromString("0.0000000000000000000000000000000000000000000000000000000000000000000000000001e+68")), ConsensusConstants::COIN/100000000);
+    BOOST_CHECK_EQUAL(AmountFromValue(ValueFromString("10000000000000000000000000000000000000000000000000000000000000000e-64")), ConsensusConstants::COIN);
+    BOOST_CHECK_EQUAL(AmountFromValue(ValueFromString("0.000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000e64")), ConsensusConstants::COIN);
 
     BOOST_CHECK_THROW(AmountFromValue(ValueFromString("1e-9")), UniValue); //should fail
     BOOST_CHECK_THROW(AmountFromValue(ValueFromString("0.000000019")), UniValue); //should fail

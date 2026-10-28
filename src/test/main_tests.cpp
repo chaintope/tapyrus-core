@@ -3,7 +3,9 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#include <chainparams.h>
+#include <consensussettings.h>
+#include <federationparams.h>
+#include <genesisfile.h>
 #include <validation.h>
 #include <connman.h>
 
@@ -14,45 +16,44 @@
 
 BOOST_FIXTURE_TEST_SUITE(main_tests, TestingSetup)
 
-static void TestBlockSubsidyHalvings(const Consensus::Params& consensusParams)
+/** Settings with a halving interval that neither mode has. */
+class HalvingIntervalSettings : public ConsensusSettings
+{
+public:
+    explicit HalvingIntervalSettings(int32_t subsidyHalvingInterval)
+        : ConsensusSettings(ReadGenesisBlock(), TAPYRUS_OP_MODE::PROD, FederationParams().NetworkId(), subsidyHalvingInterval) {}
+};
+
+static void TestBlockSubsidyHalvings(const ConsensusSettings& settings)
 {
     int maxHalvings = 64;
-    CAmount nInitialSubsidy = 50 * COIN;
+    CAmount nInitialSubsidy = 50 * ConsensusSettings::COIN;
 
     CAmount nPreviousSubsidy = nInitialSubsidy * 2; // for height == 0
     BOOST_CHECK_EQUAL(nPreviousSubsidy, nInitialSubsidy * 2);
     for (int nHalvings = 0; nHalvings < maxHalvings; nHalvings++) {
-        int nHeight = nHalvings * consensusParams.nSubsidyHalvingInterval;
-        CAmount nSubsidy = GetBlockSubsidy(nHeight, consensusParams);
+        int nHeight = nHalvings * settings.SubsidyHalvingInterval();
+        CAmount nSubsidy = settings.BlockSubsidy(nHeight);
         BOOST_CHECK(nSubsidy <= nInitialSubsidy);
         BOOST_CHECK_EQUAL(nSubsidy, nPreviousSubsidy / 2);
         nPreviousSubsidy = nSubsidy;
     }
-    BOOST_CHECK_EQUAL(GetBlockSubsidy(maxHalvings * consensusParams.nSubsidyHalvingInterval, consensusParams), 0);
-}
-
-static void TestBlockSubsidyHalvings(int nSubsidyHalvingInterval)
-{
-    Consensus::Params consensusParams;
-    consensusParams.nSubsidyHalvingInterval = nSubsidyHalvingInterval;
-    TestBlockSubsidyHalvings(consensusParams);
+    BOOST_CHECK_EQUAL(settings.BlockSubsidy(maxHalvings * settings.SubsidyHalvingInterval()), 0);
 }
 
 BOOST_AUTO_TEST_CASE(block_subsidy_test)
 {
-    const auto chainParams = CreateChainParams(TAPYRUS_OP_MODE::PROD);
-    TestBlockSubsidyHalvings(chainParams->GetConsensus()); // As in prod
-    TestBlockSubsidyHalvings(150); // As in dev
-    TestBlockSubsidyHalvings(1000); // Just another interval
+    TestBlockSubsidyHalvings(*g_consensus_settings); // As in prod
+    TestBlockSubsidyHalvings(ConsensusSettings(ReadGenesisBlock(), TAPYRUS_OP_MODE::DEV, FederationParams().NetworkId())); // As in dev
+    TestBlockSubsidyHalvings(HalvingIntervalSettings(1000)); // Just another interval
 }
 
 BOOST_AUTO_TEST_CASE(subsidy_limit_test)
 {
-    const auto chainParams = CreateChainParams(TAPYRUS_OP_MODE::PROD);
     CAmount nSum = 0;
     for (int nHeight = 0; nHeight < 14000000; nHeight += 1000) {
-        CAmount nSubsidy = GetBlockSubsidy(nHeight, Params().GetConsensus());
-        BOOST_CHECK(nSubsidy <= 50 * COIN);
+        CAmount nSubsidy = g_consensus_settings->BlockSubsidy(nHeight);
+        BOOST_CHECK(nSubsidy <= 50 * ConsensusSettings::COIN);
         nSum += nSubsidy * 1000;
         BOOST_CHECK(MoneyRange(nSum));
     }
