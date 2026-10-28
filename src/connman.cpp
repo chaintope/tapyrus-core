@@ -10,7 +10,7 @@
 
 #include <chainparams.h>
 #include <chainstatemanager.h>
-#include <consensus/consensus.h>
+#include <consensusconstants.h>
 #include <crypto/common.h>
 #include <crypto/sha256.h>
 #include <localaddress.h>

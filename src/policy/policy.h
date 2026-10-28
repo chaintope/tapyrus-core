@@ -7,7 +7,7 @@
 #ifndef BITCOIN_POLICY_POLICY_H
 #define BITCOIN_POLICY_POLICY_H
 
-#include <consensus/consensus.h>
+#include <consensusconstants.h>
 #include <policy/feerate.h>
 #include <script/interpreter.h>
 #include <script/standard.h>
@@ -20,6 +20,8 @@ class CTxOut;
 
 /** Default for -blockmintxfee, which sets the minimum feerate for a transaction in blocks created by mining code **/
 static const unsigned int DEFAULT_BLOCK_MIN_TX_FEE = 1000;
+/** Default blockmax size, which controls the range of block size the mining code will create **/
+static const unsigned int DEFAULT_BLOCK_MAX_SIZE = ConsensusConstants::MAX_BLOCK_SIZE - 1000;
 /** The maximum size for transactions we're willing to relay/mine */
 static const unsigned int MAX_STANDARD_TX_SIZE = 100000;
 /** The minimum size for transactions we're willing to relay/mine */

@@ -4,13 +4,13 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
+#include <consensussettings.h>
 #include <miner.h>
 
 #include <amount.h>
 #include <blockindex.h>
 #include <chainparams.h>
 #include <chainstatemanager.h>
-#include <consensus/consensus.h>
 #include <consensus/tx_verify.h>
 #include <consensus/merkle.h>
 #include <consensus/validation.h>
@@ -115,7 +115,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     assert(pindexPrev != nullptr);
     nHeight = pindexPrev->nHeight + 1;
 
-    pblock->nFeatures = CBlock::TAPYRUS_BLOCK_FEATURES;
+    pblock->nFeatures = ConsensusConstants::TAPYRUS_BLOCK_FEATURES;
     // -dev only: allow overriding block.nFeatures with
     // -blockversion=N to test forking scenarios
     if (chainparams.MineBlocksOnDemand())
@@ -148,7 +148,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     coinbaseTx.vin[0].prevout.n = nHeight;
     coinbaseTx.vout.resize(1);
     coinbaseTx.vout[0].scriptPubKey = scriptPubKeyIn;
-    coinbaseTx.vout[0].nValue = nFees + GetBlockSubsidy(nHeight, Params().GetConsensus());
+    coinbaseTx.vout[0].nValue = nFees + g_consensus_settings->BlockSubsidy(nHeight);
     //coinbaseTx.vin[0].scriptSig = CScript();
     pblock->vtx[0] = MakeTransactionRef(std::move(coinbaseTx));
     pblocktemplate->vTxFees[0] = -nFees;

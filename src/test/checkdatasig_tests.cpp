@@ -46,7 +46,7 @@ static void CheckError(uint32_t flags, const stacktype &original_stack,
     txCredit.vout.resize(1);
     txCredit.vin[0].prevout.SetNull();
     txCredit.vin[0].scriptSig = CScript() << CScriptNum(0) << CScriptNum(0);
-    txCredit.vin[0].nSequence = CTxIn::SEQUENCE_FINAL;
+    txCredit.vin[0].nSequence = ConsensusConstants::SEQUENCE_FINAL;
     txCredit.vout[0].scriptPubKey = script;
     txCredit.vout[0].nValue = 0;
 
@@ -70,7 +70,7 @@ static void CheckPass(uint32_t flags, const stacktype &original_stack,
     txCredit.vout.resize(1);
     txCredit.vin[0].prevout.SetNull();
     txCredit.vin[0].scriptSig = CScript() << CScriptNum(0) << CScriptNum(0);
-    txCredit.vin[0].nSequence = CTxIn::SEQUENCE_FINAL;
+    txCredit.vin[0].nSequence = ConsensusConstants::SEQUENCE_FINAL;
     txCredit.vout[0].scriptPubKey = script;
     txCredit.vout[0].nValue = 0;
     MutableTransactionSignatureChecker checker(&txCredit, 0, 0);

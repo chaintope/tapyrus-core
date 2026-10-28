@@ -59,8 +59,8 @@ CScript CreateMultisigRedeemscript(const int required, const std::vector<CPubKey
 
     CScript result = GetScriptForMultisig(required, pubkeys);
 
-    if (result.size() > MAX_SCRIPT_ELEMENT_SIZE) {
-        throw JSONRPCError(RPC_INVALID_PARAMETER, (strprintf("redeemScript exceeds size limit: %d > %d", result.size(), MAX_SCRIPT_ELEMENT_SIZE)));
+    if (result.size() > ConsensusConstants::MAX_SCRIPT_ELEMENT_SIZE) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, (strprintf("redeemScript exceeds size limit: %d > %d", result.size(), ConsensusConstants::MAX_SCRIPT_ELEMENT_SIZE)));
     }
 
     return result;

@@ -67,7 +67,7 @@ std::string FormatStateMessage(const CValidationState &state)
 bool CheckBlockHeader(const CBlockHeader& block, CValidationState& state, CXFieldHistoryMap& xfieldHistory, int nHeight, bool fCheckPOW)
 {
     //check block features
-    if(block.nFeatures != CBlock::TAPYRUS_BLOCK_FEATURES)
+    if(block.nFeatures != ConsensusConstants::TAPYRUS_BLOCK_FEATURES)
         return state.Invalid(false, REJECT_INVALID, "bad-features", "Incorrect Block features");
 
     //check xfieldType and xfield fields in the block header. Do not accept a block with unexpected xfieldType

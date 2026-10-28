@@ -3049,7 +3049,7 @@ bool PeerLogicValidation::ProcessMessage(CNode* pfrom, const std::string& strCom
         // Nodes must NEVER send a data item > 520 bytes (the max size for a script data object,
         // and thus, the maximum size any matched object can have) in a filteradd message
         bool bad = false;
-        if (vData.size() > MAX_SCRIPT_ELEMENT_SIZE) {
+        if (vData.size() > ConsensusConstants::MAX_SCRIPT_ELEMENT_SIZE) {
             bad = true;
         } else {
             LOCK(pfrom->cs_filter);

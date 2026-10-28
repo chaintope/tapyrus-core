@@ -699,7 +699,7 @@ BOOST_AUTO_TEST_CASE(check_block_header_orphan_uses_latest_aggpubkey)
     // Build a block header with an unknown prev (simulates the orphan path in
     // AcceptBlockHeader) and sign it with the post-rotation key.
     CBlockHeader header;
-    header.nFeatures     = CBlock::TAPYRUS_BLOCK_FEATURES;
+    header.nFeatures     = ConsensusConstants::TAPYRUS_BLOCK_FEATURES;
     header.hashPrevBlock =
         uint256S("deadbeef00000000000000000000000000000000000000000000000000000001");
     header.nTime = GetTime();
@@ -1244,12 +1244,12 @@ static void CheckInputValuesOutOfRange(const CValidationState& state)
 BOOST_AUTO_TEST_CASE(verifytoken_colorid_input_sum_at_max_money_accepted)
 {
     TokenBalanceInputs inputs;
-    const CAmount half{MAX_MONEY / 2};
+    const CAmount half{ConsensusConstants::MAX_MONEY / 2};
     inputs.AddColoredInput(half);
-    inputs.AddColoredInput(MAX_MONEY - half);
-    inputs.AddTpcInput(COIN);
-    inputs.AddColoredOutput(MAX_MONEY);
-    inputs.AddTpcOutput(COIN - 1000);
+    inputs.AddColoredInput(ConsensusConstants::MAX_MONEY - half);
+    inputs.AddTpcInput(ConsensusConstants::COIN);
+    inputs.AddColoredOutput(ConsensusConstants::MAX_MONEY);
+    inputs.AddTpcOutput(ConsensusConstants::COIN - 1000);
 
     CValidationState state;
     BOOST_CHECK(inputs.Verify(state));
@@ -1261,12 +1261,12 @@ BOOST_AUTO_TEST_CASE(verifytoken_colorid_input_sum_over_max_money_rejected)
     // Each input is in range; only their sum exceeds MAX_MONEY. Part of it is
     // burned, so the outputs alone are valid.
     TokenBalanceInputs inputs;
-    const CAmount half{MAX_MONEY / 2};
+    const CAmount half{ConsensusConstants::MAX_MONEY / 2};
     inputs.AddColoredInput(half);
-    inputs.AddColoredInput(MAX_MONEY - half + 1);
-    inputs.AddTpcInput(COIN);
+    inputs.AddColoredInput(ConsensusConstants::MAX_MONEY - half + 1);
+    inputs.AddTpcInput(ConsensusConstants::COIN);
     inputs.AddColoredOutput(half);
-    inputs.AddTpcOutput(COIN - 1000);
+    inputs.AddTpcOutput(ConsensusConstants::COIN - 1000);
 
     CValidationState state;
     BOOST_CHECK(!inputs.Verify(state));
@@ -1281,10 +1281,10 @@ BOOST_AUTO_TEST_CASE(verifytoken_colorid_input_sum_out_of_range_all_burned)
     // the second. Without it, 4393 such inputs would overflow a signed 64-bit
     // sum, which a test cannot observe as it is undefined behaviour.
     TokenBalanceInputs inputs;
-    inputs.AddColoredInput(MAX_MONEY);
-    inputs.AddColoredInput(MAX_MONEY);
-    inputs.AddTpcInput(COIN);
-    inputs.AddTpcOutput(COIN - 1000);
+    inputs.AddColoredInput(ConsensusConstants::MAX_MONEY);
+    inputs.AddColoredInput(ConsensusConstants::MAX_MONEY);
+    inputs.AddTpcInput(ConsensusConstants::COIN);
+    inputs.AddTpcOutput(ConsensusConstants::COIN - 1000);
 
     CValidationState state;
     BOOST_CHECK(!inputs.Verify(state));
@@ -1313,7 +1313,7 @@ BOOST_AUTO_TEST_CASE(connectblock_premature_coinbase_dos_score_is_zero)
     coinbaseTx.vin[0].prevout.SetNull();
     coinbaseTx.vin[0].scriptSig = CScript() << coinbaseHeight << OP_0;
     coinbaseTx.vout.resize(1);
-    coinbaseTx.vout[0].nValue = 50 * COIN;
+    coinbaseTx.vout[0].nValue = 50 * ConsensusConstants::COIN;
     coinbaseTx.vout[0].scriptPubKey = CScript() << OP_TRUE;
 
     COutPoint coinbaseOutpoint(CTransaction(coinbaseTx).GetHashMalFix(), 0);
@@ -1334,7 +1334,7 @@ BOOST_AUTO_TEST_CASE(connectblock_premature_coinbase_dos_score_is_zero)
     spendTx.vin.resize(1);
     spendTx.vin[0].prevout = coinbaseOutpoint;
     spendTx.vout.resize(1);
-    spendTx.vout[0].nValue = 40 * COIN;
+    spendTx.vout[0].nValue = 40 * ConsensusConstants::COIN;
     spendTx.vout[0].scriptPubKey = CScript() << OP_TRUE;
 
     CValidationState state;

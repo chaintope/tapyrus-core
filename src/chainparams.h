@@ -17,12 +17,6 @@
 #include <tapyrusmodes.h>
 
 
-typedef std::map<int, uint256> MapCheckpoints;
-
-struct CCheckpointData {
-    MapCheckpoints mapCheckpoints;
-};
-
 /**
  * Holds various statistics on transactions within a chain. Used to estimate
  * verification progress during chain sync.
@@ -67,7 +61,6 @@ public:
     bool MineBlocksOnDemand() const { return fMineBlocksOnDemand; }
     /** Return true if the fallback fee is by default enabled for this network */
     bool IsFallbackFeeEnabled() const { return m_fallback_fee_enabled; }
-    const CCheckpointData& Checkpoints() const { return checkpointData; }
     const ChainTxData& TxData() const { return chainTxData; }
     void SetChainTxData(const ChainTxData& data) { chainTxData = data; }
     const std::vector<unsigned char>& Base58Prefix(Base58Type type) const { return base58Prefixes[type]; }
@@ -85,7 +78,6 @@ protected:
     bool fDefaultConsistencyChecks;
     bool fMineBlocksOnDemand;
     std::vector<unsigned char> base58Prefixes[MAX_BASE58_TYPES];
-    CCheckpointData checkpointData;
     ChainTxData chainTxData;
     bool m_fallback_fee_enabled;
     std::vector<SeedSpec6> vFixedSeeds;

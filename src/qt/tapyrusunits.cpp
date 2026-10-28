@@ -231,5 +231,5 @@ QVariant TapyrusUnits::data(const QModelIndex &index, int role) const
 
 CAmount TapyrusUnits::maxMoney()
 {
-    return MAX_MONEY;
+    return ConsensusConstants::MAX_MONEY;
 }

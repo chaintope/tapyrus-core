@@ -416,7 +416,7 @@ public:
             std::vector<COutput> vecOutputs;
             {
                 LOCK2(::cs_main, m_wallet.cs_wallet);
-                m_wallet.AvailableCoins(vecOutputs, true, nullptr, 0, MAX_MONEY, MAX_MONEY, 0, 0, 9999999, false);
+                m_wallet.AvailableCoins(vecOutputs, true, nullptr, 0, ConsensusConstants::MAX_MONEY, ConsensusConstants::MAX_MONEY, 0, 0, 9999999, false);
             }
 
             COutPoint tpcUtxo;

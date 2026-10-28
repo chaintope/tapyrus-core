@@ -5,7 +5,7 @@
 #ifndef TAPYRUS_XFIELDHISTORY_H
 #define TAPYRUS_XFIELDHISTORY_H
 
-#include <consensus/consensus.h>
+#include <consensusconstants.h>
 #include <primitives/block.h>
 #include <primitives/xfield.h>
 #include <primitives/xfieldvalues.h>

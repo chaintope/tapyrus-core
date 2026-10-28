@@ -16,8 +16,9 @@
 #include <chainstatemanager.h>
 #include <debuglogfile.h>
 #include <checkpoints.h>
-#include <dynamicparams.h>
+#include <consensussettings.h>
 #include <eccverifyhandle.h>
+#include <genesisfile.h>
 #include <consensus/validation.h>
 #include <fs.h>
 #include <httpserver.h>
@@ -1286,20 +1287,20 @@ bool AppInitMain(NodeContext& node)
     //Read genesis block from file now - we are sure that data dir exists.
     try {
         SelectFederationParams(gArgs.GetChainMode());
-        SelectDynamicParams(ReadGenesisBlock());
-        g_chainstate_manager.InitXFieldHistory(DynamicParams().GenesisBlock());
+        g_consensus_settings = std::make_unique<const ConsensusSettings>(ReadGenesisBlock(), gArgs.GetChainMode(), FederationParams().NetworkId());
+        g_chainstate_manager.InitXFieldHistory(g_consensus_settings->GenesisBlock());
     } catch (const std::exception& e) {
         fprintf(stderr, "Error: %s\n", e.what());
         return false;
     }
-    LogPrintf("Genesis Block [%s] of Tapyrus network [%s] Loaded successfully\n", DynamicParams().GenesisBlock().GetHash().ToString(), FederationParams().NetworkIDString());
+    LogPrintf("Genesis Block [%s] of Tapyrus network [%s] Loaded successfully\n", g_consensus_settings->GenesisBlock().GetHash().ToString(), FederationParams().NetworkIDString());
 
     // Initialise ChainTxData from the genesis block timestamp so that
     // GuessVerificationProgress produces meaningful values during IBD.
     // nTime is wall-clock time (so nNow - nTime ≈ 0 and fTxTotal ≈ nTxCount),
     // and nTxCount is the expected total transactions from genesis to now.
-    if (!DynamicParams().GenesisBlock().vtx.empty()) {
-        const int64_t genesisTime = DynamicParams().GenesisBlock().nTime;
+    if (!g_consensus_settings->GenesisBlock().vtx.empty()) {
+        const int64_t genesisTime = g_consensus_settings->GenesisBlock().nTime;
         const double dTxRate = 1.0 / Params().GetConsensus().nExpectedBlockTime;
         const int64_t nNow = time(nullptr);
         const int64_t nTxCount = std::max(int64_t(1),
@@ -1540,7 +1541,7 @@ bool AppInitMain(NodeContext& node)
 
                 // If the loaded chain has a wrong genesis, bail out immediately
                 // (we're likely using a testnet datadir, or the other way around).
-                if (!mapBlockIndex.empty() && !LookupBlockIndex(DynamicParams().GenesisBlock().GetHash())) {
+                if (!mapBlockIndex.empty() && !LookupBlockIndex(g_consensus_settings->GenesisBlock().GetHash())) {
                     return InitError(_("Incorrect or no genesis block found. Wrong datadir for network?"));
                 }
 
@@ -1561,7 +1562,7 @@ bool AppInitMain(NodeContext& node)
                 } else {
                     // Initialize xfieldHistory here as it is not initialized
                     // when genesis block is loaded from the file during reindex
-                    g_chainstate_manager.InitXFieldHistory(DynamicParams().GenesisBlock());
+                    g_chainstate_manager.InitXFieldHistory(g_consensus_settings->GenesisBlock());
                 }
 
                 // At this point we're either in reindex or we've loaded a useful

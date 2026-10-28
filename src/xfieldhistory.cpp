@@ -88,7 +88,7 @@ void CXFieldHistory::Init(const CBlock& genesis) {
         xfieldHistory.emplace(TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE, XFieldChangeListWrapper(XFieldMaxBlockSize::BLOCKTREE_DB_KEY));
     }
     Add(TAPYRUS_XFIELDTYPES::AGGPUBKEY, XFieldChange(genesis.xfield.xfieldValue, 0, genesis.GetHash()));
-    Add(TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE, XFieldChange(MAX_BLOCK_SIZE, 0, genesis.GetHash()));
+    Add(TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE, XFieldChange(ConsensusConstants::MAX_BLOCK_SIZE, 0, genesis.GetHash()));
 }
 
 void CXFieldHistory::ToUniValue(TAPYRUS_XFIELDTYPES type, UniValue* xFieldChangeUnival) {

@@ -5,7 +5,7 @@
 
 #include <core_io.h>
 
-#include <consensus/consensus.h>
+#include <consensusconstants.h>
 #include <consensus/validation.h>
 #include <key_io.h>
 #include <pstt.h>
@@ -22,8 +22,8 @@ UniValue ValueFromAmount(const CAmount& amount)
 {
     bool sign = amount < 0;
     int64_t n_abs = (sign ? -amount : amount);
-    int64_t quotient = n_abs / COIN;
-    int64_t remainder = n_abs % COIN;
+    int64_t quotient = n_abs / ConsensusConstants::COIN;
+    int64_t remainder = n_abs % ConsensusConstants::COIN;
     return UniValue(UniValue::VNUM,
             strprintf("%s%d.%08d", sign ? "-" : "", quotient, remainder));
 }

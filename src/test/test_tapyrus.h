@@ -17,7 +17,7 @@
 #include <scheduler.h>
 #include <txdb.h>
 #include <txmempool.h>
-#include <consensus/consensus.h>
+#include <consensusconstants.h>
 #include <xfieldhistory.h>
 
 #include <memory>

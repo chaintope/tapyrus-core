@@ -29,7 +29,7 @@ static constexpr uint8_t MAX_FUZZ_KEYS = 3;
 static constexpr uint8_t MAX_FUZZ_SCRIPTS = 2;
 static constexpr uint32_t PRIVATE_KEY_SIZE_BYTES = 32;
 // One byte over the limit, so AddCScript()'s rejection path is reachable too.
-static constexpr uint32_t MAX_FUZZ_SCRIPT_SIZE_BYTES = MAX_SCRIPT_ELEMENT_SIZE + 1;
+static constexpr uint32_t MAX_FUZZ_SCRIPT_SIZE_BYTES = ConsensusConstants::MAX_SCRIPT_ELEMENT_SIZE + 1;
 
 // CKey::GetPubKey() (called by CBasicKeyStore::AddKey) needs the secp256k1
 // signing context, which pstt_fuzz_driver.h's initialize() doesn't start.

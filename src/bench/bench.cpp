@@ -3,8 +3,8 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <bench/bench.h>
-#include <dynamicparams.h>
 #include <federationparams.h>
+#include <genesisfile.h>
 #include <assert.h>
 #include <iostream>
 #include <iomanip>

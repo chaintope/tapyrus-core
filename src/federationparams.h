@@ -13,13 +13,7 @@
 #include <protocol.h>
 #include <streams.h>
 #include <pubkey.h>
-#include <softforkmanager.h>
 #include <util.h>
-
-// Activation height for SCRIPT_VERIFY_CP2SH_COLORED on Chaintope testnet
-// (networkId 1939510133). The last legacy CP2SH colored spend on testnet was
-// at block 693366
-static constexpr int TESTNET_CP2SH_ACTIVATION_HEIGHT = 693367;
 
 struct SeedSpec6 {
     uint8_t addr[16];
@@ -41,20 +35,11 @@ public:
     /** Return the list of hostnames to look up for DNS seeds */
     const std::vector<std::string>& DNSSeeds() const { return vSeeds; }
 
-    /** Returns the softfork manager holding all registered softforks for this node's network. */
-    const CSoftForkManager& SoftForkManager() const { return m_softForkManager; }
-
     CFederationParams();
     CFederationParams(const uint32_t networkId, const std::string dataDirName);
 
-    /** Register a softfork; called once at startup from CreateFederationParams (PROD mode only). */
-    void RegisterSoftFork(CSoftFork sf) { m_softForkManager.Register(std::move(sf)); }
-
-    friend std::unique_ptr<CFederationParams> CreateFederationParams(const TAPYRUS_OP_MODE mode);
-
 private:
     uint32_t nNetworkId;
-    CSoftForkManager m_softForkManager;
     CMessageHeader::MessageStartChars pchMessageStart;
     std::string strNetworkID;
     std::string dataDir;

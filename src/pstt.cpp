@@ -881,7 +881,7 @@ CMutableTransaction MaterializeTransaction(const PartiallySignedTapyrusTransacti
         if (force_zero_sequence) {
             txin.nSequence = 0;
         } else {
-            txin.nSequence = input.sequence.value_or(CTxIn::SEQUENCE_FINAL);
+            txin.nSequence = input.sequence.value_or(ConsensusConstants::SEQUENCE_FINAL);
         }
         if (use_final_scriptsig) {
             txin.scriptSig = input.final_script_sig;

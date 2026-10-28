@@ -70,7 +70,7 @@ BOOST_FIXTURE_TEST_CASE(rescan, TestChainSetup)
         WalletRescanReserver reserver(&wallet);
         reserver.reserve();
         BOOST_CHECK_EQUAL(nullBlock, wallet.ScanForWalletTransactions(oldTip, nullptr, reserver));
-        BOOST_CHECK_EQUAL(wallet.GetBalance()[ColorIdentifier()], 100 * COIN);
+        BOOST_CHECK_EQUAL(wallet.GetBalance()[ColorIdentifier()], 100 * ConsensusConstants::COIN);
     }
 
     // Prune the older block file.
@@ -85,7 +85,7 @@ BOOST_FIXTURE_TEST_CASE(rescan, TestChainSetup)
         WalletRescanReserver reserver(&wallet);
         reserver.reserve();
         BOOST_CHECK_EQUAL(oldTip, wallet.ScanForWalletTransactions(oldTip, nullptr, reserver));
-        BOOST_CHECK_EQUAL(wallet.GetBalance()[ColorIdentifier()], 50 * COIN);
+        BOOST_CHECK_EQUAL(wallet.GetBalance()[ColorIdentifier()], 50 * ConsensusConstants::COIN);
     }
 
     // Verify importmulti RPC returns failure for a key whose creation time is
@@ -322,13 +322,13 @@ BOOST_FIXTURE_TEST_CASE(ListCoins, ListCoinsTestingSetup)
     BOOST_CHECK_EQUAL(list.begin()->second.size(), 6U);
 
     // Check initial balance from 6 coinbase transaction.
-    BOOST_CHECK_EQUAL(300 * COIN, wallet->GetAvailableBalance()[ColorIdentifier()]);
+    BOOST_CHECK_EQUAL(300 * ConsensusConstants::COIN, wallet->GetAvailableBalance()[ColorIdentifier()]);
 
     // Add a transaction creating a change address, and confirm ListCoins still
     // returns the coin associated with the change address underneath the
     // coinbaseKey pubkey, even though the change address has a different
     // pubkey.
-    AddTx(CRecipient{GetScriptForRawPubKey({}), 1 * COIN, false /* subtract fee */});
+    AddTx(CRecipient{GetScriptForRawPubKey({}), 1 * ConsensusConstants::COIN, false /* subtract fee */});
     list = wallet->ListCoins();
     BOOST_CHECK_EQUAL(list.size(), 1U);
     BOOST_CHECK_EQUAL(std::get<CKeyID>(list.begin()->first).ToString(), coinbaseAddress);
@@ -780,7 +780,7 @@ BOOST_FIXTURE_TEST_CASE(wallet_tx_getdebit_and_getcredit, TestChainSetup)
     ColorIdentifier colorId(ColorIdentifier(m_coinbase_txns[0]->vout[0].scriptPubKey));
 
     // Check the initial balance state.
-    BOOST_CHECK_EQUAL(wallet.GetBalance()[defaultColorId], 250 * COIN);
+    BOOST_CHECK_EQUAL(wallet.GetBalance()[defaultColorId], 250 * ConsensusConstants::COIN);
     BOOST_CHECK_EQUAL(wallet.GetBalance()[colorId], 0);
 
     // Create Token issue transaction
@@ -798,9 +798,9 @@ BOOST_FIXTURE_TEST_CASE(wallet_tx_getdebit_and_getcredit, TestChainSetup)
     CWalletTx wtx(pwallet, MakeTransactionRef(tx));
     wallet.AddToWallet(wtx);
 
-    BOOST_CHECK_EQUAL(wtx.GetDebit(ISMINE_SPENDABLE, defaultColorId), 50 * COIN);
+    BOOST_CHECK_EQUAL(wtx.GetDebit(ISMINE_SPENDABLE, defaultColorId), 50 * ConsensusConstants::COIN);
     BOOST_CHECK_EQUAL(wtx.GetDebit(ISMINE_SPENDABLE, colorId), 0);
-    BOOST_CHECK_EQUAL(wtx.GetCredit(ISMINE_SPENDABLE, defaultColorId), 50 * COIN);
+    BOOST_CHECK_EQUAL(wtx.GetCredit(ISMINE_SPENDABLE, defaultColorId), 50 * ConsensusConstants::COIN);
     BOOST_CHECK_EQUAL(wtx.GetCredit(ISMINE_SPENDABLE, colorId), 100 * CENT);
 
     // Create a tx that has two debits, 50 TPC and 100 cent colored coin.
@@ -820,9 +820,9 @@ BOOST_FIXTURE_TEST_CASE(wallet_tx_getdebit_and_getcredit, TestChainSetup)
     CWalletTx wtx2(pwallet, MakeTransactionRef(tx2));
     wallet.AddToWallet(wtx2);
 
-    BOOST_CHECK_EQUAL(wtx2.GetDebit(ISMINE_SPENDABLE, defaultColorId), 50 * COIN);
+    BOOST_CHECK_EQUAL(wtx2.GetDebit(ISMINE_SPENDABLE, defaultColorId), 50 * ConsensusConstants::COIN);
     BOOST_CHECK_EQUAL(wtx2.GetDebit(ISMINE_SPENDABLE, colorId), 100 * CENT);
-    BOOST_CHECK_EQUAL(wtx2.GetCredit(ISMINE_SPENDABLE, defaultColorId), 50 * COIN);
+    BOOST_CHECK_EQUAL(wtx2.GetCredit(ISMINE_SPENDABLE, defaultColorId), 50 * ConsensusConstants::COIN);
     BOOST_CHECK_EQUAL(wtx2.GetCredit(ISMINE_SPENDABLE, colorId), 100 * CENT);
 }
 
@@ -843,7 +843,7 @@ BOOST_FIXTURE_TEST_CASE(wallet_tx_getdebit_and_getcredit_with_watch_only, TestCh
     ColorIdentifier colorId(ColorIdentifier(m_coinbase_txns[0]->vout[0].scriptPubKey));
 
     // Check the initial balance state.
-    BOOST_CHECK_EQUAL(wallet.GetBalance()[defaultColorId], 250 * COIN);
+    BOOST_CHECK_EQUAL(wallet.GetBalance()[defaultColorId], 250 * ConsensusConstants::COIN);
     BOOST_CHECK_EQUAL(wallet.GetBalance()[colorId], 0);
 
     // Custom colored scripts are no longer recognized as colored (CP2PKH/CP2SH only).
@@ -872,14 +872,14 @@ BOOST_FIXTURE_TEST_CASE(wallet_tx_getdebit_and_getcredit_with_watch_only, TestCh
     CWalletTx wtx(pwallet, MakeTransactionRef(tx));
     wallet.AddToWallet(wtx);
 
-    BOOST_CHECK_EQUAL(wtx.GetDebit(ISMINE_SPENDABLE, defaultColorId), 50 * COIN);
+    BOOST_CHECK_EQUAL(wtx.GetDebit(ISMINE_SPENDABLE, defaultColorId), 50 * ConsensusConstants::COIN);
     BOOST_CHECK_EQUAL(wtx.GetDebit(ISMINE_WATCH_ONLY, defaultColorId), 0);
     BOOST_CHECK_EQUAL(wtx.GetDebit(ISMINE_WATCH_ONLY, colorId), 0);
     BOOST_CHECK_EQUAL(wtx.GetCredit(ISMINE_SPENDABLE, defaultColorId), 0);
     // colored_custom_script is not CP2PKH/CP2SH, so GetColorIdFromScript returns NONE.
     // The wallet skips it entirely: its value (100 CENT) is counted in no balance.
     // Only the uncolored_custom_script output (50 COIN TPC) contributes to defaultColorId credit.
-    BOOST_CHECK_EQUAL(wtx.GetCredit(ISMINE_WATCH_ONLY, defaultColorId), 50 * COIN);
+    BOOST_CHECK_EQUAL(wtx.GetCredit(ISMINE_WATCH_ONLY, defaultColorId), 50 * ConsensusConstants::COIN);
     BOOST_CHECK_EQUAL(wtx.GetCredit(ISMINE_WATCH_ONLY, colorId), 0);
 
     // Create a tx that has two debits, 50 TPC and 100 cent colored coin.
@@ -901,9 +901,9 @@ BOOST_FIXTURE_TEST_CASE(wallet_tx_getdebit_and_getcredit_with_watch_only, TestCh
 
     // tx.vout[0] (colored_custom_script) is non-standard — skipped in debit/credit.
     // tx.vout[1] (uncolored_custom_script, 50 COIN TPC) is counted normally.
-    BOOST_CHECK_EQUAL(wtx2.GetDebit(ISMINE_WATCH_ONLY, defaultColorId), 50 * COIN);
+    BOOST_CHECK_EQUAL(wtx2.GetDebit(ISMINE_WATCH_ONLY, defaultColorId), 50 * ConsensusConstants::COIN);
     BOOST_CHECK_EQUAL(wtx2.GetDebit(ISMINE_WATCH_ONLY, colorId), 0);
-    BOOST_CHECK_EQUAL(wtx2.GetCredit(ISMINE_WATCH_ONLY, defaultColorId), 50 * COIN);
+    BOOST_CHECK_EQUAL(wtx2.GetCredit(ISMINE_WATCH_ONLY, defaultColorId), 50 * ConsensusConstants::COIN);
     BOOST_CHECK_EQUAL(wtx2.GetCredit(ISMINE_WATCH_ONLY, colorId), 0);
 }
 
@@ -939,7 +939,7 @@ BOOST_FIXTURE_TEST_CASE(wallet_tx_getchange, TestChainSetup)
     CWalletTx wtx(pwallet, MakeTransactionRef(tx));
     wallet.AddToWallet(wtx);
 
-    BOOST_CHECK_EQUAL(wtx.GetChange(defaultColorId), 50 * COIN);
+    BOOST_CHECK_EQUAL(wtx.GetChange(defaultColorId), 50 * ConsensusConstants::COIN);
     BOOST_CHECK_EQUAL(wtx.GetChange(colorId), 100 * CENT);
 }
 

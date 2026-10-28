@@ -8,7 +8,7 @@
 
 #include <chainstatemanager.h>
 #include <hash.h>
-#include <consensus/consensus.h>
+#include <consensusconstants.h>
 #include <utilstrencodings.h>
 #include <xfieldhistory.h>
 
@@ -138,7 +138,7 @@ uint256 CPartialMerkleTree::ExtractMatches(std::vector<uint256> &vMatch, std::ve
     if (nTransactions == 0)
         return uint256();
     // check for excessively high numbers of transactions
-    if (nTransactions > g_chainstate_manager.XFieldHistory().GetCurrentMaxBlockSize() / MIN_TRANSACTION_SIZE)
+    if (nTransactions > g_chainstate_manager.XFieldHistory().GetCurrentMaxBlockSize() / ConsensusConstants::MIN_TRANSACTION_SIZE)
         return uint256();
     // there can never be more hashes provided than one for every txid
     if (vHash.size() > nTransactions)

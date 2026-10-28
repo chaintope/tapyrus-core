@@ -122,7 +122,7 @@ Result CreateTransaction(const CWallet* wallet, const uint256& txid, const CCoin
         // Require at least 1 confirmation: adding a 0-conf input to a fee-bump
         // creates an unconfirmed chain and defeats the purpose of RBF.
         wallet->AvailableCoins(vAvailableCoins, true, &coin_control,
-                               1, MAX_MONEY, MAX_MONEY, 0, /*nMinDepth=*/1);
+                               1, ConsensusConstants::MAX_MONEY, ConsensusConstants::MAX_MONEY, 0, /*nMinDepth=*/1);
         for (const auto& out : vAvailableCoins) {
             if (!out.fSpendable) continue;
             const CTxOut& txout = out.tx->tx->vout[out.i];

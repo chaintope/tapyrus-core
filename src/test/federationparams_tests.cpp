@@ -3,7 +3,7 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <federationparams.h>
-#include <dynamicparams.h>
+#include <consensussettings.h>
 #include <eccverifyhandle.h>
 #include <genesisblock.h>
 #include <softforkmanager.h>
@@ -79,7 +79,7 @@ BOOST_AUTO_TEST_CASE(parse_pubkey_string_empty)
     key.Set(validAggPrivateKey, validAggPrivateKey + 32, true);
     CPubKey aggregatePubkey;
     // When pubkey is not given.
-    BOOST_CHECK_EXCEPTION(CDynamicParams{getTestGenesisBlockHex(aggregatePubkey, key)}, std::runtime_error, [] (const std::runtime_error& ex) {
+    BOOST_CHECK_EXCEPTION(ConsensusSettings(ParseHex(getTestGenesisBlockHex(aggregatePubkey, key)), TAPYRUS_OP_MODE::PROD, FederationParams().NetworkId()), std::runtime_error, [] (const std::runtime_error& ex) {
         BOOST_CHECK_EQUAL(ex.what(), "Aggregate Public Key for Signed Block is empty");
         return true;
     });
@@ -92,7 +92,7 @@ BOOST_AUTO_TEST_CASE(parse_pubkey_string_uncompressed)
     CKey key;
     key.Set(validAggPrivateKey, validAggPrivateKey + 32, true);
     CPubKey aggregatePubkey(ParseHex("046b93737b4e8d93e79464f2054434015326f1834be1ec47e23377a8cc622b94a03f3c58c0c33248e2bb733269751facb479c098eec6ce254e00c7e45c103b7cd7"));
-    BOOST_CHECK_EXCEPTION(CDynamicParams{getTestGenesisBlockHex(aggregatePubkey, key)}, std::runtime_error, [] (const std::runtime_error& ex) {
+    BOOST_CHECK_EXCEPTION(ConsensusSettings(ParseHex(getTestGenesisBlockHex(aggregatePubkey, key)), TAPYRUS_OP_MODE::PROD, FederationParams().NetworkId()), std::runtime_error, [] (const std::runtime_error& ex) {
         BOOST_CHECK_EQUAL(ex.what(), "Uncompressed public key format are not acceptable: 046b93737b4e8d93e79464f2054434015326f1834be1ec47e23377a8cc622b94a03f3c58c0c33248e2bb733269751facb479c098eec6ce254e00c7e45c103b7cd7");
         return true;
     });
@@ -106,7 +106,7 @@ BOOST_AUTO_TEST_CASE(parse_pubkey_string_invalid)
     CKey key;
     key.Set(validAggPrivateKey, validAggPrivateKey + 32, true);
     CPubKey aggregatePubkey(ParseHex("03af80b90d25145da28c583359beb47b21796b2fe1a23c1511e443e7a64dfdb27d02ce7edc292d7b747fab2f23584bbafaffde5c8ff17cf689969614441e0527b90002785a891f323acd6cef0fc509bb14304410595914267c50467e51c87142acbb5e02396c2c8a22ec28dbe02613027edea9a3b0c314294985e09c2f389818b29fee0603e67ceb1f0af0ab4668227984782b48d286b88e54dc91487143199728d4597c02023b435ce7b804aa66dcd65a855282479be5057fd82ce4c7c2e2430920de8b9e9e0205deb5ba6b1f7c22e79026f8301fe8d50e9e9af8514665c2440207e932d44a620201c537fd7eb7928700927b48e51ceec621fc8ba1177ee2ad67336ed91e2f63a1033e6e1d4ae3e7e1bc2173e2af1f2f65c6284ea7c6478f2241784c77b0dff98e6102114e7960286099c603e51348df63fd0acb75f81b97a85eb4af87df9ee5ff18eb03831a69b8009833ab5b0326012eaf489bfea35a7321b1ca15b11d88131423fafc02bf2027c8455800c7626542219e6208b5fe787483689f1391d6d443ec85673ecf03b44f1cfcf46aba8bc98e2fd39f137cc43d98ab7792e4848b09c06198b042ca8b02b9a609d6bec0fdc9ba690986013cf7bbd13c54ffc25e6cf30916b4732c4a952a02e78cafe033b22bda5d7d1c8e82ee932930bf12e08489bc19769cbec765568be9"));
-    BOOST_CHECK_EXCEPTION(CDynamicParams{getTestGenesisBlockHex(aggregatePubkey, key)}, std::runtime_error, [] (const std::runtime_error& ex) {
+    BOOST_CHECK_EXCEPTION(ConsensusSettings(ParseHex(getTestGenesisBlockHex(aggregatePubkey, key)), TAPYRUS_OP_MODE::PROD, FederationParams().NetworkId()), std::runtime_error, [] (const std::runtime_error& ex) {
         BOOST_CHECK_EQUAL(ex.what(), "Aggregate Public Key for Signed Block is empty");
         return true;
     });
@@ -135,11 +135,13 @@ BOOST_AUTO_TEST_CASE(create_genesis_block)
 
 BOOST_AUTO_TEST_CASE(create_genesis_block_one_publickey)
 {
+    BOOST_CHECK_NO_THROW(SelectFederationParams(TAPYRUS_OP_MODE::PROD));
+
     CKey aggregateKey;
     aggregateKey.Set(validAggPrivateKey, validAggPrivateKey + 32, true);
     CPubKey aggPubkey = aggregateKey.GetPubKey();
 
-    auto baseChainParams = CreateDynamicParams(getTestGenesisBlockHex(aggPubkey, aggregateKey));
+    auto baseChainParams = std::make_unique<const ConsensusSettings>(ParseHex(getTestGenesisBlockHex(aggPubkey, aggregateKey)), TAPYRUS_OP_MODE::PROD, FederationParams().NetworkId());
 
     BOOST_CHECK_EQUAL(baseChainParams->GenesisBlock().vtx.size(), 1);
     BOOST_CHECK_EQUAL(baseChainParams->GenesisBlock().nFeatures, 1);
@@ -155,7 +157,7 @@ BOOST_AUTO_TEST_CASE(create_genesis_block_one_publickey)
     BOOST_CHECK_EQUAL(HexStr(scriptSig.begin(), scriptSig.end()), "");
 
     BOOST_CHECK_EQUAL(baseChainParams->GenesisBlock().vtx[0]->vout.size(), 1);
-    BOOST_CHECK_EQUAL(baseChainParams->GenesisBlock().vtx[0]->vout[0].nValue, 50 * COIN);
+    BOOST_CHECK_EQUAL(baseChainParams->GenesisBlock().vtx[0]->vout[0].nValue, 50 * ConsensusSettings::COIN);
     CScript scriptPubKey = baseChainParams->GenesisBlock().vtx[0]->vout[0].scriptPubKey;
     BOOST_CHECK_EQUAL(HexStr(scriptPubKey.begin(), scriptPubKey.end()),
     "76a914834e0737cdb9008db614cd95ec98824e952e3dc588ac");
@@ -173,16 +175,16 @@ BOOST_AUTO_TEST_CASE(softfork_manager_testnet_activation_heights)
 {
     // Mirror the production registration for Chaintope testnet (networkId 1939510133).
     CSoftForkManager sfm;
-    sfm.Register(CSoftFork(1939510133u, SCRIPT_VERIFY_CP2SH_COLORED,
-                           HeightActivation(TESTNET_CP2SH_ACTIVATION_HEIGHT)));
+    sfm.Register(CSoftFork(ConsensusSettings::TESTNET_NETWORK_ID, SCRIPT_VERIFY_CP2SH_COLORED,
+                           HeightActivation(ConsensusSettings::TESTNET_CP2SH_ACTIVATION_HEIGHT)));
 
     // One block before activation: not yet active.
-    BOOST_CHECK(!sfm.IsActive(1939510133u, SCRIPT_VERIFY_CP2SH_COLORED, TESTNET_CP2SH_ACTIVATION_HEIGHT - 1));
-    BOOST_CHECK_EQUAL(sfm.GetScriptFlags(1939510133u, TESTNET_CP2SH_ACTIVATION_HEIGHT - 1), 0u);
+    BOOST_CHECK(!sfm.IsActive(ConsensusSettings::TESTNET_NETWORK_ID, SCRIPT_VERIFY_CP2SH_COLORED, ConsensusSettings::TESTNET_CP2SH_ACTIVATION_HEIGHT - 1));
+    BOOST_CHECK_EQUAL(sfm.GetScriptFlags(ConsensusSettings::TESTNET_NETWORK_ID, ConsensusSettings::TESTNET_CP2SH_ACTIVATION_HEIGHT - 1), 0u);
 
     // At activation height: active.
-    BOOST_CHECK(sfm.IsActive(1939510133u, SCRIPT_VERIFY_CP2SH_COLORED, TESTNET_CP2SH_ACTIVATION_HEIGHT));
-    BOOST_CHECK_EQUAL(sfm.GetScriptFlags(1939510133u, TESTNET_CP2SH_ACTIVATION_HEIGHT),
+    BOOST_CHECK(sfm.IsActive(ConsensusSettings::TESTNET_NETWORK_ID, SCRIPT_VERIFY_CP2SH_COLORED, ConsensusSettings::TESTNET_CP2SH_ACTIVATION_HEIGHT));
+    BOOST_CHECK_EQUAL(sfm.GetScriptFlags(ConsensusSettings::TESTNET_NETWORK_ID, ConsensusSettings::TESTNET_CP2SH_ACTIVATION_HEIGHT),
                       static_cast<unsigned>(SCRIPT_VERIFY_CP2SH_COLORED));
 
     // Unregistered network: IsActive returns true (active from genesis by default).

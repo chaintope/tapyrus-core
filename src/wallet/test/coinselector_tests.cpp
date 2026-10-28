@@ -365,16 +365,16 @@ BOOST_AUTO_TEST_CASE(knapsack_solver_test)
         BOOST_CHECK_EQUAL(setCoinsRet.size(), 2U);
 
         // check that the smallest bigger coin is used
-        add_coin( 1*COIN);
-        add_coin( 2*COIN);
-        add_coin( 3*COIN);
-        add_coin( 4*COIN); // now we have 5+6+7+8+18+20+30+100+200+300+400 = 1094 cents
+        add_coin( 1*ConsensusConstants::COIN);
+        add_coin( 2*ConsensusConstants::COIN);
+        add_coin( 3*ConsensusConstants::COIN);
+        add_coin( 4*ConsensusConstants::COIN); // now we have 5+6+7+8+18+20+30+100+200+300+400 = 1094 cents
         BOOST_CHECK( testWallet.SelectCoinsMinConf(95 * CENT, filter_confirmed, GroupCoins(vCoins), setCoinsRet, nValueRet, coin_selection_params, bnb_used, ColorIdentifier()));
-        BOOST_CHECK_EQUAL(nValueRet, 1 * COIN);  // we should get 1 TPC in 1 coin
+        BOOST_CHECK_EQUAL(nValueRet, 1 * ConsensusConstants::COIN);  // we should get 1 TPC in 1 coin
         BOOST_CHECK_EQUAL(setCoinsRet.size(), 1U);
 
         BOOST_CHECK( testWallet.SelectCoinsMinConf(195 * CENT, filter_confirmed, GroupCoins(vCoins), setCoinsRet, nValueRet, coin_selection_params, bnb_used, ColorIdentifier()));
-        BOOST_CHECK_EQUAL(nValueRet, 2 * COIN);  // we should get 2 TPC in 1 coin
+        BOOST_CHECK_EQUAL(nValueRet, 2 * ConsensusConstants::COIN);  // we should get 2 TPC in 1 coin
         BOOST_CHECK_EQUAL(setCoinsRet.size(), 1U);
 
         // empty the wallet and start again, now with fractions of a cent, to test small change avoidance
@@ -410,10 +410,10 @@ BOOST_AUTO_TEST_CASE(knapsack_solver_test)
         // they tried to consolidate 10 50k coins into one 500k coin, and ended up with 50k in change
         empty_wallet();
         for (int j = 0; j < 20; j++)
-            add_coin(50000 * COIN);
+            add_coin(50000 * ConsensusConstants::COIN);
 
-        BOOST_CHECK( testWallet.SelectCoinsMinConf(500000 * COIN, filter_confirmed, GroupCoins(vCoins), setCoinsRet, nValueRet, coin_selection_params, bnb_used, ColorIdentifier()));
-        BOOST_CHECK_EQUAL(nValueRet, 500000 * COIN); // we should get the exact amount
+        BOOST_CHECK( testWallet.SelectCoinsMinConf(500000 * ConsensusConstants::COIN, filter_confirmed, GroupCoins(vCoins), setCoinsRet, nValueRet, coin_selection_params, bnb_used, ColorIdentifier()));
+        BOOST_CHECK_EQUAL(nValueRet, 500000 * ConsensusConstants::COIN); // we should get the exact amount
         BOOST_CHECK_EQUAL(setCoinsRet.size(), 10U); // in ten coins
 
         // if there's not enough in the smaller coins to make at least 1 * MIN_CHANGE change (0.5+0.6+0.7 < 1.0+1.0),
@@ -456,7 +456,7 @@ BOOST_AUTO_TEST_CASE(knapsack_solver_test)
         BOOST_CHECK_EQUAL(setCoinsRet.size(), 2U);
 
         // test with many inputs
-        for (CAmount amt=1500; amt < COIN; amt*=10) {
+        for (CAmount amt=1500; amt < ConsensusConstants::COIN; amt*=10) {
              empty_wallet();
              // Create 676 inputs (=  (old MAX_STANDARD_TX_SIZE == 100000)  / 148 bytes per input)
              for (uint16_t j = 0; j < 676; j++)
@@ -479,12 +479,12 @@ BOOST_AUTO_TEST_CASE(knapsack_solver_test)
         {
             empty_wallet();
             for (int i2 = 0; i2 < 100; i2++)
-                add_coin(COIN);
+                add_coin(ConsensusConstants::COIN);
 
             // picking 50 from 100 coins doesn't depend on the shuffle,
             // but does depend on randomness in the stochastic approximation code
-            BOOST_CHECK(testWallet.SelectCoinsMinConf(50 * COIN, filter_standard, GroupCoins(vCoins), setCoinsRet , nValueRet, coin_selection_params, bnb_used, ColorIdentifier()));
-            BOOST_CHECK(testWallet.SelectCoinsMinConf(50 * COIN, filter_standard, GroupCoins(vCoins), setCoinsRet2, nValueRet, coin_selection_params, bnb_used, ColorIdentifier()));
+            BOOST_CHECK(testWallet.SelectCoinsMinConf(50 * ConsensusConstants::COIN, filter_standard, GroupCoins(vCoins), setCoinsRet , nValueRet, coin_selection_params, bnb_used, ColorIdentifier()));
+            BOOST_CHECK(testWallet.SelectCoinsMinConf(50 * ConsensusConstants::COIN, filter_standard, GroupCoins(vCoins), setCoinsRet2, nValueRet, coin_selection_params, bnb_used, ColorIdentifier()));
             BOOST_CHECK(!equal_sets(setCoinsRet, setCoinsRet2));
 
             int fails = 0;
@@ -492,8 +492,8 @@ BOOST_AUTO_TEST_CASE(knapsack_solver_test)
             {
                 // selecting 1 from 100 identical coins depends on the shuffle; this test will fail 1% of the time
                 // run the test RANDOM_REPEATS times and only complain if all of them fail
-                BOOST_CHECK(testWallet.SelectCoinsMinConf(COIN, filter_standard, GroupCoins(vCoins), setCoinsRet , nValueRet, coin_selection_params, bnb_used, ColorIdentifier()));
-                BOOST_CHECK(testWallet.SelectCoinsMinConf(COIN, filter_standard, GroupCoins(vCoins), setCoinsRet2, nValueRet, coin_selection_params, bnb_used, ColorIdentifier()));
+                BOOST_CHECK(testWallet.SelectCoinsMinConf(ConsensusConstants::COIN, filter_standard, GroupCoins(vCoins), setCoinsRet , nValueRet, coin_selection_params, bnb_used, ColorIdentifier()));
+                BOOST_CHECK(testWallet.SelectCoinsMinConf(ConsensusConstants::COIN, filter_standard, GroupCoins(vCoins), setCoinsRet2, nValueRet, coin_selection_params, bnb_used, ColorIdentifier()));
                 if (equal_sets(setCoinsRet, setCoinsRet2))
                     fails++;
             }
@@ -536,11 +536,11 @@ BOOST_AUTO_TEST_CASE(ApproximateBestSubset)
 
     // Test vValue sort order
     for (int i = 0; i < 1000; i++)
-        add_coin(1000 * COIN);
-    add_coin(3 * COIN);
+        add_coin(1000 * ConsensusConstants::COIN);
+    add_coin(3 * ConsensusConstants::COIN);
 
-    BOOST_CHECK(testWallet.SelectCoinsMinConf(1003 * COIN, filter_standard, GroupCoins(vCoins), setCoinsRet, nValueRet, coin_selection_params, bnb_used, ColorIdentifier()));
-    BOOST_CHECK_EQUAL(nValueRet, 1003 * COIN);
+    BOOST_CHECK(testWallet.SelectCoinsMinConf(1003 * ConsensusConstants::COIN, filter_standard, GroupCoins(vCoins), setCoinsRet, nValueRet, coin_selection_params, bnb_used, ColorIdentifier()));
+    BOOST_CHECK_EQUAL(nValueRet, 1003 * ConsensusConstants::COIN);
     BOOST_CHECK_EQUAL(setCoinsRet.size(), 2U);
 
     empty_wallet();

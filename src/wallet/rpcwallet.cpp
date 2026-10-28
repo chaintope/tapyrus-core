@@ -2824,8 +2824,8 @@ static UniValue listunspent(const JSONRPCRequest& request)
     }
 
     CAmount nMinimumAmount = 0;
-    CAmount nMaximumAmount = MAX_MONEY;
-    CAmount nMinimumSumAmount = MAX_MONEY;
+    CAmount nMaximumAmount = ConsensusConstants::MAX_MONEY;
+    CAmount nMinimumSumAmount = ConsensusConstants::MAX_MONEY;
     uint64_t nMaximumCount = 0;
     bool only_token = false;
 
@@ -4275,7 +4275,7 @@ UniValue walletcreatefundedpstt(const JSONRPCRequest& request)
         input.prevout_index = txin.prevout.n;
         input.previous_txid_set = true;
         input.prevout_index_set = true;
-        if (txin.nSequence != CTxIn::SEQUENCE_FINAL) input.sequence = txin.nSequence;
+        if (txin.nSequence != ConsensusConstants::SEQUENCE_FINAL) input.sequence = txin.nSequence;
         pstt.inputs.push_back(std::move(input));
     }
     for (const CTxOut& txout : rawTx.vout) {
@@ -4436,7 +4436,7 @@ UniValue walletfundpsttfee(const JSONRPCRequest& request)
         for (const PSTTInput& in : pstt.inputs) {
             CTxIn txin;
             txin.prevout = COutPoint(in.previous_txid, in.prevout_index);
-            txin.nSequence = in.sequence.value_or(CTxIn::SEQUENCE_FINAL);
+            txin.nSequence = in.sequence.value_or(ConsensusConstants::SEQUENCE_FINAL);
             rawTx.vin.push_back(txin);
         }
         for (const PSTTOutput& out : pstt.outputs) {
@@ -4481,7 +4481,7 @@ UniValue walletfundpsttfee(const JSONRPCRequest& request)
             input.prevout_index = txin.prevout.n;
             input.previous_txid_set = true;
             input.prevout_index_set = true;
-            if (txin.nSequence != CTxIn::SEQUENCE_FINAL) input.sequence = txin.nSequence;
+            if (txin.nSequence != ConsensusConstants::SEQUENCE_FINAL) input.sequence = txin.nSequence;
             pstt.inputs.push_back(std::move(input));
         }
         for (size_t i = original_output_count; i < rawTx.vout.size(); ++i) {

@@ -8,7 +8,6 @@
 #include <blockindex.h>
 #include <chainparams.h>
 #include <chainstatemanager.h>
-#include <consensus/consensus.h>
 #include <consensus/params.h>
 #include <consensus/validation.h>
 #include <core_io.h>

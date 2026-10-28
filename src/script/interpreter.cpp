@@ -316,7 +316,7 @@ bool EvalScript(std::vector<std::vector<unsigned char> >& stack, const CScript& 
     std::vector<bool> vfExec;
     std::vector<valtype> altstack;
     set_error(serror, SCRIPT_ERR_UNKNOWN_ERROR);
-    if (script.size() > MAX_SCRIPT_SIZE)
+    if (script.size() > ConsensusConstants::MAX_SCRIPT_SIZE)
         return set_error(serror, SCRIPT_ERR_SCRIPT_SIZE);
     int nOpCount = 0;
     bool fRequireMinimal = true;
@@ -332,11 +332,11 @@ bool EvalScript(std::vector<std::vector<unsigned char> >& stack, const CScript& 
             //
             if (!script.GetOp(pc, opcode, vchPushValue))
                 return set_error(serror, SCRIPT_ERR_BAD_OPCODE);
-            if (vchPushValue.size() > MAX_SCRIPT_ELEMENT_SIZE)
+            if (vchPushValue.size() > ConsensusConstants::MAX_SCRIPT_ELEMENT_SIZE)
                 return set_error(serror, SCRIPT_ERR_PUSH_SIZE);
 
             // Note how OP_RESERVED does not count towards the opcode limit.
-            if (opcode > OP_16 && ++nOpCount > MAX_OPS_PER_SCRIPT)
+            if (opcode > OP_16 && ++nOpCount > ConsensusConstants::MAX_OPS_PER_SCRIPT)
                 return set_error(serror, SCRIPT_ERR_OP_COUNT);
 
             if (opcode == OP_CAT ||
@@ -457,7 +457,7 @@ bool EvalScript(std::vector<std::vector<unsigned char> >& stack, const CScript& 
                     // To provide for future soft-fork extensibility, if the
                     // operand has the disabled lock-time flag set,
                     // CHECKSEQUENCEVERIFY behaves as a NOP.
-                    if ((nSequence & CTxIn::SEQUENCE_LOCKTIME_DISABLE_FLAG) != 0)
+                    if ((nSequence & ConsensusConstants::SEQUENCE_LOCKTIME_DISABLE_FLAG) != 0)
                         break;
 
                     // Compare the specified sequence number with the input.
@@ -1015,10 +1015,10 @@ bool EvalScript(std::vector<std::vector<unsigned char> >& stack, const CScript& 
                         return set_error(serror, SCRIPT_ERR_INVALID_STACK_OPERATION);
 
                     int nKeysCount = CScriptNum(stacktop(-i), fRequireMinimal).getint();
-                    if (nKeysCount < 0 || nKeysCount > MAX_PUBKEYS_PER_MULTISIG)
+                    if (nKeysCount < 0 || nKeysCount > ConsensusConstants::MAX_PUBKEYS_PER_MULTISIG)
                         return set_error(serror, SCRIPT_ERR_PUBKEY_COUNT);
                     nOpCount += nKeysCount;
-                    if (nOpCount > MAX_OPS_PER_SCRIPT)
+                    if (nOpCount > ConsensusConstants::MAX_OPS_PER_SCRIPT)
                         return set_error(serror, SCRIPT_ERR_OP_COUNT);
                     int ikey = ++i;
                     // ikey2 is the position of last non-signature item in the stack. Top stack item = 1.
@@ -1168,7 +1168,7 @@ bool EvalScript(std::vector<std::vector<unsigned char> >& stack, const CScript& 
             }
 
             // Size limits
-            if (stack.size() + altstack.size() > MAX_STACK_SIZE)
+            if (stack.size() + altstack.size() > ConsensusConstants::MAX_STACK_SIZE)
                 return set_error(serror, SCRIPT_ERR_STACK_SIZE);
         }
     }
@@ -1217,13 +1217,8 @@ bool VerifyScript(const CScript& scriptSig, const CScript& scriptPubKey, unsigne
     // activation) only the OP_HASH160 equality check is enforced; after activation
     // the redeemScript must also evaluate to true, just like plain P2SH.
     //
-    // Height-based activation (GetSoftForkManager().IsActive()) already ran in
-    // validation.cpp before flags reached here -- this is a pure bitmask check
-    // against the result, so it's called on the class, not GetSoftForkManager()'s
-    // singleton (defined in federationparams.cpp/tapyrus_global): this file is
-    // tapyrus_consensus, which has no declared or intended dependency on
-    // tapyrus_global, and IsEnabled() is static precisely so callers here don't
-    // need one.
+    // Height-based activation already ran before the flags reached here, so
+    // this is a pure bitmask check on them.
     if (scriptPubKey.IsPayToScriptHash() ||
         (scriptPubKey.IsColoredPayToScriptHash() && CSoftForkManager::IsEnabled(SCRIPT_VERIFY_CP2SH_COLORED, flags)))
     {

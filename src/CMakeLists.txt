@@ -171,6 +171,7 @@ target_link_libraries(tapyrus_types
 # signature checkers and the merkle root.
 add_library(tapyrus_consensus STATIC EXCLUDE_FROM_ALL
   consensus/merkle.cpp
+  consensussettings.cpp
   script/interpreter.cpp
   script/script_error.cpp
   script/transactionsignaturechecker.cpp
@@ -247,11 +248,11 @@ target_include_directories(tapyrus_util
 
 # The mode-only static chain identity (ChainParamsBase) and per-deployment
 # runtime federation identity (CFederationParams: networkId, message-start
-# bytes, DNS seeds, softfork registration). Deliberately excludes genesis
-# block creation/loading (see genesisblock.cpp, compiled into tapyrus-genesis,
-# and tapyrus_scripting's dynamicparams.cpp, which hold the CDynamicParams
-# genesis lifecycle) -- that split avoids a circular dependency between
-# FederationParams and key_io.cpp.
+# bytes, DNS seeds). Deliberately excludes genesis block creation/loading
+# (see genesisblock.cpp, compiled into tapyrus-genesis, and tapyrus_scripting's
+# genesisfile.cpp, which reads genesis.dat) -- that split avoids a circular
+# dependency between FederationParams and key_io.cpp. The genesis block itself
+# and the softfork registrations are in tapyrus_consensus's ConsensusSettings.
 add_library(tapyrus_global STATIC EXCLUDE_FROM_ALL
   chainparams.cpp
   federationparams.cpp
@@ -287,13 +288,13 @@ target_link_libraries(tapyrus_netbase
 # Scripting/consensus-adjacent state shared by different executables and
 # libraries: keys, keystores, script signing/standardness/solvability,
 # coins, pstt, the xfield history class, output-type classification, and
-# the dynamic (per-run) genesis block (dynamicparams.cpp). xfieldhistory sits here -- not in tapyrus_chainstate
+# reading genesis.dat (genesisfile.cpp). xfieldhistory sits here -- not in tapyrus_chainstate
 # -- because federationparams.cpp (tapyrus_global, a lower layer) already
 # depends on it; its own consumers span every layer above this one.
 add_library(tapyrus_scripting STATIC EXCLUDE_FROM_ALL
   coins.cpp
   coinsviewcache.cpp
-  dynamicparams.cpp
+  genesisfile.cpp
   key.cpp
   keystore.cpp
   outputtype.cpp

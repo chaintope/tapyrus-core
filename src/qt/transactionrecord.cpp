@@ -4,7 +4,7 @@
 
 #include <qt/transactionrecord.h>
 
-#include <consensus/consensus.h>
+#include <consensusconstants.h>
 #include <interfaces/wallet.h>
 #include <key_io.h>
 #include <validation.h>
@@ -376,7 +376,7 @@ void TransactionRecord::updateStatus(const interfaces::WalletTxStatus& wtx, int 
 
     if (!wtx.is_final)
     {
-        if (wtx.lock_time < LOCKTIME_THRESHOLD)
+        if (wtx.lock_time < ConsensusConstants::LOCKTIME_THRESHOLD)
         {
             status.status = TransactionStatus::OpenUntilBlock;
             status.open_for = wtx.lock_time - numBlocks;

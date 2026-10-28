@@ -162,7 +162,7 @@ BOOST_AUTO_TEST_CASE(GetTxSigOpCost)
         assert(GetTransactionSigOps(CTransaction(spendingTx), coins, flags) == 0);
         // creationTx contains two signature operations in its scriptPubKey, but legacy counting
         // is not accurate.
-        assert(GetTransactionSigOps(CTransaction(creationTx), coins, flags) == MAX_PUBKEYS_PER_MULTISIG);
+        assert(GetTransactionSigOps(CTransaction(creationTx), coins, flags) == ConsensusConstants::MAX_PUBKEYS_PER_MULTISIG);
         // Sanity check: script verification fails because of an invalid signature.
         assert(VerifyWithFlag(creationTx, spendingTx, flags) == SCRIPT_ERR_CHECKMULTISIGVERIFY);
     }

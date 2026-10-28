@@ -19,19 +19,10 @@
 /**
  * Production network
  */
-/**
- * What makes a good checkpoint block?
- * + Is surrounded by blocks with reasonable timestamps
- *   (no blocks before with a timestamp after, none after with
- *    timestamp before)
- * + Contains no strange transactions
- */
 
 class CProductionChainParams : public CChainParams {
 public:
     CProductionChainParams():CChainParams() {
-        consensus.nSubsidyHalvingInterval = 210000;
-
         consensus.nExpectedBlockTime = 15; // 15 sec
         rpcPort = 2377;
         nDefaultPort = 2357;
@@ -61,8 +52,6 @@ public:
 class CDevelopmentChainParams : public CChainParams {
 public:
     CDevelopmentChainParams():CChainParams() {
-        consensus.nSubsidyHalvingInterval = 150;
-
         consensus.nExpectedBlockTime = 15; // 15 sec
         rpcPort = 12381;
         nDefaultPort = 12383;
