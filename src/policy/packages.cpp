@@ -198,7 +198,16 @@ bool SubmitPackageToMempool(const Package& package,
 
         // Taken before the results below are rewritten, so a tx a later package tx
         // pushed out does not stop the rest of the package from being relayed.
-        all_admitted = ArePackageTransactionsAccepted(results);
+        // Only the package's own txs count: results also holds the txs
+        // FilterMempoolDuplicates found already in the mempool.
+        all_admitted = true;
+        for (const auto& tx : package) {
+            const auto result = results.find(tx->GetHashMalFix());
+            if (result == results.end() || result->second.IsInvalid() || result->second.IsError() || result->second.missingInputs) {
+                all_admitted = false;
+                break;
+            }
+        }
 
         // A later package tx can trim or replace one accepted before it, so report
         // and relay what the mempool holds now instead of what each tx saw on entry.
@@ -234,12 +243,12 @@ bool SubmitPackageToMempool(const Package& package,
     // Relay only after every tx in the package has been admitted, and only the
     // txs still in the mempool. Relaying per-tx inside the loop would gossip the
     // admitted prefix of a partially-failed package, enabling free relay
-    // amplification attacks.
+    // amplification attacks. A TEST_ONLY dry run never relays.
     // Goes through PackageTransactionsRelay() rather than calling into net
     // directly -- tapyrus_chainstate (this file) has no business linking
     // tapyrus_peer. See the comment on CValidationInterface::
     // PackageTransactionsRelay() and PeerLogicValidation's override of it.
-    if (all_admitted && !relay.empty()) {
+    if (opt.flags != MempoolAcceptanceFlags::TEST_ONLY && all_admitted && !relay.empty()) {
         GetMainSignals().PackageTransactionsRelay(relay);
     }
 

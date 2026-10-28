@@ -13,8 +13,8 @@ from decimal import Decimal
 
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import assert_equal, assert_greater_than, assert_raises_rpc_error, bytes_to_hex_str, hex_str_to_bytes, wait_until
-from test_framework.messages import CTransaction, CTxIn, CTxOut, COutPoint, COIN, MSG_TX, ToHex
-from test_framework.mininode import mininode_lock, P2PInterface
+from test_framework.messages import CTransaction, CTxIn, CTxOut, COutPoint, COIN, ToHex
+from test_framework.mininode import mininode_lock, P2PTxInvStore
 from test_framework.script import CScript, OP_TRUE, MAX_SCRIPT_ELEMENT_SIZE, MAX_SCRIPT_SIZE
 from test_framework.address import key_to_p2pkh
 
@@ -22,17 +22,6 @@ MAX_BIP125_RBF_SEQUENCE = 0xfffffffd
 TX_SIZE_TOFILL_MEMPOOL = 5000000 / 100
 
 NUM_OUTPUTX_IN_LARGE_TX = 5
-
-class TxInvStore(P2PInterface):
-    # Records the txids the node announces to this peer
-    def __init__(self, time_to_connect):
-        super().__init__(time_to_connect)
-        self.txinvs = set()
-
-    def on_inv(self, message):
-        for i in message.inv:
-            if i.type == MSG_TX:
-                self.txinvs.add(format(i.hash, '064x'))
 
 tx_size = lambda tx : len(ToHex(tx))//2 + 120 * len(tx.vin) + 50
 size_package = lambda package_hex: sum(len(tx) for tx in package_hex)
@@ -537,7 +526,7 @@ class MempoolLimitTest(BitcoinTestFramework):
         p2_txid = p2_tx.hashMalFix
 
         # Connect only now so the fillers are not announced to the peer
-        peer = node.add_p2p_connection(TxInvStore(node.time_to_connect))
+        peer = node.add_p2p_connection(P2PTxInvStore(node.time_to_connect))
 
         res = self.submitpackage(node, [p1_hex, p2_hex])
         assert_equal(res[p1_txid], {'allowed': False, 'reject-reason': '66: mempool full'})
@@ -624,9 +613,11 @@ class MempoolLimitTest(BitcoinTestFramework):
             node.importprivkey(self.signblockprivkey_wif)
 
         self.log.info("Test passing a value below the minimum (5 MB) to -maxmempool throws an error")
+        # Checked while node0 is stopped: a second tapyrusd started next to it would
+        # leave the framework without a handle on node0, so it would never be stopped.
         self.stop_node(0)
-        self.restart_node(0, extra_args=self.extra_args[0])
         self.nodes[0].assert_start_raises_init_error(["-maxmempool=4"], "Error: -maxmempool must be at least 5 MB")
+        self.start_node(0, extra_args=self.extra_args[0])
 
         self.log.info("Phase 1 : Mempool eviction")
         self.test_mempool_eviction(self.nodes[0])
