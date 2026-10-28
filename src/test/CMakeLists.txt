@@ -114,6 +114,7 @@ add_executable(test_tapyrus
         netbase_tests.cpp
         pmt_tests.cpp
         policyestimator_tests.cpp
+        policysettings_tests.cpp
         prevector_tests.cpp
         pstt_tests.cpp
         raii_event_tests.cpp

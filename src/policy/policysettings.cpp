@@ -7,6 +7,7 @@
 #include <policy/policysettings.h>
 
 #include <primitives/block.h>
+#include <script/script.h>
 #include <tapyrusmodes.h>
 #include <tinyformat.h>
 #include <ui_interface.h>
@@ -98,6 +99,20 @@ int64_t PolicySettings::ParseMaxMempool(const ArgsManager& args)
     return nMempoolSizeMax;
 }
 
+int64_t PolicySettings::ParseInRange(const ArgsManager& args, const std::string& name, int64_t defaultValue, int64_t min, int64_t max)
+{
+    const int64_t value = args.GetArg("-" + name, defaultValue);
+    if (value < min || value > max) {
+        throw std::runtime_error(strprintf("-%s value %d is out of range [%d, %d]", name, value, min, max));
+    }
+    return value;
+}
+
+uint32_t PolicySettings::ParseMinStandardTxSize(const ArgsManager& args, uint32_t maxStandardTxSize)
+{
+    return static_cast<uint32_t>(ParseInRange(args, "minstandardtxsize", DEFAULT_MIN_STANDARD_TX_SIZE, 0, maxStandardTxSize));
+}
+
 PolicySettings::PolicySettings(const ArgsManager& args, TAPYRUS_OP_MODE mode)
     : incrementalRelayFee(ParseFeeRate(args, "incrementalrelayfee", DEFAULT_INCREMENTAL_RELAY_FEE)),
       minRelayTxFee(ParseMinRelayTxFee(args, incrementalRelayFee)),
@@ -123,9 +138,17 @@ PolicySettings::PolicySettings(const ArgsManager& args, TAPYRUS_OP_MODE mode)
       feeFilter(args.GetBoolArg("-feefilter", DEFAULT_FEEFILTER)),
       whitelistRelay(args.GetBoolArg("-whitelistrelay", DEFAULT_WHITELISTRELAY)),
       whitelistForceRelay(args.GetBoolArg("-whitelistforcerelay", DEFAULT_WHITELISTFORCERELAY)),
+      maxStandardTxSize(static_cast<uint32_t>(ParseInRange(args, "maxstandardtxsize", DEFAULT_MAX_STANDARD_TX_SIZE, 1, ConsensusConstants::MAX_BLOCK_SIZE))),
+      minStandardTxSize(ParseMinStandardTxSize(args, maxStandardTxSize)),
+      maxScriptSigSize(static_cast<uint32_t>(ParseInRange(args, "maxscriptsigsize", DEFAULT_MAX_SCRIPTSIG_SIZE, 0, std::numeric_limits<uint32_t>::max()))),
+      maxBareMultisigKeys(static_cast<uint32_t>(ParseInRange(args, "maxbaremultisigkeys", DEFAULT_MAX_BAREMULTISIG_KEYS, 1, ConsensusConstants::MAX_PUBKEYS_PER_MULTISIG))),
+      maxP2shSigOps(static_cast<uint32_t>(ParseInRange(args, "maxp2shsigops", DEFAULT_MAX_P2SH_SIGOPS, 0, std::numeric_limits<uint32_t>::max()))),
+      maxReplacementCandidates(static_cast<uint32_t>(ParseInRange(args, "maxreplacementcandidates", DEFAULT_MAX_REPLACEMENT_CANDIDATES, 0, std::numeric_limits<uint32_t>::max()))),
+      orphanExpiry(ParseInRange(args, "orphanexpiry", DEFAULT_ORPHAN_TX_EXPIRE_TIME, 1, std::numeric_limits<uint32_t>::max())),
+      maxPackageCount(static_cast<uint32_t>(ParseInRange(args, "maxpackagecount", DEFAULT_MAX_PACKAGE_COUNT, 1, std::numeric_limits<uint32_t>::max()))),
       blockMaxSize((uint32_t)args.GetArg("-blockmaxsize", DEFAULT_BLOCK_MAX_SIZE)),
       // -dev only: lets tests mine blocks with other features to test forking scenarios
       blockFeatures(mode == TAPYRUS_OP_MODE::DEV ? (int32_t)args.GetArg("-blockfeatures", ConsensusConstants::TAPYRUS_BLOCK_FEATURES) : ConsensusConstants::TAPYRUS_BLOCK_FEATURES),
-      expectedBlockTime(DEFAULT_EXPECTED_BLOCK_TIME)
+      expectedBlockTime(ParseInRange(args, "expectedblocktime", DEFAULT_EXPECTED_BLOCK_TIME, 1, std::numeric_limits<uint32_t>::max()))
 {
 }
