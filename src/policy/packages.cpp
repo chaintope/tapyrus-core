@@ -59,7 +59,7 @@ bool CheckPackage(const Package& txns, CValidationState& state)
 {
     const unsigned int package_count = txns.size();
 
-    if (package_count > MAX_PACKAGE_COUNT) {
+    if (package_count > g_policy_settings->maxPackageCount) {
         return state.Invalid(false, REJECT_PACKAGE_INVALID, "package-too-many-transactions");
     }
 
@@ -67,7 +67,7 @@ bool CheckPackage(const Package& txns, CValidationState& state)
                                [](int64_t sum, const auto& tx) { return sum + GetTransactionSize(*tx); });
 
     // If the package only contains 1 tx, it's better to report the policy violation on individual tx size.
-    if (package_count > 1 && total_size > MAX_PACKAGE_COUNT * 1000) {
+    if (package_count > 1 && total_size > (int64_t)g_policy_settings->maxPackageCount * 1000) {
         return state.Invalid(false, REJECT_PACKAGE_INVALID, "package-too-large");
     }
 

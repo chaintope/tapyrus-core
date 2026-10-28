@@ -44,8 +44,6 @@
 # error "Tapyrus cannot be compiled without assertions."
 #endif
 
-/** Expiration time for orphan transactions in seconds */
-static constexpr int64_t ORPHAN_TX_EXPIRE_TIME = 20 * 60;
 /** Minimum time between orphan transactions expire time checks in seconds */
 static constexpr int64_t ORPHAN_TX_EXPIRE_INTERVAL = 5 * 60;
 /** How long a transaction has to be in the mempool before it can unconditionally be relayed (even when not in mapRelay). */
@@ -773,13 +771,13 @@ bool AddOrphanTx(const CTransactionRef& tx, NodeId peer) EXCLUSIVE_LOCKS_REQUIRE
     // 100 orphans, each of which is at most 100,000 bytes big is
     // at most 10 megabytes of orphans and somewhat more byprev index (in the worst case):
     unsigned int sz = GetSerializeSize(*tx, SER_NETWORK, PROTOCOL_VERSION);
-    if (sz > MAX_STANDARD_TX_SIZE)
+    if (sz > g_policy_settings->maxStandardTxSize)
     {
         LogPrint(BCLog::MEMPOOL, "ignoring large orphan tx (size: %u, hash: %s)\n", sz, hash.ToString());
         return false;
     }
 
-    auto ret = mapOrphanTransactions.emplace(hash, COrphanTx{tx, peer, GetTime() + ORPHAN_TX_EXPIRE_TIME});
+    auto ret = mapOrphanTransactions.emplace(hash, COrphanTx{tx, peer, GetTime() + g_policy_settings->orphanExpiry});
     assert(ret.second);
     for (const CTxIn& txin : tx->vin) {
         mapOrphanTransactionsByPrev[txin.prevout].insert(ret.first);
@@ -837,7 +835,7 @@ unsigned int LimitOrphanTxSize(unsigned int nMaxOrphans)
     if (nNextSweep <= nNow) {
         // Sweep out expired orphan pool entries:
         int nErased = 0;
-        int64_t nMinExpTime = nNow + ORPHAN_TX_EXPIRE_TIME - ORPHAN_TX_EXPIRE_INTERVAL;
+        int64_t nMinExpTime = nNow + g_policy_settings->orphanExpiry - ORPHAN_TX_EXPIRE_INTERVAL;
         std::map<uint256, COrphanTx>::iterator iter = mapOrphanTransactions.begin();
         while (iter != mapOrphanTransactions.end())
         {

@@ -16,6 +16,7 @@
 #include <chainstatemanager.h>
 #include <debuglogfile.h>
 #include <checkpoints.h>
+#include <consensusconstants.h>
 #include <consensussettings.h>
 #include <eccverifyhandle.h>
 #include <genesisfile.h>
@@ -387,6 +388,7 @@ void SetupServerArgs()
     gArgs.AddArg("-maxmempool=<n>", strprintf("Keep the transaction memory pool below <n> megabytes (default: %u)", DEFAULT_MAX_MEMPOOL_SIZE), false, OptionsCategory::OPTIONS);
     gArgs.AddArg("-maxorphantx=<n>", strprintf("Keep at most <n> unconnectable transactions in memory (default: %u)", DEFAULT_MAX_ORPHAN_TRANSACTIONS), false, OptionsCategory::OPTIONS);
     gArgs.AddArg("-mempoolexpiry=<n>", strprintf("Do not keep transactions in the mempool longer than <n> hours (default: %u)", DEFAULT_MEMPOOL_EXPIRY), false, OptionsCategory::OPTIONS);
+    gArgs.AddArg("-orphanexpiry=<n>", strprintf("Do not keep unconnectable transactions in memory longer than <n> seconds (default: %u)", DEFAULT_ORPHAN_TX_EXPIRE_TIME), false, OptionsCategory::OPTIONS);
     gArgs.AddArg("-par=<n>", strprintf("Set the number of script verification threads (%u to %d, 0 = auto, <0 = leave that many cores free, default: %d)",
         -GetNumCores(), MAX_SCRIPTCHECK_THREADS, DEFAULT_SCRIPTCHECK_THREADS), false, OptionsCategory::OPTIONS);
     gArgs.AddArg("-persistmempool", strprintf("Whether to save the mempool on shutdown and load on restart (default: %u)", DEFAULT_PERSIST_MEMPOOL), false, OptionsCategory::OPTIONS);
@@ -486,6 +488,7 @@ void SetupServerArgs()
     gArgs.AddArg("-logtimemicros", strprintf("Add microsecond precision to debug timestamps (default: %u)", DEFAULT_LOGTIMEMICROS), true, OptionsCategory::DEBUG_TEST);
     gArgs.AddArg("-mocktime=<n>", "Replace actual time with <n> seconds since epoch (default: 0)", true, OptionsCategory::DEBUG_TEST);
     gArgs.AddArg("-maxsigcachesize=<n>", strprintf("Limit sum of signature cache and script execution cache sizes to <n> MiB (default: %u)", DEFAULT_MAX_SIG_CACHE_SIZE), true, OptionsCategory::DEBUG_TEST);
+    gArgs.AddArg("-expectedblocktime=<n>", strprintf("Expected spacing between blocks in seconds, used only for sync estimates and timeouts (default: %u)", DEFAULT_EXPECTED_BLOCK_TIME), true, OptionsCategory::DEBUG_TEST);
     gArgs.AddArg("-maxtipage=<n>", strprintf("Maximum tip age in seconds to consider node in initial block download (default: %u)", DEFAULT_MAX_TIP_AGE), true, OptionsCategory::DEBUG_TEST);
     gArgs.AddArg("-printpriority", strprintf("Log transaction fee per kB when mining blocks (default: %u)", DEFAULT_PRINTPRIORITY), true, OptionsCategory::DEBUG_TEST);
     gArgs.AddArg("-printtoconsole", "Send trace/debug info to console (default: 1 when no -daemon. To disable logging to file, set -nodebuglogfile)", false, OptionsCategory::DEBUG_TEST);
@@ -501,6 +504,13 @@ void SetupServerArgs()
     gArgs.AddArg("-datacarriersize", strprintf("Maximum size of data in data carrier transactions we relay and mine (default: %u)", MAX_OP_RETURN_RELAY), false, OptionsCategory::NODE_RELAY);
     gArgs.AddArg("-datacarriermultiple", strprintf("Allow more than one OP_RETURN and data in a data carrier transactions. (default: false)"), false, OptionsCategory::NODE_RELAY);
     gArgs.AddArg("-mempoolreplacement", strprintf("Enable transaction replacement in the memory pool (default: %u)", DEFAULT_ENABLE_REPLACEMENT), false, OptionsCategory::NODE_RELAY);
+    gArgs.AddArg("-maxreplacementcandidates=<n>", strprintf("Do not accept a replacement that would evict more than <n> mempool transactions (default: %u)", DEFAULT_MAX_REPLACEMENT_CANDIDATES), false, OptionsCategory::NODE_RELAY);
+    gArgs.AddArg("-maxstandardtxsize=<n>", strprintf("Maximum size in bytes of transactions we relay and mine; also the largest orphan kept (1 to %u, default: %u)", ConsensusConstants::MAX_BLOCK_SIZE, DEFAULT_MAX_STANDARD_TX_SIZE), false, OptionsCategory::NODE_RELAY);
+    gArgs.AddArg("-minstandardtxsize=<n>", strprintf("Minimum size in bytes of transactions we relay and mine (default: %u)", DEFAULT_MIN_STANDARD_TX_SIZE), false, OptionsCategory::NODE_RELAY);
+    gArgs.AddArg("-maxscriptsigsize=<n>", strprintf("Maximum size in bytes of a scriptSig in transactions we relay and mine (default: %u)", DEFAULT_MAX_SCRIPTSIG_SIZE), false, OptionsCategory::NODE_RELAY);
+    gArgs.AddArg("-maxbaremultisigkeys=<n>", strprintf("Maximum number of keys in a bare multisig output we relay and mine (1 to %d, default: %u)", ConsensusConstants::MAX_PUBKEYS_PER_MULTISIG, DEFAULT_MAX_BAREMULTISIG_KEYS), false, OptionsCategory::NODE_RELAY);
+    gArgs.AddArg("-maxp2shsigops=<n>", strprintf("Maximum number of signature operations in a P2SH redeem script we relay and mine (default: %u)", DEFAULT_MAX_P2SH_SIGOPS), false, OptionsCategory::NODE_RELAY);
+    gArgs.AddArg("-maxpackagecount=<n>", strprintf("Maximum number of transactions in a package (default: %u)", DEFAULT_MAX_PACKAGE_COUNT), false, OptionsCategory::NODE_RELAY);
     gArgs.AddArg("-minrelaytxfee=<amt>", strprintf("Fees (in %s/kB) smaller than this are considered zero fee for relaying, mining and transaction creation (default: %s)",
         CURRENCY_UNIT, FormatMoney(DEFAULT_MIN_RELAY_TX_FEE)), false, OptionsCategory::NODE_RELAY);
     gArgs.AddArg("-whitelistforcerelay", strprintf("Force relay of transactions from whitelisted peers even if they violate local relay policy (default: %d)", DEFAULT_WHITELISTFORCERELAY), false, OptionsCategory::NODE_RELAY);

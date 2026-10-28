@@ -298,14 +298,14 @@ BOOST_AUTO_TEST_CASE(AreInputsStandard)
 
     // vout[4] is max sigops:
     CScript fifteenSigops; fifteenSigops << OP_1;
-    for (unsigned i = 0; i < MAX_P2SH_SIGOPS; i++)
+    for (unsigned i = 0; i < DEFAULT_MAX_P2SH_SIGOPS; i++)
         fifteenSigops << ToByteVector(key[i%3].GetPubKey());
     fifteenSigops << OP_15 << OP_CHECKMULTISIG;
     keystore.AddCScript(fifteenSigops);
     txFrom.vout[4].scriptPubKey = GetScriptForDestination(CScriptID(fifteenSigops));
     txFrom.vout[4].nValue = 5000;
 
-    // vout[5/6] are non-standard because they exceed MAX_P2SH_SIGOPS
+    // vout[5/6] are non-standard because they exceed DEFAULT_MAX_P2SH_SIGOPS
     CScript sixteenSigops; sixteenSigops << OP_16 << OP_CHECKMULTISIG;
     keystore.AddCScript(sixteenSigops);
     txFrom.vout[5].scriptPubKey = GetScriptForDestination(CScriptID(sixteenSigops));
