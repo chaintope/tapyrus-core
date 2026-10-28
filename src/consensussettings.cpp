@@ -16,10 +16,7 @@
 #include <utilstrencodings.h>
 #include <version.h>
 
-#include <assert.h>
 #include <stdexcept>
-
-std::unique_ptr<const ConsensusSettings> g_consensus_settings;
 
 static std::unique_ptr<const CBlock> CheckGenesisBlock(const std::vector<unsigned char>& genesisBytes)
 {
@@ -151,16 +148,4 @@ int64_t ConsensusSettings::BlockSubsidy(int32_t height) const
     // Subsidy is cut in half every 210,000 blocks which will occur approximately every 4 years.
     subsidy >>= halvings;
     return subsidy;
-}
-
-const CSoftForkManager& GetSoftForkManager()
-{
-    assert(g_consensus_settings);
-    return g_consensus_settings->SoftForkManager();
-}
-
-bool CSoftForkManager::IsActive(unsigned int flag, int32_t blockHeight) const
-{
-    assert(g_consensus_settings);
-    return IsActive(g_consensus_settings->NetworkId(), flag, blockHeight);
 }

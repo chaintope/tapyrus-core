@@ -3,6 +3,7 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <amount.h>
+#include <chainstatemanager.h>
 #include <coin.h>
 #include <coinsview.h>
 #include <coinsviewcache.h>
@@ -17,7 +18,6 @@
 #include <script/interpreter.h>
 #include <script/script.h>
 #include <script/standard.h>
-#include <softforkmanager.h>
 #include <test/test_tapyrus.h>
 #include <transactioncolorchecker.h>
 #include <validation.h>
@@ -52,7 +52,7 @@ bool LegacyCheckColorIdentifierValidity(const CTransaction& tx, CValidationState
         // outColorId is NONE: IsColoredPayToPubkeyHash / IsColoredPayToScriptHash
         // check both structure and type byte; reaching here means neither matched.
         if (outColorId.type == TokenTypes::NONE) {
-            if (GetSoftForkManager().IsActive(SCRIPT_VERIFY_CP2SH_COLORED, blockHeight))
+            if (g_chainstate_manager.Consensus().IsActive(SCRIPT_VERIFY_CP2SH_COLORED, blockHeight))
                 return state.DoS(100, false, REJECT_INVALID, "bad-txns-nonstandard-opcolor");
             continue;
         }
@@ -74,7 +74,7 @@ bool LegacyCheckColorIdentifierValidity(const CTransaction& tx, CValidationState
             ColorIdentifier cid = GetColorIdFromScript(coin.out.scriptPubKey);
 
             if (cid.type == TokenTypes::NONE && coin.out.scriptPubKey.IsColoredScript()) {
-                if (GetSoftForkManager().IsActive(SCRIPT_VERIFY_CP2SH_COLORED, blockHeight))
+                if (g_chainstate_manager.Consensus().IsActive(SCRIPT_VERIFY_CP2SH_COLORED, blockHeight))
                     return state.DoS(100, false, REJECT_INVALID, "bad-txns-nonstandard-opcolor");
                 continue;
             }
@@ -148,7 +148,7 @@ bool LegacyVerifyTokenBalances(const CTransaction& tx, CValidationState& state, 
         // A legacy non-standard OP_COLOR UTXO (colorId resolves to NONE) is rejected
         // post-activation.  Pre-activation its nValue falls through to the TPC bucket.
         if (cid.type == TokenTypes::NONE && coin.out.scriptPubKey.IsColoredScript() &&
-            GetSoftForkManager().IsActive(SCRIPT_VERIFY_CP2SH_COLORED, blockHeight))
+            g_chainstate_manager.Consensus().IsActive(SCRIPT_VERIFY_CP2SH_COLORED, blockHeight))
             return state.DoS(100, false, REJECT_INVALID, "bad-txns-nonstandard-opcolor");
         auto it = inColoredCoinBalances.find(cid);
         if (it == inColoredCoinBalances.end())

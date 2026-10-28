@@ -4,15 +4,15 @@
 
 #include <precomputedcolordata.h>
 
+#include <chainstatemanager.h>
 #include <coinsviewcache.h>
 #include <issuedcolorids.h>
 #include <primitives/transaction.h>
 #include <script/interpreter.h>
-#include <softforkmanager.h>
 
 PrecomputedColorData::PrecomputedColorData(const CTransaction& tx, const CCoinsViewCache& inputs, int32_t blockHeight)
     : m_coinbase(tx.IsCoinBase()),
-      m_cp2sh_colored_active(GetSoftForkManager().IsActive(SCRIPT_VERIFY_CP2SH_COLORED, blockHeight))
+      m_cp2sh_colored_active(g_chainstate_manager.Consensus().IsActive(SCRIPT_VERIFY_CP2SH_COLORED, blockHeight))
 {
     // Outputs first, so the inputs hash only the colorids some output can issue.
     bool needScriptColorId{false};

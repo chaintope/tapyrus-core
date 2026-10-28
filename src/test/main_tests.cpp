@@ -3,6 +3,7 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
+#include <chainstatemanager.h>
 #include <consensussettings.h>
 #include <federationparams.h>
 #include <genesisfile.h>
@@ -43,7 +44,7 @@ static void TestBlockSubsidyHalvings(const ConsensusSettings& settings)
 
 BOOST_AUTO_TEST_CASE(block_subsidy_test)
 {
-    TestBlockSubsidyHalvings(*g_consensus_settings); // As in prod
+    TestBlockSubsidyHalvings(g_chainstate_manager.Consensus().Settings()); // As in prod
     TestBlockSubsidyHalvings(ConsensusSettings(ReadGenesisBlock(), TAPYRUS_OP_MODE::DEV, FederationParams().NetworkId())); // As in dev
     TestBlockSubsidyHalvings(HalvingIntervalSettings(1000)); // Just another interval
 }
@@ -52,7 +53,7 @@ BOOST_AUTO_TEST_CASE(subsidy_limit_test)
 {
     CAmount nSum = 0;
     for (int nHeight = 0; nHeight < 14000000; nHeight += 1000) {
-        CAmount nSubsidy = g_consensus_settings->BlockSubsidy(nHeight);
+        CAmount nSubsidy = g_chainstate_manager.Consensus().Settings().BlockSubsidy(nHeight);
         BOOST_CHECK(nSubsidy <= 50 * ConsensusSettings::COIN);
         nSum += nSubsidy * 1000;
         BOOST_CHECK(MoneyRange(nSum));

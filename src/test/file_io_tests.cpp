@@ -4,6 +4,7 @@
 
 #include <diskblockpos.h>
 #include <chainparams.h>
+#include <chainstatemanager.h>
 #include <consensussettings.h>
 #include <federationparams.h>
 #include <primitives/block.h>
@@ -27,7 +28,7 @@ BOOST_AUTO_TEST_CASE(file_io_find_block_pos)
     // the file position tracking was incorrect because the 8-byte serialization header
     // (4 bytes magic + 4 bytes size) was not properly accounted for.
 
-    const CBlock& genesisBlock = g_consensus_settings->GenesisBlock();
+    const CBlock& genesisBlock = g_chainstate_manager.Consensus().Settings().GenesisBlock();
 
     // Scenario 1: Normal block addition (first block written to disk)
     // When a genesis block is added normally, it should be written at offset 8

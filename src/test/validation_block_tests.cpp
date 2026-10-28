@@ -52,7 +52,7 @@ struct TestSubscriber : public CValidationInterface {
 std::shared_ptr<CBlock> Block(const uint256& prev_hash, int height)
 {
     static int i = 0;
-    static uint64_t time = g_consensus_settings->GenesisBlock().nTime;
+    static uint64_t time = g_chainstate_manager.Consensus().Settings().GenesisBlock().nTime;
 
     CScript pubKey;
     pubKey << i++ << OP_TRUE;
@@ -133,7 +133,7 @@ BOOST_AUTO_TEST_CASE(processnewblock_signals_ordering)
     std::vector<std::shared_ptr<const CBlock>> blocks;
     while (blocks.size() < 50) {
         blocks.clear();
-        BuildChain(g_consensus_settings->GenesisBlock().GetHash(), 1, 15, 10, 500, blocks);
+        BuildChain(g_chainstate_manager.Consensus().Settings().GenesisBlock().GetHash(), 1, 15, 10, 500, blocks);
     }
 
     bool ignored;
@@ -145,7 +145,7 @@ BOOST_AUTO_TEST_CASE(processnewblock_signals_ordering)
     BOOST_CHECK(ProcessNewBlockHeaders(headers, state));
 
     // Connect the genesis block and drain any outstanding events
-    ProcessNewBlock(std::make_shared<CBlock>(g_consensus_settings->GenesisBlock()), true, &ignored);
+    ProcessNewBlock(std::make_shared<CBlock>(g_chainstate_manager.Consensus().Settings().GenesisBlock()), true, &ignored);
     SyncWithValidationInterfaceQueue();
 
     // subscribe to events (this subscriber will validate event ordering)
@@ -168,7 +168,7 @@ BOOST_AUTO_TEST_CASE(processnewblock_signals_ordering)
                 auto block = blocks[GetRand(blocks.size() - 1)];
                 BOOST_CHECK_EQUAL(block->proof.size(), 64);
                 CValidationState state;
-                BOOST_CHECK(CheckBlockHeader(*block, state, g_chainstate_manager.XFieldHistory()));
+                BOOST_CHECK(CheckBlockHeader(*block, state, g_chainstate_manager.Consensus().RulesLatest()));
                 ProcessNewBlock(block, true, &ignored);
             }
 
@@ -176,7 +176,7 @@ BOOST_AUTO_TEST_CASE(processnewblock_signals_ordering)
             for (auto block : blocks) {
                 BOOST_CHECK_EQUAL(block->proof.size(), 64);
                 CValidationState state;
-                BOOST_CHECK(CheckBlockHeader(*block, state, g_chainstate_manager.XFieldHistory()));
+                BOOST_CHECK(CheckBlockHeader(*block, state, g_chainstate_manager.Consensus().RulesLatest()));
                 ProcessNewBlock(block, true, &ignored);
                 if (block->vtx.size() == 1) {
                     bool processed = ProcessNewBlock(block, true, &ignored);

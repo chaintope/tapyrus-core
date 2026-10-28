@@ -64,10 +64,4 @@ private:
     const CSoftForkManager m_soft_forks;
 };
 
-/**
- * The node's consensus settings, set once at start-up. It is a global until
- * ConsensusInterface is implemented, and then moves inside ConsensusInterface.
- */
-extern std::unique_ptr<const ConsensusSettings> g_consensus_settings;
-
 #endif // TAPYRUS_CONSENSUSSETTINGS_H
