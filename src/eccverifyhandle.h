@@ -6,8 +6,11 @@
 #ifndef TAPYRUS_ECCVERIFYHANDLE_H
 #define TAPYRUS_ECCVERIFYHANDLE_H
 
+#include <cassert>
 #include <stdint.h>
 
+// Mirrors the typedef in secp256k1.h, so this header need not include it;
+// keep it in step with that header.
 typedef struct secp256k1_context_struct secp256k1_context;
 
 /** Owns the secp256k1 context that CPubKey verifies with. Users of CPubKey
@@ -22,8 +25,9 @@ public:
     ECCVerifyHandle();
     ~ECCVerifyHandle();
 
-    /** The verification context; null while no handle is held. */
-    static const secp256k1_context* Context() { return context; }
+    /** The verification context; asserts that a handle is held, since the
+     *  secp256k1 functions declare the context non-null. */
+    static const secp256k1_context* Context() { assert(context != nullptr); return context; }
 };
 
 #endif // TAPYRUS_ECCVERIFYHANDLE_H

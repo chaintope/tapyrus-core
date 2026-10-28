@@ -307,26 +307,20 @@ bool CExtPubKey::Derive(CExtPubKey &out, unsigned int _nChild) const {
 CPubKey PubKeyCombine(const std::vector<CPubKey> &pubkeys) {
     assert(pubkeys.size() <= PUBKEYCOMBINE_MAX_KEY_SIZE);
 
-    secp256k1_pubkey *secp256k1_pubkeys[PUBKEYCOMBINE_MAX_KEY_SIZE];
+    secp256k1_pubkey parsed[PUBKEYCOMBINE_MAX_KEY_SIZE];
+    const secp256k1_pubkey* secp256k1_pubkeys[PUBKEYCOMBINE_MAX_KEY_SIZE];
 
     for(unsigned int i = 0; i < pubkeys.size(); i++) {
-        CPubKey key = pubkeys.at(i);
-        secp256k1_pubkey* my_secp256k1_pubkey = new secp256k1_pubkey;
-
-        if (!secp256k1_ec_pubkey_parse(ECCVerifyHandle::Context(), my_secp256k1_pubkey, key.data(), key.size())) {
+        const CPubKey& key = pubkeys.at(i);
+        if (!secp256k1_ec_pubkey_parse(ECCVerifyHandle::Context(), &parsed[i], key.data(), key.size())) {
             throw std::runtime_error("cannot parse\n");
         }
-
-        secp256k1_pubkeys[i] = my_secp256k1_pubkey;
+        secp256k1_pubkeys[i] = &parsed[i];
     }
 
     secp256k1_pubkey result;
     if(!secp256k1_ec_pubkey_combine(ECCVerifyHandle::Context(), &result, secp256k1_pubkeys, pubkeys.size())) {
         throw std::runtime_error("combined pubkey is invalid\n");
-    }
-
-    for(unsigned int i = 0; i < pubkeys.size(); i++) {
-        delete secp256k1_pubkeys[i];
     }
 
     unsigned char serializedPubKey[CPubKey::COMPRESSED_PUBLIC_KEY_SIZE];

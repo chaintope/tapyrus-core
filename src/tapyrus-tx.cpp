@@ -842,6 +842,10 @@ int main(int argc, char* argv[])
 {
     SetupEnvironment();
 
+    // Printing a transaction as JSON checks its signature encoding through
+    // CPubKey, so the verification context must exist for every command.
+    const ECCVerifyHandle ecc_verify_handle;
+
     try {
         int ret = AppInitRawTx(argc, argv);
         if (ret != CONTINUE_EXECUTION)
