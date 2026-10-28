@@ -67,7 +67,34 @@ static const bool DEFAULT_FEEFILTER = true;
 static const bool DEFAULT_WHITELISTRELAY = true;
 /** Default for -whitelistforcerelay. */
 static const bool DEFAULT_WHITELISTFORCERELAY = true;
-/** Expected spacing between blocks, in seconds; used only for estimates and timeouts. */
+/** Default for -maxstandardtxsize, the largest transaction we relay and mine; also caps orphan size */
+static const unsigned int DEFAULT_MAX_STANDARD_TX_SIZE = 100000;
+/** Default for -minstandardtxsize, the smallest transaction we relay and mine */
+static const unsigned int DEFAULT_MIN_STANDARD_TX_SIZE = 82;
+/**
+ * Default for -maxscriptsigsize. The biggest standard txin is a 15-of-15 P2SH
+ * multisig with compressed keys (remember the 520 byte limit on redeemScript
+ * size). That works out to a (15*(33+1))+3=513 byte redeemScript,
+ * 513+1+15*(73+1)+3=1627 bytes of scriptSig, which we round off to 1650 bytes
+ * for some minor future-proofing. That's also enough to spend a 20-of-20
+ * CHECKMULTISIG scriptPubKey, though such a scriptPubKey is not standard.
+ */
+static const unsigned int DEFAULT_MAX_SCRIPTSIG_SIZE = 1650;
+/** Default for -maxbaremultisigkeys: up to x-of-3 bare multisig is standard */
+static const unsigned int DEFAULT_MAX_BAREMULTISIG_KEYS = 3;
+/** Default for -maxp2shsigops, the most signature check operations in a standard P2SH script */
+static const unsigned int DEFAULT_MAX_P2SH_SIGOPS = 15;
+/** Default for -maxreplacementcandidates, the most mempool transactions one replacement may evict */
+static const unsigned int DEFAULT_MAX_REPLACEMENT_CANDIDATES = 100;
+/** Default for -orphanexpiry, expiration time for orphan transactions in seconds */
+static const int64_t DEFAULT_ORPHAN_TX_EXPIRE_TIME = 20 * 60;
+/** Default for -maxpackagecount, the most transactions in a package */
+static const unsigned int DEFAULT_MAX_PACKAGE_COUNT = 25;
+// A package's transactions may form a single chain, which must fit the mempool's ancestor and
+// descendant limits. Ensure that, at their defaults, those limits admit a full-size chain package.
+static_assert(DEFAULT_DESCENDANT_LIMIT >= DEFAULT_MAX_PACKAGE_COUNT);
+static_assert(DEFAULT_ANCESTOR_LIMIT >= DEFAULT_MAX_PACKAGE_COUNT);
+/** Default for -expectedblocktime, expected spacing between blocks in seconds; used only for estimates and timeouts */
 static const int64_t DEFAULT_EXPECTED_BLOCK_TIME = 15;
 
 /**
@@ -118,6 +145,17 @@ struct PolicySettings : PolicyConstants
     const bool whitelistRelay;
     const bool whitelistForceRelay;
 
+    const uint32_t maxStandardTxSize;
+    const uint32_t minStandardTxSize;
+    const uint32_t maxScriptSigSize;
+    const uint32_t maxBareMultisigKeys;
+    const uint32_t maxP2shSigOps;
+    const uint32_t maxReplacementCandidates;
+    /** Orphan transaction expiry, in seconds. */
+    const int64_t orphanExpiry;
+    /** The most transactions in a package; CheckPackage bounds the chains inside it by the ancestor and descendant limits. */
+    const uint32_t maxPackageCount;
+
     /** Size of the blocks this node creates, before clamping to the block size limit. */
     const uint32_t blockMaxSize;
     /** nFeatures of the blocks this node creates in dev mode. */
@@ -135,6 +173,9 @@ private:
     static bool ParseAcceptNonStdTxn(const ArgsManager& args, TAPYRUS_OP_MODE mode);
     static bool ParseEnableReplacement(const ArgsManager& args);
     static int64_t ParseMaxMempool(const ArgsManager& args);
+    /** A -<name>=<n> option that must lie in [min, max]. */
+    static int64_t ParseInRange(const ArgsManager& args, const std::string& name, int64_t defaultValue, int64_t min, int64_t max);
+    static uint32_t ParseMinStandardTxSize(const ArgsManager& args, uint32_t maxStandardTxSize);
 };
 
 /**

@@ -88,9 +88,9 @@ static UniValue testmempoolaccept(const JSONRPCRequest& request)
 
     RPCTypeCheck(request.params, {UniValue::VARR, UniValue::VBOOL});
     const UniValue raw_transactions = request.params[0].get_array();
-    if (raw_transactions.size() < 1 || raw_transactions.size() > MAX_PACKAGE_COUNT) {
+    if (raw_transactions.size() < 1 || raw_transactions.size() > g_policy_settings->maxPackageCount) {
         throw JSONRPCError(RPC_INVALID_PARAMETER,
-                            strprintf("Too many transactions in package (maximum %u).", MAX_PACKAGE_COUNT));
+                            strprintf("Too many transactions in package (maximum %u).", g_policy_settings->maxPackageCount));
     }
 
     std::vector<CTransaction> transactions;
@@ -159,9 +159,9 @@ static UniValue submitpackage(const JSONRPCRequest& request)
     RPCTypeCheck(request.params, {UniValue::VARR, UniValue::VBOOL});
 
     const UniValue raw_transactions = request.params[0].get_array();
-    if (raw_transactions.size() < 1 || raw_transactions.size() > MAX_PACKAGE_COUNT) {
+    if (raw_transactions.size() < 1 || raw_transactions.size() > g_policy_settings->maxPackageCount) {
         throw JSONRPCError(RPC_INVALID_PARAMETER,
-                            strprintf("Too many transactions in package (maximum %u)", MAX_PACKAGE_COUNT));
+                            strprintf("Too many transactions in package (maximum %u)", g_policy_settings->maxPackageCount));
     }
 
     std::vector<CTransaction> transactions;

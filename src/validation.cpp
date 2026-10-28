@@ -464,7 +464,7 @@ static bool AcceptToMemoryPoolWorker(const CTransactionRef &ptx, CTxMempoolAccep
         return state.DoS(0, false, REJECT_NONSTANDARD, reason);
     // Do not work on transactions that are too small.
     // Transactions smaller than this are not relayed to reduce unnecessary malloc overhead.
-    if (::GetSerializeSize(tx, SER_NETWORK, PROTOCOL_VERSION) < MIN_STANDARD_TX_SIZE)
+    if (::GetSerializeSize(tx, SER_NETWORK, PROTOCOL_VERSION) < g_policy_settings->minStandardTxSize)
         return state.DoS(0, false, REJECT_NONSTANDARD, "tx-size-small");
 
     // Only accept nLockTime-using transactions that can be mined in the next
@@ -609,7 +609,7 @@ static bool AcceptToMemoryPoolWorker(const CTransactionRef &ptx, CTxMempoolAccep
         {
             CFeeRate newFeeRate(nModifiedFees, nSize);
             std::set<uint256> setConflictsParents;
-            const int maxDescendantsToVisit = 100;
+            const uint32_t maxDescendantsToVisit = g_policy_settings->maxReplacementCandidates;
             CTxMemPool::setEntries setIterConflicting;
             for (const uint256 &hashConflicting : setConflicts)
             {
