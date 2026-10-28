@@ -7,6 +7,7 @@
 
 #include <coin.h>
 #include <coins.h>
+#include <coloridentifier.h>
 #include <consensus/consensus.h>
 #include <trace.h>
 
