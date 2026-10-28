@@ -174,15 +174,15 @@ Result CreateTransaction(const CWallet* wallet, const uint256& txid, const CCoin
     // future proof against changes to network wide policy for incremental relay
     // fee that our node may not be aware of.
     CFeeRate walletIncrementalRelayFee = CFeeRate(WALLET_INCREMENTAL_RELAY_FEE);
-    if (::incrementalRelayFee > walletIncrementalRelayFee) {
-        walletIncrementalRelayFee = ::incrementalRelayFee;
+    if (g_policy_settings->incrementalRelayFee > walletIncrementalRelayFee) {
+        walletIncrementalRelayFee = g_policy_settings->incrementalRelayFee;
     }
 
     if (total_fee > 0) {
-        CAmount minTotalFee = nOldFeeRate.GetFee(maxNewTxSize) + ::incrementalRelayFee.GetFee(maxNewTxSize);
+        CAmount minTotalFee = nOldFeeRate.GetFee(maxNewTxSize) + g_policy_settings->incrementalRelayFee.GetFee(maxNewTxSize);
         if (total_fee < minTotalFee) {
             errors.push_back(strprintf("Insufficient totalFee, must be at least %s (oldFee %s + incrementalFee %s)",
-                                                                FormatMoney(minTotalFee), FormatMoney(nOldFeeRate.GetFee(maxNewTxSize)), FormatMoney(::incrementalRelayFee.GetFee(maxNewTxSize))));
+                                                                FormatMoney(minTotalFee), FormatMoney(nOldFeeRate.GetFee(maxNewTxSize)), FormatMoney(g_policy_settings->incrementalRelayFee.GetFee(maxNewTxSize))));
             return Result::INVALID_PARAMETER;
         }
         CAmount requiredFee = GetRequiredFee(*wallet, maxNewTxSize);
@@ -209,9 +209,9 @@ Result CreateTransaction(const CWallet* wallet, const uint256& txid, const CCoin
     }
 
     // Check that in all cases the new fee doesn't violate maxTxFee
-     if (new_fee > maxTxFee) {
+     if (new_fee > wallet->m_default_max_tx_fee) {
          errors.push_back(strprintf("Specified or calculated fee %s is too high (cannot be higher than maxTxFee %s)",
-                               FormatMoney(new_fee), FormatMoney(maxTxFee)));
+                               FormatMoney(new_fee), FormatMoney(wallet->m_default_max_tx_fee)));
          return Result::WALLET_ERROR;
      }
 
@@ -220,7 +220,7 @@ Result CreateTransaction(const CWallet* wallet, const uint256& txid, const CCoin
     // This may occur if the user set TotalFee or paytxfee too low, if fallbackfee is too low, or, perhaps,
     // in a rare situation where the mempool minimum fee increased significantly since the fee estimation just a
     // moment earlier. In this case, we report an error to the user, who may use total_fee to make an adjustment.
-    CFeeRate minMempoolFeeRate = mempool.GetMinFee(gArgs.GetArg("-maxmempool", DEFAULT_MAX_MEMPOOL_SIZE) * 1000000);
+    CFeeRate minMempoolFeeRate = mempool.GetMinFee(g_policy_settings->maxMempool);
     if (nNewFeeRate.GetFeePerK() < minMempoolFeeRate.GetFeePerK()) {
         errors.push_back(strprintf(
             "New fee rate (%s) is lower than the minimum fee rate (%s) to get into the mempool -- "

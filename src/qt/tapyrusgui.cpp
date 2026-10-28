@@ -200,7 +200,7 @@ TapyrusGUI::TapyrusGUI(interfaces::Node& node, const PlatformStyle *_platformSty
         connect(label, &GUIUtil::ClickableLabel::clicked, this, &TapyrusGUI::toggleNetworkActive);
     }
 
-    modalOverlay = new ModalOverlay(this->centralWidget());
+    modalOverlay = new ModalOverlay(m_node, this->centralWidget());
 #if ENABLE_WALLET
     if(enableWallet) {
         connect(walletFrame, &WalletFrame::requestedSyncWarningInfo, this, &TapyrusGUI::showModalOverlay);
@@ -789,7 +789,7 @@ void TapyrusGUI::updateHeadersSyncProgressLabel()
 {
     int64_t headersTipTime = clientModel->getHeaderTipTime();
     int headersTipHeight = clientModel->getHeaderTipHeight();
-    int estHeadersLeft = (GetTime() - headersTipTime) / Params().GetConsensus().nExpectedBlockTime;
+    int estHeadersLeft = (GetTime() - headersTipTime) / m_node.getExpectedBlockTime();
     if (estHeadersLeft > HEADER_HEIGHT_DELTA_SYNC)
         progressBarLabel->setText(tr("Syncing Headers (%1%)...").arg(QString::number(100.0 / (headersTipHeight+estHeadersLeft)*headersTipHeight, 'f', 1)));
 }

@@ -13,6 +13,7 @@
 #include <index/txindex.h>
 #include <policy/packages.h>
 #include <policy/policy.h>
+#include <policy/policyconstants.h>
 #include <precomputedcolordata.h>
 #include <shutdown.h>
 #include <trace.h>
@@ -503,9 +504,9 @@ static void UpdateMempoolForReorg(DisconnectedBlockTransactions &disconnectpool,
     mempool.UpdateTransactionsFromBlock(vHashUpdate);
 
     // We also need to remove any now-immature transactions
-    mempool.removeForReorg(pcoinsTip.get(), chainActive.Tip()->nHeight + 1, STANDARD_LOCKTIME_VERIFY_FLAGS);
+    mempool.removeForReorg(pcoinsTip.get(), chainActive.Tip()->nHeight + 1, PolicyConstants::STANDARD_LOCKTIME_VERIFY_FLAGS);
     // Re-limit mempool size, in case we added any transactions
-    LimitMempoolSize(mempool, gArgs.GetArg("-maxmempool", DEFAULT_MAX_MEMPOOL_SIZE) * 1000000, gArgs.GetArg("-mempoolexpiry", DEFAULT_MEMPOOL_EXPIRY) * 60 * 60);
+    LimitMempoolSize(mempool, g_policy_settings->maxMempool, g_policy_settings->mempoolExpiry);
 }
 
 /** Apply the effects of this block (with given index) on the UTXO set represented by coins.
@@ -913,7 +914,7 @@ bool CChainState::ConnectTip(CValidationState& state, CBlockIndex* pindexNew, co
         const unsigned int newSoftforkFlags = g_chainstate_manager.Consensus().ActivationFlagsChange(
             pindexNew->nHeight, pindexNew->nHeight + 1);
         if (newSoftforkFlags) {
-            mempool.removeForScriptFlagChange(STANDARD_SCRIPT_VERIFY_FLAGS | newSoftforkFlags, pindexNew->nHeight + 1);
+            mempool.removeForScriptFlagChange(PolicyConstants::STANDARD_SCRIPT_VERIFY_FLAGS | newSoftforkFlags, pindexNew->nHeight + 1);
         }
     }
 

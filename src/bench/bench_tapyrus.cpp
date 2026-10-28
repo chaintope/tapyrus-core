@@ -11,6 +11,7 @@
 #include <eccverifyhandle.h>
 #include <genesisfile.h>
 #include <key.h>
+#include <policy/policysettings.h>
 #include <utilstrencodings.h>
 #include <validation.h>
 #include <streams.h>
@@ -78,6 +79,8 @@ int main(int argc, char** argv)
     SelectFederationParams(TAPYRUS_OP_MODE::PROD);
     g_chainstate_manager.Consensus().Init(std::make_unique<const ConsensusSettings>(ReadGenesisBlock(), TAPYRUS_OP_MODE::PROD, FederationParams().NetworkId()));
     g_chainstate_manager.InitXFieldHistory(g_chainstate_manager.Consensus().Settings().GenesisBlock());
+    const PolicySettings policy(gArgs, TAPYRUS_OP_MODE::PROD);
+    g_policy_settings = &policy;
 
     int64_t evaluations = gArgs.GetArg("-evals", DEFAULT_BENCH_EVALUATIONS);
     std::string regex_filter = gArgs.GetArg("-filter", DEFAULT_BENCH_FILTER);

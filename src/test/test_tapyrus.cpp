@@ -88,6 +88,8 @@ BasicTestingSetup::BasicTestingSetup(const std::string& chainName)
         SelectFederationParams(TAPYRUS_OP_MODE::PROD);
         g_chainstate_manager.Consensus().Init(std::make_unique<const ConsensusSettings>(ReadGenesisBlock(), TAPYRUS_OP_MODE::PROD, FederationParams().NetworkId()));
         noui_connect();
+        m_node.policy = std::make_unique<const PolicySettings>(gArgs, TAPYRUS_OP_MODE::PROD);
+        g_policy_settings = m_node.policy.get();
         g_chainstate_manager.InitXFieldHistory(g_chainstate_manager.Consensus().Settings().GenesisBlock());
         pxFieldHistory = &g_chainstate_manager.XFieldHistory();
         g_colorid_state.reset(new CIssuedColorIds());
@@ -109,6 +111,22 @@ BasicTestingSetup::~BasicTestingSetup()
     fs::remove_all(m_path_root);
     ECC_Stop();
     g_ecc_started = false;
+}
+
+PolicySettingsOverride::PolicySettingsOverride(const std::vector<std::pair<std::string, std::string>>& options)
+    : m_previous(g_policy_settings)
+{
+    ArgsManager args;
+    for (const auto& option : options) {
+        args.ForceSetArg(option.first, option.second);
+    }
+    m_settings = std::make_unique<const PolicySettings>(args, TAPYRUS_OP_MODE::PROD);
+    g_policy_settings = m_settings.get();
+}
+
+PolicySettingsOverride::~PolicySettingsOverride()
+{
+    g_policy_settings = m_previous;
 }
 
 fs::path BasicTestingSetup::SetDataDir(const std::string& name)

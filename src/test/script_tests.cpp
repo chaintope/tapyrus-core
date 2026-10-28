@@ -11,6 +11,7 @@
 #include <key.h>
 #include <keystore.h>
 #include <policy/policy.h>
+#include <policy/policyconstants.h>
 #include <rpc/server.h>
 #include <script/script.h>
 #include <script/script_error.h>
@@ -36,8 +37,8 @@
 // Uncomment if you want to output updated JSON tests.
 // #define UPDATE_JSON_TESTS
 
-static const unsigned int stdFlags = STANDARD_SCRIPT_VERIFY_FLAGS;
-static const unsigned int mndFlags = STANDARD_NOT_MANDATORY_VERIFY_FLAGS;
+static const unsigned int stdFlags = PolicyConstants::STANDARD_SCRIPT_VERIFY_FLAGS;
+static const unsigned int mndFlags = PolicyConstants::STANDARD_NOT_MANDATORY_VERIFY_FLAGS;
 
 unsigned int ParseScriptFlags(std::string strFlags);
 std::string FormatScriptFlags(unsigned int flags);
