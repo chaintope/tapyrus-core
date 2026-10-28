@@ -110,7 +110,7 @@ public:
      * pass oldHeight = pindexNew->nHeight (flags the mempool was checked against)
      * and newHeight = pindexNew->nHeight + 1 (flags the next block requires).
      * A non-zero return means the mempool should be re-evaluated against
-     * (STANDARD_SCRIPT_VERIFY_FLAGS | returnValue).
+     * (PolicyConstants::STANDARD_SCRIPT_VERIFY_FLAGS | returnValue).
      */
     unsigned int ActivationFlagsChange(uint32_t networkId, int32_t oldHeight, int32_t newHeight) const {
         const unsigned int before = GetScriptFlags(networkId, oldHeight);

@@ -16,6 +16,7 @@
 #include <keystore.h>
 #include <policy/policy.h>
 #include <policy/feerate.h>
+#include <policy/policyconstants.h>
 #include <policy/rbf.h>
 #include <primitives/transaction.h>
 #include <script/script.h>
@@ -633,7 +634,7 @@ static void MutateTxSign(CMutableTransaction& tx, const std::string& flagStr)
 
     bool fHashSingle = ((nHashType & ~SIGHASH_ANYONECANPAY) == SIGHASH_SINGLE);
 
-    const unsigned int signVerifyFlags = STANDARD_SCRIPT_VERIFY_FLAGS;
+    const unsigned int signVerifyFlags = PolicyConstants::STANDARD_SCRIPT_VERIFY_FLAGS;
 
     // Sign what we can:
     for (unsigned int i = 0; i < mergedTx.vin.size(); i++) {

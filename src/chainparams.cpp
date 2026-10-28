@@ -23,7 +23,6 @@
 class CProductionChainParams : public CChainParams {
 public:
     CProductionChainParams():CChainParams() {
-        consensus.nExpectedBlockTime = 15; // 15 sec
         rpcPort = 2377;
         nDefaultPort = 2357;
         nPruneAfterHeight = 100000;
@@ -52,7 +51,6 @@ public:
 class CDevelopmentChainParams : public CChainParams {
 public:
     CDevelopmentChainParams():CChainParams() {
-        consensus.nExpectedBlockTime = 15; // 15 sec
         rpcPort = 12381;
         nDefaultPort = 12383;
         nPruneAfterHeight = 1000;
