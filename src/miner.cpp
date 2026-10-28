@@ -12,7 +12,6 @@
 #include <blockindex.h>
 #include <chainparams.h>
 #include <chainstatemanager.h>
-#include <consensus/tx_verify.h>
 #include <consensus/merkle.h>
 #include <consensus/validation.h>
 #include <hash.h>

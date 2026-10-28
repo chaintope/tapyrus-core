@@ -3,7 +3,7 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#include <consensus/tx_verify.h>
+#include <chainstatemanager.h>
 #include <consensus/validation.h>
 #include <pubkey.h>
 #include <key.h>
@@ -158,10 +158,10 @@ BOOST_AUTO_TEST_CASE(GetTxSigOpCost)
         // Legacy counting only includes signature operations in scriptSigs and scriptPubKeys
         // of a transaction and does not take the actual executed sig operations into account.
         // spendingTx in itself does not contain a signature operation.
-        assert(GetTransactionSigOps(CTransaction(spendingTx), coins, flags) == 0);
+        assert(g_chainstate_manager.Consensus().GetTransactionSigOps(CTransaction(spendingTx), coins, flags) == 0);
         // creationTx contains two signature operations in its scriptPubKey, but legacy counting
         // is not accurate.
-        assert(GetTransactionSigOps(CTransaction(creationTx), coins, flags) == ConsensusConstants::MAX_PUBKEYS_PER_MULTISIG);
+        assert(g_chainstate_manager.Consensus().GetTransactionSigOps(CTransaction(creationTx), coins, flags) == ConsensusConstants::MAX_PUBKEYS_PER_MULTISIG);
         // Sanity check: script verification fails because of an invalid signature.
         assert(VerifyWithFlag(creationTx, spendingTx, flags) == SCRIPT_ERR_CHECKMULTISIGVERIFY);
     }
@@ -173,7 +173,7 @@ BOOST_AUTO_TEST_CASE(GetTxSigOpCost)
         CScript scriptSig = CScript() << OP_0 << OP_0 << ToByteVector(redeemScript);
 
         BuildTxs(spendingTx, coins, creationTx, scriptPubKey, scriptSig);
-        assert(GetTransactionSigOps(CTransaction(spendingTx), coins, flags) == 2);
+        assert(g_chainstate_manager.Consensus().GetTransactionSigOps(CTransaction(spendingTx), coins, flags) == 2);
         assert(VerifyWithFlag(creationTx, spendingTx, flags) == SCRIPT_ERR_CHECKMULTISIGVERIFY);
     }
 
@@ -190,9 +190,9 @@ BOOST_AUTO_TEST_CASE(GetTxSigOpCost)
 
         BuildTxs(spendingTx, coins, creationTx, scriptPubKey, scriptSig);
 
-        BOOST_CHECK_EQUAL(GetTransactionSigOps(CTransaction(spendingTx), coins, flags), 0);
+        BOOST_CHECK_EQUAL(g_chainstate_manager.Consensus().GetTransactionSigOps(CTransaction(spendingTx), coins, flags), 0);
 
-        BOOST_CHECK_EQUAL(GetTransactionSigOps(CTransaction(creationTx), coins, flags), 1);
+        BOOST_CHECK_EQUAL(g_chainstate_manager.Consensus().GetTransactionSigOps(CTransaction(creationTx), coins, flags), 1);
 
         BOOST_CHECK_EQUAL(VerifyWithFlag(creationTx, spendingTx, flags) ,SCRIPT_ERR_CHECKDATASIGVERIFY);
     }
@@ -209,7 +209,7 @@ BOOST_AUTO_TEST_CASE(GetTxSigOpCost)
 
         BuildTxs(spendingTx, coins, creationTx, scriptPubKey, scriptSig);
 
-        BOOST_CHECK_EQUAL(GetTransactionSigOps(CTransaction(spendingTx), coins, flags), 1);
+        BOOST_CHECK_EQUAL(g_chainstate_manager.Consensus().GetTransactionSigOps(CTransaction(spendingTx), coins, flags), 1);
 
         BOOST_CHECK_EQUAL(VerifyWithFlag(creationTx, spendingTx, flags) , SCRIPT_ERR_CHECKDATASIGVERIFY);
     }

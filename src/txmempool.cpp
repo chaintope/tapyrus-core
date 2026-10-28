@@ -7,7 +7,7 @@
 #include <txmempool.h>
 
 #include <consensusconstants.h>
-#include <consensus/tx_verify.h>
+#include <chainstatemanager.h>
 #include <consensus/validation.h>
 #include <validation.h>
 #include <issuedcolorids.h>
@@ -676,7 +676,7 @@ static void CheckInputsAndUpdateCoins(const CTransaction& tx, CCoinsViewCache& m
 {
     CValidationState state;
     CAmount txfee = 0;
-    bool fCheckResult = tx.IsCoinBase() || Consensus::CheckTxInputs(tx, state, mempoolDuplicate, spendheight, txfee);
+    bool fCheckResult = tx.IsCoinBase() || g_chainstate_manager.Consensus().CheckTxInputs(tx, state, mempoolDuplicate, spendheight, txfee);
     assert(fCheckResult);
     UpdateCoins(tx, mempoolDuplicate, 1000000);
 }
