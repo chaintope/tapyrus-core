@@ -57,7 +57,7 @@ bool IsStandard(const CScript& scriptPubKey, txnouttype& whichType)
         if (m < 1 || m > n)
             return false;
     } else if (whichType == TX_NULL_DATA &&
-               (!fAcceptDatacarrier || scriptPubKey.size() > nMaxDatacarrierBytes))
+               (!g_policy_settings->acceptDatacarrier || scriptPubKey.size() > g_policy_settings->maxDatacarrierBytes))
             return false;
 
     return whichType != TX_NONSTANDARD;
@@ -109,14 +109,14 @@ bool IsStandardTx(const CTransaction& tx, std::string& reason)
 
         if (whichType == TX_NULL_DATA)
             nDataOut++;
-        else if (IsDust(txout, ::dustRelayFee)) {
+        else if (IsDust(txout, g_policy_settings->dustRelayFee)) {
             reason = "dust";
             return false;
         }
     }
 
     // multiple OP_RETURN txout are permitted with new option
-    if (nDataOut > 1 && !fAcceptMultipleDatacarrier){
+    if (nDataOut > 1 && !g_policy_settings->acceptMultipleDatacarrier){
         reason = "multi-op-return";
         return false;
     }
@@ -174,13 +174,10 @@ bool AreInputsStandard(const CTransaction& tx, const CCoinsViewCache& mapInputs)
     return true;
 }
 
-CFeeRate incrementalRelayFee = CFeeRate(DEFAULT_INCREMENTAL_RELAY_FEE);
-CFeeRate dustRelayFee = CFeeRate(DUST_RELAY_TX_FEE);
-unsigned int nBytesPerSigOp = DEFAULT_BYTES_PER_SIGOP;
 
 int64_t GetTransactionSize(int64_t nSize, int64_t nSigOpCost)
 {
-    return std::max(nSize, nSigOpCost * nBytesPerSigOp);
+    return std::max(nSize, nSigOpCost * g_policy_settings->bytesPerSigOp);
 }
 
 int64_t GetTransactionSize(const CTransaction& tx, int32_t nSigOpCost)

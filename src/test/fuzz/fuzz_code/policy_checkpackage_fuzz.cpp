@@ -11,6 +11,7 @@
 
 #include <tapyrus-config.h>
 
+#include <test/fuzz/fuzz_code/fuzz_policy_settings.h>
 #include <consensus/validation.h>
 #include <policy/packages.h>
 #include <primitives/transaction.h>
@@ -25,6 +26,7 @@
 
 static int test_one_input_checkpackage(const uint8_t* data, size_t size)
 {
+    GetFuzzPolicySettings();
     CDataStream ds(reinterpret_cast<const char*>(data),
                    reinterpret_cast<const char*>(data) + size,
                    SER_NETWORK, PROTOCOL_VERSION);

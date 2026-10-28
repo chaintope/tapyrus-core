@@ -22,6 +22,7 @@
 #include <netnode.h>
 #include <policy/fees.h>
 #include <policy/policy.h>
+#include <policy/policyconstants.h>
 #include <policy/rbf.h>
 #include <primitives/block.h>
 #include <primitives/transaction.h>
@@ -1803,7 +1804,7 @@ void CWallet::ReacceptWalletTransactions()
     for (std::pair<const int64_t, CWalletTx*>& item : mapSorted) {
         CWalletTx& wtx = *(item.second);
         CValidationState state;
-        wtx.AcceptToMemoryPool(maxTxFee, state);
+        wtx.AcceptToMemoryPool(m_default_max_tx_fee, state);
     }
 }
 
@@ -1814,7 +1815,7 @@ bool CWalletTx::RelayWalletTransaction(CConnman* connman)
     {
         CValidationState state;
         /* GetDepthInMainChain already catches known conflicts. */
-        if (InMempool() || AcceptToMemoryPool(maxTxFee, state)) {
+        if (InMempool() || AcceptToMemoryPool(pwallet->m_default_max_tx_fee, state)) {
             pwallet->WalletLogPrintf("Relaying wtx %s\n", GetHash().ToString());
             if (connman) {
                 CInv inv(MSG_TX, GetHash());
@@ -2515,8 +2516,8 @@ bool CWallet::SelectCoins(const std::vector<COutput>& vAvailableCoins, const CAm
     }
     std::vector<OutputGroup> groups = GroupOutputs(vCoins, !coin_control.m_avoid_partial_spends);
 
-    size_t max_ancestors = (size_t)std::max<int64_t>(1, gArgs.GetArg("-limitancestorcount", DEFAULT_ANCESTOR_LIMIT));
-    size_t max_descendants = (size_t)std::max<int64_t>(1, gArgs.GetArg("-limitdescendantcount", DEFAULT_DESCENDANT_LIMIT));
+    size_t max_ancestors = (size_t)std::max<int64_t>(1, g_policy_settings->ancestorLimit);
+    size_t max_descendants = (size_t)std::max<int64_t>(1, g_policy_settings->descendantLimit);
     bool fRejectLongChains = gArgs.GetBoolArg("-walletrejectlongchains", DEFAULT_WALLET_REJECT_LONG_CHAINS);
 
     bool res = nTargetValue <= nValueFromPresetInputs ||
@@ -2542,7 +2543,7 @@ bool CWallet::SignTransaction(CMutableTransaction &tx)
     AssertLockHeld(cs_main);
     AssertLockHeld(cs_wallet); // mapWallet
 
-    const unsigned int signVerifyFlags = STANDARD_SCRIPT_VERIFY_FLAGS;
+    const unsigned int signVerifyFlags = PolicyConstants::STANDARD_SCRIPT_VERIFY_FLAGS;
 
     // sign the new tx
     int nIn = 0;
@@ -2803,7 +2804,7 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
                     // Include the fee cost for outputs. Note this is only used for BnB right now
                     coin_selection_params.tx_noinputs_size += ::GetSerializeSize(txout, SER_NETWORK, PROTOCOL_VERSION);
 
-                    if (IsDust(txout, ::dustRelayFee))
+                    if (IsDust(txout, g_policy_settings->dustRelayFee))
                     {
                         if (recipient.fSubtractFeeFromAmount && nFeeRet > 0)
                         {
@@ -2967,7 +2968,7 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
 
                 // If we made it here and we aren't even able to meet the relay fee on the next pass, give up
                 // because we must be at the maximum allowed fee.
-                if (nFeeNeeded < ::minRelayTxFee.GetFee(nBytes))
+                if (nFeeNeeded < g_policy_settings->minRelayTxFee.GetFee(nBytes))
                 {
                     strFailReason = _("Transaction too large for fee policy");
                     return false;
@@ -3075,7 +3076,7 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
         if (sign)
         {
             AssertLockHeld(cs_main);
-            const unsigned int signVerifyFlags = STANDARD_SCRIPT_VERIFY_FLAGS;
+            const unsigned int signVerifyFlags = PolicyConstants::STANDARD_SCRIPT_VERIFY_FLAGS;
 
             int nIn = 0;
             for (const auto& coin : selected_coins)
@@ -3110,10 +3111,10 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
         LockPoints lp;
         CTxMemPoolEntry entry(tx, 0, 0, 0, false, 0, lp);
         CTxMemPool::setEntries setAncestors;
-        size_t nLimitAncestors = gArgs.GetArg("-limitancestorcount", DEFAULT_ANCESTOR_LIMIT);
-        size_t nLimitAncestorSize = gArgs.GetArg("-limitancestorsize", DEFAULT_ANCESTOR_SIZE_LIMIT)*1000;
-        size_t nLimitDescendants = gArgs.GetArg("-limitdescendantcount", DEFAULT_DESCENDANT_LIMIT);
-        size_t nLimitDescendantSize = gArgs.GetArg("-limitdescendantsize", DEFAULT_DESCENDANT_SIZE_LIMIT)*1000;
+        size_t nLimitAncestors = g_policy_settings->ancestorLimit;
+        size_t nLimitAncestorSize = g_policy_settings->ancestorSizeLimit;
+        size_t nLimitDescendants = g_policy_settings->descendantLimit;
+        size_t nLimitDescendantSize = g_policy_settings->descendantSizeLimit;
         std::string errString;
         LOCK(::mempool.cs);
         if (!::mempool.CalculateMemPoolAncestors(entry, setAncestors, nLimitAncestors, nLimitAncestorSize, nLimitDescendants, nLimitDescendantSize, errString)) {
@@ -3172,7 +3173,7 @@ bool CWallet::CommitTransaction(CTransactionRef tx, mapValue_t mapValue, std::ve
         if (fBroadcastTransactions)
         {
             // Broadcast
-            if (!wtx.AcceptToMemoryPool(maxTxFee, state)) {
+            if (!wtx.AcceptToMemoryPool(m_default_max_tx_fee, state)) {
                 WalletLogPrintf("CommitTransaction(): Transaction cannot be broadcast immediately, %s\n", FormatStateMessage(state));
                 // TODO: if we expect the failure to be long term or permanent, instead delete wtx from the wallet and return failure.
             } else {
@@ -4299,11 +4300,31 @@ std::shared_ptr<CWallet> CWallet::CreateWalletFromFile(const std::string& name, 
                         _("This is the transaction fee you will pay if you send a transaction."));
         }
         walletInstance->m_pay_tx_fee = CFeeRate(nFeePerK, 1000);
-        if (walletInstance->m_pay_tx_fee < ::minRelayTxFee) {
+        if (walletInstance->m_pay_tx_fee < g_policy_settings->minRelayTxFee) {
             InitError(strprintf(_("Invalid amount for -paytxfee=<amount>: '%s' (must be at least %s)"),
-                gArgs.GetArg("-paytxfee", ""), ::minRelayTxFee.ToString()));
+                gArgs.GetArg("-paytxfee", ""), g_policy_settings->minRelayTxFee.ToString()));
             return nullptr;
         }
+    }
+    if (g_policy_settings->minRelayTxFee.GetFeePerK() > HIGH_TX_FEE_PER_KB) {
+        InitWarning(AmountHighWarn("-minrelaytxfee") + " " +
+                    _("The wallet will avoid paying less than the minimum relay fee."));
+    }
+    if (gArgs.IsArgSet("-maxtxfee")) {
+        CAmount nMaxFee = 0;
+        if (!ParseMoney(gArgs.GetArg("-maxtxfee", ""), nMaxFee)) {
+            InitError(AmountErrMsg("maxtxfee", gArgs.GetArg("-maxtxfee", "")));
+            return nullptr;
+        }
+        if (nMaxFee > HIGH_MAX_TX_FEE) {
+            InitWarning(_("-maxtxfee is set very high! Fees this large could be paid on a single transaction."));
+        }
+        if (CFeeRate(nMaxFee, 1000) < g_policy_settings->minRelayTxFee) {
+            InitError(strprintf(_("Invalid amount for -maxtxfee=<amount>: '%s' (must be at least the minrelay fee of %s to prevent stuck transactions)"),
+                gArgs.GetArg("-maxtxfee", ""), g_policy_settings->minRelayTxFee.ToString()));
+            return nullptr;
+        }
+        walletInstance->m_default_max_tx_fee = nMaxFee;
     }
     walletInstance->m_confirm_target = gArgs.GetArg("-txconfirmtarget", DEFAULT_TX_CONFIRM_TARGET);
     walletInstance->m_spend_zero_conf_change = gArgs.GetBoolArg("-spendzeroconfchange", DEFAULT_SPEND_ZEROCONF_CHANGE);

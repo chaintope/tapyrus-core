@@ -633,7 +633,7 @@ void CTxMemPool::removeForScriptFlagChange(unsigned int newMempoolScriptFlags, i
         }
         CValidationState state;
         // For SCRIPT_VERIFY_CP2SH_COLORED this call is a no-op: the flag is
-        // already in STANDARD_SCRIPT_VERIFY_FLAGS, so every tx in the mempool
+        // already in PolicyConstants::STANDARD_SCRIPT_VERIFY_FLAGS, so every tx in the mempool
         // was admitted under it and will pass here.  For any future softfork
         // whose flag is NOT pre-added to STANDARD, this correctly evicts txs
         // that would be invalid under the new consensus rules.
@@ -642,7 +642,7 @@ void CTxMemPool::removeForScriptFlagChange(unsigned int newMempoolScriptFlags, i
             continue;
         }
         CValidationState balanceState;
-        const CAmount minFee = ::minRelayTxFee.GetFee(it->GetTxSize());
+        const CAmount minFee = g_policy_settings->minRelayTxFee.GetFee(it->GetTxSize());
         if (!colorChecker.CheckTokenBalances(balanceState, minFee)) {
             txToRemove.insert(it);
         }
@@ -1075,12 +1075,12 @@ CFeeRate CTxMemPool::GetMinFee(size_t sizelimit) const {
         rollingMinimumFeeRate = rollingMinimumFeeRate / pow(2.0, (time - lastRollingFeeUpdate) / halflife);
         lastRollingFeeUpdate = time;
 
-        if (rollingMinimumFeeRate < (double)incrementalRelayFee.GetFeePerK() / 2) {
+        if (rollingMinimumFeeRate < (double)g_policy_settings->incrementalRelayFee.GetFeePerK() / 2) {
             rollingMinimumFeeRate = 0;
             return CFeeRate(0);
         }
     }
-    return std::max(CFeeRate(llround(rollingMinimumFeeRate)), incrementalRelayFee);
+    return std::max(CFeeRate(llround(rollingMinimumFeeRate)), g_policy_settings->incrementalRelayFee);
 }
 
 void CTxMemPool::trackPackageRemoved(const CFeeRate& rate) {
@@ -1104,7 +1104,7 @@ void CTxMemPool::TrimToSize(size_t sizelimit, std::vector<COutPoint>* pvNoSpends
         // to have 0 fee). This way, we don't allow txn to enter mempool with feerate
         // equal to txn which were removed with no block in between.
         CFeeRate removed(it->GetModFeesWithDescendants(), it->GetSizeWithDescendants());
-        removed += incrementalRelayFee;
+        removed += g_policy_settings->incrementalRelayFee;
         trackPackageRemoved(removed);
         maxFeeRateRemoved = std::max(maxFeeRateRemoved, removed);
 

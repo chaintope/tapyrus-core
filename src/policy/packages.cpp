@@ -116,8 +116,8 @@ bool CheckPackage(const Package& txns, CValidationState& state)
     // Only chains inside the package are counted here; ancestors already in the
     // mempool are counted when each transaction is accepted.
     const PackageChainCounts chain_counts(txns);
-    const int64_t ancestor_limit{gArgs.GetArg("-limitancestorcount", DEFAULT_ANCESTOR_LIMIT)};
-    const int64_t descendant_limit{gArgs.GetArg("-limitdescendantcount", DEFAULT_DESCENDANT_LIMIT)};
+    const int64_t ancestor_limit{g_policy_settings->ancestorLimit};
+    const int64_t descendant_limit{g_policy_settings->descendantLimit};
     if (static_cast<int64_t>(chain_counts.MaxAncestors()) > ancestor_limit ||
         static_cast<int64_t>(chain_counts.MaxDescendants()) > descendant_limit) {
         return state.Invalid(false, REJECT_PACKAGE_INVALID, "package-mempool-limits");

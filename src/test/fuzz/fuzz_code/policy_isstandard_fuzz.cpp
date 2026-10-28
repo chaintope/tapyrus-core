@@ -11,6 +11,7 @@
 
 #include <tapyrus-config.h>
 
+#include <test/fuzz/fuzz_code/fuzz_policy_settings.h>
 #include <policy/policy.h>
 #include <script/script.h>
 #include <script/standard.h>
@@ -21,6 +22,7 @@
 
 static int test_one_input_isstandard(const uint8_t* data, size_t size)
 {
+    GetFuzzPolicySettings();
     const CScript script_pub_key(data, data + size);
     txnouttype which_type;
     IsStandard(script_pub_key, which_type);

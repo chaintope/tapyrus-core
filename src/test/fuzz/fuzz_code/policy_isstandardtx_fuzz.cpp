@@ -10,6 +10,7 @@
 
 #include <tapyrus-config.h>
 
+#include <test/fuzz/fuzz_code/fuzz_policy_settings.h>
 #include <policy/policy.h>
 #include <primitives/transaction.h>
 #include <streams.h>
@@ -22,6 +23,7 @@
 
 static int test_one_input_isstandardtx(const uint8_t* data, size_t size)
 {
+    GetFuzzPolicySettings();
     CDataStream ds(reinterpret_cast<const char*>(data),
                    reinterpret_cast<const char*>(data) + size,
                    SER_NETWORK, PROTOCOL_VERSION);

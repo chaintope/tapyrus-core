@@ -103,7 +103,7 @@ static UniValue testmempoolaccept(const JSONRPCRequest& request)
         transactions.push_back(std::move(mtx));
     }
 
-    CAmount max_raw_tx_fee = ::maxTxFee;
+    CAmount max_raw_tx_fee = DEFAULT_MAX_RAW_TX_FEE;
     if (!request.params[1].isNull() && request.params[1].get_bool()) {
         max_raw_tx_fee = 0;
     }
@@ -174,7 +174,7 @@ static UniValue submitpackage(const JSONRPCRequest& request)
         transactions.push_back(std::move(mtx));
     }
 
-    CAmount max_raw_tx_fee = ::maxTxFee;
+    CAmount max_raw_tx_fee = DEFAULT_MAX_RAW_TX_FEE;
     if (!request.params[1].isNull() && request.params[1].get_bool()) {
         max_raw_tx_fee = 0;
     }
@@ -503,10 +503,10 @@ UniValue mempoolInfoToJSON()
     ret.pushKV("size", (int64_t) mempool.size());
     ret.pushKV("bytes", (int64_t) mempool.GetTotalTxSize());
     ret.pushKV("usage", (int64_t) mempool.DynamicMemoryUsage());
-    size_t maxmempool = gArgs.GetArg("-maxmempool", DEFAULT_MAX_MEMPOOL_SIZE) * 1000000;
+    size_t maxmempool = g_policy_settings->maxMempool;
     ret.pushKV("maxmempool", (int64_t) maxmempool);
-    ret.pushKV("mempoolminfee", ValueFromAmount(std::max(mempool.GetMinFee(maxmempool), ::minRelayTxFee).GetFeePerK()));
-    ret.pushKV("minrelaytxfee", ValueFromAmount(::minRelayTxFee.GetFeePerK()));
+    ret.pushKV("mempoolminfee", ValueFromAmount(std::max(mempool.GetMinFee(maxmempool), g_policy_settings->minRelayTxFee).GetFeePerK()));
+    ret.pushKV("minrelaytxfee", ValueFromAmount(g_policy_settings->minRelayTxFee.GetFeePerK()));
 
     return ret;
 }

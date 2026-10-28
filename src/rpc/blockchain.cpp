@@ -1290,7 +1290,7 @@ static UniValue getblockstats(const JSONRPCRequest& request)
             for (const CTxIn& in : tx->vin) {
                 CTransactionRef tx_in;
                 uint256 hashBlock;
-                if (!GetTransaction(in.prevout.hashMalFix, tx_in, Params().GetConsensus(), hashBlock, false)) {
+                if (!GetTransaction(in.prevout.hashMalFix, tx_in, hashBlock, false)) {
                     throw JSONRPCError(RPC_INTERNAL_ERROR, std::string("Unexpected internal error (tx index seems corrupt)"));
                 }
 
@@ -1440,7 +1440,7 @@ static UniValue getcolor(const JSONRPCRequest& request)
         // Check that the transaction id is valid
         CTransactionRef tx;
         uint256 hashBlock;
-        if (!GetTransaction(txid, tx, Params().GetConsensus(), hashBlock, true)) {
+        if (!GetTransaction(txid, tx, hashBlock, true)) {
             throw JSONRPCError(RPC_INVALID_PARAMETER, std::string("Invalid transaction id :") + request.params[1].get_str());
         }
 

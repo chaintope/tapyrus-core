@@ -483,8 +483,8 @@ static UniValue getnetworkinfo(const JSONRPCRequest& request)
         obj.pushKV("connections",   (int)node.connman->GetNodeCount(CConnman::CONNECTIONS_ALL));
     }
     obj.pushKV("networks",      GetNetworksInfo());
-    obj.pushKV("relayfee",      ValueFromAmount(::minRelayTxFee.GetFeePerK()));
-    obj.pushKV("incrementalfee", ValueFromAmount(::incrementalRelayFee.GetFeePerK()));
+    obj.pushKV("relayfee",      ValueFromAmount(g_policy_settings->minRelayTxFee.GetFeePerK()));
+    obj.pushKV("incrementalfee", ValueFromAmount(g_policy_settings->incrementalRelayFee.GetFeePerK()));
     UniValue localAddresses(UniValue::VARR);
     {
         LOCK(cs_mapLocalHost);

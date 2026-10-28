@@ -242,6 +242,9 @@ public:
     //! Get required fee.
     virtual CAmount getRequiredFee(unsigned int tx_bytes) = 0;
 
+    //! Get the highest fee this wallet pays for a transaction.
+    virtual CAmount getDefaultMaxTxFee() = 0;
+
     //! Get minimum fee.
     virtual CAmount getMinimumFee(unsigned int tx_bytes,
         const CCoinControl& coin_control,

@@ -8,6 +8,7 @@
 #define BITCOIN_SCRIPT_SIGN_H
 
 #include <amount.h>
+#include <policy/policyconstants.h>
 #include <script/interpreter.h>
 #include <script/signaturedata.h>
 
@@ -23,7 +24,7 @@ struct CMutableTransaction;
 /** Produce a script signature using a generic signature creator.
  *  scriptVerifyFlags controls the self-verification at the end; callers that
  *  sign real transactions should pass flags appropriate for the next block. */
-bool ProduceSignature(const SigningProvider& provider, const BaseSignatureCreator& creator, const CScript& scriptPubKey, SignatureData& sigdata, unsigned int scriptVerifyFlags = STANDARD_SCRIPT_VERIFY_FLAGS);
+bool ProduceSignature(const SigningProvider& provider, const BaseSignatureCreator& creator, const CScript& scriptPubKey, SignatureData& sigdata, unsigned int scriptVerifyFlags = PolicyConstants::STANDARD_SCRIPT_VERIFY_FLAGS);
 
 /** Produce a script signature for a transaction. */
 bool SignSignature(const SigningProvider &provider, const CScript& fromPubKey, CMutableTransaction& txTo, unsigned int nIn, const CAmount& amount, int nHashType);

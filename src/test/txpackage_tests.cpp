@@ -19,21 +19,12 @@
 #include <validation.h>
 #include <boost/test/unit_test.hpp>
 
-/** Sets -limitancestorcount and -limitdescendantcount for its lifetime,
- *  then restores the defaults. */
-class PackageLimitArgs
+/** Sets -limitancestorcount and -limitdescendantcount for its lifetime. */
+class PackageLimitArgs : public PolicySettingsOverride
 {
 public:
     PackageLimitArgs(const std::string& ancestors, const std::string& descendants)
-    {
-        gArgs.ForceSetArg("-limitancestorcount", ancestors);
-        gArgs.ForceSetArg("-limitdescendantcount", descendants);
-    }
-    ~PackageLimitArgs()
-    {
-        gArgs.ForceSetArg("-limitancestorcount", std::to_string(DEFAULT_ANCESTOR_LIMIT));
-        gArgs.ForceSetArg("-limitdescendantcount", std::to_string(DEFAULT_DESCENDANT_LIMIT));
-    }
+        : PolicySettingsOverride({{"-limitancestorcount", ancestors}, {"-limitdescendantcount", descendants}}) {}
 };
 
 struct PackageTestSetup: public TestChainSetup
