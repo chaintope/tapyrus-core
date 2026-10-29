@@ -667,3 +667,16 @@ class P2PDataStore(P2PInterface):
             wait_until(lambda: self.reject_code_received == reject_code or not self.is_connected, lock=mininode_lock)
         if reject_reason is not None:
             wait_until(lambda: self.reject_reason_received == reject_reason or not self.is_connected, lock=mininode_lock)
+
+
+class P2PTxInvStore(P2PInterface):
+    """Records the txids the node announces to this peer."""
+
+    def __init__(self, time_to_connect):
+        super().__init__(time_to_connect)
+        self.txinvs = set()
+
+    def on_inv(self, message):
+        for i in message.inv:
+            if i.type == MSG_TX:
+                self.txinvs.add(format(i.hash, '064x'))

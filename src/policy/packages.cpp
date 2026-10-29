@@ -170,40 +170,86 @@ bool SubmitPackageToMempool(const Package& package,
     CCoinsViewVirtualMemPool* virtualView =
         dynamic_cast<CCoinsViewVirtualMemPool*>(opt.mempool_view);
 
-    for(auto &tx : package)
+    bool all_admitted = false;
+    Package relay;
     {
+        // Held for the whole package so no block connects mid-package and the
+        // results below describe only what the package itself did to the mempool.
+        LOCK(::cs_main);
+        for(auto &tx : package)
         {
             opt.state = CValidationState();
             opt.coins_to_uncache.clear();
-            LOCK(::cs_main);
             AcceptToMemoryPool(tx, opt);
+
+            opt.state.missingInputs = opt.missingInputs.size() > 0;
+            results.emplace(tx->GetHashMalFix(), opt.state);
+
+            // Only add to the virtual overlay if the tx was TRULY accepted.
+            // IsValid() returns true even when missingInputs is set (DoAllInputsExist
+            // deliberately avoids calling state.Invalid() so callers can distinguish
+            // orphans from consensus failures).  Adding a missing-inputs tx to the
+            // overlay would let its outputs be found by downstream txs, causing them
+            // to spuriously pass TEST_ONLY validation.
+            if (virtualView && opt.state.IsValid() && !opt.state.missingInputs) {
+                virtualView->AddVirtualTx(*tx);
+            }
         }
 
-        opt.state.missingInputs = opt.missingInputs.size() > 0;
-        results.emplace(tx->GetHashMalFix(), opt.state);
+        // Taken before the results below are rewritten, so a tx a later package tx
+        // pushed out does not stop the rest of the package from being relayed.
+        // Only the package's own txs count: results also holds the txs
+        // FilterMempoolDuplicates found already in the mempool.
+        all_admitted = true;
+        for (const auto& tx : package) {
+            const auto result = results.find(tx->GetHashMalFix());
+            if (result == results.end() || result->second.IsInvalid() || result->second.IsError() || result->second.missingInputs) {
+                all_admitted = false;
+                break;
+            }
+        }
 
-        // Only add to the virtual overlay if the tx was TRULY accepted.
-        // IsValid() returns true even when missingInputs is set (DoAllInputsExist
-        // deliberately avoids calling state.Invalid() so callers can distinguish
-        // orphans from consensus failures).  Adding a missing-inputs tx to the
-        // overlay would let its outputs be found by downstream txs, causing them
-        // to spuriously pass TEST_ONLY validation.
-        if (virtualView && opt.state.IsValid() && !opt.state.missingInputs) {
-            virtualView->AddVirtualTx(*tx);
+        // A later package tx can trim or replace one accepted before it, so report
+        // and relay what the mempool holds now instead of what each tx saw on entry.
+        if (opt.flags != MempoolAcceptanceFlags::TEST_ONLY) {
+            std::set<uint256> replaced;
+            for (const auto& tx : opt.txnReplaced) {
+                replaced.insert(tx->GetHashMalFix());
+            }
+            for (const auto& tx : package) {
+                const uint256 hash = tx->GetHashMalFix();
+                if (mempool.exists(hash)) {
+                    relay.push_back(tx);
+                    continue;
+                }
+                const auto result = results.find(hash);
+                if (result == results.end() || !result->second.IsValid() || result->second.missingInputs) {
+                    continue;
+                }
+                CValidationState removed;
+                if (replaced.count(hash)) {
+                    removed.Invalid(false, REJECT_PACKAGE_TX, "replaced-in-package");
+                } else {
+                    removed.DoS(0, false, REJECT_INSUFFICIENTFEE, "mempool full");
+                }
+                results.erase(result);
+                results.emplace(hash, removed);
+            }
         }
     }
 
     bool success = ArePackageTransactionsAccepted(results);
 
-    // Relay only after the entire package has been successfully admitted.
-    // Relaying per-tx inside the loop would gossip the admitted prefix of a
-    // partially-failed package, enabling free relay amplification attacks.
+    // Relay only after every tx in the package has been admitted, and only the
+    // txs still in the mempool. Relaying per-tx inside the loop would gossip the
+    // admitted prefix of a partially-failed package, enabling free relay
+    // amplification attacks. A TEST_ONLY dry run never relays.
     // Goes through PackageTransactionsRelay() rather than calling into net
     // directly -- tapyrus_chainstate (this file) has no business linking
     // tapyrus_peer. See the comment on CValidationInterface::
     // PackageTransactionsRelay() and PeerLogicValidation's override of it.
-    if (success && opt.flags != MempoolAcceptanceFlags::TEST_ONLY) {
-        GetMainSignals().PackageTransactionsRelay(package);
+    if (opt.flags != MempoolAcceptanceFlags::TEST_ONLY && all_admitted && !relay.empty()) {
+        GetMainSignals().PackageTransactionsRelay(relay);
     }
 
     return success;

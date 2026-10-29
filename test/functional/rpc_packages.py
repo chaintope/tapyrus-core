@@ -36,7 +36,7 @@ from test_framework.util import (
 from test_framework.address import key_to_p2pkh
 from test_framework.key import CECKey
 from test_framework.blocktools import createTestGenesisBlock
-from test_framework.mininode  import P2PDataStore
+from test_framework.mininode  import mininode_lock, P2PDataStore, P2PTxInvStore
 
 class RPCPackageTest(BitcoinTestFramework):
     MAX_PACKAGE_COUNT = 25
@@ -70,7 +70,7 @@ class RPCPackageTest(BitcoinTestFramework):
 
     def create_independent_package(self, size):
         """create a package of size transactions that each spend a different confirmed coin"""
-        coins = [x for x in self.nodes[0].listunspent() if x['amount'] > 49.3]
+        coins = [x for x in self.nodes[0].listunspent() if x['token'] == 'TPC' and x['amount'] > 49.3]
         coins.sort(key=lambda x: (x['txid'], x['vout']))
         assert len(coins) >= size
         package = []
@@ -92,7 +92,7 @@ class RPCPackageTest(BitcoinTestFramework):
         package  = []
         #first tx spends a coin in the blockchain
         # Sort UTXOs deterministically to avoid race conditions
-        available_coins = [x for x in self.nodes[0].listunspent() if x['amount'] > 49.3]
+        available_coins = [x for x in self.nodes[0].listunspent() if x['token'] == 'TPC' and x['amount'] > 49.3]
         available_coins.sort(key=lambda x: (x['txid'], x['vout']))
         coin = available_coins[0]
         prevtx_hex=self.nodes[0].getrawtransaction(coin['txid'])
@@ -133,6 +133,40 @@ class RPCPackageTest(BitcoinTestFramework):
             prevtx  = tx
         [x.rehash() for x in package]
         return package
+
+    def test_package_relay_with_mempool_duplicate(self):
+        node = self.nodes[0]
+        self.log.info('Test that a package tx already in the mempool does not stop the rest of the package from being relayed')
+        package = self.create_package(3)
+        raw_package = [bytes_to_hex_str(x.serialize()) for x in package]
+        node.sendrawtransaction(raw_package[0], True)
+
+        # A dry run that would be fully accepted; testmempoolaccept must never announce it
+        dry_run = self.create_independent_package(2)
+
+        # Connect only now so the earlier txs are not announced to the peer
+        peer = node.add_p2p_connection(P2PTxInvStore(node.time_to_connect))
+
+        self.check_mempool_result(
+            result_expected={tx.hashMalFix: {'allowed': True} for tx in dry_run},
+            rawtxs=[bytes_to_hex_str(x.serialize()) for x in dry_run],
+            allowhighfees=True
+        )
+
+        result = node.submitpackage(rawtxs=raw_package, allowhighfees=True)
+        assert_equal(result, {package[0].hashMalFix: {'allowed': False, 'reject-reason': '18: txn-already-in-mempool'},
+                              package[1].hashMalFix: {'allowed': True},
+                              package[2].hashMalFix: {'allowed': True}})
+
+        self.log.info('Verify the newly admitted package txs are announced, and neither the duplicate nor the dry run')
+        wait_until(lambda: package[1].hashMalFix in peer.txinvs and package[2].hashMalFix in peer.txinvs, timeout=60, lock=mininode_lock)
+        peer.sync_with_ping()
+        with mininode_lock:
+            assert package[0].hashMalFix not in peer.txinvs
+            for tx in dry_run:
+                assert tx.hashMalFix not in peer.txinvs
+
+        node.disconnect_p2ps()
 
     def run_test(self):
         node = self.nodes[0]
@@ -429,6 +463,8 @@ class RPCPackageTest(BitcoinTestFramework):
         assert_equal(result['allowed'], False)
         assert_equal(result['reject-reason'], '69: conflict-in-package')
         assert_equal(node.getmempoolinfo()['size'], pre_size)
+
+        self.test_package_relay_with_mempool_duplicate()
 
 if __name__ == '__main__':
     RPCPackageTest().main()

@@ -60,6 +60,8 @@ void FilterMempoolDuplicates(const std::vector<CTransaction>& txns, Package& pac
  * earlier transactions in the package may already have been admitted. This is intentional:
  * packages are a submission convenience, not an all-or-nothing commit. Callers must
  * inspect per-transaction results to determine which transactions were admitted.
+ * Results describe the mempool after the whole package: a transaction a later one
+ * trimmed is "mempool full", and one a later one replaced is "replaced-in-package".
  *
  * @param package The package of transactions to be submitted.
  * @param state A reference to the validation state that tracks the package validation results.
