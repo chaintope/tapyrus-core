@@ -396,6 +396,13 @@ def main():
     if not args.keepcache:
         shutil.rmtree("%s/test/cache" % config["environment"]["BUILDDIR"], ignore_errors=True)
 
+    # One coverage directory for both passes, so the report covers the whole
+    # run rather than only the retried tests.
+    coverage = None
+    if args.coverage:
+        coverage = RPCCoverage()
+        logging.debug("Initializing coverage directory at %s" % coverage.dir)
+
     start_time = time.time()
     test_results, retry_list = run_tests(
         test_list,
@@ -403,7 +410,7 @@ def main():
         config["environment"]["BUILDDIR"],
         tmpdir,
         jobs=args.jobs,
-        enable_coverage=args.coverage,
+        coverage=coverage,
         args=passon_args,
         combined_logs_len=args.combinedlogslen,
         failfast=args.failfast,
@@ -426,7 +433,7 @@ def main():
             # it the same name, so retries get a directory of their own.
             os.path.join(tmpdir, "retry"),
             jobs=1,
-            enable_coverage=args.coverage,
+            coverage=coverage,
             args=passon_args,
             combined_logs_len=args.combinedlogslen,
             failfast=args.failfast,
@@ -449,6 +456,12 @@ def main():
             print("{}WARNING!{} These tests timed out in the first pass and passed only on retry; "
                   "their first-pass output is printed above:\n  {}".format(BOLD[1], BOLD[0], "\n  ".join(flaky)))
 
+    if coverage:
+        coverage.report_rpc_coverage()
+
+        logging.debug("Cleaning up coverage data")
+        coverage.cleanup()
+
     failed = [r for r in test_results if not r.was_successful]
     if failed:
         print(BOLD[1] + "\nFailure summary:" + BOLD[0])
@@ -468,7 +481,7 @@ def main():
     sys.exit(0 if all(r.was_successful for r in test_results) else 1)
 
 
-def run_tests(test_list, src_dir, build_dir, tmpdir, jobs=1, enable_coverage=False, args=None, combined_logs_len=0, failfast=False, test_timeout=TOTAL_TEST_DURATION, retry = False):
+def run_tests(test_list, src_dir, build_dir, tmpdir, jobs=1, coverage=None, args=None, combined_logs_len=0, failfast=False, test_timeout=TOTAL_TEST_DURATION, retry = False):
     args = args or []
 
     # Warn if tapyrusd is already running (unix only)
@@ -486,12 +499,8 @@ def run_tests(test_list, src_dir, build_dir, tmpdir, jobs=1, enable_coverage=Fal
     cache_dir = "%s/test/cache" % build_dir
     flags = ['--cachedir={}'.format(cache_dir)] + args
 
-    if enable_coverage:
-        coverage = RPCCoverage()
+    if coverage:
         flags.append(coverage.flag)
-        logging.debug("Initializing coverage directory at %s" % coverage.dir)
-    else:
-        coverage = None
 
     # create cache only on first attempt
     if not retry :
@@ -563,12 +572,6 @@ def run_tests(test_list, src_dir, build_dir, tmpdir, jobs=1, enable_coverage=Fal
         raise
 
     print_results(test_results, max_len_name, (int(time.time() - start_time)))
-
-    if coverage:
-        coverage.report_rpc_coverage()
-
-        logging.debug("Cleaning up coverage data")
-        coverage.cleanup()
 
     # Clear up the temp directory if all subdirectories are gone
     if not os.listdir(tmpdir):
