@@ -624,6 +624,8 @@ class TestHandler:
         self.num_running = 0
         self.jobs = []
         self.interrupt_times = {}
+        # These options leave a test's nodes running on purpose.
+        self.keep_nodes = any(f in ("--noshutdown", "--nocleanup") for f in (flags or []))
 
     def get_next(self):
         while self.num_running < self.num_jobs and self.test_list:
@@ -678,6 +680,12 @@ class TestHandler:
                         status = "Timeout"
                     else:
                         status = "Failed"
+                    # A test that exits with nodes still running would leave
+                    # them behind for the rest of the run.
+                    if not self.keep_nodes and self._group_alive(proc):
+                        if status != "Killed":
+                            print("\n%sWARNING!%s %s exited with processes still running in its group; killing them." % (BOLD[1], BOLD[0], name))
+                        self._kill_group(proc)
                     self.num_running -= 1
                     self.jobs.remove(job)
 
@@ -710,6 +718,15 @@ class TestHandler:
                 pass
 
         self.kill_and_join()
+
+    def _group_alive(self, proc):
+        if os.name != 'posix':
+            return False
+        try:
+            os.killpg(proc.pid, 0)
+            return True
+        except (ProcessLookupError, PermissionError):
+            return False
 
     def _kill_group(self, proc):
         if os.name != 'posix':
