@@ -5,21 +5,28 @@
 #ifndef TAPYRUS_TRANSACTIONCOLORCHECKER_H
 #define TAPYRUS_TRANSACTIONCOLORCHECKER_H
 
-#include <basecolorchecker.h>
+#include <amount.h>
 #include <coloridentifier.h>
 
 #include <set>
 
+class CValidationState;
 class PrecomputedColorData;
 
-/** Checks one transaction's colour rules from its PrecomputedColorData. */
-class TransactionColorChecker : public BaseColorChecker
+/**
+ * Checks one transaction's colour rules from its PrecomputedColorData.
+ * A failed check fills the state with the DoS score, reject code and reason.
+ */
+class TransactionColorChecker
 {
 public:
     explicit TransactionColorChecker(const PrecomputedColorData& data) : m_data(data) {}
 
-    bool CheckOutputColorIds(CValidationState& state) const override;
-    bool CheckTokenBalances(CValidationState& state, CAmount minFee) const override;
+    /** Every colored output is well formed and derives from an input. */
+    bool CheckOutputColorIds(CValidationState& state) const;
+
+    /** No token value comes from nothing; an issuance pays at least minFee in TPC. */
+    bool CheckTokenBalances(CValidationState& state, CAmount minFee) const;
 
     /** Add the non-reissuable and NFT colorids this transaction issues from its TPC inputs. */
     void GetNewIssuances(std::set<ColorIdentifier>& issuances) const;

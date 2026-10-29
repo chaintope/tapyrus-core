@@ -939,6 +939,7 @@ BOOST_AUTO_TEST_CASE(duplicate_nonreissuable_issuance_rejected)
 
         CValidationState state;
         PrecomputedColorData colorData(CTransaction(reissueTx), syntheticView, chainActive.Tip()->nHeight);
+        BOOST_REQUIRE(g_colorid_state);
         colorData.SetIssued(*g_colorid_state);
         bool valid = TransactionColorChecker(colorData).CheckOutputColorIds(state);
 
@@ -1101,6 +1102,7 @@ BOOST_AUTO_TEST_CASE(duplicate_nft_issuance_after_burn_rejected)
 
         CValidationState state;
         PrecomputedColorData colorData(CTransaction(reissueTx), syntheticView, chainActive.Tip()->nHeight);
+        BOOST_REQUIRE(g_colorid_state);
         colorData.SetIssued(*g_colorid_state);
         bool valid = TransactionColorChecker(colorData).CheckOutputColorIds(state);
 

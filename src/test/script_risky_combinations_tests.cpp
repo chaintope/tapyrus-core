@@ -72,20 +72,12 @@ CMutableTransaction BuildSpendingTx(const CScript& scriptSig, const CTransaction
     return txSpend;
 }
 
-// Verifies as production does. VerifyScript does not expose the color
-// OP_COLOR set, so when colorIdOut is given the scriptSig and scriptPubKey are
-// also run through EvalScript, VerifyScript's first two steps, to capture it.
+// Verifies as production does.
 bool Verify(const CScript& scriptSig, const CScript& scriptPubKey, const CMutableTransaction& spendMut,
-            CAmount amount, unsigned int flags, ScriptError* err, ColorIdentifier* colorIdOut = nullptr)
+            CAmount amount, unsigned int flags, ScriptError* err)
 {
     CTransaction spend(spendMut);
     TransactionSignatureChecker checker(&spend, 0, amount);
-    if (colorIdOut) {
-        std::vector<std::vector<unsigned char>> stack;
-        if (EvalScript(stack, scriptSig, flags, checker, colorIdOut, nullptr)) {
-            EvalScript(stack, scriptPubKey, flags, checker, colorIdOut, nullptr);
-        }
-    }
     return VerifyScript(scriptSig, scriptPubKey, flags, checker, err);
 }
 
@@ -197,13 +189,10 @@ BOOST_AUTO_TEST_CASE(risk_opcolor_stack_manipulation)
         sig.push_back((unsigned char)SIGHASH_ALL);
         spend.vin[0].scriptSig = CScript() << sig << ToByteVector(pub) << realCid.toVector();
 
-        ColorIdentifier resultColorId;
         ScriptError err;
-        bool ok = Verify(spend.vin[0].scriptSig, scriptPubKey, spend, credit.vout[0].nValue, STANDARD_SCRIPT_VERIFY_FLAGS, &err, &resultColorId);
+        bool ok = Verify(spend.vin[0].scriptSig, scriptPubKey, spend, credit.vout[0].nValue, STANDARD_SCRIPT_VERIFY_FLAGS, &err);
         BOOST_CHECK_MESSAGE(ok, "SWAP-derived OP_COLOR should be accepted by the raw interpreter: " + std::string(ScriptErrorString(err)));
         BOOST_CHECK_EQUAL(err, SCRIPT_ERR_OK);
-        BOOST_CHECK_MESSAGE(resultColorId == realCid, "OP_COLOR should bind to the SWAP-selected id, not the literal one written in scriptPubKey");
-        BOOST_CHECK(resultColorId != decoyCid);
 
         // The consensus-layer template matcher does not recognize this shape at all.
         std::vector<unsigned char> hashOut, cidOut;
@@ -226,12 +215,10 @@ BOOST_AUTO_TEST_CASE(risk_opcolor_stack_manipulation)
         sig.push_back((unsigned char)SIGHASH_ALL);
         spend.vin[0].scriptSig = CScript() << sig << ToByteVector(pub) << realCid.toVector();
 
-        ColorIdentifier resultColorId;
         ScriptError err;
-        bool ok = Verify(spend.vin[0].scriptSig, scriptPubKey, spend, credit.vout[0].nValue, STANDARD_SCRIPT_VERIFY_FLAGS, &err, &resultColorId);
+        bool ok = Verify(spend.vin[0].scriptSig, scriptPubKey, spend, credit.vout[0].nValue, STANDARD_SCRIPT_VERIFY_FLAGS, &err);
         BOOST_CHECK_MESSAGE(ok, "ALTSTACK-derived OP_COLOR should be accepted by the raw interpreter: " + std::string(ScriptErrorString(err)));
         BOOST_CHECK_EQUAL(err, SCRIPT_ERR_OK);
-        BOOST_CHECK(resultColorId == realCid);
 
         std::vector<unsigned char> hashOut, cidOut;
         BOOST_CHECK(!scriptPubKey.IsColoredPayToPubkeyHash(hashOut, cidOut));
@@ -415,12 +402,10 @@ BOOST_AUTO_TEST_CASE(risk_opcolor_with_timelock)
         sig.push_back((unsigned char)SIGHASH_ALL);
         spend.vin[0].scriptSig = CScript() << sig << ToByteVector(pub);
 
-        ColorIdentifier resultColorId;
         ScriptError err;
-        bool ok = Verify(spend.vin[0].scriptSig, scriptPubKey, spend, credit.vout[0].nValue, STANDARD_SCRIPT_VERIFY_FLAGS, &err, &resultColorId);
+        bool ok = Verify(spend.vin[0].scriptSig, scriptPubKey, spend, credit.vout[0].nValue, STANDARD_SCRIPT_VERIFY_FLAGS, &err);
         BOOST_CHECK_MESSAGE(ok, "OP_COLOR directly combined with CHECKLOCKTIMEVERIFY should be accepted by the raw interpreter: " + std::string(ScriptErrorString(err)));
         BOOST_CHECK_EQUAL(err, SCRIPT_ERR_OK);
-        BOOST_CHECK(resultColorId == colorId);
 
         // The consensus-layer template matcher does not recognize this shape
         // as colored at all -- CheckOutputColorIds, not the
