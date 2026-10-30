@@ -14,6 +14,7 @@
 #include <validationinterface.h>
 #include <cs_main.h>
 #include <nodestate.h>
+#include <orphantxpool.h>
 #include <sync.h>
 
 #include <atomic>
@@ -37,8 +38,6 @@ class CBlockHeaderAndShortTxIDs;
 class CChainParams;
 struct CNodeStateStats;
 
-/** Guards the orphan transaction pool. */
-extern RecursiveMutex g_cs_orphans;
 
 class PeerManager final : public CValidationInterface, public NetEventsInterface {
 private:
@@ -165,8 +164,13 @@ private:
 
     std::atomic<int64_t> nTimeBestReceived{0}; // Used only to inform the wallet of when we last received a block
 
-    size_t vExtraTxnForCompactIt GUARDED_BY(g_cs_orphans) = 0;
-    std::vector<std::pair<uint256, CTransactionRef>> vExtraTxnForCompact GUARDED_BY(g_cs_orphans);
+    /** Guards the orphan pool and the compact-block extra-transaction ring.
+     *  Taken after cs_main and before mempool.cs. */
+    Mutex m_tx_download_mutex;
+    OrphanTxPool m_orphan_tx_pool GUARDED_BY(m_tx_download_mutex);
+
+    size_t vExtraTxnForCompactIt GUARDED_BY(m_tx_download_mutex) = 0;
+    std::vector<std::pair<uint256, CTransactionRef>> vExtraTxnForCompact GUARDED_BY(m_tx_download_mutex);
 
     /** Map maintaining per-node state. */
     std::map<NodeId, CNodeState> mapNodeState GUARDED_BY(cs_main);
@@ -188,9 +192,9 @@ private:
     static bool PeerHasHeader(CNodeState* state, const CBlockIndex* pindex) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
     void FindNextBlocksToDownload(NodeId nodeid, unsigned int count, std::vector<const CBlockIndex*>& vBlocks, NodeId& nodeStaller) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
     static bool IsOutboundDisconnectionCandidate(const CNode* node);
-    void AddToCompactExtraTransactions(const CTransactionRef& tx) EXCLUSIVE_LOCKS_REQUIRED(g_cs_orphans);
+    void AddToCompactExtraTransactions(const CTransactionRef& tx) EXCLUSIVE_LOCKS_REQUIRED(m_tx_download_mutex);
     static bool BlockRequestAllowed(const CBlockIndex* pindex);
-    bool AlreadyHave(const CInv& inv) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
+    bool AlreadyHave(const CInv& inv) EXCLUSIVE_LOCKS_REQUIRED(cs_main, m_tx_download_mutex);
     CTransactionRef FindTxForGetData(const CNode* peer, const uint256& txid, std::chrono::seconds mempool_req, std::chrono::seconds now);
 
     void PushNodeVersion(CNode* pnode, int64_t nTime);
@@ -200,7 +204,7 @@ private:
     void ProcessGetData(CNode* pfrom, const std::atomic<bool>& interruptMsgProc);
     void SendBlockTransactions(const CBlock& block, const BlockTransactionsRequest& req, CNode* pfrom);
     bool ProcessHeadersMessage(CNode* pfrom, const std::vector<CBlockHeader>& headers, const CChainParams& chainparams, bool punish_duplicate_invalid);
-    void ProcessOrphanTx(std::set<uint256>& orphan_work_set) EXCLUSIVE_LOCKS_REQUIRED(cs_main, g_cs_orphans);
+    void ProcessOrphanTx(std::set<uint256>& orphan_work_set) EXCLUSIVE_LOCKS_REQUIRED(cs_main, m_tx_download_mutex);
     bool ProcessMessage(CNode* pfrom, const std::string& strCommand, CDataStream& vRecv, int64_t nTimeReceived, const CChainParams& chainparams, const std::atomic<bool>& interruptMsgProc);
     bool MaybeDiscourageAndDisconnect(CNode* pnode);
 };
