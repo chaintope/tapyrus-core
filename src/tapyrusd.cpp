@@ -12,6 +12,7 @@
 #include <compat.h>
 #include <fs.h>
 #include <init.h>
+#include <nodecontext.h>
 #include <noui.h>
 #include <shutdown.h>
 #include <util.h>
@@ -41,13 +42,13 @@
  * Use the buttons <code>Namespaces</code>, <code>Classes</code> or <code>Files</code> at the top of the page to start navigating the code.
  */
 
-static void WaitForShutdown()
+static void WaitForShutdown(NodeContext& node)
 {
     while (!ShutdownRequested())
     {
         MilliSleep(200);
     }
-    Interrupt();
+    Interrupt(node);
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -56,6 +57,8 @@ static void WaitForShutdown()
 //
 static bool AppInit(int argc, char* argv[])
 {
+    NodeContext node;
+
     bool fRet = false;
 
     //
@@ -165,7 +168,7 @@ static bool AppInit(int argc, char* argv[])
             return false;
         }
 
-        fRet = AppInitMain();
+        fRet = AppInitMain(node);
     }
     catch (const std::exception& e) {
         PrintExceptionContinue(&e, "AppInit()");
@@ -175,11 +178,11 @@ static bool AppInit(int argc, char* argv[])
 
     if (!fRet)
     {
-        Interrupt();
+        Interrupt(node);
     } else {
-        WaitForShutdown();
+        WaitForShutdown(node);
     }
-    Shutdown();
+    Shutdown(node);
 
     return fRet;
 }

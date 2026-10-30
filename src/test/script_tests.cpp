@@ -133,7 +133,7 @@ CMutableTransaction BuildCreditingTransaction(const CScript& scriptPubKey, int n
     txCredit.vout.resize(1);
     txCredit.vin[0].prevout.SetNull();
     txCredit.vin[0].scriptSig = CScript() << CScriptNum(0) << CScriptNum(0);
-    txCredit.vin[0].nSequence = CTxIn::SEQUENCE_FINAL;
+    txCredit.vin[0].nSequence = ConsensusConstants::SEQUENCE_FINAL;
     txCredit.vout[0].scriptPubKey = scriptPubKey;
     txCredit.vout[0].nValue = nValue;
 
@@ -150,14 +150,14 @@ CMutableTransaction BuildSpendingTransaction(const CScript& scriptSig, const CTr
     txSpend.vin[0].prevout.hashMalFix = txCredit.GetHashMalFix();
     txSpend.vin[0].prevout.n = 0;
     txSpend.vin[0].scriptSig = scriptSig;
-    txSpend.vin[0].nSequence = CTxIn::SEQUENCE_FINAL;
+    txSpend.vin[0].nSequence = ConsensusConstants::SEQUENCE_FINAL;
     txSpend.vout[0].scriptPubKey = CScript();
     txSpend.vout[0].nValue = txCredit.vout[0].nValue;
 
     return txSpend;
 }
 
-void DoTest(const CScript& scriptPubKey, const CScript& scriptSig, int flags, const std::string& message, int scriptError, CAmount nValue = 0, uint32_t nLockTime = 0, uint32_t nSequence = CTxIn::SEQUENCE_FINAL)
+void DoTest(const CScript& scriptPubKey, const CScript& scriptSig, int flags, const std::string& message, int scriptError, CAmount nValue = 0, uint32_t nLockTime = 0, uint32_t nSequence = ConsensusConstants::SEQUENCE_FINAL)
 {
     bool expect = (scriptError == SCRIPT_ERR_OK);
     ScriptError err;
@@ -272,7 +272,7 @@ private:
     int scriptError;
     CAmount nValue;
     uint32_t m_nLockTime{0};
-    uint32_t m_nSequence{CTxIn::SEQUENCE_FINAL};
+    uint32_t m_nSequence{ConsensusConstants::SEQUENCE_FINAL};
 
     void DoPush()
     {
@@ -1691,7 +1691,7 @@ BOOST_AUTO_TEST_CASE(script_standard_push)
         BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_OK, ScriptErrorString(err));
     }
 
-    for (unsigned int i = 0; i <= MAX_SCRIPT_ELEMENT_SIZE; i++) {
+    for (unsigned int i = 0; i <= ConsensusConstants::MAX_SCRIPT_ELEMENT_SIZE; i++) {
         std::vector<unsigned char> data(i, '\111');
         CScript script;
         script << data;
@@ -2213,7 +2213,7 @@ BOOST_AUTO_TEST_CASE(colored_coin_cp2sh_redeem_scripts)
         tests.push_back(TestBuilder(cp2sh, "CP2SH(CLTV) fails when input is finalised",
             SCRIPT_VERIFY_CP2SH_COLORED, /*P2SH=*/true,
             0, false, inner)
-                .LockTime(500)   // nSequence stays at default SEQUENCE_FINAL
+                .LockTime(500)   // nSequence stays at default ConsensusConstants::SEQUENCE_FINAL
                 .PushRedeem()
                 .ScriptError(SCRIPT_ERR_UNSATISFIED_LOCKTIME));
 
@@ -2251,7 +2251,7 @@ BOOST_AUTO_TEST_CASE(colored_coin_cp2sh_redeem_scripts)
         tests.push_back(TestBuilder(cp2sh, "CP2SH(CSV) fails when disable flag set in nSequence",
             SCRIPT_VERIFY_CP2SH_COLORED, /*P2SH=*/true,
             0, false, inner)
-                .Sequence(CTxIn::SEQUENCE_LOCKTIME_DISABLE_FLAG | 3)
+                .Sequence(ConsensusConstants::SEQUENCE_LOCKTIME_DISABLE_FLAG | 3)
                 .PushRedeem()
                 .ScriptError(SCRIPT_ERR_UNSATISFIED_LOCKTIME));
     }

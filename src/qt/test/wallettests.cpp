@@ -169,7 +169,7 @@ void TestGUI()
     std::unique_ptr<const PlatformStyle> platformStyle(PlatformStyle::instantiate("other"));
     SendCoinsDialog sendCoinsDialog(platformStyle.get());
     TransactionView transactionView(platformStyle.get());
-    auto node = interfaces::MakeNode();
+    auto node = interfaces::MakeNode(test.m_node);
     OptionsModel optionsModel(*node);
     AddWallet(wallet);
     WalletModel walletModel(std::move(node->getWallets().back()), *node, platformStyle.get(), &optionsModel);
@@ -180,8 +180,8 @@ void TestGUI()
     // Send two transactions, and verify they are added to transaction list.
     TransactionTableModel* transactionTableModel = walletModel.getTransactionTableModel();
     QCOMPARE(transactionTableModel->rowCount({}), 10);
-    uint256 txid1 = SendCoins(*wallet.get(), sendCoinsDialog, CKeyID(), 5 * COIN, false /* rbf */);
-    uint256 txid2 = SendCoins(*wallet.get(), sendCoinsDialog, CKeyID(), 10 * COIN, true /* rbf */);
+    uint256 txid1 = SendCoins(*wallet.get(), sendCoinsDialog, CKeyID(), 5 * ConsensusConstants::COIN, false /* rbf */);
+    uint256 txid2 = SendCoins(*wallet.get(), sendCoinsDialog, CKeyID(), 10 * ConsensusConstants::COIN, true /* rbf */);
     // Each SendCoins commits a transaction that fires NotifyTransactionChanged via
     // Qt::QueuedConnection.  The second call's modal event loop drains txid1's event
     // but txid2's event is still queued when SendCoins returns.  qWait settles both.
@@ -288,7 +288,7 @@ void TestGUI_coloredCoin()
 
     // ── Create WalletModel and all GUI widgets ──────────────────────────
     std::unique_ptr<const PlatformStyle> platformStyle(PlatformStyle::instantiate("other"));
-    auto node = interfaces::MakeNode();
+    auto node = interfaces::MakeNode(test.m_node);
     OptionsModel optionsModel(*node);
     AddWallet(wallet);
     WalletModel walletModel(std::move(node->getWallets().back()), *node,
@@ -703,7 +703,8 @@ static SendCoinsRecipient handleRequest(PaymentServer* server, std::vector<unsig
 void paymentServerTest()
 {
     SelectParams(TAPYRUS_OP_MODE::PROD);
-    auto node = interfaces::MakeNode();
+    NodeContext context;
+    auto node = interfaces::MakeNode(context);
     OptionsModel optionsModel(*node);
     PaymentServer* server = new PaymentServer(nullptr, false);
     server->setOptionsModel(&optionsModel);

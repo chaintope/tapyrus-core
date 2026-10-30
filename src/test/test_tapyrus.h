@@ -11,12 +11,13 @@
 #include <eccverifyhandle.h>
 #include <fs.h>
 #include <key.h>
+#include <nodecontext.h>
 #include <pubkey.h>
 #include <random.h>
 #include <scheduler.h>
 #include <txdb.h>
 #include <txmempool.h>
-#include <consensus/consensus.h>
+#include <consensusconstants.h>
 #include <xfieldhistory.h>
 
 #include <memory>
@@ -57,6 +58,7 @@ std::ostream& operator<<(std::ostream& os, const uint256& num);
  */
 struct BasicTestingSetup {
     ECCVerifyHandle globalVerifyHandle;
+    NodeContext m_node;
 
     explicit BasicTestingSetup(const std::string& chainName = TAPYRUS_MODES::PROD);
     ~BasicTestingSetup();
@@ -77,15 +79,12 @@ protected:
 class CConnman;
 class CNode;
 struct CConnmanTest {
-    static void AddNode(CNode& node);
-    static void ClearNodes();
+    static void AddNode(CConnman& connman, CNode& node);
+    static void ClearNodes(CConnman& connman);
 };
 
-class PeerLogicValidation;
 struct TestingSetup: public BasicTestingSetup {
-    CConnman* connman;
     CScheduler scheduler;
-    std::unique_ptr<PeerLogicValidation> peerLogic;
 
     explicit TestingSetup(const std::string& chainName = TAPYRUS_MODES::PROD);
     ~TestingSetup();

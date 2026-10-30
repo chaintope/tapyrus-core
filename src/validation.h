@@ -10,6 +10,7 @@
 #include <tapyrus-config.h>
 
 #include <amount.h>
+#include <consensusconstants.h>
 #include <coinsview.h>
 #include <coinsviewcache.h>
 #include <fs.h>
@@ -59,9 +60,9 @@ static const bool DEFAULT_WHITELISTFORCERELAY = true;
 /** Default for -minrelaytxfee, minimum relay fee for transactions */
 static const unsigned int DEFAULT_MIN_RELAY_TX_FEE = 1000;
 //! -maxtxfee default
-static const CAmount DEFAULT_TRANSACTION_MAXFEE = 0.1 * COIN;
+static const CAmount DEFAULT_TRANSACTION_MAXFEE = 0.1 * ConsensusConstants::COIN;
 //! Discourage users to set fees higher than this amount (in tapyrus) per kB
-static const CAmount HIGH_TX_FEE_PER_KB = 0.01 * COIN;
+static const CAmount HIGH_TX_FEE_PER_KB = 0.01 * ConsensusConstants::COIN;
 //! -maxtxfee will warn if called with a higher fee than this amount (in tapyrus)
 static const CAmount HIGH_MAX_TX_FEE = 100 * HIGH_TX_FEE_PER_KB;
 /** Default for -limitancestorcount, max number of in-mempool ancestors */
@@ -285,7 +286,6 @@ bool GetTransaction(const uint256& hash, CTransactionRef& tx, const Consensus::P
  * validationinterface callback.
  */
 bool ActivateBestChain(CValidationState& state, std::shared_ptr<const CBlock> pblock = std::shared_ptr<const CBlock>());
-CAmount GetBlockSubsidy(int nHeight, const Consensus::Params& consensus);
 
 /** Guess verification progress (as a fraction between 0.0=genesis and 1.0=current tip). */
 double GuessVerificationProgress(const ChainTxData& data, const CBlockIndex* pindex);
@@ -319,7 +319,7 @@ void UpdateCoins(const CTransaction& tx, CCoinsViewCache& inputs, CTxUndo &txund
  *
  * Calls IsFinalTx() with current block height and appropriate block time.
  *
- * See consensus/consensus.h for flag definitions.
+ * The LOCKTIME_* flags are defined in ConsensusConstants.
  */
 bool CheckFinalTx(const CTransaction &tx, int flags = -1);
 
@@ -337,7 +337,7 @@ bool TestLockPointValidity(const LockPoints* lp);
  * passed in for evaluation.
  * The LockPoints should not be considered valid if CheckSequenceLocks returns false.
  *
- * See consensus/consensus.h for flag definitions.
+ * The LOCKTIME_* flags are defined in ConsensusConstants.
  */
 bool CheckSequenceLocks(const CTransaction &tx, int flags,  CCoinsViewMemPool& viewMemPool, LockPoints* lp = nullptr, bool useExistingLockPoints = false);
 

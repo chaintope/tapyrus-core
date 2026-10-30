@@ -6,7 +6,7 @@
 
 #include <primitives/xfield.h>
 #include <primitives/xfieldvalues.h>
-#include <dynamicparams.h>
+#include <consensussettings.h>
 #include <xfieldhistory.h>
 #include <xfieldhistorymap.h>
 #include <tempxfieldhistory.h>
@@ -27,7 +27,7 @@
 // XFieldHistorySetup builds its own history from this suite's genesis block
 // plus synthetic entries to exercise Add/Remove/Get.
 struct XFieldHistorySetup : public TestingSetup {
-    CXFieldHistory m_history{DynamicParams().GenesisBlock()};
+    CXFieldHistory m_history{g_consensus_settings->GenesisBlock()};
 
     XFieldHistorySetup() : TestingSetup(TAPYRUS_MODES::DEV) {
         m_history.Add(TAPYRUS_XFIELDTYPES::AGGPUBKEY, XFieldChange(XFieldAggPubKey(CPubKey(ParseHex(ValidPubKeyStrings[10]))), 20, uint256()));
@@ -104,7 +104,7 @@ BOOST_AUTO_TEST_CASE(xfieldhistory_size_and_temp)
     CDataStream stream(SER_NETWORK, PROTOCOL_VERSION);
     stream << history1.GetListCopy(TAPYRUS_XFIELDTYPES::AGGPUBKEY).at(0);
 
-    BOOST_CHECK_EQUAL(HexStr(stream.begin(), stream.end()), std::string("21025700236c2890233592fcef262f4520d22af9160e3d9705855140eb2aa06c35d300000000" + HexStr(DynamicParams().GenesisBlock().GetHash())));
+    BOOST_CHECK_EQUAL(HexStr(stream.begin(), stream.end()), std::string("21025700236c2890233592fcef262f4520d22af9160e3d9705855140eb2aa06c35d300000000" + HexStr(g_consensus_settings->GenesisBlock().GetHash())));
 
     stream.clear();
     history1.Get(TAPYRUS_XFIELDTYPES::AGGPUBKEY, 91).Serialize(stream);
@@ -114,17 +114,17 @@ BOOST_AUTO_TEST_CASE(xfieldhistory_size_and_temp)
     stream.clear();
     stream << InspectableXFieldHistory(history1).Map().find(TAPYRUS_XFIELDTYPES::AGGPUBKEY)->second;
 
-    BOOST_CHECK_EQUAL(HexStr(stream.begin(), stream.end()), std::string("0821025700236c2890233592fcef262f4520d22af9160e3d9705855140eb2aa06c35d300000000" + HexStr(DynamicParams().GenesisBlock().GetHash()) + "2103831a69b8009833ab5b0326012eaf489bfea35a7321b1ca15b11d88131423fafc1400000000000000000000000000000000000000000000000000000000000000000000002102bf2027c8455800c7626542219e6208b5fe787483689f1391d6d443ec85673ecf2800000000000000000000000000000000000000000000000000000000000000000000002103b44f1cfcf46aba8bc98e2fd39f137cc43d98ab7792e4848b09c06198b042ca8b3c00000000000000000000000000000000000000000000000000000000000000000000002102b9a609d6bec0fdc9ba690986013cf7bbd13c54ffc25e6cf30916b4732c4a952a4600000000000000000000000000000000000000000000000000000000000000000000002102e78cafe033b22bda5d7d1c8e82ee932930bf12e08489bc19769cbec765568be95000000000000000000000000000000000000000000000000000000000000000000000002102473757a955a23f75379820f3071abf5b3343b78eb54e52373d06259ffa6c550b5000000000000000000000000000000000000000000000000000000000000000000000002103af80b90d25145da28c583359beb47b21796b2fe1a23c1511e443e7a64dfdb27d5a0000000000000000000000000000000000000000000000000000000000000000000000"));
+    BOOST_CHECK_EQUAL(HexStr(stream.begin(), stream.end()), std::string("0821025700236c2890233592fcef262f4520d22af9160e3d9705855140eb2aa06c35d300000000" + HexStr(g_consensus_settings->GenesisBlock().GetHash()) + "2103831a69b8009833ab5b0326012eaf489bfea35a7321b1ca15b11d88131423fafc1400000000000000000000000000000000000000000000000000000000000000000000002102bf2027c8455800c7626542219e6208b5fe787483689f1391d6d443ec85673ecf2800000000000000000000000000000000000000000000000000000000000000000000002103b44f1cfcf46aba8bc98e2fd39f137cc43d98ab7792e4848b09c06198b042ca8b3c00000000000000000000000000000000000000000000000000000000000000000000002102b9a609d6bec0fdc9ba690986013cf7bbd13c54ffc25e6cf30916b4732c4a952a4600000000000000000000000000000000000000000000000000000000000000000000002102e78cafe033b22bda5d7d1c8e82ee932930bf12e08489bc19769cbec765568be95000000000000000000000000000000000000000000000000000000000000000000000002102473757a955a23f75379820f3071abf5b3343b78eb54e52373d06259ffa6c550b5000000000000000000000000000000000000000000000000000000000000000000000002103af80b90d25145da28c583359beb47b21796b2fe1a23c1511e443e7a64dfdb27d5a0000000000000000000000000000000000000000000000000000000000000000000000"));
 
     stream.clear();
     stream << history1.GetListCopy(TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE).at(0);
     BOOST_CHECK_EQUAL(HexStr(stream.begin(), stream.end()),
-    std::string("40420f0000000000" + HexStr(DynamicParams().GenesisBlock().GetHash())));
+    std::string("40420f0000000000" + HexStr(g_consensus_settings->GenesisBlock().GetHash())));
 
     stream.clear();
     stream << InspectableXFieldHistory(history1).Map().find(TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE)->second;
 
-    BOOST_CHECK_EQUAL(HexStr(stream.begin(), stream.end()), std::string("0440420f0000000000" + HexStr(DynamicParams().GenesisBlock().GetHash()) + "00093d001e000000000000000000000000000000000000000000000000000000000000000000000000127a003200000000000000000000000000000000000000000000000000000000000000000000000024f400460000000000000000000000000000000000000000000000000000000000000000000000"));
+    BOOST_CHECK_EQUAL(HexStr(stream.begin(), stream.end()), std::string("0440420f0000000000" + HexStr(g_consensus_settings->GenesisBlock().GetHash()) + "00093d001e000000000000000000000000000000000000000000000000000000000000000000000000127a003200000000000000000000000000000000000000000000000000000000000000000000000024f400460000000000000000000000000000000000000000000000000000000000000000000000"));
 }
 
 BOOST_AUTO_TEST_CASE(xfieldhistory_remove_and_reorg)
@@ -222,7 +222,7 @@ BOOST_AUTO_TEST_CASE(is_xfield_new_consecutive_same_value)
 
 BOOST_AUTO_TEST_CASE(xfieldhistory_init_add_remove_edges)
 {
-    const CBlock& genesis = DynamicParams().GenesisBlock();
+    const CBlock& genesis = g_consensus_settings->GenesisBlock();
 
     // A second Init keeps the existing entries and adds no duplicate genesis entry
     m_history.Init(genesis);
@@ -236,7 +236,7 @@ BOOST_AUTO_TEST_CASE(xfieldhistory_init_add_remove_edges)
     BOOST_CHECK_EQUAL(fresh.GetListCopy(TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE).size(), 1);
     BOOST_CHECK(fresh.Get(TAPYRUS_XFIELDTYPES::AGGPUBKEY, 0).xfieldValue == genesis.xfield.xfieldValue);
     BOOST_CHECK_EQUAL(fresh.Get(TAPYRUS_XFIELDTYPES::AGGPUBKEY, 0).blockHash, genesis.GetHash());
-    BOOST_CHECK_EQUAL(std::get<XFieldMaxBlockSize>(fresh.Get(TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE, 0).xfieldValue).data, MAX_BLOCK_SIZE);
+    BOOST_CHECK_EQUAL(std::get<XFieldMaxBlockSize>(fresh.Get(TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE, 0).xfieldValue).data, ConsensusSettings::MAX_BLOCK_SIZE);
 
     // Adding an identical change is a no-op; the same value and height from another block is not
     const XFieldChange latest = m_history.Get(TAPYRUS_XFIELDTYPES::AGGPUBKEY, 60);
@@ -280,7 +280,7 @@ BOOST_AUTO_TEST_CASE(xfieldhistory_readers)
     BOOST_CHECK_EQUAL(m_history.GetReorgHeight(), 70);
     m_history.Add(TAPYRUS_XFIELDTYPES::AGGPUBKEY, XFieldChange(XFieldAggPubKey(CPubKey(ParseHex(ValidPubKeyStrings[13]))), 90, uint256()));
     BOOST_CHECK_EQUAL(m_history.GetReorgHeight(), 90);
-    BOOST_CHECK_EQUAL(CXFieldHistory(DynamicParams().GenesisBlock()).GetReorgHeight(), 0);
+    BOOST_CHECK_EQUAL(CXFieldHistory(g_consensus_settings->GenesisBlock()).GetReorgHeight(), 0);
 
     // The db keys are part of the block tree db format
     BOOST_CHECK_EQUAL(m_history.DBKey(TAPYRUS_XFIELDTYPES::AGGPUBKEY), '1');
@@ -304,7 +304,7 @@ BOOST_AUTO_TEST_CASE(xfieldhistory_readers)
 BOOST_AUTO_TEST_CASE(xfieldhistory_get_bounds)
 {
     // Fixture keys: genesis@0, key10@20, key11@40, key12@60
-    const XFieldData genesisKey = DynamicParams().GenesisBlock().xfield.xfieldValue;
+    const XFieldData genesisKey = g_consensus_settings->GenesisBlock().xfield.xfieldValue;
     const XFieldData key10 = XFieldAggPubKey(CPubKey(ParseHex(ValidPubKeyStrings[10])));
     const XFieldData key12 = XFieldAggPubKey(CPubKey(ParseHex(ValidPubKeyStrings[12])));
     BOOST_CHECK(m_history.Get(TAPYRUS_XFIELDTYPES::AGGPUBKEY, 0).xfieldValue == genesisKey);
@@ -315,7 +315,7 @@ BOOST_AUTO_TEST_CASE(xfieldhistory_get_bounds)
     BOOST_CHECK(m_history.Get(TAPYRUS_XFIELDTYPES::AGGPUBKEY, 1000000).xfieldValue == key12);
 
     // Fixture sizes: genesis@0, 4000000@30, 8000000@50, 16000000@70
-    BOOST_CHECK_EQUAL(std::get<XFieldMaxBlockSize>(m_history.Get(TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE, 29).xfieldValue).data, MAX_BLOCK_SIZE);
+    BOOST_CHECK_EQUAL(std::get<XFieldMaxBlockSize>(m_history.Get(TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE, 29).xfieldValue).data, ConsensusSettings::MAX_BLOCK_SIZE);
     BOOST_CHECK_EQUAL(std::get<XFieldMaxBlockSize>(m_history.Get(TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE, 30).xfieldValue).data, 4000000);
     BOOST_CHECK_EQUAL(std::get<XFieldMaxBlockSize>(m_history.Get(TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE, 69).xfieldValue).data, 8000000);
     BOOST_CHECK_EQUAL(std::get<XFieldMaxBlockSize>(m_history.Get(TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE, 70).xfieldValue).data, 16000000);

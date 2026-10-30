@@ -49,7 +49,9 @@ void RPCNestedTests::rpcNestedTests()
     std::string result;
     std::string result2;
     std::string filtered;
-    auto node = interfaces::MakeNode();
+    // No connman here: calling a net RPC from this test would dereference null.
+    NodeContext context;
+    auto node = interfaces::MakeNode(context);
 
     RPCConsole::RPCExecuteCommandLine(*node, result, "getblockchaininfo()[mode]", &filtered);
     QVERIFY(result=="prod");

@@ -16,10 +16,10 @@ namespace Consensus {
 
 
 /**
- * Parameters that influence chain consensus.
+ * Chain parameters kept apart from ConsensusSettings, since nodes need not
+ * agree on them. nExpectedBlockTime moves to PolicySettings.
  */
 struct Params {
-    int nSubsidyHalvingInterval;
     /** Time for expected spacing between blocks (seconds)*/
     int64_t nExpectedBlockTime;
 };

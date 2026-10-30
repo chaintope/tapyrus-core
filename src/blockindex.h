@@ -7,6 +7,7 @@
 #ifndef TAPYRUS_BLOCKINDEX_H
 #define TAPYRUS_BLOCKINDEX_H
 
+#include <consensusconstants.h>
 #include <arith_uint256.h>
 #include <diskblockpos.h>
 #include <primitives/block.h>
@@ -197,16 +198,14 @@ public:
         return (int64_t)nTimeMax;
     }
 
-    static constexpr int nMedianTimeSpan = 11;
-
     int64_t GetMedianTimePast() const
     {
-        int64_t pmedian[nMedianTimeSpan];
-        int64_t* pbegin = &pmedian[nMedianTimeSpan];
-        int64_t* pend = &pmedian[nMedianTimeSpan];
+        int64_t pmedian[ConsensusConstants::nMedianTimeSpan];
+        int64_t* pbegin = &pmedian[ConsensusConstants::nMedianTimeSpan];
+        int64_t* pend = &pmedian[ConsensusConstants::nMedianTimeSpan];
 
         const CBlockIndex* pindex = this;
-        for (int i = 0; i < nMedianTimeSpan && pindex; i++, pindex = pindex->pprev)
+        for (int i = 0; i < ConsensusConstants::nMedianTimeSpan && pindex; i++, pindex = pindex->pprev)
             *(--pbegin) = pindex->GetBlockTime();
 
         std::sort(pbegin, pend);

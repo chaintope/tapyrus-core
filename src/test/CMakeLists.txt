@@ -244,10 +244,7 @@ if(BUILD_FUZZ_TEST)
 
 # tapyrus_rpc/tapyrus_peer/tapyrus_chainstate/tapyrus_codec/tapyrus_scripting/
 # tapyrus_global/tapyrus_netbase/tapyrus_util/tapyrus_consensus have real
-# circular symbol dependencies between them (e.g. script/interpreter.cpp
-# in tapyrus_consensus calls GetSoftForkManager(), defined in
-# federationparams.cpp in tapyrus_global; federationparams.cpp in turn
-# calls gArgs/ArgsManager, defined in tapyrus_util) -- test_tapyrus above
+# circular symbol dependencies between them -- test_tapyrus above
 # never hits this because it also links tapyrus_wallet/tapyrus_cli/
 # tapyrus_zmq/libevent, which happen to pull in a superset of the same
 # object files early enough that everything each library needs is
@@ -327,7 +324,7 @@ endfunction()
 # - Most of it (StartShutdown/uiInterface from tapyrus_util, OpenDiskFile/
 #   FlushStateToDisk/ReadBlockFromDisk/GetTransaction/AcceptToMemoryPool/etc.
 #   from tapyrus_chainstate, CMerkleBlock/CRollingBloomFilter/CConnman/
-#   g_connman from tapyrus_peer) is satisfied by linking those for real below.
+#   NodeContext from tapyrus_peer) is satisfied by linking those for real below.
 # - One chokepoint doesn't reduce this way: rawtransaction.cpp's deprecated
 #   signrawtransaction alias references three wallet/rpcwallet.cpp
 #   functions, and that one translation unit's own needs (GetWallets,

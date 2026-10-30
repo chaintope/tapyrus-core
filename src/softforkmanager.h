@@ -43,7 +43,7 @@ struct CSoftFork {
 /**
  * Manages all registered softforks across networks.
  *
- * Populated once at startup in PROD mode via CFederationParams.
+ * Populated once at startup by ConsensusSettings.
  * Empty in DEV mode — no forks are enforced.
  * Thread-safe for reads after startup (no concurrent writes expected).
  */
@@ -93,8 +93,8 @@ public:
     }
 
     /**
-     * Convenience overload: queries the current network via FederationParams().
-     * Implemented in federationparams.cpp to avoid a circular include dependency.
+     * Convenience overload: queries the node's network via g_consensus_settings.
+     * Implemented in consensussettings.cpp to avoid a circular include dependency.
      */
     bool IsActive(unsigned int flag, int32_t blockHeight) const;
 
@@ -127,10 +127,8 @@ public:
 };
 
 /**
- * Returns the softfork manager for the currently active network.
- * Declared here so that script/interpreter.cpp can call it without
- * including federationparams.h (which would create a circular dependency).
- * Implemented in federationparams.cpp.
+ * Returns the softfork manager for the node's network, from g_consensus_settings.
+ * Implemented in consensussettings.cpp.
  */
 const CSoftForkManager& GetSoftForkManager();
 

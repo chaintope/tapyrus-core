@@ -49,14 +49,14 @@ CMutableTransaction BuildCreditingTx(const CScript& scriptPubKey, CAmount nValue
     txCredit.vout.resize(1);
     txCredit.vin[0].prevout.SetNull();
     txCredit.vin[0].scriptSig = CScript() << CScriptNum(0) << CScriptNum(0);
-    txCredit.vin[0].nSequence = CTxIn::SEQUENCE_FINAL;
+    txCredit.vin[0].nSequence = ConsensusConstants::SEQUENCE_FINAL;
     txCredit.vout[0].scriptPubKey = scriptPubKey;
     txCredit.vout[0].nValue = nValue;
     return txCredit;
 }
 
 CMutableTransaction BuildSpendingTx(const CScript& scriptSig, const CTransaction& txCredit,
-                                    uint32_t nSequence = CTxIn::SEQUENCE_FINAL, uint32_t nLockTime = 0)
+                                    uint32_t nSequence = ConsensusConstants::SEQUENCE_FINAL, uint32_t nLockTime = 0)
 {
     CMutableTransaction txSpend;
     txSpend.nFeatures = 1;
@@ -315,7 +315,7 @@ BOOST_AUTO_TEST_CASE(risk_checkdatasig_replay)
         CScript scriptSig = CScript() << vchSig << message;
 
         CMutableTransaction creditA = BuildCreditingTx(scriptPubKey, 1000);
-        CMutableTransaction spendA = BuildSpendingTx(scriptSig, CTransaction(creditA), CTxIn::SEQUENCE_FINAL, 0);
+        CMutableTransaction spendA = BuildSpendingTx(scriptSig, CTransaction(creditA), ConsensusConstants::SEQUENCE_FINAL, 0);
         ScriptError errA;
         bool okA = Verify(scriptSig, scriptPubKey, spendA, creditA.vout[0].nValue, STANDARD_SCRIPT_VERIFY_FLAGS, &errA);
         BOOST_CHECK(okA);
@@ -336,19 +336,19 @@ BOOST_AUTO_TEST_CASE(risk_checkdatasig_replay)
     {
         CScript scriptPubKey = CScript() << ToByteVector(pub) << OP_CHECKSIG;
         CMutableTransaction credit = BuildCreditingTx(scriptPubKey, 1000);
-        CMutableTransaction spendOriginal = BuildSpendingTx(CScript(), CTransaction(credit), CTxIn::SEQUENCE_FINAL, 0);
+        CMutableTransaction spendOriginal = BuildSpendingTx(CScript(), CTransaction(credit), ConsensusConstants::SEQUENCE_FINAL, 0);
         uint256 sighash = SignatureHash(scriptPubKey, spendOriginal, 0, SIGHASH_ALL, credit.vout[0].nValue);
         std::vector<unsigned char> sig;
         BOOST_REQUIRE(key.Sign_ECDSA(sighash, sig));
         sig.push_back((unsigned char)SIGHASH_ALL);
         CScript scriptSig = CScript() << sig;
 
-        CMutableTransaction spendSame = BuildSpendingTx(scriptSig, CTransaction(credit), CTxIn::SEQUENCE_FINAL, 0);
+        CMutableTransaction spendSame = BuildSpendingTx(scriptSig, CTransaction(credit), ConsensusConstants::SEQUENCE_FINAL, 0);
         ScriptError errSame;
         bool okSame = Verify(scriptSig, scriptPubKey, spendSame, credit.vout[0].nValue, STANDARD_SCRIPT_VERIFY_FLAGS, &errSame);
         BOOST_CHECK(okSame);
 
-        CMutableTransaction spendDifferent = BuildSpendingTx(scriptSig, CTransaction(credit), CTxIn::SEQUENCE_FINAL, 999);
+        CMutableTransaction spendDifferent = BuildSpendingTx(scriptSig, CTransaction(credit), ConsensusConstants::SEQUENCE_FINAL, 999);
         ScriptError errDifferent;
         bool okDifferent = Verify(scriptSig, scriptPubKey, spendDifferent, credit.vout[0].nValue, STANDARD_SCRIPT_VERIFY_FLAGS, &errDifferent);
         BOOST_CHECK_MESSAGE(!okDifferent, "OP_CHECKSIG must NOT replay across a transaction with a different nLockTime");
@@ -437,7 +437,7 @@ BOOST_AUTO_TEST_CASE(risk_opcolor_with_timelock)
 
     COutPoint outpoint(uint256S("0000000000000000000000000000000000000000000000000000000000000003"), 0);
     ColorIdentifier colorId(outpoint, TokenTypes::REISSUABLE);
-    const int64_t lockHeight = 500000; // block-height style (< LOCKTIME_THRESHOLD)
+    const int64_t lockHeight = 500000; // block-height style (< ConsensusConstants::LOCKTIME_THRESHOLD)
 
     CScript scriptPubKey = CScript() << colorId.toVector() << OP_COLOR
                                       << CScriptNum(lockHeight) << OP_CHECKLOCKTIMEVERIFY << OP_DROP

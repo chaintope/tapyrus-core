@@ -284,7 +284,7 @@ UniValue createpstt(const JSONRPCRequest& request)
         input.prevout_index = txin.prevout.n;
         input.previous_txid_set = true;
         input.prevout_index_set = true;
-        if (txin.nSequence != CTxIn::SEQUENCE_FINAL) input.sequence = txin.nSequence;
+        if (txin.nSequence != ConsensusConstants::SEQUENCE_FINAL) input.sequence = txin.nSequence;
         pstt.inputs.push_back(std::move(input));
     }
     for (const CTxOut& txout : rawTx.vout) {
@@ -353,7 +353,7 @@ UniValue converttopstt(const JSONRPCRequest& request)
         input.prevout_index = txin.prevout.n;
         input.previous_txid_set = true;
         input.prevout_index_set = true;
-        if (txin.nSequence != CTxIn::SEQUENCE_FINAL) input.sequence = txin.nSequence;
+        if (txin.nSequence != ConsensusConstants::SEQUENCE_FINAL) input.sequence = txin.nSequence;
         pstt.inputs.push_back(std::move(input));
     }
     for (const CTxOut& txout : tx.vout) {
@@ -722,7 +722,7 @@ static int64_t EstimatePsttSize(const PartiallySignedTapyrusTransaction& pstt)
     for (unsigned int i = 0; i < pstt.inputs.size(); ++i) {
         const PSTTInput& input = pstt.inputs.at(i);
         CTxIn txin(COutPoint(input.previous_txid, input.prevout_index), EstimateInputScriptSig(pstt, i),
-                   input.sequence.value_or(CTxIn::SEQUENCE_FINAL));
+                   input.sequence.value_or(ConsensusConstants::SEQUENCE_FINAL));
         mtx.vin.push_back(std::move(txin));
     }
     for (const PSTTOutput& output : pstt.outputs) {

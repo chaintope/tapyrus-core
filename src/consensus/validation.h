@@ -9,7 +9,7 @@
 #include <string>
 #include <sstream>
 #include <version.h>
-#include <consensus/consensus.h>
+#include <consensusconstants.h>
 #include <primitives/transaction.h>
 #include <primitives/block.h>
 

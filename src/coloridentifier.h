@@ -8,6 +8,7 @@
 #include <streams.h>
 #include <version.h>
 #include <amount.h>
+#include <consensusconstants.h>
 #include <pubkey.h>
 #include <utilstrencodings.h>
 #include <primitives/outpoint.h>
@@ -15,9 +16,6 @@
 #include <tokentypes.h>
 
 extern const std::string CURRENCY_UNIT;
-
-// Size of color identifier data in bytes
-static const unsigned int COLOR_IDENTIFIER_SIZE = 33;
 
 struct ColorIdentifier
 {
@@ -50,7 +48,7 @@ struct ColorIdentifier
     }
 
     bool operator==(const ColorIdentifier& colorId) const {
-        return this->type == colorId.type && (memcmp(&this->payload[0], &colorId.payload[0], COLOR_IDENTIFIER_SIZE - 1) == 0);
+        return this->type == colorId.type && (memcmp(&this->payload[0], &colorId.payload[0], ConsensusConstants::COLOR_IDENTIFIER_SIZE - 1) == 0);
     }
 
     bool operator!=(const ColorIdentifier& colorId) const {

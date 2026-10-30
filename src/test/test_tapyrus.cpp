@@ -10,7 +10,8 @@
 #include <consensus/merkle.h>
 #include <consensus/validation.h>
 #include <crypto/sha256.h>
-#include <dynamicparams.h>
+#include <consensussettings.h>
+#include <genesisfile.h>
 #include <genesisblock.h>
 #include <issuedcolorids.h>
 #include <validation.h>
@@ -28,21 +29,19 @@
 #include <fstream>
 #include <stdexcept>
 
-constexpr unsigned int CPubKey::SCHNORR_SIGNATURE_SIZE;
-
-void CConnmanTest::AddNode(CNode& node)
+void CConnmanTest::AddNode(CConnman& connman, CNode& node)
 {
-    LOCK(g_connman->cs_vNodes);
-    g_connman->vNodes.push_back(&node);
+    LOCK(connman.cs_vNodes);
+    connman.vNodes.push_back(&node);
 }
 
-void CConnmanTest::ClearNodes()
+void CConnmanTest::ClearNodes(CConnman& connman)
 {
-    LOCK(g_connman->cs_vNodes);
-    for (CNode* node : g_connman->vNodes) {
+    LOCK(connman.cs_vNodes);
+    for (CNode* node : connman.vNodes) {
         delete node;
     }
-    g_connman->vNodes.clear();
+    connman.vNodes.clear();
 }
 
 uint256 insecure_rand_seed = GetRandHash();
@@ -87,9 +86,9 @@ BasicTestingSetup::BasicTestingSetup(const std::string& chainName)
         SetDataDir("tempdir");
         writeTestGenesisBlockToFile(GetDataDir());
         SelectFederationParams(TAPYRUS_OP_MODE::PROD);
-        SelectDynamicParams(ReadGenesisBlock());
+        g_consensus_settings = std::make_unique<const ConsensusSettings>(ReadGenesisBlock(), TAPYRUS_OP_MODE::PROD, FederationParams().NetworkId());
         noui_connect();
-        g_chainstate_manager.InitXFieldHistory(DynamicParams().GenesisBlock());
+        g_chainstate_manager.InitXFieldHistory(g_consensus_settings->GenesisBlock());
         pxFieldHistory = &g_chainstate_manager.XFieldHistory();
         g_colorid_state.reset(new CIssuedColorIds());
     } catch (...) {
@@ -156,9 +155,8 @@ TestingSetup::TestingSetup(const std::string& chainName) : BasicTestingSetup(cha
             }
             nScriptCheckThreads = 3;
             StartScriptCheckWorkerThreads(nScriptCheckThreads);
-            g_connman = std::unique_ptr<CConnman>(new CConnman(0x1337, 0x1337)); // Deterministic randomness for tests.
-            connman = g_connman.get();
-            peerLogic.reset(new PeerLogicValidation(connman, scheduler));
+            m_node.connman = std::unique_ptr<CConnman>(new CConnman(0x1337, 0x1337)); // Deterministic randomness for tests.
+            m_node.peer_logic.reset(new PeerLogicValidation(*m_node.connman, scheduler));
         } catch (...) {
             // ~TestingSetup() never runs for a throwing constructor, so the
             // scheduler thread started above must be stopped here. Left
@@ -178,8 +176,8 @@ void TestingSetup::TearDown()
         scheduler.stop();
         GetMainSignals().FlushBackgroundCallbacks();
         GetMainSignals().UnregisterBackgroundSignalScheduler();
-        g_connman.reset();
-        peerLogic.reset();
+        m_node.peer_logic.reset();
+        m_node.connman.reset();
         UnloadBlockIndex();
         pcoinsTip.reset();
         pcoinsdbview.reset();

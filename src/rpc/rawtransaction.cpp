@@ -11,7 +11,7 @@
 #include <coloridentifier.h>
 #include <consensus/validation.h>
 #include <core_io.h>
-#include <dynamicparams.h>
+#include <consensussettings.h>
 #include <index/txindex.h>
 #include <keystore.h>
 #include <script/transactionsignaturechecker.h>
@@ -20,6 +20,7 @@
 #include <key_io.h>
 #include <merkleblock.h>
 #include <connman.h>
+#include <nodecontext.h>
 #include <netnode.h>
 #include <policy/packages.h>
 #include <policy/rbf.h>
@@ -29,6 +30,7 @@
 #include <rpc/server.h>
 #include <rpc/jsonrpcrequest.h>
 #include <rpc/rpctable.h>
+#include <rpc/util.h>
 #include <script/script.h>
 #include <script/script_error.h>
 #include <script/sign.h>
@@ -161,7 +163,7 @@ static UniValue getrawtransaction(const JSONRPCRequest& request)
     uint256 hash = ParseHashV(request.params[0], "parameter 1");
     CBlockIndex* blockindex = nullptr;
 
-    if (hash == DynamicParams().GenesisBlock().hashMerkleRoot) {
+    if (hash == g_consensus_settings->GenesisBlock().hashMerkleRoot) {
         // Special exception for the genesis block coinbase transaction
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "The genesis block coinbase is not considered an ordinary transaction and cannot be retrieved");
     }
@@ -861,7 +863,7 @@ UniValue SignTransaction(CMutableTransaction& mtx, const UniValue& prevTxsUnival
                 }
                 Coin newcoin;
                 newcoin.out.scriptPubKey = scriptPubKey;
-                newcoin.out.nValue = MAX_MONEY;
+                newcoin.out.nValue = ConsensusConstants::MAX_MONEY;
                 if (prevOut.exists("amount")) {
                     newcoin.out.nValue = AmountFromValue(prevOut.find_value("amount"));
                 }
@@ -1115,8 +1117,10 @@ UniValue signrawtransaction(const JSONRPCRequest& request)
     RPCTypeCheck(request.params, {UniValue::VSTR, UniValue::VARR, UniValue::VARR, UniValue::VSTR}, true);
 
     // Make a JSONRPCRequest to pass on to the right signrawtransaction* command
-    JSONRPCRequest new_request;
+    JSONRPCRequest new_request(request.context);
     new_request.id = request.id;
+    new_request.URI = request.URI;
+    new_request.authUser = request.authUser;
     new_request.params.setArray();
 
     // For signing with private keys
@@ -1225,11 +1229,10 @@ static UniValue sendrawtransaction(const JSONRPCRequest& request)
 
     promise.get_future().wait();
 
-    if(!g_connman)
-        throw JSONRPCError(RPC_CLIENT_P2P_DISABLED, "Error: Peer-to-peer functionality missing or disabled");
-
+    assert(request.context.connman);
+    CConnman& connman = *request.context.connman;
     CInv inv(MSG_TX, hashTx);
-    g_connman->ForEachNode([&inv](CNode* pnode)
+    connman.ForEachNode([&inv](CNode* pnode)
     {
         pnode->PushInventory(inv);
     });

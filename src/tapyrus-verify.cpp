@@ -29,9 +29,9 @@
 //
 // By default, checks a given pair against every one of Tapyrus's 64
 // runtime-selectable SCRIPT_VERIFY_* flag combinations (script/interpreter.h)
-// and reports where the result changes -- this includes flags=0
-// (MANDATORY_SCRIPT_VERIFY_FLAGS) and the exact STANDARD_SCRIPT_VERIFY_FLAGS
-// combination, both being unions of those same flags. --flags=<spec> runs
+// and reports where the result changes -- this includes flags=0 (no
+// optional rule) and the exact STANDARD_SCRIPT_VERIFY_FLAGS combination,
+// both being unions of those same flags. --flags=<spec> runs
 // one set instead of the full matrix.
 //
 // --fuzz <script-mnemonic-file> (only when built with BUILD_FUZZ_TEST --
@@ -97,7 +97,7 @@ struct NamedFlag {
 
 // Tapyrus's runtime-selectable SCRIPT_VERIFY_* flags (script/interpreter.h).
 // Everything else (P2SH, STRICTENC, DERSIG, LOW_S, NULLDUMMY, MINIMALDATA,
-// CLTV, CSV) is unconditionally enforced (MANDATORY_SCRIPT_VERIFY_FLAGS == 0).
+// CLTV, CSV) is unconditionally enforced.
 constexpr NamedFlag kNamedFlags[] = {
     {"sigpushonly", SCRIPT_VERIFY_SIGPUSHONLY},
     {"discourage-upgradable-nops", SCRIPT_VERIFY_DISCOURAGE_UPGRADABLE_NOPS},
@@ -144,7 +144,7 @@ bool CheckMoneyRange(const CTransaction& tx, const char* label)
     }
     CAmount total = 0;
     for (const auto& out : tx.vout) {
-        if (out.nValue < 0 || out.nValue > MAX_MONEY) {
+        if (out.nValue < 0 || out.nValue > ConsensusConstants::MAX_MONEY) {
             std::fprintf(stderr, "error: %s has an output value out of range\n", label);
             return false;
         }
@@ -176,13 +176,13 @@ template <typename Tx>
 bool CheckAllScriptsSanity(const Tx& tx, const char* label)
 {
     for (const auto& in : tx.vin) {
-        if (!in.scriptSig.HasValidOps() || in.scriptSig.size() > MAX_SCRIPT_SIZE) {
+        if (!in.scriptSig.HasValidOps() || in.scriptSig.size() > ConsensusConstants::MAX_SCRIPT_SIZE) {
             std::fprintf(stderr, "error: %s has an invalid or oversized scriptSig\n", label);
             return false;
         }
     }
     for (const auto& out : tx.vout) {
-        if (!out.scriptPubKey.HasValidOps() || out.scriptPubKey.size() > MAX_SCRIPT_SIZE) {
+        if (!out.scriptPubKey.HasValidOps() || out.scriptPubKey.size() > ConsensusConstants::MAX_SCRIPT_SIZE) {
             std::fprintf(stderr, "error: %s has an invalid or oversized scriptPubKey\n", label);
             return false;
         }
@@ -380,8 +380,8 @@ int RunSingleFlags(const VerifyContext& ctx, unsigned int flags)
 }
 
 // Runs the pair against all 64 combinations of the named flags --
-// including flags=0 (MANDATORY_SCRIPT_VERIFY_FLAGS, which is 0 in
-// Tapyrus) and the exact STANDARD_SCRIPT_VERIFY_FLAGS combination, both
+// including flags=0 (no optional rule) and the exact
+// STANDARD_SCRIPT_VERIFY_FLAGS combination, both
 // being unions of these same named flags -- and reports where the
 // result changes. Also checks the soft-fork monotonicity invariant
 // script/interpreter.h documents (adding flags can only shrink the
@@ -433,7 +433,7 @@ int RunOne(const VerifyContext& ctx, bool flagsGiven, unsigned int flags)
 // disabled), 0 (both enabled), the relative-locktime-disable bit set
 // alone, and one high-but-not-final value. Not exhaustive, just varied.
 constexpr uint32_t kLockTimes[] = {0, 1, 500000000, 0xFFFFFFFFu};
-constexpr uint32_t kSequences[] = {CTxIn::SEQUENCE_FINAL, 0, 0x80000000u, 0xFFFFFFFEu};
+constexpr uint32_t kSequences[] = {ConsensusConstants::SEQUENCE_FINAL, 0, 0x80000000u, 0xFFFFFFFEu};
 constexpr size_t kTotalVariations = (sizeof(kLockTimes) / sizeof(kLockTimes[0])) *
                                      (sizeof(kSequences) / sizeof(kSequences[0]));
 
@@ -446,7 +446,7 @@ CMutableTransaction BuildToSpend(const CScript& scriptPubKey)
     tx.vout.resize(1);
     tx.vin[0].prevout.SetNull();
     tx.vin[0].scriptSig = CScript() << CScriptNum(0) << CScriptNum(0);
-    tx.vin[0].nSequence = CTxIn::SEQUENCE_FINAL;
+    tx.vin[0].nSequence = ConsensusConstants::SEQUENCE_FINAL;
     tx.vout[0].scriptPubKey = scriptPubKey;
     tx.vout[0].nValue = 0;
     return tx;
@@ -518,7 +518,7 @@ void PrintUsage(const char* argv0)
         "                 verified is whichever one spending.vin[input_index].prevout\n"
         "                 actually points at in to_spend, not input_index itself.\n"
         "  --flags=<spec> \"standard\" (STANDARD_SCRIPT_VERIFY_FLAGS), \"none\"\n"
-        "                 (MANDATORY_SCRIPT_VERIFY_FLAGS), a 0x-prefixed hex bitmask,\n"
+        "                 (no optional rule), a 0x-prefixed hex bitmask,\n"
         "                 or a comma-separated list of:\n",
         argv0, size_t{1} << kNumNamedFlags);
     for (const auto& nf : kNamedFlags) {

@@ -5,7 +5,7 @@
 #include <chainstatemanager.h>
 #include <consensus/tx_verify.h>
 #include <consensus/validation.h>
-#include <dynamicparams.h>
+#include <consensussettings.h>
 #include <primitives/block.h>
 #include <genesisblock.h>
 #include <xfieldhistory.h>
@@ -179,7 +179,7 @@ BOOST_AUTO_TEST_CASE(create_genesis_block_default)
     BOOST_CHECK_EQUAL(HexStr(scriptSig.begin(), scriptSig.end()), "");
 
     BOOST_CHECK_EQUAL(genesis.vtx[0]->vout.size(), 1);
-    BOOST_CHECK_EQUAL(genesis.vtx[0]->vout[0].nValue, 50 * COIN);
+    BOOST_CHECK_EQUAL(genesis.vtx[0]->vout[0].nValue, 50 * ConsensusSettings::COIN);
     CScript scriptPubKey = genesis.vtx[0]->vout[0].scriptPubKey;
     BOOST_CHECK_EQUAL(HexStr(scriptPubKey.begin(), scriptPubKey.end()), "76a914834e0737cdb9008db614cd95ec98824e952e3dc588ac");
 
@@ -286,7 +286,7 @@ BOOST_AUTO_TEST_CASE(blockHeaderWithxfieldType3_maxxfieldtype)
 BOOST_AUTO_TEST_CASE(checkblock_tx_size_uses_block_height_limit)
 {
     const uint32_t laterLimit{2000};
-    CXFieldHistory history(DynamicParams().GenesisBlock());
+    CXFieldHistory history(g_consensus_settings->GenesisBlock());
     history.Add(TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE, XFieldChange(XFieldMaxBlockSize(laterLimit), 100, uint256()));
 
     CMutableTransaction coinbase;
@@ -311,7 +311,7 @@ BOOST_AUTO_TEST_CASE(checkblock_tx_size_uses_block_height_limit)
     BOOST_CHECK_EQUAL(txState.GetRejectReason(), "bad-txns-oversize");
 
     CBlock block;
-    block.nFeatures = CBlock::TAPYRUS_BLOCK_FEATURES;
+    block.nFeatures = ConsensusSettings::TAPYRUS_BLOCK_FEATURES;
     block.vtx.push_back(MakeTransactionRef(coinbase));
     block.vtx.push_back(MakeTransactionRef(bigTx));
 

@@ -9,7 +9,7 @@
 #include <coin.h>
 #include <coinsview.h>
 #include <coinsviewcache.h>
-#include <consensus/consensus.h>
+#include <consensusconstants.h>
 #include <core_io.h>
 #include <eccverifyhandle.h>
 #include <key_io.h>
@@ -250,7 +250,7 @@ static void MutateTxAddInput(CMutableTransaction& tx, const std::string& strInpu
     uint256 txid(uint256S(strTxid));
 
     static const unsigned int minTxOutSz = 9;
-    static const unsigned int maxVout = MAX_BLOCK_SIZE / minTxOutSz;
+    static const unsigned int maxVout = ConsensusConstants::MAX_BLOCK_SIZE / minTxOutSz;
 
     // extract and validate vout
     const std::string& strVout = vStrInputParts[1];
@@ -389,9 +389,9 @@ static void MutateTxAddOutMultiSig(CMutableTransaction& tx, const std::string& s
     CScript scriptPubKey = GetScriptForMultisig(required, pubkeys);
 
     if (bScriptHash) {
-        if (scriptPubKey.size() > MAX_SCRIPT_ELEMENT_SIZE) {
+        if (scriptPubKey.size() > ConsensusConstants::MAX_SCRIPT_ELEMENT_SIZE) {
             throw std::runtime_error(strprintf(
-                        "redeemScript exceeds size limit: %d > %d", scriptPubKey.size(), MAX_SCRIPT_ELEMENT_SIZE));
+                        "redeemScript exceeds size limit: %d > %d", scriptPubKey.size(), ConsensusConstants::MAX_SCRIPT_ELEMENT_SIZE));
         }
         // Get the ID for the script, and then construct a P2SH destination for it.
         scriptPubKey = GetScriptForDestination(CScriptID(scriptPubKey));
@@ -451,15 +451,15 @@ static void MutateTxAddOutScript(CMutableTransaction& tx, const std::string& str
         bScriptHash = (flags.find('S') != std::string::npos);
     }
 
-    if (scriptPubKey.size() > MAX_SCRIPT_SIZE) {
+    if (scriptPubKey.size() > ConsensusConstants::MAX_SCRIPT_SIZE) {
         throw std::runtime_error(strprintf(
-                    "script exceeds size limit: %d > %d", scriptPubKey.size(), MAX_SCRIPT_SIZE));
+                    "script exceeds size limit: %d > %d", scriptPubKey.size(), ConsensusConstants::MAX_SCRIPT_SIZE));
     }
 
     if (bScriptHash) {
-        if (scriptPubKey.size() > MAX_SCRIPT_ELEMENT_SIZE) {
+        if (scriptPubKey.size() > ConsensusConstants::MAX_SCRIPT_ELEMENT_SIZE) {
             throw std::runtime_error(strprintf(
-                        "redeemScript exceeds size limit: %d > %d", scriptPubKey.size(), MAX_SCRIPT_ELEMENT_SIZE));
+                        "redeemScript exceeds size limit: %d > %d", scriptPubKey.size(), ConsensusConstants::MAX_SCRIPT_ELEMENT_SIZE));
         }
         scriptPubKey = GetScriptForDestination(CScriptID(scriptPubKey));
     }
