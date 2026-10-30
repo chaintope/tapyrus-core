@@ -400,7 +400,7 @@ def main():
     # run rather than only the retried tests.
     coverage = None
     if args.coverage:
-        coverage = RPCCoverage()
+        coverage = RPCCoverage(tmpdir)
         logging.debug("Initializing coverage directory at %s" % coverage.dir)
 
     start_time = time.time()
@@ -461,6 +461,8 @@ def main():
 
         logging.debug("Cleaning up coverage data")
         coverage.cleanup()
+        if not os.listdir(tmpdir):
+            os.rmdir(tmpdir)
 
     failed = [r for r in test_results if not r.was_successful]
     if failed:
@@ -624,8 +626,8 @@ class TestHandler:
         self.num_running = 0
         self.jobs = []
         self.interrupt_times = {}
-        # These options leave a test's nodes running on purpose.
-        self.keep_nodes = any(f in ("--noshutdown", "--nocleanup") for f in (flags or []))
+        # --noshutdown leaves a test's nodes running on purpose.
+        self.keep_nodes = "--noshutdown" in (flags or [])
 
     def get_next(self):
         while self.num_running < self.num_jobs and self.test_list:
@@ -853,8 +855,11 @@ class RPCCoverage():
     See also: test/functional/test_framework/coverage.py
 
     """
-    def __init__(self):
-        self.dir = tempfile.mkdtemp(prefix="coverage")
+    def __init__(self, tmpdir):
+        # Under the run's tmpdir, so it is uploaded with the test results and
+        # is not left in the system temp directory if the run is interrupted.
+        self.dir = os.path.join(tmpdir, "coverage")
+        os.makedirs(self.dir)
         self.flag = '--coveragedir=%s' % self.dir
 
     def report_rpc_coverage(self):
