@@ -280,7 +280,7 @@ void Shutdown(NodeContext& node)
         pcoinsTip.reset();
         pcoinscatcher.reset();
         pcoinsdbview.reset();
-        g_colorid_state.reset();
+        g_chainstate_manager.IssuedColorIds() = CIssuedColorIds();
         pblocktree.reset();
     }
     g_wallet_init_interface.Stop();
@@ -1515,11 +1515,11 @@ bool AppInitMain(NodeContext& node)
                 pcoinsdbview.reset(new CCoinsViewDB(nCoinDBCache, false, fReset || fReindexChainState));
                 pcoinscatcher.reset(new CCoinsViewErrorCatcher(pcoinsdbview.get()));
 
-                // Create the colorId state before ReplayBlocks so that DisconnectBlock
+                // Reset the issued colorIds before ReplayBlocks so that DisconnectBlock
                 // inside the replay can stage erases that CommitToBatch writes atomically
                 // with the replay's UTXO flush.  cs_main is already held by the outer LOCK.
-                g_colorid_state.reset(new CIssuedColorIds());
-                pcoinsdbview->SetColorIdState(g_colorid_state.get());
+                g_chainstate_manager.IssuedColorIds() = CIssuedColorIds();
+                pcoinsdbview->SetColorIdState(&g_chainstate_manager.IssuedColorIds());
 
                 // If necessary, upgrade from older database format.
                 // This is a no-op if we cleared the coinsviewdb with -reindex or -reindex-chainstate
@@ -1579,7 +1579,7 @@ bool AppInitMain(NodeContext& node)
                         strLoadError = _("Failed to load issued colorId set from chainstate database");
                         break;
                     }
-                    g_colorid_state->SetConfirmed(std::move(colorIds));
+                    g_chainstate_manager.IssuedColorIds().SetConfirmed(std::move(colorIds));
                 }
 
                 if (!is_coinsview_empty) {

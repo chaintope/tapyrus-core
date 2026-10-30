@@ -4,6 +4,8 @@
 
 #include <issuedcolorids.h>
 
+#include <dbwrapper.h>
+
 static const char DB_ISSUED_COLORID = 'I';
 
 void CIssuedColorIds::SetConfirmed(std::set<ColorIdentifier> ids)

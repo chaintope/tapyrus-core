@@ -131,9 +131,6 @@ extern uint64_t nLastBlockSize;
 extern Mutex g_best_block_mutex;
 extern CConditionVariable g_best_block_cv;
 extern uint256 g_best_block;
-/** Tracks all NON_REISSUABLE/NFT colorIds ever issued on this chain; see issuedcolorids.h. */
-class CIssuedColorIds;
-extern std::unique_ptr<CIssuedColorIds> g_colorid_state;
 extern std::atomic_bool fImporting;
 extern std::atomic_bool fReindex;
 extern int nScriptCheckThreads;

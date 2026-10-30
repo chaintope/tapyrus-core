@@ -33,7 +33,6 @@
 // Defined in validation.cpp; declared here to avoid pulling in validation.h
 // (which includes chainstate.h, creating an indirect self-inclusion).
 void RefreshChainTxDataFromTip(const CBlockIndex* pindexNew);
-extern std::unique_ptr<CIssuedColorIds> g_colorid_state;
 extern std::atomic_bool fReindex;
 
 static int64_t nTimeCheck = 0;
@@ -304,7 +303,7 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
                         continue;
                     COutPoint prevout = tx.vin[j].prevout;
                     if (ColorIdentifier(prevout, outColorId.type) == outColorId) {
-                        if (!fDryRun) g_colorid_state->Erase(outColorId);
+                        if (!fDryRun) g_chainstate_manager.IssuedColorIds().Erase(outColorId);
                         break;
                     }
                 }
@@ -603,7 +602,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
 
     CCheckQueueControl<CScriptCheck> control(fScriptChecks && nScriptCheckThreads ? scriptcheckqueue.get() : nullptr);
     // Accumulate new NON_REISSUABLE/NFT issuances across the whole block.
-    // Staged into g_colorid_state and committed to LevelDB atomically with
+    // Staged into the issued colorIds and committed to LevelDB atomically with
     // DB_BEST_BLOCK only after control.Wait() succeeds, so a late script-check
     // failure cannot leave the global set or the DB in a dirty state.
     std::set<ColorIdentifier> allNewIssuances;
@@ -656,8 +655,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
 
         // Colour checks run before the scripts, as in mempool acceptance.
         PrecomputedColorData colorData(tx, view, pindex->nHeight);
-        if (g_colorid_state)
-            colorData.SetIssued(*g_colorid_state);
+        colorData.SetIssued(g_chainstate_manager.IssuedColorIds());
         const TransactionColorChecker colorChecker(colorData);
         if (!colorChecker.CheckOutputColorIds(state))
             return false;
@@ -743,7 +741,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     // inside the next view.Flush() → BatchWrite call, preventing a crash
     // between the colorId write and the UTXO flush from permanently poisoning
     // the block with bad-txns-colorid-already-issued on restart.
-    g_colorid_state->Insert(allNewIssuances);
+    g_chainstate_manager.IssuedColorIds().Insert(allNewIssuances);
 
     assert(pindex->phashBlock);
     // add this block to the view's block chain
@@ -1651,7 +1649,7 @@ bool CChainState::RollforwardBlock(const CBlockIndex* pindex, CCoinsViewCache& i
         AddCoins(inputs, *tx, pindex->nHeight, true);
     }
 
-    g_colorid_state->Insert(allNewIssuances);
+    g_chainstate_manager.IssuedColorIds().Insert(allNewIssuances);
     return true;
 }
 
