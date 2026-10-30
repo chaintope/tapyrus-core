@@ -386,8 +386,8 @@ target_include_directories(tapyrus_chainstate
 )
 
 # Peer-to-peer networking: connection management, message processing,
-# address manager/database, Tor control, bloom filters, and the compact
-# block/merkle-block relay encodings.
+# address manager/database, Tor control, bloom filters, the orphan
+# transaction pool, and the compact block/merkle-block relay encodings.
 add_library(tapyrus_peer STATIC EXCLUDE_FROM_ALL
   addrdb.cpp
   addrman.cpp
@@ -401,6 +401,7 @@ add_library(tapyrus_peer STATIC EXCLUDE_FROM_ALL
   netmessage.cpp
   netnode.cpp
   nodecontext.cpp
+  orphantxpool.cpp
   partiallydownloadedblock.cpp
   timeoffsets.cpp
   torcontrol.cpp

@@ -44,8 +44,6 @@
 # error "Tapyrus cannot be compiled without assertions."
 #endif
 
-/** Minimum time between orphan transactions expire time checks in seconds */
-static constexpr int64_t ORPHAN_TX_EXPIRE_INTERVAL = 5 * 60;
 /** How long a transaction has to be in the mempool before it can unconditionally be relayed (even when not in mapRelay). */
 static constexpr std::chrono::seconds UNCONDITIONAL_RELAY_DELAY = std::chrono::minutes{2};
 /** Maximum number of entries in mapRelay. Oldest entries are evicted when this is reached. */
@@ -79,17 +77,6 @@ static constexpr int STALE_RELAY_AGE_LIMIT = 30 * 24 * 60 * 60;
 /// limiting block relay. Set to one week, denominated in seconds.
 static constexpr int HISTORICAL_BLOCK_AGE = 7 * 24 * 60 * 60;
 
-struct COrphanTx {
-    // When modifying, adapt the copy of this definition in tests/DoS_tests.
-    CTransactionRef tx;
-    NodeId fromPeer;
-    int64_t nTimeExpire;
-};
-RecursiveMutex g_cs_orphans;
-std::map<uint256, COrphanTx> mapOrphanTransactions GUARDED_BY(g_cs_orphans);
-
-void EraseOrphansFor(NodeId peer);
-
 /** Average delay between local address broadcasts in seconds. */
 static constexpr unsigned int AVG_LOCAL_ADDRESS_BROADCAST_INTERVAL = 24 * 60 * 60;
 /** Average delay between peer address broadcasts in seconds. */
@@ -111,19 +98,6 @@ static_assert(CNodeState::INVENTORY_MAX_RECENT_RELAY >= INVENTORY_BROADCAST_PER_
 static constexpr unsigned int AVG_FEEFILTER_BROADCAST_INTERVAL = 10 * 60;
 /** Maximum feefilter broadcast delay after significant change. */
 static constexpr unsigned int MAX_FEEFILTER_CHANGE_DELAY = 5 * 60;
-
-// Internal stuff
-namespace {
-    struct IteratorComparator
-    {
-        template<typename I>
-        bool operator()(const I& a, const I& b) const
-        {
-            return &(*a) < &(*b);
-        }
-    };
-    std::map<COutPoint, std::set<std::map<uint256, COrphanTx>::iterator, IteratorComparator>> mapOrphanTransactionsByPrev GUARDED_BY(g_cs_orphans);
-} // namespace
 
 CNodeState* PeerManager::State(NodeId pnode) {
     std::map<NodeId, CNodeState>::iterator it = mapNodeState.find(pnode);
@@ -491,7 +465,10 @@ void PeerManager::FinalizeNode(NodeId nodeid, bool& fUpdateConnectionTime) {
             }
         }
     }
-    EraseOrphansFor(nodeid);
+    {
+        LOCK(m_tx_download_mutex);
+        m_orphan_tx_pool.EraseOrphansFor(nodeid);
+    }
     nPreferredDownload -= state->fPreferredDownload;
     nPeersWithValidatedDownloads -= (!state->vBlocksInFlight.empty());
     assert(nPeersWithValidatedDownloads >= 0);
@@ -532,7 +509,7 @@ bool PeerManager::GetNodeStateStats(NodeId nodeid, CNodeStateStats &stats) {
 
 //////////////////////////////////////////////////////////////////////////////
 //
-// mapOrphanTransactions
+// Compact-block extra transactions
 //
 
 void PeerManager::AddToCompactExtraTransactions(const CTransactionRef& tx)
@@ -546,109 +523,6 @@ void PeerManager::AddToCompactExtraTransactions(const CTransactionRef& tx)
     vExtraTxnForCompactIt = (vExtraTxnForCompactIt + 1) % max_extra_txn;
 }
 
-bool AddOrphanTx(const CTransactionRef& tx, NodeId peer) EXCLUSIVE_LOCKS_REQUIRED(g_cs_orphans)
-{
-    const uint256& hash = tx->GetHashMalFix();
-    if (mapOrphanTransactions.count(hash))
-        return false;
-
-    // Ignore big transactions, to avoid a
-    // send-big-orphans memory exhaustion attack. If a peer has a legitimate
-    // large transaction with a missing parent then we assume
-    // it will rebroadcast it later, after the parent transaction(s)
-    // have been mined or received.
-    // 100 orphans, each of which is at most 100,000 bytes big is
-    // at most 10 megabytes of orphans and somewhat more byprev index (in the worst case):
-    unsigned int sz = GetSerializeSize(*tx, SER_NETWORK, PROTOCOL_VERSION);
-    if (sz > g_policy_settings->maxStandardTxSize)
-    {
-        LogPrint(BCLog::MEMPOOL, "ignoring large orphan tx (size: %u, hash: %s)\n", sz, hash.ToString());
-        return false;
-    }
-
-    auto ret = mapOrphanTransactions.emplace(hash, COrphanTx{tx, peer, GetTime() + g_policy_settings->orphanExpiry});
-    assert(ret.second);
-    for (const CTxIn& txin : tx->vin) {
-        mapOrphanTransactionsByPrev[txin.prevout].insert(ret.first);
-    }
-
-    LogPrint(BCLog::MEMPOOL, "stored orphan tx %s (mapsz %u outsz %u)\n", hash.ToString(),
-             mapOrphanTransactions.size(), mapOrphanTransactionsByPrev.size());
-    return true;
-}
-
-int static EraseOrphanTx(uint256 hash) EXCLUSIVE_LOCKS_REQUIRED(g_cs_orphans)
-{
-    std::map<uint256, COrphanTx>::iterator it = mapOrphanTransactions.find(hash);
-    if (it == mapOrphanTransactions.end())
-        return 0;
-    for (const CTxIn& txin : it->second.tx->vin)
-    {
-        auto itPrev = mapOrphanTransactionsByPrev.find(txin.prevout);
-        if (itPrev == mapOrphanTransactionsByPrev.end())
-            continue;
-        itPrev->second.erase(it);
-        if (itPrev->second.empty())
-            mapOrphanTransactionsByPrev.erase(itPrev);
-    }
-    mapOrphanTransactions.erase(it);
-    return 1;
-}
-
-void EraseOrphansFor(NodeId peer)
-{
-    LOCK(g_cs_orphans);
-    int nErased = 0;
-    std::map<uint256, COrphanTx>::iterator iter = mapOrphanTransactions.begin();
-    while (iter != mapOrphanTransactions.end())
-    {
-        std::map<uint256, COrphanTx>::iterator maybeErase = iter++; // increment to avoid iterator becoming invalid
-        if (maybeErase->second.fromPeer == peer)
-        {
-            nErased += EraseOrphanTx(maybeErase->second.tx->GetHashMalFix());
-        }
-    }
-    if (nErased > 0) LogPrint(BCLog::MEMPOOL, "Erased %d orphan tx from peer=%d\n", nErased, peer);
-}
-
-
-unsigned int LimitOrphanTxSize(unsigned int nMaxOrphans)
-{
-    LOCK(g_cs_orphans);
-
-    unsigned int nEvicted = 0;
-    static int64_t nNextSweep;
-    int64_t nNow = GetTime();
-    if (nNextSweep <= nNow) {
-        // Sweep out expired orphan pool entries:
-        int nErased = 0;
-        int64_t nMinExpTime = nNow + g_policy_settings->orphanExpiry - ORPHAN_TX_EXPIRE_INTERVAL;
-        std::map<uint256, COrphanTx>::iterator iter = mapOrphanTransactions.begin();
-        while (iter != mapOrphanTransactions.end())
-        {
-            std::map<uint256, COrphanTx>::iterator maybeErase = iter++;
-            if (maybeErase->second.nTimeExpire <= nNow) {
-                nErased += EraseOrphanTx(maybeErase->second.tx->GetHashMalFix());
-            } else {
-                nMinExpTime = std::min(maybeErase->second.nTimeExpire, nMinExpTime);
-            }
-        }
-        // Sweep again 5 minutes after the next entry that expires in order to batch the linear scan.
-        nNextSweep = nMinExpTime + ORPHAN_TX_EXPIRE_INTERVAL;
-        if (nErased > 0) LogPrint(BCLog::MEMPOOL, "Erased %d orphan tx due to expiration\n", nErased);
-    }
-    while (mapOrphanTransactions.size() > nMaxOrphans)
-    {
-        // Evict a random orphan:
-        uint256 randomhash = GetRandHash();
-        std::map<uint256, COrphanTx>::iterator it = mapOrphanTransactions.lower_bound(randomhash);
-        if (it == mapOrphanTransactions.end())
-            it = mapOrphanTransactions.begin();
-        EraseOrphanTx(it->first);
-        ++nEvicted;
-    }
-    return nEvicted;
-}
 
 /**
  * Increment a peer's misbehavior score; past `-banscore` the peer is disconnected and discouraged.
@@ -717,32 +591,9 @@ PeerManager::PeerManager(CConnman& connman, CScheduler& scheduler)
  * block. Also save the time of the last tip update.
  */
 void PeerManager::BlockConnected(const std::shared_ptr<const CBlock>& pblock, const CBlockIndex* pindex, const std::vector<CTransactionRef>& vtxConflicted) {
-    LOCK(g_cs_orphans);
-
-    std::vector<uint256> vOrphanErase;
-
-    for (const CTransactionRef& ptx : pblock->vtx) {
-        const CTransaction& tx = *ptx;
-
-        // Which orphan pool entries must we evict?
-        for (const auto& txin : tx.vin) {
-            auto itByPrev = mapOrphanTransactionsByPrev.find(txin.prevout);
-            if (itByPrev == mapOrphanTransactionsByPrev.end()) continue;
-            for (auto mi = itByPrev->second.begin(); mi != itByPrev->second.end(); ++mi) {
-                const CTransaction& orphanTx = *(*mi)->second.tx;
-                const uint256& orphanHash = orphanTx.GetHashMalFix();
-                vOrphanErase.push_back(orphanHash);
-            }
-        }
-    }
-
-    // Erase orphan transactions included or precluded by this block
-    if (vOrphanErase.size()) {
-        int nErased = 0;
-        for (uint256 &orphanHash : vOrphanErase) {
-            nErased += EraseOrphanTx(orphanHash);
-        }
-        LogPrint(BCLog::MEMPOOL, "Erased %d orphan tx included or conflicted by block\n", nErased);
+    {
+        LOCK(m_tx_download_mutex);
+        m_orphan_tx_pool.EraseForBlock(*pblock);
     }
 
     m_last_tip_update = GetTime();
@@ -896,10 +747,7 @@ bool PeerManager::AlreadyHave(const CInv& inv)
                 recentRejects->reset();
             }
 
-            {
-                LOCK(g_cs_orphans);
-                if (mapOrphanTransactions.count(inv.hash)) return true;
-            }
+            if (m_orphan_tx_pool.HaveTx(inv.hash)) return true;
 
             return recentRejects->contains(inv.hash) ||
                    mempool.exists(inv.hash) ||
@@ -1423,19 +1271,19 @@ bool PeerManager::ProcessHeadersMessage(CNode* pfrom, const std::vector<CBlockHe
 void PeerManager::ProcessOrphanTx(std::set<uint256>& orphan_work_set)
 {
     AssertLockHeld(cs_main);
-    AssertLockHeld(g_cs_orphans);
+    AssertLockHeld(m_tx_download_mutex);
     std::set<NodeId> setMisbehaving;
     bool done = false;
     while (!done && !orphan_work_set.empty()) {
         const uint256 orphanHash = *orphan_work_set.begin();
         orphan_work_set.erase(orphan_work_set.begin());
 
-        auto orphan_it = mapOrphanTransactions.find(orphanHash);
-        if (orphan_it == mapOrphanTransactions.end()) continue;
+        const std::optional<COrphanTx> orphan = m_orphan_tx_pool.GetTx(orphanHash);
+        if (!orphan) continue;
 
-        const CTransactionRef porphanTx = orphan_it->second.tx;
+        const CTransactionRef porphanTx = orphan->tx;
         const CTransaction& orphanTx = *porphanTx;
-        NodeId fromPeer = orphan_it->second.fromPeer;
+        NodeId fromPeer = orphan->fromPeer;
 
         if (setMisbehaving.count(fromPeer)) continue;
         CTxMempoolAcceptanceOptions opt;
@@ -1443,15 +1291,8 @@ void PeerManager::ProcessOrphanTx(std::set<uint256>& orphan_work_set)
         if (AcceptToMemoryPool(porphanTx, opt)) {
             LogPrint(BCLog::MEMPOOL, "   accepted orphan tx %s\n", orphanHash.ToString());
             RelayTransaction(orphanTx, &m_connman);
-            for (unsigned int i = 0; i < orphanTx.vout.size(); i++) {
-                auto it_by_prev = mapOrphanTransactionsByPrev.find(COutPoint(orphanHash, i));
-                if (it_by_prev != mapOrphanTransactionsByPrev.end()) {
-                    for (const auto& elem : it_by_prev->second) {
-                        orphan_work_set.insert(elem->first);
-                    }
-                }
-            }
-            EraseOrphanTx(orphanHash);
+            m_orphan_tx_pool.AddChildrenToWorkSet(orphanTx, orphan_work_set);
+            m_orphan_tx_pool.EraseOrphanTx(orphanHash);
             done = true;
         } else if (!opt.missingInputs.size()) {
             int nDos = 0;
@@ -1468,7 +1309,7 @@ void PeerManager::ProcessOrphanTx(std::set<uint256>& orphan_work_set)
                 assert(recentRejects);
                 recentRejects->insert(orphanHash);
             }
-            EraseOrphanTx(orphanHash);
+            m_orphan_tx_pool.EraseOrphanTx(orphanHash);
             done = true;
         }
         mempool.check(pcoinsTip.get());
@@ -1880,6 +1721,7 @@ bool PeerManager::ProcessMessage(CNode* pfrom, const std::string& strCommand, CD
             fBlocksOnly = false;
 
         LOCK(cs_main);
+        LOCK(m_tx_download_mutex);
         uint256* best_block{nullptr};
 
         for (CInv &inv : vInv)
@@ -2148,7 +1990,8 @@ bool PeerManager::ProcessMessage(CNode* pfrom, const std::string& strCommand, CD
         CInv inv(MSG_TX, tx.GetHashMalFix());
         pfrom->AddInventoryKnown(inv);
 
-        LOCK2(cs_main, g_cs_orphans);
+        LOCK(cs_main);
+        LOCK(m_tx_download_mutex);
 
         pfrom->setAskFor.erase(inv.hash);
         mapAlreadyAskedFor.erase(inv.hash);
@@ -2158,14 +2001,7 @@ bool PeerManager::ProcessMessage(CNode* pfrom, const std::string& strCommand, CD
             AcceptToMemoryPool(ptx, opt)) {
             mempool.check(pcoinsTip.get());
             RelayTransaction(tx, &m_connman);
-            for (unsigned int i = 0; i < tx.vout.size(); i++) {
-                auto it_by_prev = mapOrphanTransactionsByPrev.find(COutPoint(inv.hash, i));
-                if (it_by_prev != mapOrphanTransactionsByPrev.end()) {
-                    for (const auto& elem : it_by_prev->second) {
-                        pfrom->orphan_work_set.insert(elem->first);
-                    }
-                }
-            }
+            m_orphan_tx_pool.AddChildrenToWorkSet(tx, pfrom->orphan_work_set);
 
             pfrom->nLastTXTime = GetTime();
 
@@ -2192,11 +2028,11 @@ bool PeerManager::ProcessMessage(CNode* pfrom, const std::string& strCommand, CD
                     pfrom->AddInventoryKnown(_inv);
                     if (!AlreadyHave(_inv)) pfrom->AskFor(_inv);
                 }
-                if (AddOrphanTx(ptx, pfrom->GetId())) AddToCompactExtraTransactions(ptx);
+                if (m_orphan_tx_pool.AddOrphanTx(ptx, pfrom->GetId())) AddToCompactExtraTransactions(ptx);
 
-                // DoS prevention: do not allow mapOrphanTransactions to grow unbounded
+                // DoS prevention: do not allow the orphan pool to grow unbounded
                 unsigned int nMaxOrphanTx = g_policy_settings->maxOrphanTx;
-                unsigned int nEvicted = LimitOrphanTxSize(nMaxOrphanTx);
+                unsigned int nEvicted = m_orphan_tx_pool.LimitOrphanTxSize(nMaxOrphanTx);
                 if (nEvicted > 0) {
                     LogPrint(BCLog::MEMPOOL, "mapOrphan overflow, removed %u tx\n", nEvicted);
                 }
@@ -2305,7 +2141,8 @@ bool PeerManager::ProcessMessage(CNode* pfrom, const std::string& strCommand, CD
         bool fBlockReconstructed = false;
 
         {
-        LOCK2(cs_main, g_cs_orphans);
+        LOCK(cs_main);
+        LOCK(m_tx_download_mutex);
         // If AcceptBlockHeader returned true, it set pindex
         assert(pindex);
         UpdateBlockAvailability(pfrom->GetId(), pindex->GetBlockHash());
@@ -2930,7 +2767,8 @@ bool PeerManager::ProcessMessages(CNode* pfrom, std::atomic<bool>& interruptMsgP
         ProcessGetData(pfrom, interruptMsgProc);
 
     if (!pfrom->orphan_work_set.empty()) {
-        LOCK2(cs_main, g_cs_orphans);
+        LOCK(cs_main);
+        LOCK(m_tx_download_mutex);
         ProcessOrphanTx(pfrom->orphan_work_set);
 
     }
@@ -3676,23 +3514,26 @@ bool PeerManager::SendMessages(CNode* pto)
         //
         // Message: getdata (non-blocks)
         //
-        while (!pto->mapAskFor.empty() && (*pto->mapAskFor.begin()).first <= nNow)
         {
-            const CInv& inv = (*pto->mapAskFor.begin()).second;
-            if (!AlreadyHave(inv))
+            LOCK(m_tx_download_mutex);
+            while (!pto->mapAskFor.empty() && (*pto->mapAskFor.begin()).first <= nNow)
             {
-                LogPrint(BCLog::NET, "Requesting %s peer=%d\n", inv.ToString(), pto->GetId());
-                vGetData.push_back(inv);
-                if (vGetData.size() >= 1000)
+                const CInv& inv = (*pto->mapAskFor.begin()).second;
+                if (!AlreadyHave(inv))
                 {
-                    m_connman.PushMessage(pto, msgMaker.Make(NetMsgType::GETDATA, vGetData));
-                    vGetData.clear();
+                    LogPrint(BCLog::NET, "Requesting %s peer=%d\n", inv.ToString(), pto->GetId());
+                    vGetData.push_back(inv);
+                    if (vGetData.size() >= 1000)
+                    {
+                        m_connman.PushMessage(pto, msgMaker.Make(NetMsgType::GETDATA, vGetData));
+                        vGetData.clear();
+                    }
+                } else {
+                    //If we're not going to ask, don't expect a response.
+                    pto->setAskFor.erase(inv.hash);
                 }
-            } else {
-                //If we're not going to ask, don't expect a response.
-                pto->setAskFor.erase(inv.hash);
+                pto->mapAskFor.erase(pto->mapAskFor.begin());
             }
-            pto->mapAskFor.erase(pto->mapAskFor.begin());
         }
         if (!vGetData.empty())
             m_connman.PushMessage(pto, msgMaker.Make(NetMsgType::GETDATA, vGetData));
@@ -3728,13 +3569,3 @@ bool PeerManager::SendMessages(CNode* pto)
     return true;
 }
 
-class CNetProcessingCleanup
-{
-public:
-    CNetProcessingCleanup() {}
-    ~CNetProcessingCleanup() {
-        // orphan transactions
-        mapOrphanTransactions.clear();
-        mapOrphanTransactionsByPrev.clear();
-    }
-} instance_of_cnetprocessingcleanup;

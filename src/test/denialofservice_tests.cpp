@@ -11,6 +11,7 @@
 #include <connman.h>
 #include <netnode.h>
 #include <net_processing.h>
+#include <orphantxpool.h>
 #include <script/sign.h>
 #include <serialize.h>
 #include <util.h>
@@ -22,17 +23,20 @@
 
 #include <boost/test/unit_test.hpp>
 
-// Tests these internal-to-net_processing.cpp methods:
-extern bool AddOrphanTx(const CTransactionRef& tx, NodeId peer);
-extern void EraseOrphansFor(NodeId peer);
-extern unsigned int LimitOrphanTxSize(unsigned int nMaxOrphans);
+/** An orphan pool that also exposes its size and a random orphan to the test. */
+class OrphanTxPoolTest : public OrphanTxPool
+{
+public:
+    size_t Size() const { return mapOrphanTransactions.size(); }
 
-struct COrphanTx {
-    CTransactionRef tx;
-    NodeId fromPeer;
-    int64_t nTimeExpire;
+    CTransactionRef RandomOrphan()
+    {
+        std::map<uint256, COrphanTx>::iterator it = mapOrphanTransactions.lower_bound(InsecureRand256());
+        if (it == mapOrphanTransactions.end())
+            it = mapOrphanTransactions.begin();
+        return it->second.tx;
+    }
 };
-extern std::map<uint256, COrphanTx> mapOrphanTransactions;
 
 static CService ip(uint32_t i)
 {
@@ -326,22 +330,13 @@ BOOST_AUTO_TEST_CASE(DoS_discourage_lasts)
     m_node.peerman->FinalizeNode(dummyNode.GetId(), dummy);
 }
 
-static CTransactionRef RandomOrphan()
-{
-    std::map<uint256, COrphanTx>::iterator it;
-    LOCK(cs_main);
-    it = mapOrphanTransactions.lower_bound(InsecureRand256());
-    if (it == mapOrphanTransactions.end())
-        it = mapOrphanTransactions.begin();
-    return it->second.tx;
-}
-
 BOOST_AUTO_TEST_CASE(DoS_mapOrphans)
 {
     CKey key;
     key.MakeNewKey(true);
     CBasicKeyStore keystore;
     keystore.AddKey(key);
+    OrphanTxPoolTest orphans;
 
     // 50 orphan transactions:
     for (int i = 0; i < 50; i++)
@@ -355,13 +350,13 @@ BOOST_AUTO_TEST_CASE(DoS_mapOrphans)
         tx.vout[0].nValue = 1*CENT;
         tx.vout[0].scriptPubKey = GetScriptForDestination(key.GetPubKey().GetID());
 
-        AddOrphanTx(MakeTransactionRef(tx), i);
+        orphans.AddOrphanTx(MakeTransactionRef(tx), i);
     }
 
     // ... and 50 that depend on other orphans:
     for (int i = 0; i < 50; i++)
     {
-        CTransactionRef txPrev = RandomOrphan();
+        CTransactionRef txPrev = orphans.RandomOrphan();
 
         CMutableTransaction tx;
         tx.vin.resize(1);
@@ -372,13 +367,13 @@ BOOST_AUTO_TEST_CASE(DoS_mapOrphans)
         tx.vout[0].scriptPubKey = GetScriptForDestination(key.GetPubKey().GetID());
         SignSignature(keystore, *txPrev, tx, 0, SIGHASH_ALL);
 
-        AddOrphanTx(MakeTransactionRef(tx), i);
+        orphans.AddOrphanTx(MakeTransactionRef(tx), i);
     }
 
     // This really-big orphan should be ignored:
     for (int i = 0; i < 10; i++)
     {
-        CTransactionRef txPrev = RandomOrphan();
+        CTransactionRef txPrev = orphans.RandomOrphan();
 
         CMutableTransaction tx;
         tx.vout.resize(1);
@@ -396,25 +391,24 @@ BOOST_AUTO_TEST_CASE(DoS_mapOrphans)
         for (unsigned int j = 1; j < tx.vin.size(); j++)
             tx.vin[j].scriptSig = tx.vin[0].scriptSig;
 
-        BOOST_CHECK(!AddOrphanTx(MakeTransactionRef(tx), i));
+        BOOST_CHECK(!orphans.AddOrphanTx(MakeTransactionRef(tx), i));
     }
 
-    LOCK(cs_main);
     // Test EraseOrphansFor:
     for (NodeId i = 0; i < 3; i++)
     {
-        size_t sizeBefore = mapOrphanTransactions.size();
-        EraseOrphansFor(i);
-        BOOST_CHECK(mapOrphanTransactions.size() < sizeBefore);
+        size_t sizeBefore = orphans.Size();
+        orphans.EraseOrphansFor(i);
+        BOOST_CHECK(orphans.Size() < sizeBefore);
     }
 
     // Test LimitOrphanTxSize() function:
-    LimitOrphanTxSize(40);
-    BOOST_CHECK(mapOrphanTransactions.size() <= 40);
-    LimitOrphanTxSize(10);
-    BOOST_CHECK(mapOrphanTransactions.size() <= 10);
-    LimitOrphanTxSize(0);
-    BOOST_CHECK(mapOrphanTransactions.empty());
+    orphans.LimitOrphanTxSize(40);
+    BOOST_CHECK(orphans.Size() <= 40);
+    orphans.LimitOrphanTxSize(10);
+    BOOST_CHECK(orphans.Size() <= 10);
+    orphans.LimitOrphanTxSize(0);
+    BOOST_CHECK(orphans.Size() == 0);
 }
 
 BOOST_AUTO_TEST_SUITE_END()
