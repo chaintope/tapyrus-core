@@ -29,7 +29,8 @@ import tempfile
 import re
 import logging
 
-from test_framework.timeout_config import TOTAL_TEST_DURATION
+from combine_logs import read_logs
+from test_framework.timeout_config import TAPYRUSD_PROC_TIMEOUT, TOTAL_TEST_DURATION
 
 # Formatting. Default colors to empty strings.
 BOLD, BLUE, RED, GREY, YELLOW = ("", ""), ("", ""), ("", ""), ("", ""), ("", "")
@@ -395,42 +396,94 @@ def main():
     if not args.keepcache:
         shutil.rmtree("%s/test/cache" % config["environment"]["BUILDDIR"], ignore_errors=True)
 
-    exit_code, retry_list = run_tests(
+    # One coverage directory for both passes, so the report covers the whole
+    # run rather than only the retried tests.
+    coverage = None
+    if args.coverage:
+        coverage = RPCCoverage(tmpdir)
+        logging.debug("Initializing coverage directory at %s" % coverage.dir)
+
+    start_time = time.time()
+    test_results, retry_list = run_tests(
         test_list,
         config["environment"]["SRCDIR"],
         config["environment"]["BUILDDIR"],
         tmpdir,
         jobs=args.jobs,
-        enable_coverage=args.coverage,
+        coverage=coverage,
         args=passon_args,
         combined_logs_len=args.combinedlogslen,
         failfast=args.failfast,
         test_timeout=args.test_timeout,
     )
 
-    if len(retry_list) == 0:
-        sys.exit(exit_code)
+    # The exit code is decided from both passes together, so a failure in the
+    # first pass is never hidden by a timeout that passes on retry.
+    stopped_by_failfast = args.failfast and any(r.status in ("Failed", "Killed") for r in test_results)
+    if retry_list and stopped_by_failfast:
+        print("Not retrying TIMEOUT tests: --failfast stopped the run after a failure.")
+    elif retry_list:
+        print("Retrying TIMEOUT tests.")
 
-    print("Retrying TIMEOUT tests.")
+        retry_results, _ = run_tests(
+            retry_list,
+            config["environment"]["SRCDIR"],
+            config["environment"]["BUILDDIR"],
+            # A test that timed out keeps its directory, and the retry can give
+            # it the same name, so retries get a directory of their own.
+            os.path.join(tmpdir, "retry"),
+            jobs=1,
+            coverage=coverage,
+            args=passon_args,
+            combined_logs_len=args.combinedlogslen,
+            failfast=args.failfast,
+            test_timeout=args.test_timeout,
+            retry=True,
+        )
 
-    exit_code, retry = run_tests(
-        retry_list,
-        config["environment"]["SRCDIR"],
-        config["environment"]["BUILDDIR"],
-        tmpdir,
-        jobs=1,
-        enable_coverage=args.coverage,
-        args=passon_args,
-        combined_logs_len=args.combinedlogslen,
-        failfast=args.failfast,
-        test_timeout=args.test_timeout,
-        retry = True
-    )
+        retried = {r.name: r for r in retry_results}
+        for i, test_result in enumerate(test_results):
+            if test_result.name in retried:
+                test_results[i] = retried[test_result.name]
+                if test_results[i].status == "Passed":
+                    test_results[i].status = "Flaky"
 
-    sys.exit(exit_code)
+        print(BOLD[1] + "\nCombined results of both passes:" + BOLD[0])
+        print_results(test_results, len(max((r.name for r in test_results), key=len)), int(time.time() - start_time))
+
+        flaky = sorted(r.name for r in test_results if r.status == "Flaky")
+        if flaky:
+            print("{}WARNING!{} These tests timed out in the first pass and passed only on retry; "
+                  "their first-pass output is printed above:\n  {}".format(BOLD[1], BOLD[0], "\n  ".join(flaky)))
+
+    if coverage:
+        coverage.report_rpc_coverage()
+
+        logging.debug("Cleaning up coverage data")
+        coverage.cleanup()
+        if not os.listdir(tmpdir):
+            os.rmdir(tmpdir)
+
+    failed = [r for r in test_results if not r.was_successful]
+    if failed:
+        print(BOLD[1] + "\nFailure summary:" + BOLD[0])
+        for test_result in sorted(failed, key=TestResult.sort_key):
+            print("{}{}{} | {}".format(BOLD[1], test_result.name, BOLD[0], test_result.status))
+            logs = test_result.logs
+            if test_result.status == "Killed":
+                print("  error:      killed after exceeding --test-timeout=%s s" % args.test_timeout)
+            elif logs is not None:
+                print("  error:      %s" % (logs.error_type or "no traceback in test_framework.log"))
+            if logs is None:
+                print("  logs:       no test directory was created")
+                continue
+            print("  last ERROR: %s" % (logs.error_line or "none"))
+            print("  logs:       %s" % (logs.read_error or logs.combined_log))
+
+    sys.exit(0 if all(r.was_successful for r in test_results) else 1)
 
 
-def run_tests(test_list, src_dir, build_dir, tmpdir, jobs=1, enable_coverage=False, args=None, combined_logs_len=0, failfast=False, test_timeout=TOTAL_TEST_DURATION, retry = False):
+def run_tests(test_list, src_dir, build_dir, tmpdir, jobs=1, coverage=None, args=None, combined_logs_len=0, failfast=False, test_timeout=TOTAL_TEST_DURATION, retry = False):
     args = args or []
 
     # Warn if tapyrusd is already running (unix only)
@@ -441,25 +494,22 @@ def run_tests(test_list, src_dir, build_dir, tmpdir, jobs=1, enable_coverage=Fal
         pass
 
     tests_dir = src_dir + '/test/functional/'
+    os.makedirs(tmpdir, exist_ok=True)
 
-    flags = args
+    # The retry pass needs --cachedir too, or its tests fall back to a cache
+    # in the source tree.
+    cache_dir = "%s/test/cache" % build_dir
+    flags = ['--cachedir={}'.format(cache_dir)] + args
 
-    if enable_coverage:
-        coverage = RPCCoverage()
+    if coverage:
         flags.append(coverage.flag)
-        logging.debug("Initializing coverage directory at %s" % coverage.dir)
-    else:
-        coverage = None
 
     # create cache only on first attempt
     if not retry :
 
         # Warn if there is a cache directory
-        cache_dir = "%s/test/cache" % build_dir
         if os.path.isdir(cache_dir):
             print("%sWARNING!%s There is a cache directory here: %s. If tests fail unexpectedly, try deleting the cache directory." % (BOLD[1], BOLD[0], cache_dir))
-
-        flags = ['--cachedir={}'.format(cache_dir)] + args
 
         if len(test_list) > 1 and jobs > 1:
             # Populate cache
@@ -477,19 +527,31 @@ def run_tests(test_list, src_dir, build_dir, tmpdir, jobs=1, enable_coverage=Fal
 
     max_len_name = len(max(test_list, key=len))
 
-    for _ in range(len(test_list)):
-        test_result, testdir, stdout, stderr = job_queue.get_next()
-        test_results.append(test_result)
+    try:
+        for _ in range(len(test_list)):
+            test_result, testdir, stdout, stderr = job_queue.get_next()
+            test_results.append(test_result)
 
-        if test_result.status == "Passed":
-            logging.debug("\n%s%s%s passed, Duration: %s s" % (BOLD[1], test_result.name, BOLD[0], test_result.time))
-        elif test_result.status == "Skipped":
-            logging.debug("\n%s%s%s skipped" % (BOLD[1], test_result.name, BOLD[0]))
-        elif test_result.status == "Timeout" and not retry :
-            logging.debug("\n%s%s%s timeout" % (BOLD[1], test_result.name, BOLD[0]))
-            retry_list.append(test_result.name)
-        else:
-            print("\n%s%s%s failed, Duration: %s s\n" % (BOLD[1], test_result.name, BOLD[0], test_result.time))
+            if test_result.status == "Passed":
+                logging.debug("\n%s%s%s passed, Duration: %s s" % (BOLD[1], test_result.name, BOLD[0], test_result.time))
+                continue
+            if test_result.status == "Skipped":
+                logging.debug("\n%s%s%s skipped" % (BOLD[1], test_result.name, BOLD[0]))
+                continue
+
+            if os.path.isdir(testdir):
+                test_result.logs = FailedTestLogs(testdir)
+
+            # Timeouts print their output too: if the retry passes, this is the
+            # only record of why the test timed out.
+            will_retry = test_result.status == "Timeout" and not retry
+            if will_retry:
+                print("\n%s%s%s timed out inside the test, will retry, Duration: %s s\n" % (BOLD[1], test_result.name, BOLD[0], test_result.time))
+                retry_list.append(test_result.name)
+            elif test_result.status == "Killed":
+                print("\n%s%s%s killed by test_runner after exceeding --test-timeout=%s s, Duration: %s s\n" % (BOLD[1], test_result.name, BOLD[0], test_timeout, test_result.time))
+            else:
+                print("\n%s%s%s failed, Duration: %s s\n" % (BOLD[1], test_result.name, BOLD[0], test_result.time))
             print(BOLD[1] + 'stdout:\n' + BOLD[0] + stdout + '\n')
             print(BOLD[1] + 'stderr:\n' + BOLD[0] + stderr + '\n')
             if combined_logs_len and os.path.isdir(testdir):
@@ -501,29 +563,27 @@ def run_tests(test_list, src_dir, build_dir, tmpdir, jobs=1, enable_coverage=Fal
                 combined_logs, _ = subprocess.Popen([sys.executable, os.path.join(tests_dir, 'combine_logs.py'), '-c', testdir], universal_newlines=True, stdout=subprocess.PIPE).communicate()
                 print("\n".join(deque(combined_logs.splitlines(), combined_logs_len)))
 
-            if failfast:
+            if failfast and not will_retry:
                 logging.debug("Early exiting after test failure")
                 break
+    except KeyboardInterrupt:
+        # Tests run in their own sessions, so a terminal Ctrl-C reaches only
+        # the runner; pass it on so each test stops its nodes.
+        print("\nInterrupted, stopping running tests.")
+        job_queue.interrupt_and_join()
+        raise
 
     print_results(test_results, max_len_name, (int(time.time() - start_time)))
-
-    if coverage:
-        coverage.report_rpc_coverage()
-
-        logging.debug("Cleaning up coverage data")
-        coverage.cleanup()
 
     # Clear up the temp directory if all subdirectories are gone
     if not os.listdir(tmpdir):
         os.rmdir(tmpdir)
 
-    all_passed = all(map(lambda test_result: test_result.was_successful, test_results))
-
     # This will be a no-op unless failfast is True in which case there may be dangling
     # processes which need to be killed.
     job_queue.kill_and_join()
 
-    return (not all_passed), retry_list
+    return test_results, retry_list
 
 def print_results(test_results, max_len_name, runtime):
     results = "\n" + BOLD[1] + "%s | %s | %s\n\n" % ("TEST".ljust(max_len_name), "STATUS   ", "DURATION") + BOLD[0]
@@ -560,8 +620,14 @@ class TestHandler:
         self.test_list = test_list
         self.flags = flags
         self.test_timeout = test_timeout
+        # How long a test may take to stop its nodes after SIGINT before its
+        # process group is killed.
+        self.kill_grace = TAPYRUSD_PROC_TIMEOUT
         self.num_running = 0
         self.jobs = []
+        self.interrupt_times = {}
+        # --noshutdown leaves a test's nodes running on purpose.
+        self.keep_nodes = "--noshutdown" in (flags or [])
 
     def get_next(self):
         while self.num_running < self.num_jobs and self.test_list:
@@ -580,7 +646,9 @@ class TestHandler:
                               subprocess.Popen([sys.executable, self.tests_dir + test_argv[0]] + test_argv[1:] + self.flags + portseed_arg + tmpdir_arg,
                               universal_newlines=True,
                               stdout=log_stdout,
-                              stderr=log_stderr),
+                              stderr=log_stderr,
+                              # Own session, so the test and its nodes can be killed as one group.
+                              start_new_session=True),
                               testdir,
                               log_stdout,
                               log_stderr))
@@ -591,22 +659,35 @@ class TestHandler:
             time.sleep(.5)
             for job in self.jobs:
                 (name, start_time, proc, testdir, log_out, log_err) = job
-                if int(time.time() - start_time) > self.test_timeout:
-                    # In travis, timeout individual tests (to stop tests hanging and not providing useful output).
-                    proc.send_signal(signal.SIGINT)
+                if proc.poll() is None and int(time.time() - start_time) > self.test_timeout:
+                    # Stop a hung test: SIGINT lets it shut down its nodes, and
+                    # if it is still running after the grace period its whole
+                    # process group is killed.
+                    if proc not in self.interrupt_times:
+                        proc.send_signal(signal.SIGINT)
+                        self.interrupt_times[proc] = time.time()
+                    elif time.time() - self.interrupt_times[proc] > self.kill_grace:
+                        self._kill_group(proc)
                 if proc.poll() is not None:
                     log_out.seek(0), log_err.seek(0)
                     [stdout, stderr] = [log_file.read().decode('utf-8') for log_file in (log_out, log_err)]
                     log_out.close(), log_err.close()
-                    if proc.returncode == TEST_EXIT_PASSED and stderr == "":
+                    if self.interrupt_times.pop(proc, None) is not None:
+                        status = "Killed"
+                    elif proc.returncode == TEST_EXIT_PASSED and stderr == "":
                         status = "Passed"
                     elif proc.returncode == TEST_EXIT_SKIPPED:
                         status = "Skipped"
                     elif proc.returncode == TEST_EXIT_TIMEOUT:
                         status = "Timeout"
-                        proc.send_signal(signal.SIGINT)
                     else:
                         status = "Failed"
+                    # A test that exits with nodes still running would leave
+                    # them behind for the rest of the run.
+                    if not self.keep_nodes and self._group_alive(proc):
+                        if status != "Killed":
+                            print("\n%sWARNING!%s %s exited with processes still running in its group; killing them." % (BOLD[1], BOLD[0], name))
+                        self._kill_group(proc)
                     self.num_running -= 1
                     self.jobs.remove(job)
 
@@ -614,14 +695,83 @@ class TestHandler:
             print('.', end='', flush=True)
 
     def kill_and_join(self):
-        """Send SIGKILL to all jobs and block until all have ended."""
+        """Send SIGKILL to all jobs and their nodes and block until all have ended."""
         procs = [i[2] for i in self.jobs]
 
         for proc in procs:
-            proc.kill()
+            self._kill_group(proc)
 
         for proc in procs:
             proc.wait()
+
+    def interrupt_and_join(self):
+        """Send SIGINT to all jobs, give them the grace period to stop their
+        nodes, then kill whatever is left."""
+        procs = [i[2] for i in self.jobs]
+
+        for proc in procs:
+            proc.send_signal(signal.SIGINT)
+
+        deadline = time.time() + self.kill_grace
+        for proc in procs:
+            try:
+                proc.wait(timeout=max(0, deadline - time.time()))
+            except subprocess.TimeoutExpired:
+                pass
+
+        self.kill_and_join()
+
+    def _group_alive(self, proc):
+        if os.name != 'posix':
+            return False
+        try:
+            os.killpg(proc.pid, 0)
+            return True
+        except (ProcessLookupError, PermissionError):
+            return False
+
+    def _kill_group(self, proc):
+        if os.name != 'posix':
+            proc.kill()
+            return
+        try:
+            # The group outlives an exited test while its nodes still run.
+            os.killpg(proc.pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+
+
+class FailedTestLogs():
+    """Writes a failed test's combined log into its test directory, so the
+    uploaded test directory carries it, and picks out what the failure
+    summary shows from it."""
+
+    TRACEBACK = "Traceback (most recent call last):"
+
+    def __init__(self, testdir):
+        self.combined_log = os.path.join(testdir, "combined.log")
+        self.error_type = None
+        self.error_line = None
+        self.read_error = None
+        try:
+            self._combine(testdir)
+        except (OSError, UnicodeDecodeError) as e:
+            # The summary must still print when a log is unreadable.
+            self.read_error = "could not combine logs: %s" % e
+
+    def _combine(self, testdir):
+        with open(self.combined_log, "w", encoding="utf8") as combined:
+            for event in read_logs(testdir):
+                combined.write("{} {}\n".format(event.source.ljust(5), event.event))
+                lines = event.event.splitlines()
+                if not lines:
+                    continue
+                if "ERROR" in lines[0]:
+                    self.error_line = "{} {}".format(event.source.ljust(5), lines[0])
+                # The traceback's last line names the exception, e.g.
+                # "AssertionError: not(1 == 2)".
+                if event.source == "test" and self.TRACEBACK in event.event:
+                    self.error_type = lines[-1].strip()
 
 
 class TestResult():
@@ -630,28 +780,33 @@ class TestResult():
         self.status = status
         self.time = time
         self.padding = 0
+        self.logs = None
 
     def sort_key(self):
         if self.status == "Passed":
             return 0, self.name.lower()
-        elif self.status == "Failed":
-            return 2, self.name.lower()
         elif self.status == "Skipped":
             return 1, self.name.lower()
-        elif self.status == "Timeout":
+        elif self.status == "Flaky":
+            return 2, self.name.lower()
+        elif self.status == "Failed":
             return 3, self.name.lower()
+        elif self.status == "Killed":
+            return 4, self.name.lower()
+        elif self.status == "Timeout":
+            return 5, self.name.lower()
 
     def __repr__(self):
         if self.status == "Passed":
             color = BLUE
             glyph = TICK
-        elif self.status == "Failed":
+        elif self.status in ("Failed", "Killed"):
             color = RED
             glyph = CROSS
         elif self.status == "Skipped":
             color = GREY
             glyph = CIRCLE
-        elif self.status == "Timeout":
+        elif self.status in ("Timeout", "Flaky"):
             color = YELLOW
             glyph = BOX
 
@@ -659,7 +814,7 @@ class TestResult():
 
     @property
     def was_successful(self):
-        return self.status != "Failed" and self.status != "Timeout"
+        return self.status not in ("Failed", "Killed", "Timeout")
 
 
 def check_script_prefixes():
@@ -684,9 +839,6 @@ def check_script_list(src_dir):
     missed_tests = list(python_files - set(map(lambda x: x.split()[0], ALL_SCRIPTS + NON_SCRIPTS + DEBUG_MODE_SCRIPTS + HEAVY_SCRIPTS + USDT_SCRIPTS)))
     if len(missed_tests) != 0:
         print("%sWARNING!%s The following scripts are not being run: %s. Check the test lists in test_runner.py." % (BOLD[1], BOLD[0], str(missed_tests)))
-        if os.getenv('TRAVIS') == 'true':
-            # On travis this warning is an error to prevent merging incomplete commits into master
-            sys.exit(1)
 
 class RPCCoverage():
     """
@@ -703,8 +855,11 @@ class RPCCoverage():
     See also: test/functional/test_framework/coverage.py
 
     """
-    def __init__(self):
-        self.dir = tempfile.mkdtemp(prefix="coverage")
+    def __init__(self, tmpdir):
+        # Under the run's tmpdir, so it is uploaded with the test results and
+        # is not left in the system temp directory if the run is interrupted.
+        self.dir = os.path.join(tmpdir, "coverage")
+        os.makedirs(self.dir)
         self.flag = '--coveragedir=%s' % self.dir
 
     def report_rpc_coverage(self):

@@ -80,7 +80,7 @@ def get_log_events(source, logfile):
                     timestamp = time_match.group()
                 # if it doesn't have a timestamp, it's a continuation line of the previous log.
                 else:
-                    event += "\n" + line
+                    event += line
             # Flush the final event
             yield LogEvent(timestamp=timestamp, source=source, event=event.rstrip())
     except FileNotFoundError:
