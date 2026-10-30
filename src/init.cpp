@@ -225,7 +225,7 @@ void Shutdown(NodeContext& node)
 
     // Because these depend on each-other, we make sure that neither can be
     // using the other before destroying them.
-    if (node.peer_logic) UnregisterValidationInterface(node.peer_logic.get());
+    if (node.peerman) UnregisterValidationInterface(node.peerman.get());
     if (node.connman) node.connman->Stop();
     if (g_txindex) g_txindex->Stop();
 
@@ -237,7 +237,7 @@ void Shutdown(NodeContext& node)
 
     // After the threads that potentially access these pointers have been stopped,
     // destruct and reset all to nullptr.
-    node.peer_logic.reset();
+    node.peerman.reset();
     node.connman.reset();
     g_txindex.reset();
 
@@ -1314,8 +1314,8 @@ bool AppInitMain(NodeContext& node)
     node.connman = std::unique_ptr<CConnman>(new CConnman(GetRand(std::numeric_limits<uint64_t>::max()), GetRand(std::numeric_limits<uint64_t>::max())));
     CConnman& connman = *node.connman;
 
-    node.peer_logic.reset(new PeerLogicValidation(connman, scheduler));
-    RegisterValidationInterface(node.peer_logic.get());
+    node.peerman.reset(new PeerManager(connman, scheduler));
+    RegisterValidationInterface(node.peerman.get());
 
     // sanitize comments per BIP-0014, format user agent and check total size
     std::vector<std::string> uacomments;
@@ -1747,7 +1747,7 @@ bool AppInitMain(NodeContext& node)
     connOptions.nMaxFeeler = 1;
     connOptions.nBestHeight = chain_active_height;
     connOptions.uiInterface = &uiInterface;
-    connOptions.m_msgproc = node.peer_logic.get();
+    connOptions.m_msgproc = node.peerman.get();
     connOptions.nSendBufferMaxSize = 1000*gArgs.GetArg("-maxsendbuffer", DEFAULT_MAXSENDBUFFER);
     connOptions.nReceiveFloodSize = 1000*gArgs.GetArg("-maxreceivebuffer", DEFAULT_MAXRECEIVEBUFFER);
     connOptions.m_added_nodes = gArgs.GetArgs("-addnode");
