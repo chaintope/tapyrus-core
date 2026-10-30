@@ -10,6 +10,7 @@
 
 #include <tapyrus-config.h>
 
+#include <nodecontext.h>
 #include <rpc/protocol.h>
 #include <rpc/jsonrpcrequest.h>
 #include <univalue.h>
@@ -25,7 +26,8 @@ static int test_one_input_jsonrpcrequest_parse(const uint8_t* data, size_t size)
     UniValue val_request;
     if (!val_request.read(json)) return 0;
 
-    JSONRPCRequest request;
+    NodeContext node;
+    JSONRPCRequest request(node);
     try {
         request.parse(val_request);
     } catch (const UniValue&) {

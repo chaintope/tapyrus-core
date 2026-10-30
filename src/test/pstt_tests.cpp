@@ -11,6 +11,7 @@
 #include <core_io.h>
 #include <key.h>
 #include <key_io.h>
+#include <nodecontext.h>
 #include <policy/policy.h>
 #include <random.h>
 #include <rpc/jsonrpcrequest.h>
@@ -1083,7 +1084,8 @@ BOOST_FIXTURE_TEST_CASE(pstt_mixed_scheme_rejected_construction_and_execution_ag
 static UniValue CallPsttRPC(const std::string& method, const UniValue& params)
 {
     BOOST_REQUIRE(tableRPC[method]);
-    JSONRPCRequest request;
+    NodeContext node;
+    JSONRPCRequest request(node);
     request.strMethod = method;
     request.params = params;
     request.fHelp = false;

@@ -20,6 +20,7 @@
 #include <key_io.h>
 #include <merkleblock.h>
 #include <connman.h>
+#include <nodecontext.h>
 #include <netnode.h>
 #include <policy/packages.h>
 #include <policy/rbf.h>
@@ -29,6 +30,7 @@
 #include <rpc/server.h>
 #include <rpc/jsonrpcrequest.h>
 #include <rpc/rpctable.h>
+#include <rpc/util.h>
 #include <script/script.h>
 #include <script/script_error.h>
 #include <script/sign.h>
@@ -1116,8 +1118,10 @@ UniValue signrawtransaction(const JSONRPCRequest& request)
     RPCTypeCheck(request.params, {UniValue::VSTR, UniValue::VARR, UniValue::VARR, UniValue::VSTR}, true);
 
     // Make a JSONRPCRequest to pass on to the right signrawtransaction* command
-    JSONRPCRequest new_request;
+    JSONRPCRequest new_request(request.context);
     new_request.id = request.id;
+    new_request.URI = request.URI;
+    new_request.authUser = request.authUser;
     new_request.params.setArray();
 
     // For signing with private keys
@@ -1226,11 +1230,10 @@ static UniValue sendrawtransaction(const JSONRPCRequest& request)
 
     promise.get_future().wait();
 
-    if(!g_connman)
-        throw JSONRPCError(RPC_CLIENT_P2P_DISABLED, "Error: Peer-to-peer functionality missing or disabled");
-
+    assert(request.context.connman);
+    CConnman& connman = *request.context.connman;
     CInv inv(MSG_TX, hashTx);
-    g_connman->ForEachNode([&inv](CNode* pnode)
+    connman.ForEachNode([&inv](CNode* pnode)
     {
         pnode->PushInventory(inv);
     });

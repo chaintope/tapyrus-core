@@ -399,6 +399,7 @@ add_library(tapyrus_peer STATIC EXCLUDE_FROM_ALL
   net_processing.cpp
   netmessage.cpp
   netnode.cpp
+  nodecontext.cpp
   partiallydownloadedblock.cpp
   timeoffsets.cpp
   torcontrol.cpp
