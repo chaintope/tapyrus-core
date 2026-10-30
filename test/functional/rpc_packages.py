@@ -448,7 +448,7 @@ class RPCPackageTest(BitcoinTestFramework):
         assert i_tx_a.hashMalFix != i_tx_b.hashMalFix, "tx_a and tx_b must have distinct txids"
 
         # testmempoolaccept: the package-level conflict check fires before
-        # CheckColorIdentifierValidity, returning conflict-in-package for both
+        # CheckOutputColorIds, returning conflict-in-package for both
         # the duplicate-input violation and the implicit colorId collision.
         self.check_mempool_result(
             result_expected={'allowed': False, 'reject-reason': '69: conflict-in-package'},

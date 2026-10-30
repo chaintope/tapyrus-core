@@ -31,9 +31,11 @@
 #include <file_io.h>
 #include <xfieldhistorymap.h>
 #include <tempxfieldhistory.h>
+#include <transactioncolorchecker.h>
 #include <key.h>
 #include <coloridentifier.h>
 #include <issuedcolorids.h>
+#include <precomputedcolordata.h>
 #include <script/interpreter.h>
 #include <script/transactionsignatureserializer.h>
 #include <hash.h>
@@ -830,7 +832,7 @@ BOOST_AUTO_TEST_CASE(disconnect_block_dry_run_preserves_colorid_state)
 
 /**
  * Regression test: duplicate NON_REISSUABLE issuance is rejected by
- * CheckColorIdentifierValidity via g_colorid_state->IsIssued().
+ * CheckOutputColorIds via g_colorid_state->IsIssued().
  *
  * Once colorId C is confirmed in g_colorid_state, any further issuance of C
  * must be blocked even if the defining TPC outpoint appears unspent in the
@@ -842,7 +844,7 @@ BOOST_AUTO_TEST_CASE(disconnect_block_dry_run_preserves_colorid_state)
  * the first issuance goes through the normal block pipeline (populating
  * g_colorid_state), then we construct a synthetic CCoinsViewCache that
  * presents the defining TPC outpoint as unspent again and call
- * CheckColorIdentifierValidity on a re-issuance transaction.
+ * CheckOutputColorIds on a re-issuance transaction.
  */
 BOOST_AUTO_TEST_CASE(duplicate_nonreissuable_issuance_rejected)
 {
@@ -913,7 +915,7 @@ BOOST_AUTO_TEST_CASE(duplicate_nonreissuable_issuance_rejected)
     // Build a synthetic CCoinsViewCache that presents definingUtxo as unspent,
     // simulating a reorg that restored the UTXO while a DisconnectBlock bug
     // (H-2) left the colorId in g_colorid_state.
-    // CheckColorIdentifierValidity must reject the re-issuance with
+    // CheckOutputColorIds must reject the re-issuance with
     // "bad-txns-colorid-already-issued".
     {
         LOCK(cs_main);
@@ -936,8 +938,10 @@ BOOST_AUTO_TEST_CASE(duplicate_nonreissuable_issuance_rejected)
         reissueTx.vout[0].scriptPubKey = colorScript;
 
         CValidationState state;
-        bool valid = CheckColorIdentifierValidity(
-            CTransaction(reissueTx), state, syntheticView, chainActive.Tip()->nHeight);
+        PrecomputedColorData colorData(CTransaction(reissueTx), syntheticView, chainActive.Tip()->nHeight);
+        BOOST_REQUIRE(g_colorid_state);
+        colorData.SetIssued(*g_colorid_state);
+        bool valid = TransactionColorChecker(colorData).CheckOutputColorIds(state);
 
         BOOST_CHECK(!valid);
         BOOST_CHECK_EQUAL(state.GetRejectReason(), "bad-txns-colorid-already-issued");
@@ -949,7 +953,7 @@ BOOST_AUTO_TEST_CASE(duplicate_nonreissuable_issuance_rejected)
  * g_colorid_state, so a later re-issuance attempt is still rejected.
  *
  * "Burn" means spending the sole live NFT UTXO to an uncolored output —
- * VerifyTokenBalances allows colored input value with no matching colored
+ * CheckTokenBalances allows colored input value with no matching colored
  * output (the value is simply discarded). This does not touch
  * g_colorid_state: CIssuedColorIds::Erase() is only ever called from
  * DisconnectBlock (reorg), never from a normal spend/burn. So after a burn,
@@ -959,7 +963,7 @@ BOOST_AUTO_TEST_CASE(duplicate_nonreissuable_issuance_rejected)
  * As in duplicate_nonreissuable_issuance_rejected, actually re-deriving the
  * same colorId requires the exact defining TPC outpoint to look unspent
  * again (a SHA-256 preimage collision in practice), so the re-issuance
- * attempt is exercised directly against CheckColorIdentifierValidity with a
+ * attempt is exercised directly against CheckOutputColorIds with a
  * synthetic CCoinsViewCache that presents the (long since spent) defining
  * outpoint as unspent — simulating the same reorg-shaped bug the
  * NON_REISSUABLE test guards against.
@@ -1073,7 +1077,7 @@ BOOST_AUTO_TEST_CASE(duplicate_nft_issuance_after_burn_rejected)
 
     // Build a synthetic CCoinsViewCache that presents definingUtxo as unspent
     // again, simulating a reorg that restored the UTXO while g_colorid_state
-    // retained the record. CheckColorIdentifierValidity must still reject the
+    // retained the record. CheckOutputColorIds must still reject the
     // re-issuance with "bad-txns-colorid-already-issued", even though the
     // colorId's supply is currently zero.
     {
@@ -1097,8 +1101,10 @@ BOOST_AUTO_TEST_CASE(duplicate_nft_issuance_after_burn_rejected)
         reissueTx.vout[0].scriptPubKey = colorScript;
 
         CValidationState state;
-        bool valid = CheckColorIdentifierValidity(
-            CTransaction(reissueTx), state, syntheticView, chainActive.Tip()->nHeight);
+        PrecomputedColorData colorData(CTransaction(reissueTx), syntheticView, chainActive.Tip()->nHeight);
+        BOOST_REQUIRE(g_colorid_state);
+        colorData.SetIssued(*g_colorid_state);
+        bool valid = TransactionColorChecker(colorData).CheckOutputColorIds(state);
 
         BOOST_CHECK(!valid);
         BOOST_CHECK_EQUAL(state.GetRejectReason(), "bad-txns-colorid-already-issued");
@@ -1106,10 +1112,10 @@ BOOST_AUTO_TEST_CASE(duplicate_nft_issuance_after_burn_rejected)
 }
 
 /**
- * Regression test: VerifyTokenBalances must not use DoS=100 for tpcin<=0.
+ * Regression test: CheckTokenBalances must not use DoS=100 for tpcin<=0.
  *
  * PR #423 (TXV-4) changed "bad-txns-token-without-fee" from state.Invalid()
- * (DoS=0) to state.DoS(100).  VerifyTokenBalances is called from both the
+ * (DoS=0) to state.DoS(100).  CheckTokenBalances is called from both the
  * mempool path (AcceptToMemoryPoolWorker) and ConnectBlock.
  *
  * In the mempool path, DoS=100 causes an instant ban of any peer that relays a
@@ -1164,7 +1170,9 @@ BOOST_AUTO_TEST_CASE(verifytoken_no_tpc_input_dos_score_is_zero)
 
     CValidationState state;
     CAmount minRelayFee = 1000;
-    bool ok = VerifyTokenBalances(CTransaction(tx), state, view, minRelayFee);
+    LOCK(cs_main);
+    const PrecomputedColorData colorData(CTransaction(tx), view, std::numeric_limits<int32_t>::max());
+    bool ok = TransactionColorChecker(colorData).CheckTokenBalances(state, minRelayFee);
 
     // Must be rejected …
     BOOST_CHECK(!ok);
@@ -1179,7 +1187,7 @@ BOOST_AUTO_TEST_CASE(verifytoken_no_tpc_input_dos_score_is_zero)
 
 /**
  * Builds a transaction spending reissuable-token and TPC coins from a
- * synthetic coin view, for checking VerifyTokenBalances' per-colorId sums.
+ * synthetic coin view, for checking CheckTokenBalances' per-colorId sums.
  */
 class TokenBalanceInputs
 {
@@ -1209,7 +1217,9 @@ public:
     bool Verify(CValidationState& state)
     {
         const CAmount minRelayFee{1000};
-        return VerifyTokenBalances(CTransaction(m_tx), state, m_view, minRelayFee);
+        LOCK(cs_main);
+        const PrecomputedColorData colorData(CTransaction(m_tx), m_view, std::numeric_limits<int32_t>::max());
+        return TransactionColorChecker(colorData).CheckTokenBalances(state, minRelayFee);
     }
 
 private:

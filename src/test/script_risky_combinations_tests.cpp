@@ -8,7 +8,7 @@
 //  1. Zero-of-N CHECKMULTISIG is a trivial anyone-can-spend pass.
 //  2. OP_COLOR accepts a color id assembled by prior stack manipulation,
 //     not just an immediate push -- closed off only at the consensus layer
-//     (CheckColorIdentifierValidity), not by the interpreter itself.
+//     (CheckOutputColorIds), not by the interpreter itself.
 //  3. OP_CHECKDATASIG(VERIFY) has no built-in binding to the spending
 //     transaction, so a (signature, message) pair replays across unrelated
 //     transactions -- unlike OP_CHECKSIG.
@@ -72,16 +72,13 @@ CMutableTransaction BuildSpendingTx(const CScript& scriptSig, const CTransaction
     return txSpend;
 }
 
-// Verifies exactly as production does: a fresh ColorIdentifier per call
-// (see scriptcheck.h) unless the caller wants to inspect what OP_COLOR set.
+// Verifies as production does.
 bool Verify(const CScript& scriptSig, const CScript& scriptPubKey, const CMutableTransaction& spendMut,
-            CAmount amount, unsigned int flags, ScriptError* err, ColorIdentifier* colorIdOut = nullptr)
+            CAmount amount, unsigned int flags, ScriptError* err)
 {
     CTransaction spend(spendMut);
-    ColorIdentifier localColorId;
-    ColorIdentifier& colorId = colorIdOut ? *colorIdOut : localColorId;
-    return VerifyScript(scriptSig, scriptPubKey, flags,
-                         TransactionSignatureChecker(&spend, 0, amount), colorId, err);
+    TransactionSignatureChecker checker(&spend, 0, amount);
+    return VerifyScript(scriptSig, scriptPubKey, flags, checker, err);
 }
 
 } // namespace
@@ -155,7 +152,7 @@ BOOST_AUTO_TEST_CASE(risk_checkmultisig_zero_of_n)
 
 // ---------------------------------------------------------------------------
 // Risk 2: OP_COLOR accepts a color id assembled by prior stack manipulation.
-// Closed off only by CheckColorIdentifierValidity (consensus layer), not by
+// Closed off only by CheckOutputColorIds (consensus layer), not by
 // the interpreter -- so we show the interpreter alone says OK, while the
 // standardness/consensus template matcher (IsColoredPayToPubkeyHash) would
 // have refused to recognize the script as colored at all.
@@ -192,11 +189,19 @@ BOOST_AUTO_TEST_CASE(risk_opcolor_stack_manipulation)
         sig.push_back((unsigned char)SIGHASH_ALL);
         spend.vin[0].scriptSig = CScript() << sig << ToByteVector(pub) << realCid.toVector();
 
-        ColorIdentifier resultColorId;
         ScriptError err;
-        bool ok = Verify(spend.vin[0].scriptSig, scriptPubKey, spend, credit.vout[0].nValue, STANDARD_SCRIPT_VERIFY_FLAGS, &err, &resultColorId);
+        bool ok = Verify(spend.vin[0].scriptSig, scriptPubKey, spend, credit.vout[0].nValue, STANDARD_SCRIPT_VERIFY_FLAGS, &err);
         BOOST_CHECK_MESSAGE(ok, "SWAP-derived OP_COLOR should be accepted by the raw interpreter: " + std::string(ScriptErrorString(err)));
         BOOST_CHECK_EQUAL(err, SCRIPT_ERR_OK);
+
+        // VerifyScript keeps the colorid to itself, so run its first two steps
+        // to see which id OP_COLOR bound.
+        CTransaction spendTx(spend);
+        TransactionSignatureChecker checker(&spendTx, 0, credit.vout[0].nValue);
+        std::vector<std::vector<unsigned char>> stack;
+        ColorIdentifier resultColorId;
+        BOOST_REQUIRE(EvalScript(stack, spend.vin[0].scriptSig, STANDARD_SCRIPT_VERIFY_FLAGS, checker, &resultColorId, nullptr));
+        BOOST_REQUIRE(EvalScript(stack, scriptPubKey, STANDARD_SCRIPT_VERIFY_FLAGS, checker, &resultColorId, nullptr));
         BOOST_CHECK_MESSAGE(resultColorId == realCid, "OP_COLOR should bind to the SWAP-selected id, not the literal one written in scriptPubKey");
         BOOST_CHECK(resultColorId != decoyCid);
 
@@ -221,12 +226,19 @@ BOOST_AUTO_TEST_CASE(risk_opcolor_stack_manipulation)
         sig.push_back((unsigned char)SIGHASH_ALL);
         spend.vin[0].scriptSig = CScript() << sig << ToByteVector(pub) << realCid.toVector();
 
-        ColorIdentifier resultColorId;
         ScriptError err;
-        bool ok = Verify(spend.vin[0].scriptSig, scriptPubKey, spend, credit.vout[0].nValue, STANDARD_SCRIPT_VERIFY_FLAGS, &err, &resultColorId);
+        bool ok = Verify(spend.vin[0].scriptSig, scriptPubKey, spend, credit.vout[0].nValue, STANDARD_SCRIPT_VERIFY_FLAGS, &err);
         BOOST_CHECK_MESSAGE(ok, "ALTSTACK-derived OP_COLOR should be accepted by the raw interpreter: " + std::string(ScriptErrorString(err)));
         BOOST_CHECK_EQUAL(err, SCRIPT_ERR_OK);
+
+        CTransaction spendTx(spend);
+        TransactionSignatureChecker checker(&spendTx, 0, credit.vout[0].nValue);
+        std::vector<std::vector<unsigned char>> stack;
+        ColorIdentifier resultColorId;
+        BOOST_REQUIRE(EvalScript(stack, spend.vin[0].scriptSig, STANDARD_SCRIPT_VERIFY_FLAGS, checker, &resultColorId, nullptr));
+        BOOST_REQUIRE(EvalScript(stack, scriptPubKey, STANDARD_SCRIPT_VERIFY_FLAGS, checker, &resultColorId, nullptr));
         BOOST_CHECK(resultColorId == realCid);
+        BOOST_CHECK(resultColorId != decoyCid);
 
         std::vector<unsigned char> hashOut, cidOut;
         BOOST_CHECK(!scriptPubKey.IsColoredPayToPubkeyHash(hashOut, cidOut));
@@ -241,6 +253,39 @@ BOOST_AUTO_TEST_CASE(risk_opcolor_stack_manipulation)
                                        << ToByteVector(pub.GetID()) << OP_EQUALVERIFY << OP_CHECKSIG;
         std::vector<unsigned char> hashOut, cidOut;
         BOOST_CHECK(canonical.IsColoredPayToPubkeyHash(hashOut, cidOut));
+    }
+
+    // 2d: the SWAP script binds whatever valid id the spender supplies, even
+    // one that differs from realCid by a single bit.
+    {
+        ColorIdentifier mutatedCid = realCid;
+        mutatedCid.payload[0] ^= 1;
+        BOOST_REQUIRE(mutatedCid != realCid);
+
+        CScript scriptPubKey = CScript() << decoyCid.toVector() << OP_SWAP << OP_COLOR << OP_DROP
+                                          << OP_DUP << OP_HASH160 << ToByteVector(pub.GetID())
+                                          << OP_EQUALVERIFY << OP_CHECKSIG;
+        CMutableTransaction credit = BuildCreditingTx(scriptPubKey);
+        CMutableTransaction spend = BuildSpendingTx(CScript(), CTransaction(credit));
+        uint256 hash = SignatureHash(scriptPubKey, spend, 0, SIGHASH_ALL, credit.vout[0].nValue);
+        std::vector<unsigned char> sig;
+        BOOST_REQUIRE(key.Sign_ECDSA(hash, sig));
+        sig.push_back((unsigned char)SIGHASH_ALL);
+        spend.vin[0].scriptSig = CScript() << sig << ToByteVector(pub) << mutatedCid.toVector();
+
+        ScriptError err;
+        bool ok = Verify(spend.vin[0].scriptSig, scriptPubKey, spend, credit.vout[0].nValue, STANDARD_SCRIPT_VERIFY_FLAGS, &err);
+        BOOST_CHECK_MESSAGE(ok, "SWAP-derived OP_COLOR with a mutated id should be accepted by the raw interpreter: " + std::string(ScriptErrorString(err)));
+
+        CTransaction spendTx(spend);
+        TransactionSignatureChecker checker(&spendTx, 0, credit.vout[0].nValue);
+        std::vector<std::vector<unsigned char>> stack;
+        ColorIdentifier resultColorId;
+        BOOST_REQUIRE(EvalScript(stack, spend.vin[0].scriptSig, STANDARD_SCRIPT_VERIFY_FLAGS, checker, &resultColorId, nullptr));
+        BOOST_REQUIRE(EvalScript(stack, scriptPubKey, STANDARD_SCRIPT_VERIFY_FLAGS, checker, &resultColorId, nullptr));
+        BOOST_CHECK(resultColorId == mutatedCid);
+        BOOST_CHECK(resultColorId != realCid);
+        BOOST_CHECK(resultColorId != decoyCid);
     }
 }
 
@@ -381,7 +426,7 @@ BOOST_AUTO_TEST_CASE(risk_mixed_signature_schemes)
 // Risk 5: OP_CHECKLOCKTIMEVERIFY can be combined directly with OP_COLOR in a
 // single scriptPubKey at the interpreter level, even though the design
 // intends time-locked colored coins to live only inside a CP2SH redeem
-// script (CheckColorIdentifierValidity enforces that at the consensus
+// script (CheckOutputColorIds enforces that at the consensus
 // layer; the interpreter itself has no opinion).
 // ---------------------------------------------------------------------------
 BOOST_AUTO_TEST_CASE(risk_opcolor_with_timelock)
@@ -410,15 +455,13 @@ BOOST_AUTO_TEST_CASE(risk_opcolor_with_timelock)
         sig.push_back((unsigned char)SIGHASH_ALL);
         spend.vin[0].scriptSig = CScript() << sig << ToByteVector(pub);
 
-        ColorIdentifier resultColorId;
         ScriptError err;
-        bool ok = Verify(spend.vin[0].scriptSig, scriptPubKey, spend, credit.vout[0].nValue, STANDARD_SCRIPT_VERIFY_FLAGS, &err, &resultColorId);
+        bool ok = Verify(spend.vin[0].scriptSig, scriptPubKey, spend, credit.vout[0].nValue, STANDARD_SCRIPT_VERIFY_FLAGS, &err);
         BOOST_CHECK_MESSAGE(ok, "OP_COLOR directly combined with CHECKLOCKTIMEVERIFY should be accepted by the raw interpreter: " + std::string(ScriptErrorString(err)));
         BOOST_CHECK_EQUAL(err, SCRIPT_ERR_OK);
-        BOOST_CHECK(resultColorId == colorId);
 
         // The consensus-layer template matcher does not recognize this shape
-        // as colored at all -- CheckColorIdentifierValidity, not the
+        // as colored at all -- CheckOutputColorIds, not the
         // interpreter, is what actually keeps this pattern out of real blocks.
         std::vector<unsigned char> hashOut, cidOut;
         BOOST_CHECK(!scriptPubKey.IsColoredPayToPubkeyHash(hashOut, cidOut));
@@ -441,6 +484,43 @@ BOOST_AUTO_TEST_CASE(risk_opcolor_with_timelock)
         bool ok = Verify(spend.vin[0].scriptSig, scriptPubKey, spend, credit.vout[0].nValue, STANDARD_SCRIPT_VERIFY_FLAGS, &err);
         BOOST_CHECK(!ok);
         BOOST_CHECK_EQUAL(err, SCRIPT_ERR_UNSATISFIED_LOCKTIME);
+    }
+
+    // 5c: SWAP plus CLTV -- with the locktime satisfied, OP_COLOR binds the id
+    // the spender supplies, here one bit away from the colorId written in the
+    // scriptPubKey.
+    {
+        ColorIdentifier mutatedCid = colorId;
+        mutatedCid.payload[0] ^= 1;
+        BOOST_REQUIRE(mutatedCid != colorId);
+
+        CScript swapPubKey = CScript() << colorId.toVector() << OP_SWAP << OP_COLOR << OP_DROP
+                                        << CScriptNum(lockHeight) << OP_CHECKLOCKTIMEVERIFY << OP_DROP
+                                        << OP_DUP << OP_HASH160 << ToByteVector(pub.GetID())
+                                        << OP_EQUALVERIFY << OP_CHECKSIG;
+        CMutableTransaction swapCredit = BuildCreditingTx(swapPubKey);
+        CMutableTransaction spend = BuildSpendingTx(CScript(), CTransaction(swapCredit), 0, lockHeight);
+        uint256 hash = SignatureHash(swapPubKey, spend, 0, SIGHASH_ALL, swapCredit.vout[0].nValue);
+        std::vector<unsigned char> sig;
+        BOOST_REQUIRE(key.Sign_ECDSA(hash, sig));
+        sig.push_back((unsigned char)SIGHASH_ALL);
+        spend.vin[0].scriptSig = CScript() << sig << ToByteVector(pub) << mutatedCid.toVector();
+
+        ScriptError err;
+        bool ok = Verify(spend.vin[0].scriptSig, swapPubKey, spend, swapCredit.vout[0].nValue, STANDARD_SCRIPT_VERIFY_FLAGS, &err);
+        BOOST_CHECK_MESSAGE(ok, "SWAP-derived OP_COLOR combined with CHECKLOCKTIMEVERIFY should be accepted by the raw interpreter: " + std::string(ScriptErrorString(err)));
+        BOOST_CHECK_EQUAL(err, SCRIPT_ERR_OK);
+
+        CTransaction spendTx(spend);
+        TransactionSignatureChecker checker(&spendTx, 0, swapCredit.vout[0].nValue);
+        std::vector<std::vector<unsigned char>> stack;
+        ColorIdentifier resultColorId;
+        BOOST_REQUIRE(EvalScript(stack, spend.vin[0].scriptSig, STANDARD_SCRIPT_VERIFY_FLAGS, checker, &resultColorId, nullptr));
+        BOOST_REQUIRE(EvalScript(stack, swapPubKey, STANDARD_SCRIPT_VERIFY_FLAGS, checker, &resultColorId, nullptr));
+        BOOST_CHECK(resultColorId == mutatedCid);
+        BOOST_CHECK(resultColorId != colorId);
+
+        BOOST_CHECK(GetColorIdFromScript(swapPubKey).type == TokenTypes::NONE);
     }
 }
 

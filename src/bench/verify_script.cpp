@@ -79,7 +79,6 @@ static void VerifyScriptBench(benchmark::State& state, SignatureScheme scheme)
     txSpend.vin[0].scriptSig = CScript() << vchSig << ToByteVector(pubkey);
 
     // Benchmark.
-    ColorIdentifier colorId;
     while (state.KeepRunning()) {
         ScriptError err;
         bool success = VerifyScript(
@@ -87,7 +86,6 @@ static void VerifyScriptBench(benchmark::State& state, SignatureScheme scheme)
             txCredit.vout[0].scriptPubKey,
             0,
             MutableTransactionSignatureChecker(&txSpend, 0, txCredit.vout[0].nValue),
-            colorId,
             &err);
         assert(err == SCRIPT_ERR_OK);
         assert(success);

@@ -134,6 +134,7 @@ add_executable(test_tapyrus
         test_tapyrus_main.cpp
         torcontrol_tests.cpp
         transaction_tests.cpp
+        transactioncolorchecker_tests.cpp
         txdb_tests.cpp
         txindex_tests.cpp
         txpackage_tests.cpp

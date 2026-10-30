@@ -118,7 +118,7 @@ void testTx(TestChainSetup* setup, const CTransactionRef tx, bool success, std::
 #ifdef CP2SH_ACTIVATION_TEST_HEIGHT
 // Verifies that a transaction is admitted to the mempool without mining it into
 // a block.  Used for pre-activation checks: the softfork is not yet active so
-// attack scripts pass CheckColorIdentifierValidity; the UTXO remains unspent so
+// attack scripts pass CheckOutputColorIds; the UTXO remains unspent so
 // the companion post-activation test can reuse it.
 static void checkMempoolAdmitted(const CTransactionRef& tx)
 {
@@ -902,7 +902,7 @@ BOOST_FIXTURE_TEST_CASE(tx_mempool_nft_token, TestChainSetup)
  *
  * The test checks which colorId is "seen by the outpoint":
  *   - GetColorIdFromScript(swapScript) → NONE (static pattern match fails)
- *   - VerifyTokenBalances treats the UTXO as uncolored (TPC)
+ *   - CheckTokenBalances treats the UTXO as uncolored (TPC)
  *   - OP_COLOR fires at runtime with validCid, but that does not change the
  *     static bookkeeping — the outpoint remains NONE from the validator's view.
  */
@@ -933,7 +933,7 @@ BOOST_FIXTURE_TEST_CASE(tx_mempool_swap_color_script, TestChainSetup)
     BOOST_CHECK(GetColorIdFromScript(swapColorScript).type == TokenTypes::NONE);
 
     // Step 2: Attempt to create a UTXO locked by this script.
-    //   CheckColorIdentifierValidity: IsColoredScript()=true but not CP2PKH/CP2SH
+    //   CheckOutputColorIds: IsColoredScript()=true but not CP2PKH/CP2SH
     //   → "bad-txns-nonstandard-opcolor" — custom colored scripts are not permitted.
     CMutableTransaction fundTx;
     fundTx.nFeatures = 1;
@@ -1027,7 +1027,7 @@ BOOST_FIXTURE_TEST_CASE(tx_mempool_altstack_color_script, TestChainSetup)
     BOOST_CHECK(GetColorIdFromScript(altStackColorScript).type == TokenTypes::NONE);
 
     // Step 2: Attempt to fund a UTXO with this script as scriptPubKey.
-    //   CheckColorIdentifierValidity: IsColoredScript()=true but not CP2PKH/CP2SH
+    //   CheckOutputColorIds: IsColoredScript()=true but not CP2PKH/CP2SH
     //   → DoS(100, "bad-txns-nonstandard-opcolor").
     CMutableTransaction fundTx;
     fundTx.nFeatures = 1;
@@ -1117,7 +1117,7 @@ BOOST_FIXTURE_TEST_CASE(tx_mempool_drop_decoy_nft_script, TestChainSetup)
     BOOST_CHECK(GetColorIdFromScript(dropDecoyNFT).type == TokenTypes::NONE);
 
     // Step 2: Attempt to create a UTXO locked by the decoy script.
-    //   Rejected: CheckColorIdentifierValidity: IsColoredScript()=true but not CP2PKH/CP2SH
+    //   Rejected: CheckOutputColorIds: IsColoredScript()=true but not CP2PKH/CP2SH
     //   → DoS(100, "bad-txns-nonstandard-opcolor").
     CMutableTransaction fundTx;
     fundTx.nFeatures = 1;
