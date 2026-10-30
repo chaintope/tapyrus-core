@@ -92,7 +92,10 @@ BasicTestingSetup::BasicTestingSetup(const std::string& chainName)
         g_policy_settings = m_node.policy.get();
         g_chainstate_manager.InitXFieldHistory(g_chainstate_manager.Consensus().Settings().GenesisBlock());
         pxFieldHistory = &g_chainstate_manager.XFieldHistory();
-        g_colorid_state.reset(new CIssuedColorIds());
+        {
+            LOCK(cs_main);
+            g_chainstate_manager.IssuedColorIds() = CIssuedColorIds();
+        }
     } catch (...) {
         // ~BasicTestingSetup() never runs for a throwing constructor, so
         // ECC_Stop() and clearing the flag must happen here.
@@ -104,7 +107,10 @@ BasicTestingSetup::BasicTestingSetup(const std::string& chainName)
 
 BasicTestingSetup::~BasicTestingSetup()
 {
-    g_colorid_state.reset();
+    {
+        LOCK(cs_main);
+        g_chainstate_manager.IssuedColorIds() = CIssuedColorIds();
+    }
     // The xfield history is left alone: it belongs to g_chainstate_manager,
     // which lives for the whole test binary. See pxFieldHistory in test_tapyrus.h.
     ClearDatadirCache();

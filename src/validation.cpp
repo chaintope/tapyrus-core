@@ -60,7 +60,6 @@ CBlockIndex *pindexBestHeader = nullptr;
 Mutex g_best_block_mutex;
 CConditionVariable g_best_block_cv;
 uint256 g_best_block;
-std::unique_ptr<CIssuedColorIds> g_colorid_state;
 int nScriptCheckThreads = 0;
 std::atomic_bool fImporting(false);
 std::atomic_bool fReindex(false);
@@ -495,8 +494,7 @@ static bool AcceptToMemoryPoolWorker(const CTransactionRef &ptx, CTxMempoolAccep
         // Read once here; the balance check below reuses it after the view
         // is switched away from the mempool.
         PrecomputedColorData colorData(tx, view, chainActive.Tip()->nHeight + 1);
-        if (g_colorid_state)
-            colorData.SetIssued(*g_colorid_state);
+        colorData.SetIssued(g_chainstate_manager.IssuedColorIds());
         const TransactionColorChecker colorChecker(colorData);
         if (!colorChecker.CheckOutputColorIds(state))
             return false;
