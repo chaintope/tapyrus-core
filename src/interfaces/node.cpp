@@ -103,7 +103,7 @@ public:
     {
         stats.clear();
 
-        if (m_context.connman) {
+        if (m_context.connman && m_context.peerman) {
             std::vector<CNodeStats> stats_temp;
             m_context.connman->GetNodeStats(stats_temp);
 
@@ -117,7 +117,7 @@ public:
             if (lockMain) {
                 for (auto& node_stats : stats) {
                     std::get<1>(node_stats) =
-                        GetNodeStateStats(std::get<0>(node_stats).nodeid, std::get<2>(node_stats));
+                        m_context.peerman->GetNodeStateStats(std::get<0>(node_stats).nodeid, std::get<2>(node_stats));
                 }
             }
             return true;

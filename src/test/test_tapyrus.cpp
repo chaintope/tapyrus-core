@@ -180,7 +180,7 @@ TestingSetup::TestingSetup(const std::string& chainName) : BasicTestingSetup(cha
             nScriptCheckThreads = 3;
             StartScriptCheckWorkerThreads(nScriptCheckThreads);
             m_node.connman = std::unique_ptr<CConnman>(new CConnman(0x1337, 0x1337)); // Deterministic randomness for tests.
-            m_node.peer_logic.reset(new PeerLogicValidation(*m_node.connman, scheduler));
+            m_node.peerman.reset(new PeerManager(*m_node.connman, scheduler));
         } catch (...) {
             // ~TestingSetup() never runs for a throwing constructor, so the
             // scheduler thread started above must be stopped here. Left
@@ -200,7 +200,7 @@ void TestingSetup::TearDown()
         scheduler.stop();
         GetMainSignals().FlushBackgroundCallbacks();
         GetMainSignals().UnregisterBackgroundSignalScheduler();
-        m_node.peer_logic.reset();
+        m_node.peerman.reset();
         m_node.connman.reset();
         UnloadBlockIndex();
         pcoinsTip.reset();

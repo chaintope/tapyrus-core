@@ -7,7 +7,7 @@
 // mempool, registered RPC table, and CConnman to run at all -- see
 // test/test_tapyrus.h's own TestingSetup for exactly what gets
 // initialized (5-block REGTEST-mode chain, LevelDB-backed coin/block
-// databases, PeerLogicValidation, RegisterAllCoreRPCCommands). Reuses
+// databases, PeerManager, RegisterAllCoreRPCCommands). Reuses
 // that class directly (via the tapyrus_test_util object library, see
 // src/test/CMakeLists.txt) rather than reimplementing node setup for
 // fuzzing -- the same fixture every *_tests.cpp Boost test already
