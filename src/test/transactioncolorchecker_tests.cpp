@@ -122,7 +122,7 @@ bool LegacyCheckColorIdentifierValidity(const CTransaction& tx, CValidationState
         //  the defining UTXO is consumed and its colorId = Hash(prevout) is globally unique.)
         if(isIssuance && (outColorId.type == TokenTypes::NON_REISSUABLE || outColorId.type == TokenTypes::NFT))
         {
-            if(g_colorid_state && g_colorid_state->IsIssued(outColorId))
+            if(g_chainstate_manager.IssuedColorIds().IsIssued(outColorId))
                 return state.DoS(100, false, REJECT_INVALID, "bad-txns-colorid-already-issued");
         }
     }
@@ -369,13 +369,13 @@ BOOST_AUTO_TEST_CASE(checker_matches_legacy_functions)
 
         {
             LOCK(cs_main);
-            g_colorid_state.reset(new CIssuedColorIds());
+            g_chainstate_manager.IssuedColorIds() = CIssuedColorIds();
             std::set<ColorIdentifier> issued;
             for (const ColorIdentifier& colorId : candidates) {
                 if (InsecureRandRange(4) == 0)
                     issued.insert(colorId);
             }
-            g_colorid_state->Insert(issued);
+            g_chainstate_manager.IssuedColorIds().Insert(issued);
         }
 
         const int32_t height = InsecureRandBool() ? int32_t{0} : std::numeric_limits<int32_t>::max();
@@ -383,7 +383,7 @@ BOOST_AUTO_TEST_CASE(checker_matches_legacy_functions)
 
         LOCK(cs_main);
         PrecomputedColorData data(tx, view, height);
-        data.SetIssued(*g_colorid_state);
+        data.SetIssued(g_chainstate_manager.IssuedColorIds());
         const TransactionColorChecker checker(data);
 
         CValidationState legacyOutputState, checkerOutputState;

@@ -623,8 +623,7 @@ void CTxMemPool::removeForScriptFlagChange(unsigned int newMempoolScriptFlags, i
         // bad-txns-nonstandard-opcolor); CheckInputs does not cover them.
         // Colour checks run before the scripts, as in mempool acceptance.
         PrecomputedColorData colorData(tx, view, newBlockHeight);
-        if (g_colorid_state)
-            colorData.SetIssued(*g_colorid_state);
+        colorData.SetIssued(g_chainstate_manager.IssuedColorIds());
         const TransactionColorChecker colorChecker(colorData);
         CValidationState colorState;
         if (!colorChecker.CheckOutputColorIds(colorState)) {

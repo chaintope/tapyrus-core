@@ -6,7 +6,9 @@
 #define TAPYRUS_CHAINSTATEMANAGER_H
 
 #include <consensussettings.h>
+#include <cs_main.h>
 #include <heightderivedconsensusrules.h>
+#include <issuedcolorids.h>
 #include <xfieldhistory.h>
 
 #include <cstdint>
@@ -18,7 +20,8 @@ class CBlockIndex;
 
 /**
  * Owns the node's chain-wide state, as Bitcoin Core's ChainstateManager does.
- * So far it holds the xfield history of the active chain and the consensus settings.
+ * So far it holds the xfield history and the issued colorIds of the active chain,
+ * and the consensus settings.
  */
 class ChainstateManager
 {
@@ -46,10 +49,14 @@ public:
     HeightDerivedConsensusRules RulesLatest() const;
     HeightDerivedConsensusRules RulesLatest(const CXFieldHistoryMap& history) const;
 
+    /** The NON_REISSUABLE and NFT colorIds issued on the active chain; they change with the tip. */
+    CIssuedColorIds& IssuedColorIds() EXCLUSIVE_LOCKS_REQUIRED(cs_main) { return m_issued_colorids; }
+
 private:
     HeightDerivedConsensusRules BuildRules(std::optional<int32_t> height, const CXFieldHistoryMap& history) const;
 
     CXFieldHistory m_xfield_history;
+    CIssuedColorIds m_issued_colorids GUARDED_BY(cs_main);
     std::unique_ptr<const ConsensusSettings> m_consensus_settings;
 };
 
