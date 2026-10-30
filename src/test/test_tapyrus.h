@@ -8,6 +8,7 @@
 
 #include <federationparams.h>
 #include <chainparams.h>
+#include <eccverifyhandle.h>
 #include <fs.h>
 #include <key.h>
 #include <pubkey.h>

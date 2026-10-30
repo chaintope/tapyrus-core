@@ -11,7 +11,7 @@
 #include <qt/walletmodel.h>
 
 #include <key_io.h>
-#include <validation.h> // For strMessageMagic
+#include <messagemagic.h>
 #include <wallet/wallet.h>
 
 #include <string>
@@ -145,7 +145,7 @@ void SignVerifyMessageDialog::on_signMessageButton_SM_clicked()
     }
 
     CHashWriter ss(SER_GETHASH, 0);
-    ss << strMessageMagic;
+    ss << MESSAGE_MAGIC;
     ss << ui->messageIn_SM->document()->toPlainText().toStdString();
 
     std::vector<unsigned char> vchSig;
@@ -218,7 +218,7 @@ void SignVerifyMessageDialog::on_verifyMessageButton_VM_clicked()
     }
 
     CHashWriter ss(SER_GETHASH, 0);
-    ss << strMessageMagic;
+    ss << MESSAGE_MAGIC;
     ss << ui->messageIn_VM->document()->toPlainText().toStdString();
 
     CPubKey pubkey;

@@ -7,7 +7,6 @@
 
 #include <hash.h>
 #include <pubkey.h>
-#include <script/standard.h>
 
 /*
  * These check for scripts for which a special case with a shorter encoding is defined.

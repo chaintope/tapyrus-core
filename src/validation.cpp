@@ -83,8 +83,6 @@ std::atomic_bool g_is_mempool_loaded{false};
 /** Constant stuff for coinbase transactions we create: */
 CScript COINBASE_FLAGS;
 
-const std::string strMessageMagic = "Tapyrus Signed Message:\n";
-
 CBlockIndex *&pindexBestInvalid = g_chainstate.pindexBestInvalid;
 
 /** All pairs A->B, where A (or one of its ancestors) misses transactions, but B has transactions.

@@ -8,6 +8,7 @@
 #include <chainstatemanager.h>
 #include <crypto/sha256.h>
 #include <dynamicparams.h>
+#include <eccverifyhandle.h>
 #include <key.h>
 #include <utilstrencodings.h>
 #include <validation.h>

@@ -150,7 +150,6 @@ extern std::atomic_bool g_is_mempool_loaded;
 extern BlockMap& mapBlockIndex;
 extern uint64_t nLastBlockTx;
 extern uint64_t nLastBlockSize;
-extern const std::string strMessageMagic;
 extern Mutex g_best_block_mutex;
 extern CConditionVariable g_best_block_cv;
 extern uint256 g_best_block;

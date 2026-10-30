@@ -55,6 +55,7 @@
 #include <amount.h>
 #include <chainparams.h>
 #include <coloridentifier.h>
+#include <eccverifyhandle.h>
 #include <federationparams.h>
 #include <primitives/transaction.h>
 #include <pubkey.h>
@@ -540,7 +541,7 @@ void PrintUsage(const char* argv0)
 
 int main(int argc, char* argv[])
 {
-    // pubkey.cpp's secp256k1 verification context exists only while an
+    // CPubKey's secp256k1 verification context exists only while an
     // ECCVerifyHandle is alive. Without one, every CHECKSIG/CHECKDATASIG on
     // a non-empty signature passes a null context into libsecp256k1.
     const ECCVerifyHandle ecc_verify_handle;

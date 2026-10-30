@@ -11,6 +11,7 @@
 #include <coinsviewcache.h>
 #include <consensus/consensus.h>
 #include <core_io.h>
+#include <eccverifyhandle.h>
 #include <key_io.h>
 #include <keystore.h>
 #include <policy/policy.h>
@@ -840,6 +841,10 @@ static int CommandLineRawTx(int argc, char* argv[])
 int main(int argc, char* argv[])
 {
     SetupEnvironment();
+
+    // Printing a transaction as JSON checks its signature encoding through
+    // CPubKey, so the verification context must exist for every command.
+    const ECCVerifyHandle ecc_verify_handle;
 
     try {
         int ret = AppInitRawTx(argc, argv);

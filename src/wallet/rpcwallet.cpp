@@ -13,6 +13,7 @@
 #include <httpserver.h>
 #include <validation.h>
 #include <key_io.h>
+#include <messagemagic.h>
 #include <connman.h>
 #include <outputtype.h>
 #include <policy/feerate.h>
@@ -626,7 +627,7 @@ static UniValue signmessage(const JSONRPCRequest& request)
     }
 
     CHashWriter ss(SER_GETHASH, 0);
-    ss << strMessageMagic;
+    ss << MESSAGE_MAGIC;
     ss << strMessage;
 
     std::vector<unsigned char> vchSig;

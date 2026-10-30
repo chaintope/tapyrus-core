@@ -4,6 +4,7 @@
 #include <tapyrus-config.h>
 
 #include <clientversion.h>
+#include <eccverifyhandle.h>
 #include <util.h>
 #include <federationparams.h>
 #include <genesisblock.h>
@@ -131,6 +132,12 @@ static int generateGenesis(CPubKey aggpubkey, CKey& privatekey, long long blockT
 
 static int CommandLine()
 {
+    // This is for using CKey.sign().
+    ECC_Start();
+
+    // This is for using CPubKey.verify(), and IsFullyValid() below.
+    ECCVerifyHandle globalVerifyHandle;
+
     auto generateKey = gArgs.GetBoolArg("-generatekey", false);
     if(generateKey && gArgs.GetChainMode() != TAPYRUS_OP_MODE::DEV)
     {
@@ -160,12 +167,6 @@ static int CommandLine()
         fprintf(stderr, "Error: %s\n", e.what());
         return EXIT_FAILURE;
     }
-
-    // This is for using CKey.sign().
-    ECC_Start();
-
-    // This is for using CPubKey.verify().
-    ECCVerifyHandle globalVerifyHandle;
 
     std::string wif = gArgs.GetArg("-signblockprivatekey", "");
     CKey privatekey(DecodeSecret(wif));

@@ -17,6 +17,7 @@
 #include <debuglogfile.h>
 #include <checkpoints.h>
 #include <dynamicparams.h>
+#include <eccverifyhandle.h>
 #include <consensus/validation.h>
 #include <fs.h>
 #include <httpserver.h>

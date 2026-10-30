@@ -53,6 +53,7 @@
 #ifndef TAPYRUS_TEST_FUZZ_FUZZ_CODE_PSTT_FUZZ_DRIVER_H
 #define TAPYRUS_TEST_FUZZ_FUZZ_CODE_PSTT_FUZZ_DRIVER_H
 
+#include <eccverifyhandle.h>
 #include <key.h>
 
 #include <cstddef>

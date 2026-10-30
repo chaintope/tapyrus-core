@@ -4,6 +4,7 @@
 
 #include <chainparams.h>
 #include <crypto/sha256.h>
+#include <eccverifyhandle.h>
 #include <validation.h>
 #include <script/sigcache.h>
 #include <test/test_tapyrus.h>
