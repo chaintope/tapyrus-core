@@ -1020,24 +1020,6 @@ bool CheckInputs(const CTransaction& tx, CValidationState &state, const CCoinsVi
     return true;
 }
 
-/** Abort with a message */
-bool AbortNode(const std::string& strMessage, const std::string& userMessage)
-{
-    SetMiscWarning(strMessage);
-    LogPrintf("*** %s\n", strMessage);
-    uiInterface.ThreadSafeMessageBox(
-        userMessage.empty() ? _("Error: A fatal internal error occurred, see debug.log for details") : userMessage,
-        "", CClientUIInterface::MSG_ERROR);
-    StartShutdown();
-    return false;
-}
-
-bool AbortNode(CValidationState& state, const std::string& strMessage, const std::string& userMessage)
-{
-    AbortNode(strMessage, userMessage);
-    return state.Error(strMessage);
-}
-
 void StartScriptCheckWorkerThreads(int threads_num)
 {
     g_chainstate.scriptcheckqueue = std::make_unique< CCheckQueue<CScriptCheck> >(128, threads_num);

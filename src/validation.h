@@ -389,9 +389,4 @@ inline bool IsBlockPruned(const CBlockIndex* pblockindex)
 
 bool isBlockHeightInCoinbase(const CBlock& block);
 
-
-/** Abort with a message */
-bool AbortNode(const std::string& strMessage, const std::string& userMessage="");
-bool AbortNode(CValidationState& state, const std::string& strMessage, const std::string& userMessage="");
-
 #endif // BITCOIN_VALIDATION_H

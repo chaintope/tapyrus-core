@@ -3,6 +3,7 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <chainstate.h>
+#include <abortnode.h>
 #include <chainstatemanager.h>
 #include <chainparams.h>
 #include <checkblock.h>
