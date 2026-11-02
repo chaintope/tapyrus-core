@@ -15,6 +15,7 @@
 #include <consensus/merkle.h>
 #include <consensus/validation.h>
 #include <hash.h>
+#include <heightderivedconsensusrules.h>
 #include <policy/feerate.h>
 #include <policy/policy.h>
 #include <primitives/transaction.h>
@@ -22,7 +23,6 @@
 #include <util.h>
 #include <utilmoneystr.h>
 #include <validationinterface.h>
-#include <xfieldhistory.h>
 
 #include <algorithm>
 #include <queue>
@@ -53,12 +53,10 @@ BlockAssembler::Options::Options() {
     nBlockMaxSize = DEFAULT_BLOCK_MAX_SIZE;
 }
 
-BlockAssembler::BlockAssembler(const CChainParams& params, const Options& options) : chainparams(params)
+BlockAssembler::BlockAssembler(const CChainParams& params, const Options& options)
+    : m_requested_block_max_size(options.nBlockMaxSize), chainparams(params)
 {
     blockMinFeeRate = options.blockMinFeeRate;
-    nBlockMaxSize = options.nBlockMaxSize;
-    // Limit size to between 1K and GetCurrentMaxBlockSize-1K for sanity:
-    nBlockMaxSize = std::max((unsigned int)1000, std::min((unsigned int)(g_chainstate_manager.XFieldHistory().GetCurrentMaxBlockSize()-1000), nBlockMaxSize));
 }
 
 static BlockAssembler::Options DefaultOptions()
@@ -106,6 +104,11 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     CBlockIndex* pindexPrev = chainActive.Tip();
     assert(pindexPrev != nullptr);
     nHeight = pindexPrev->nHeight + 1;
+
+    const HeightDerivedConsensusRules consensusAtHeight = g_chainstate_manager.RulesAfter(*pindexPrev);
+    // Limit size to between 1K and the block size limit less 1K for sanity
+    nBlockMaxSize = static_cast<unsigned int>(std::max(size_t{1000}, std::min(size_t{consensusAtHeight.MaxBlockSize()} - size_t{1000}, m_requested_block_max_size)));
+    m_max_block_sigops = consensusAtHeight.MaxBlockSigops();
 
     pblock->nFeatures = ConsensusConstants::TAPYRUS_BLOCK_FEATURES;
     // -dev only: allow overriding block.nFeatures with
@@ -181,7 +184,7 @@ bool BlockAssembler::TestPackage(uint64_t packageSize, int32_t packageSigOpsCost
 {
     if (nBlockSize +  packageSize >= nBlockMaxSize)
         return false;
-    if (nBlockSigOpsCost + packageSigOpsCost >= g_chainstate_manager.XFieldHistory().GetMaxBlockSigops())
+    if (nBlockSigOpsCost + packageSigOpsCost >= m_max_block_sigops)
         return false;
     return true;
 }
