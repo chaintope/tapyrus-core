@@ -11,6 +11,8 @@
 #     to prove both still build.
 #   docker-testnet-sync: a node from the Docker image syncs the public testnet.
 #   upnp-port-mapping: -upnp maps a port on a real UPnP router (miniupnpd).
+#   integration-test: tapyrus-core, tapyrus-signer and tapyrus-seeder run
+#     together on a test network, defined in tapyrus-integration-tests.
 
 name: Weekly Heavy Test
 
@@ -377,7 +379,9 @@ jobs:
         # current: the pinned "Version" column. Daily restores depends from
         #   cache, so this catches dead download URLs and depends/Tapyrus
         #   incompatibilities.
-        # Both run unit, util and functional tests.
+        # Both run unit, util and functional tests. On Linux, minimum runs on
+        # Ubuntu 24.04 and current on ubuntu-latest, so the oldest and newest
+        # toolchains are each built against.
         versions: [minimum, current]
         # Native entries build and run the tests. Cross entries build only:
         # their binaries can't run on the Linux runner, and daily's cross jobs
@@ -386,10 +390,12 @@ jobs:
         config:
           - name: Linux x86_64 native
             os: ubuntu-latest
+            os_minimum: ubuntu-24.04
             platform: linux
             host: x86_64-pc-linux-gnu
           - name: Linux arm64 native
-            os: ubuntu-24.04-arm
+            os: ubuntu-26.04-arm
+            os_minimum: ubuntu-24.04-arm
             platform: linux
             host: aarch64-linux-gnu
           - name: macOS arm64 native
@@ -398,23 +404,27 @@ jobs:
             host: arm64-apple-darwin
           - name: macOS x86_64 cross
             os: ubuntu-latest
+            os_minimum: ubuntu-24.04
             platform: linux
             target_platform: macos
             target_arch: x86_64
             host: x86_64-apple-darwin
           - name: macOS arm64 cross
             os: ubuntu-latest
+            os_minimum: ubuntu-24.04
             platform: linux
             target_platform: macos
             target_arch: arm64
             host: arm64-apple-darwin
           - name: Windows x86_64 cross
             os: ubuntu-latest
+            os_minimum: ubuntu-24.04
             platform: linux
             target_platform: windows
             target_arch: x86_64
             host: x86_64-w64-mingw32
-    runs-on: ${{ matrix.config.os }}
+    # macOS native has no os_minimum and runs both variants on macos-latest.
+    runs-on: ${{ matrix.versions == 'minimum' && matrix.config.os_minimum || matrix.config.os }}
     # 5.5h, leaving 30 minutes of margin below GitHub-hosted runners' 6h hard
     # cap: this job's from-scratch depends build (no cache, deliberately) plus
     # full GUI+wallet build plus unit/util/functional tests has no prior
@@ -731,7 +741,7 @@ jobs:
 
       - name: Upload core dumps (on failure)
         if: failure() || cancelled()
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: build-from-scratch-${{ matrix.versions }}-core-dumps-${{ matrix.config.name }}-${{ github.run_id }}
           path: ${{ github.workspace }}/core_dumps/
@@ -854,9 +864,10 @@ jobs:
 
   upnp-port-mapping:
     name: UPnP port mapping (real IGD)
-    # Pinned to match the ubuntu:24.04 container tapyrusd runs in below, so
-    # the runtime library sonames it installs match what the build linked.
-    runs-on: ubuntu-24.04
+    # The ubuntu:26.04 container tapyrusd runs in below must be the same release
+    # as this runner, so the runtime library sonames it installs match what the
+    # build linked. Update the container and sonames when ubuntu-latest moves.
+    runs-on: ubuntu-latest
     # Verifies -DWITH_MINIUPNPC=ON's actual port-mapping code path (mapport.cpp's
     # ThreadMapPort) against a real UPnP IGD implementation (miniupnpd), not
     # just that it compiles.
@@ -919,7 +930,7 @@ jobs:
           docker run -d --name upnp_igd \
             --cap-add=NET_ADMIN \
             --network upnp-test-net \
-            ubuntu:24.04 sleep infinity
+            ubuntu:26.04 sleep infinity
 
           # miniupnpd.conf is written *after* installing the package, not
           # bind-mounted in beforehand -- the package's postinst debconf
@@ -949,10 +960,10 @@ jobs:
             --network upnp-test-net \
             -v "$PWD/build/bin/tapyrusd:/usr/local/bin/tapyrusd:ro" \
             -v "$PWD/upnp_test/data:/data" \
-            ubuntu:24.04 bash -c "
+            ubuntu:26.04 bash -c "
               apt-get update -qq &&
               DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends \
-                libevent-core-2.1-7t64 libevent-pthreads-2.1-7t64 libevent-extra-2.1-7t64 libminiupnpc17 &&
+                libevent-core-2.1-7t64 libevent-pthreads-2.1-7t64 libevent-extra-2.1-7t64 libminiupnpc21 &&
               exec tapyrusd -datadir=/data
             "
 
@@ -1002,3 +1013,9 @@ jobs:
         run: |
           docker rm -f upnp_node upnp_igd || true
           docker network rm upnp-test-net || true
+
+  integration-test:
+    # Called from here because GitHub disables a schedule after 60 days without
+    # activity, and tapyrus-integration-tests changes rarely.
+    if: github.event_name == 'schedule'
+    uses: chaintope/tapyrus-integration-tests/.github/workflows/weekly-integration-test.yml@main

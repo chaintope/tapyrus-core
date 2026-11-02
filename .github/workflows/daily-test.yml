@@ -129,16 +129,16 @@ jobs:
             enable_gui: false
             enable_usdt: false
             enable_wallet: false
-          # ubuntu-24.04-arm -- a genuine native ARM64 runner
+          # ubuntu-26.04-arm -- a genuine native ARM64 runner
           - name: L-ARM-Deb-GUI+USDT+Wallet
-            os: ubuntu-24.04-arm
+            os: ubuntu-26.04-arm
             platform: linux
             build_type: Debug
             enable_gui: true
             enable_usdt: true
             enable_wallet: true
           - name: L-ARM-Rel-GUI+Wallet
-            os: ubuntu-24.04-arm
+            os: ubuntu-26.04-arm
             platform: linux
             build_type: RelWithDebInfo
             enable_gui: true
@@ -147,7 +147,7 @@ jobs:
             collect_benchmark_history: true
             save_depends_cache: true
           - name: L-ARM-Release-GUI+Wallet
-            os: ubuntu-24.04-arm
+            os: ubuntu-26.04-arm
             platform: linux
             build_type: Release
             enable_gui: true
@@ -155,7 +155,7 @@ jobs:
             enable_wallet: true
             collect_benchmark_history: true
           - name: L-ARM-Rel-No_GUI+No_Wallet
-            os: ubuntu-24.04-arm
+            os: ubuntu-26.04-arm
             platform: linux
             build_type: RelWithDebInfo
             enable_gui: false
