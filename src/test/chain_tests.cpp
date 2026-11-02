@@ -1690,4 +1690,70 @@ BOOST_AUTO_TEST_CASE(diskblockpos_tostring)
     BOOST_CHECK(str1.back() == ')');
 }
 
+// ============================================================================
+// 64-bit block and undo file positions
+// ============================================================================
+
+// An undo file has no size cap, so positions past 4 GiB must survive the
+// block index and file info round trip instead of wrapping.
+BOOST_AUTO_TEST_CASE(file_positions_above_4gib)
+{
+    const uint64_t nAbove4GiB{uint64_t{5} * 1024 * 1024 * 1024};
+
+    CDiskBlockPos pos(3, nAbove4GiB);
+    CDataStream ssPos(SER_DISK, CLIENT_VERSION);
+    ssPos << pos;
+    CDiskBlockPos posRead;
+    ssPos >> posRead;
+    BOOST_CHECK(posRead == pos);
+    BOOST_CHECK_EQUAL(posRead.nPos, nAbove4GiB);
+
+    CBlockFileInfo info;
+    info.nSize = nAbove4GiB;
+    info.nUndoSize = nAbove4GiB + 1;
+    CDataStream ssInfo(SER_DISK, CLIENT_VERSION);
+    ssInfo << info;
+    CBlockFileInfo infoRead;
+    ssInfo >> infoRead;
+    BOOST_CHECK_EQUAL(infoRead.nSize, nAbove4GiB);
+    BOOST_CHECK_EQUAL(infoRead.nUndoSize, nAbove4GiB + 1);
+
+    CBlockIndex index;
+    index.nStatus = BLOCK_HAVE_DATA | BLOCK_HAVE_UNDO;
+    index.nFile = 3;
+    index.nDataPos = nAbove4GiB;
+    index.nUndoPos = nAbove4GiB + 2;
+    CDataStream ssIndex(SER_DISK, CLIENT_VERSION);
+    ssIndex << CDiskBlockIndex(&index);
+    CDiskBlockIndex indexRead;
+    ssIndex >> indexRead;
+    BOOST_CHECK_EQUAL(indexRead.nDataPos, nAbove4GiB);
+    BOOST_CHECK_EQUAL(indexRead.nUndoPos, nAbove4GiB + 2);
+    BOOST_CHECK(indexRead.GetUndoPos() == CDiskBlockPos(3, nAbove4GiB + 2));
+}
+
+// Positions are VARINTs, so widening them leaves existing block indexes and
+// file info readable: a value below 4 GiB serializes to the same bytes as the
+// old 32-bit field.
+BOOST_AUTO_TEST_CASE(file_positions_disk_format_unchanged)
+{
+    const uint32_t nOldPos{0xFFFFFFFE};
+    const int nFile{7};
+
+    CDataStream ssOld(SER_DISK, CLIENT_VERSION);
+    int nFileOld = nFile;
+    uint32_t nPosOld = nOldPos;
+    ssOld << VARINT_MODE(nFileOld, VarIntMode::NONNEGATIVE_SIGNED) << VARINT(nPosOld);
+
+    CDataStream ssNew(SER_DISK, CLIENT_VERSION);
+    ssNew << CDiskBlockPos(nFile, nOldPos);
+    BOOST_CHECK_EQUAL(HexStr(ssNew.begin(), ssNew.end()), HexStr(ssOld.begin(), ssOld.end()));
+
+    // Bytes written by the old 32-bit field read back into the wider one.
+    CDiskBlockPos posRead;
+    ssOld >> posRead;
+    BOOST_CHECK_EQUAL(posRead.nFile, nFile);
+    BOOST_CHECK_EQUAL(posRead.nPos, nOldPos);
+}
+
 BOOST_AUTO_TEST_SUITE_END()

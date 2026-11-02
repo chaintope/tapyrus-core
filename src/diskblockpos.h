@@ -17,8 +17,8 @@ class CBlockFileInfo
 {
 public:
     unsigned int nBlocks;      //!< number of blocks stored in file
-    unsigned int nSize;        //!< number of used bytes of block file
-    unsigned int nUndoSize;    //!< number of used bytes in the undo file
+    uint64_t nSize;            //!< number of used bytes of block file
+    uint64_t nUndoSize;        //!< number of used bytes in the undo file
     unsigned int nHeightFirst; //!< lowest height of block in file
     unsigned int nHeightLast;  //!< highest height of block in file
     uint64_t nTimeFirst;       //!< earliest time of block in file
@@ -70,7 +70,7 @@ public:
 struct CDiskBlockPos
 {
     int nFile;
-    unsigned int nPos;
+    uint64_t nPos;
 
     ADD_SERIALIZE_METHODS;
 
@@ -84,7 +84,7 @@ struct CDiskBlockPos
         SetNull();
     }
 
-    CDiskBlockPos(int nFileIn, unsigned int nPosIn) {
+    CDiskBlockPos(int nFileIn, uint64_t nPosIn) {
         nFile = nFileIn;
         nPos = nPosIn;
     }
@@ -102,7 +102,7 @@ struct CDiskBlockPos
 
     std::string ToString() const
     {
-        return strprintf("CBlockDiskPos(nFile=%i, nPos=%i)", nFile, nPos);
+        return strprintf("CBlockDiskPos(nFile=%i, nPos=%u)", nFile, nPos);
     }
 
 };

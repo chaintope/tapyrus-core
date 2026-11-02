@@ -37,3 +37,19 @@ P2P
   one peer's compact block used to leave a request to another peer pending,
   and that peer was disconnected for a block download timeout 10 minutes or
   more later.
+
+Downgrading warning
+-------------------
+
+- Block and undo file positions in the block index database are now stored
+  as 64-bit values. Undo files (`rev*.dat`) have no size limit, and a
+  position past 4 GiB used to wrap around and corrupt the undo data. The
+  values use a variable-length encoding, so an existing block index is read
+  unchanged and no reindex is needed to upgrade.
+
+  This only works in one direction once an undo file has grown past 4 GiB.
+  The block index then holds a position that versions without this change
+  cannot read, and those versions will refuse to start against it. To move
+  such a node back to an older version, start the older version with
+  `-reindex`. Undo files normally stay far below 4 GiB, and a node whose
+  undo files all do can be downgraded as before.
