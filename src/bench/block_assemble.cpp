@@ -80,6 +80,7 @@ static void AssembleBlock(benchmark::State& state)
     g_chainstate_manager.InitConsensusSettings(std::make_unique<const ConsensusSettings>(ReadGenesisBlock(), TAPYRUS_OP_MODE::DEV, FederationParams().NetworkId()));
     g_chainstate_manager.InitXFieldHistory(g_chainstate_manager.Settings().GenesisBlock());
     g_chainstate_manager.InitBlockFileManager({false, 0, Params().PruneAfterHeight()});
+    BlockIndexMap& blockIndex = g_chainstate_manager.BlockIndex();
 
     const CKey privKey(DecodeSecret(SIGN_BLOCK_PRIVKEY));
     const CPubKey pubkey(privKey.GetPubKey());
@@ -94,9 +95,9 @@ static void AssembleBlock(benchmark::State& state)
     CScheduler scheduler;
     std::thread thread(std::bind(&CScheduler::serviceQueue, &scheduler));
     {
-        ::pblocktree.reset(new CBlockTreeDB(1 << 20, true));
         {
             LOCK(cs_main);
+            blockIndex.pblocktreedb.reset(new CBlockTreeDB(1 << 20, true));
             ::pcoinsdbview.reset(new CCoinsViewDB(g_chainstate_manager.IssuedColorIds(), 1 << 23, true));
         }
         ::pcoinsTip.reset(new CCoinsViewCache(pcoinsdbview.get()));

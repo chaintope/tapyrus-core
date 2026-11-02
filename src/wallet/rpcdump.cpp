@@ -370,6 +370,7 @@ UniValue importaddress(const JSONRPCRequest& request)
 
 UniValue importprunedfunds(const JSONRPCRequest& request)
 {
+    BlockIndexMap& blockIndex = g_chainstate_manager.BlockIndex();
     std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
     CWallet* const pwallet = wallet.get();
     if (!EnsureWalletIsAvailable(pwallet, request.fHelp)) {
@@ -402,7 +403,7 @@ UniValue importprunedfunds(const JSONRPCRequest& request)
     if (merkleBlock.txn.ExtractMatches(vMatch, vIndex) == merkleBlock.header.hashImMerkleRoot) {
 
         LOCK(cs_main);
-        const CBlockIndex* pindex = LookupBlockIndex(merkleBlock.header.GetHash());
+        const CBlockIndex* pindex = blockIndex.LookupBlockIndex(merkleBlock.header.GetHash());
         if (!pindex || !chainActive.Contains(pindex)) {
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Block not found in chain");
         }

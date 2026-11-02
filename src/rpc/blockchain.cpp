@@ -356,6 +356,7 @@ static UniValue getblockhash(const JSONRPCRequest& request)
 // TODO: add proof in result
 static UniValue getblockheader(const JSONRPCRequest& request)
 {
+    BlockIndexMap& blockIndex = g_chainstate_manager.BlockIndex();
     if (request.fHelp || request.params.size() < 1 || request.params.size() > 2)
         throw std::runtime_error(
             "getblockheader \"hash\" ( verbose )\n"
@@ -397,7 +398,7 @@ static UniValue getblockheader(const JSONRPCRequest& request)
     if (!request.params[1].isNull())
         fVerbose = request.params[1].get_bool();
 
-    const CBlockIndex* pblockindex = LookupBlockIndex(hash);
+    const CBlockIndex* pblockindex = blockIndex.LookupBlockIndex(hash);
     if (!pblockindex) {
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Block not found");
     }
@@ -435,6 +436,7 @@ static CBlock GetBlockChecked(const CBlockIndex* pblockindex)
 // TODO: add proof in result
 static UniValue getblock(const JSONRPCRequest& request)
 {
+    BlockIndexMap& blockIndex = g_chainstate_manager.BlockIndex();
     if (request.fHelp || request.params.size() < 1 || request.params.size() > 2)
         throw std::runtime_error(
             "getblock \"blockhash\" ( verbosity ) \n"
@@ -495,7 +497,7 @@ static UniValue getblock(const JSONRPCRequest& request)
             verbosity = request.params[1].get_bool() ? 1 : 0;
     }
 
-    const CBlockIndex* pblockindex = LookupBlockIndex(hash);
+    const CBlockIndex* pblockindex = blockIndex.LookupBlockIndex(hash);
     if (!pblockindex) {
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Block not found");
     }
@@ -564,6 +566,7 @@ static UniValue pruneblockchain(const JSONRPCRequest& request)
 
 UniValue gettxout(const JSONRPCRequest& request)
 {
+    BlockIndexMap& blockIndex = g_chainstate_manager.BlockIndex();
     if (request.fHelp || request.params.size() < 2 || request.params.size() > 3)
         throw std::runtime_error(
             "gettxout \"txid\" n ( include_mempool )\n"
@@ -626,7 +629,7 @@ UniValue gettxout(const JSONRPCRequest& request)
         }
     }
 
-    const CBlockIndex* pindex = LookupBlockIndex(pcoinsTip->GetBestBlock());
+    const CBlockIndex* pindex = blockIndex.LookupBlockIndex(pcoinsTip->GetBestBlock());
     ret.pushKV("bestblock", pindex->GetBlockHash().GetHex());
     if (coin.nHeight == MEMPOOL_HEIGHT) {
         ret.pushKV("confirmations", 0);
@@ -775,6 +778,7 @@ struct CompareBlocksByHeight
 
 static UniValue getchaintips(const JSONRPCRequest& request)
 {
+    BlockIndexMap& blockIndex = g_chainstate_manager.BlockIndex();
     if (request.fHelp || request.params.size() != 0)
         throw std::runtime_error(
             "getchaintips\n"
@@ -819,7 +823,7 @@ static UniValue getchaintips(const JSONRPCRequest& request)
     std::set<const CBlockIndex*> setOrphans;
     std::set<const CBlockIndex*> setPrevs;
 
-    for (const std::pair<const uint256, CBlockIndex*>& item : mapBlockIndex)
+    for (const std::pair<const uint256, CBlockIndex*>& item : blockIndex.mapBlockIndex)
     {
         if (!chainActive.Contains(item.second)) {
             setOrphans.insert(item.second);
@@ -878,6 +882,7 @@ static UniValue getchaintips(const JSONRPCRequest& request)
 
 static UniValue preciousblock(const JSONRPCRequest& request)
 {
+    BlockIndexMap& blockIndex = g_chainstate_manager.BlockIndex();
     if (request.fHelp || request.params.size() != 1)
         throw std::runtime_error(
             "preciousblock \"blockhash\"\n"
@@ -898,7 +903,7 @@ static UniValue preciousblock(const JSONRPCRequest& request)
 
     {
         LOCK(cs_main);
-        pblockindex = LookupBlockIndex(hash);
+        pblockindex = blockIndex.LookupBlockIndex(hash);
         if (!pblockindex) {
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Block not found");
         }
@@ -916,6 +921,7 @@ static UniValue preciousblock(const JSONRPCRequest& request)
 
 static UniValue invalidateblock(const JSONRPCRequest& request)
 {
+    BlockIndexMap& blockIndex = g_chainstate_manager.BlockIndex();
     if (request.fHelp || request.params.size() != 1)
         throw std::runtime_error(
             "invalidateblock \"blockhash\"\n"
@@ -934,7 +940,7 @@ static UniValue invalidateblock(const JSONRPCRequest& request)
 
     {
         LOCK(cs_main);
-        CBlockIndex* pblockindex = LookupBlockIndex(hash);
+        CBlockIndex* pblockindex = blockIndex.LookupBlockIndex(hash);
         if (!pblockindex) {
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Block not found");
         }
@@ -959,6 +965,7 @@ static UniValue invalidateblock(const JSONRPCRequest& request)
 
 static UniValue reconsiderblock(const JSONRPCRequest& request)
 {
+    BlockIndexMap& blockIndex = g_chainstate_manager.BlockIndex();
     if (request.fHelp || request.params.size() != 1)
         throw std::runtime_error(
             "reconsiderblock \"blockhash\"\n"
@@ -977,7 +984,7 @@ static UniValue reconsiderblock(const JSONRPCRequest& request)
 
     {
         LOCK(cs_main);
-        CBlockIndex* pblockindex = LookupBlockIndex(hash);
+        CBlockIndex* pblockindex = blockIndex.LookupBlockIndex(hash);
         if (!pblockindex) {
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Block not found");
         }
@@ -1001,6 +1008,7 @@ static UniValue reconsiderblock(const JSONRPCRequest& request)
 
 static UniValue getchaintxstats(const JSONRPCRequest& request)
 {
+    BlockIndexMap& blockIndex = g_chainstate_manager.BlockIndex();
     if (request.fHelp || request.params.size() > 2)
         throw std::runtime_error(
             "getchaintxstats ( nblocks blockhash )\n"
@@ -1032,7 +1040,7 @@ static UniValue getchaintxstats(const JSONRPCRequest& request)
     } else {
         uint256 hash = uint256S(request.params[1].get_str());
         LOCK(cs_main);
-        pindex = LookupBlockIndex(hash);
+        pindex = blockIndex.LookupBlockIndex(hash);
         if (!pindex) {
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Block not found");
         }
@@ -1131,6 +1139,7 @@ static constexpr size_t PER_UTXO_OVERHEAD = sizeof(COutPoint) + sizeof(uint32_t)
 
 static UniValue getblockstats(const JSONRPCRequest& request)
 {
+    BlockIndexMap& blockIndex = g_chainstate_manager.BlockIndex();
     if (request.fHelp || request.params.size() < 1 || request.params.size() > 4) {
         throw std::runtime_error(
             "getblockstats hash_or_height ( stats )\n"
@@ -1202,7 +1211,7 @@ static UniValue getblockstats(const JSONRPCRequest& request)
     } else {
         const std::string strHash = request.params[0].get_str();
         const uint256 hash(uint256S(strHash));
-        pindex = LookupBlockIndex(hash);
+        pindex = blockIndex.LookupBlockIndex(hash);
         if (!pindex) {
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Block not found");
         }

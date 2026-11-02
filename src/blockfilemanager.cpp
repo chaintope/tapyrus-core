@@ -7,8 +7,10 @@
 #include <blockfilemanager.h>
 
 #include <abortnode.h>
+#include <blockindexmap.h>
 #include <checkblock.h>
 #include <clientversion.h>
+#include <consensus/validation.h>
 #include <federationparams.h>
 #include <hash.h>
 #include <heightderivedconsensusrules.h>
@@ -17,20 +19,20 @@
 #include <undo.h>
 #include <util.h>
 #include <utilstrencodings.h>
-#include <validation.h>
 
 #include <charconv>
 #include <map>
 #include <string>
 
-BlockFileManager::BlockFileManager(const Options& options)
-    : m_options(options)
+BlockFileManager::BlockFileManager(const Options& options, BlockIndexMap& blockIndex)
+    : m_options(options), m_block_index(blockIndex)
 {
 }
 
-bool BlockFileManager::LoadBlockFileInfo(CBlockTreeDB& blocktree)
+bool BlockFileManager::LoadBlockFileInfo()
 {
     LOCK(cs_LastBlockFile);
+    CBlockTreeDB& blocktree = *m_block_index.pblocktreedb;
 
     // Load block file info
     blocktree.ReadLastBlockFile(nLastBlockFile);
@@ -52,7 +54,7 @@ bool BlockFileManager::LoadBlockFileInfo(CBlockTreeDB& blocktree)
     // Check presence of blk files
     LogPrintf("Checking all blk files are present...\n");
     std::set<int> setBlkDataFiles;
-    for (const std::pair<const uint256, CBlockIndex*>& item : mapBlockIndex)
+    for (const std::pair<const uint256, CBlockIndex*>& item : m_block_index.mapBlockIndex)
     {
         CBlockIndex* pindex = item.second;
         if (pindex->nStatus & BLOCK_HAVE_DATA) {
@@ -260,7 +262,7 @@ bool BlockFileManager::WriteUndoDataForBlock(const CBlockUndo& blockundo, CValid
         // update nUndoPos in block index
         pindex->nUndoPos = _pos.nPos;
         pindex->nStatus |= BLOCK_HAVE_UNDO;
-        setDirtyBlockIndex.insert(pindex);
+        m_block_index.setDirtyBlockIndex.insert(pindex);
     }
 
     return true;
@@ -493,7 +495,7 @@ void BlockFileManager::PruneOneBlockFile(const int fileNumber)
 {
     LOCK(cs_LastBlockFile);
 
-    for (const auto& entry : mapBlockIndex) {
+    for (const auto& entry : m_block_index.mapBlockIndex) {
         CBlockIndex* pindex = entry.second;
         if (pindex->nFile == fileNumber) {
             pindex->nStatus &= ~BLOCK_HAVE_DATA;
@@ -501,18 +503,18 @@ void BlockFileManager::PruneOneBlockFile(const int fileNumber)
             pindex->nFile = 0;
             pindex->nDataPos = 0;
             pindex->nUndoPos = 0;
-            setDirtyBlockIndex.insert(pindex);
+            m_block_index.setDirtyBlockIndex.insert(pindex);
 
             // Prune from mapBlocksUnlinked -- any block we prune would have
             // to be downloaded again in order to consider its chain, at which
             // point it would be considered as a candidate for
             // mapBlocksUnlinked or setBlockIndexCandidates.
-            std::pair<std::multimap<CBlockIndex*, CBlockIndex*>::iterator, std::multimap<CBlockIndex*, CBlockIndex*>::iterator> range = mapBlocksUnlinked.equal_range(pindex->pprev);
+            std::pair<std::multimap<CBlockIndex*, CBlockIndex*>::iterator, std::multimap<CBlockIndex*, CBlockIndex*>::iterator> range = m_block_index.mapBlocksUnlinked.equal_range(pindex->pprev);
             while (range.first != range.second) {
                 std::multimap<CBlockIndex *, CBlockIndex *>::iterator _it = range.first;
                 range.first++;
                 if (_it->second == pindex) {
-                    mapBlocksUnlinked.erase(_it);
+                    m_block_index.mapBlocksUnlinked.erase(_it);
                 }
             }
         }
@@ -532,16 +534,16 @@ void BlockFileManager::UnlinkPrunedFiles(const std::set<int>& setFilesToPrune) c
     }
 }
 
-void BlockFileManager::FindFilesToPruneManual(std::set<int>& setFilesToPrune, int nManualPruneHeight)
+void BlockFileManager::FindFilesToPruneManual(std::set<int>& setFilesToPrune, int nManualPruneHeight, const CBlockIndex* tip)
 {
     assert(m_options.fPruneMode && nManualPruneHeight > 0);
 
-    LOCK2(cs_main, cs_LastBlockFile);
-    if (chainActive.Tip() == nullptr)
+    LOCK(cs_LastBlockFile);
+    if (tip == nullptr)
         return;
 
     // last block to prune is the lesser of (user-specified height, MIN_BLOCKS_TO_KEEP from the tip)
-    unsigned int nLastBlockWeCanPrune = std::min(static_cast<unsigned int>(nManualPruneHeight), static_cast<unsigned int>(chainActive.Tip()->nHeight) - MIN_BLOCKS_TO_KEEP);
+    unsigned int nLastBlockWeCanPrune = std::min(static_cast<unsigned int>(nManualPruneHeight), static_cast<unsigned int>(tip->nHeight) - MIN_BLOCKS_TO_KEEP);
     int count=0;
     for (int fileNumber = 0; fileNumber < nLastBlockFile; fileNumber++) {
         if (vinfoBlockFile[fileNumber].nSize == 0 || vinfoBlockFile[fileNumber].nHeightLast > nLastBlockWeCanPrune)
@@ -553,17 +555,17 @@ void BlockFileManager::FindFilesToPruneManual(std::set<int>& setFilesToPrune, in
     LogPrintf("Prune (Manual): prune_height=%d removed %d blk/rev pairs\n", nLastBlockWeCanPrune, count);
 }
 
-void BlockFileManager::FindFilesToPrune(std::set<int>& setFilesToPrune)
+void BlockFileManager::FindFilesToPrune(std::set<int>& setFilesToPrune, const CBlockIndex* tip, bool fInitialBlockDownload)
 {
-    LOCK2(cs_main, cs_LastBlockFile);
-    if (chainActive.Tip() == nullptr || m_options.nPruneTarget == 0) {
+    LOCK(cs_LastBlockFile);
+    if (tip == nullptr || m_options.nPruneTarget == 0) {
         return;
     }
-    if (static_cast<uint32_t>(chainActive.Tip()->nHeight) <= m_options.nPruneAfterHeight) {
+    if (static_cast<uint32_t>(tip->nHeight) <= m_options.nPruneAfterHeight) {
         return;
     }
 
-    unsigned int nLastBlockWeCanPrune = chainActive.Tip()->nHeight - MIN_BLOCKS_TO_KEEP;
+    unsigned int nLastBlockWeCanPrune = tip->nHeight - MIN_BLOCKS_TO_KEEP;
     uint64_t nCurrentUsage = CalculateCurrentUsage();
     // We don't check to prune until after we've allocated new space for files
     // So we should leave a buffer under our target to account for another allocation
@@ -577,7 +579,7 @@ void BlockFileManager::FindFilesToPrune(std::set<int>& setFilesToPrune)
         // To avoid excessive prune events negating the benefit of high dbcache
         // values, we should not prune too rapidly.
         // So when pruning in IBD, increase the buffer a bit to avoid a re-prune too soon.
-        if (IsInitialBlockDownload()) {
+        if (fInitialBlockDownload) {
             // Since this is only relevant during IBD, we use a fixed 10%
             nBuffer += m_options.nPruneTarget / 10;
         }
@@ -615,26 +617,26 @@ void BlockFileManager::SetCheckForPruning()
     fCheckForPruning = true;
 }
 
-void BlockFileManager::FindFilesToPruneOnFlush(std::set<int>& setFilesToPrune, int nManualPruneHeight, CBlockTreeDB& blocktree)
+void BlockFileManager::FindFilesToPruneOnFlush(std::set<int>& setFilesToPrune, int nManualPruneHeight, const CBlockIndex* tip, bool fInitialBlockDownload)
 {
     LOCK(cs_LastBlockFile);
     if (m_options.fPruneMode && (fCheckForPruning || nManualPruneHeight > 0) && !fReindex) {
         if (nManualPruneHeight > 0) {
-            FindFilesToPruneManual(setFilesToPrune, nManualPruneHeight);
+            FindFilesToPruneManual(setFilesToPrune, nManualPruneHeight, tip);
         } else {
-            FindFilesToPrune(setFilesToPrune);
+            FindFilesToPrune(setFilesToPrune, tip, fInitialBlockDownload);
             fCheckForPruning = false;
         }
         if (!setFilesToPrune.empty()) {
             if (!fHavePruned) {
-                blocktree.WriteFlag("prunedblockfiles", true);
+                m_block_index.pblocktreedb->WriteFlag("prunedblockfiles", true);
                 fHavePruned = true;
             }
         }
     }
 }
 
-bool BlockFileManager::WriteBlockIndexDB(CBlockTreeDB& blocktree)
+bool BlockFileManager::WriteBlockIndexDB()
 {
     LOCK(cs_LastBlockFile);
     std::vector<std::pair<int, const CBlockFileInfo*> > vFiles;
@@ -644,12 +646,13 @@ bool BlockFileManager::WriteBlockIndexDB(CBlockTreeDB& blocktree)
         setDirtyFileInfo.erase(it++);
     }
     std::vector<const CBlockIndex*> vBlocks;
+    std::set<CBlockIndex*>& setDirtyBlockIndex = m_block_index.setDirtyBlockIndex;
     vBlocks.reserve(setDirtyBlockIndex.size());
     for (std::set<CBlockIndex*>::iterator it = setDirtyBlockIndex.begin(); it != setDirtyBlockIndex.end(); ) {
         vBlocks.push_back(*it);
         setDirtyBlockIndex.erase(it++);
     }
-    return blocktree.WriteBatchSync(vFiles, nLastBlockFile, vBlocks);
+    return m_block_index.pblocktreedb->WriteBatchSync(vFiles, nLastBlockFile, vBlocks);
 }
 
 void BlockFileManager::CleanupBlockRevFiles() const

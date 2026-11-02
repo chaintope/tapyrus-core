@@ -1131,10 +1131,11 @@ bool CWallet::AbandonTransaction(const uint256& hashTx)
 
 void CWallet::MarkConflicted(const uint256& hashBlock, const uint256& hashTx)
 {
+    BlockIndexMap& blockIndex = g_chainstate_manager.BlockIndex();
     LOCK2(cs_main, cs_wallet);
 
     int conflictconfirms = 0;
-    CBlockIndex* pindex = LookupBlockIndex(hashBlock);
+    CBlockIndex* pindex = blockIndex.LookupBlockIndex(hashBlock);
     if (pindex && chainActive.Contains(pindex)) {
         conflictconfirms = -(chainActive.Height() - pindex->nHeight + 1);
     }
@@ -3859,6 +3860,7 @@ void CWallet::ListLockedCoins(std::vector<COutPoint>& vOutpts) const
 /** @} */ // end of Actions
 
 void CWallet::GetKeyBirthTimes(std::map<CTxDestination, int64_t> &mapKeyBirth) const {
+    BlockIndexMap& blockIndex = g_chainstate_manager.BlockIndex();
     AssertLockHeld(cs_wallet); // mapKeyMetadata
     AssertLockHeld(cs_main);
     mapKeyBirth.clear();
@@ -3887,7 +3889,7 @@ void CWallet::GetKeyBirthTimes(std::map<CTxDestination, int64_t> &mapKeyBirth) c
     for (const auto& entry : mapWallet) {
         // iterate over all wallet transactions...
         const CWalletTx &wtx = entry.second;
-        CBlockIndex* pindex = LookupBlockIndex(wtx.hashBlock);
+        CBlockIndex* pindex = blockIndex.LookupBlockIndex(wtx.hashBlock);
         if (pindex && chainActive.Contains(pindex)) {
             // ... which are already in a block
             int nHeight = pindex->nHeight;
@@ -3933,10 +3935,11 @@ void CWallet::GetKeyBirthTimes(std::map<CTxDestination, int64_t> &mapKeyBirth) c
  */
 unsigned int CWallet::ComputeTimeSmart(const CWalletTx& wtx, bool rescanning_old_block) const
 {
+    BlockIndexMap& blockIndex = g_chainstate_manager.BlockIndex();
     unsigned int nTimeSmart = wtx.nTimeReceived;
     if (!wtx.hashUnset()) {
         AssertLockHeld(cs_main);
-        if (const CBlockIndex* pindex = LookupBlockIndex(wtx.hashBlock)) {
+        if (const CBlockIndex* pindex = blockIndex.LookupBlockIndex(wtx.hashBlock)) {
             if(rescanning_old_block)
                 return pindex->nTimeMax;
 
@@ -4455,13 +4458,14 @@ void CMerkleTx::SetMerkleBranch(const CBlockIndex* pindex, int posInBlock)
 
 int CMerkleTx::GetDepthInMainChain() const
 {
+    BlockIndexMap& blockIndex = g_chainstate_manager.BlockIndex();
     if (hashUnset())
         return 0;
 
     AssertLockHeld(cs_main);
 
     // Find the block it claims to be in
-    CBlockIndex* pindex = LookupBlockIndex(hashBlock);
+    CBlockIndex* pindex = blockIndex.LookupBlockIndex(hashBlock);
     if (!pindex || !chainActive.Contains(pindex))
         return 0;
 

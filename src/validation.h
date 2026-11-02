@@ -36,7 +36,6 @@
 #include <atomic>
 
 class CBlockIndex;
-class CBlockTreeDB;
 class CChainParams;
 class CCoinsViewDB;
 class CInv;
@@ -120,7 +119,6 @@ extern RecursiveMutex cs_main;
 extern CBlockPolicyEstimator feeEstimator;
 extern CTxMemPool mempool;
 extern std::atomic_bool g_is_mempool_loaded;
-extern BlockMap& mapBlockIndex;
 extern uint64_t nLastBlockTx;
 extern uint64_t nLastBlockSize;
 extern Mutex g_best_block_mutex;
@@ -139,8 +137,6 @@ extern uint256 hashAssumeValid;
 /** Best header we've seen so far (used for getheaders queries' starting points). */
 extern CBlockIndex *pindexBestHeader;
 
-extern std::set<CBlockIndex*> setDirtyBlockIndex;
-extern std::multimap<CBlockIndex*, CBlockIndex*>& mapBlocksUnlinked;
 /** The currently-connected chain of blocks (protected by cs_main). */
 extern CChain& chainActive;
 
@@ -149,9 +145,6 @@ extern std::unique_ptr<CCoinsViewDB> pcoinsdbview;
 
 /** Global variable that points to the active CCoinsView (protected by cs_main) */
 extern std::unique_ptr<CCoinsViewCache> pcoinsTip;
-
-/** Global variable that points to the active block tree (protected by cs_main) */
-extern std::unique_ptr<CBlockTreeDB> pblocktree;
 
 extern CBlockIndex *&pindexBestInvalid;
 
@@ -299,13 +292,6 @@ bool RewindBlockIndex();
 
 /** Replay blocks that aren't fully applied to the database. */
 bool ReplayBlocks(CCoinsView* view, CIssuedColorIds& issuedColorIds);
-
-inline CBlockIndex* LookupBlockIndex(const uint256& hash) EXCLUSIVE_LOCKS_REQUIRED(cs_main)
-{
-    AssertLockHeld(cs_main);
-    BlockMap::const_iterator it = mapBlockIndex.find(hash);
-    return it == mapBlockIndex.end() ? nullptr : it->second;
-}
 
 /** Find the last common block between the parameter chain and a locator. */
 CBlockIndex* FindForkInGlobalIndex(const CChain& chain, const CBlockLocator& locator);

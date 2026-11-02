@@ -280,7 +280,7 @@ void Shutdown(NodeContext& node)
         pcoinscatcher.reset();
         pcoinsdbview.reset();
         g_chainstate_manager.IssuedColorIds() = CIssuedColorIds();
-        pblocktree.reset();
+        g_chainstate_manager.BlockIndex().pblocktreedb.reset();
     }
     g_wallet_init_interface.Stop();
 
@@ -627,6 +627,7 @@ struct CImportingNow
 
 static void ThreadImport(std::vector<fs::path> vImportFiles, bool fReloadxfield)
 {
+    BlockIndexMap& blockIndex = g_chainstate_manager.BlockIndex();
     RenameThread("tapyrus-loadblk");
     ScheduleBatchPriority();
     CTempXFieldHistory tempXFieldHistory(g_chainstate_manager.XFieldHistory());
@@ -653,7 +654,10 @@ static void ThreadImport(std::vector<fs::path> vImportFiles, bool fReloadxfield)
             LoadExternalBlockFile(file, &pos, &tempXFieldHistory);
             nFile++;
         }
-        pblocktree->WriteReindexing(false);
+        {
+            LOCK(cs_main);
+            blockIndex.pblocktreedb->WriteReindexing(false);
+        }
         blockFileManager.fReindex = false;
         LogPrintf("Reindexing finished\n");
     }
@@ -698,8 +702,10 @@ static void ThreadImport(std::vector<fs::path> vImportFiles, bool fReloadxfield)
         CXFieldHistory& xfieldHistory = g_chainstate_manager.XFieldHistory();
         for (const auto& type : XFIELDTYPES_INIT_LIST) {
             XFieldChangeList changes = xfieldHistory.GetListCopy(type);
-            if (!changes.empty())
-                pblocktree->RewriteXField(changes);
+            if (!changes.empty()) {
+                LOCK(cs_main);
+                blockIndex.pblocktreedb->RewriteXField(changes);
+            }
         }
     }
 
@@ -1152,6 +1158,7 @@ bool AppInitLockDataDirectory()
 
 bool AppInitMain(NodeContext& node)
 {
+    BlockIndexMap& blockIndex = g_chainstate_manager.BlockIndex();
     // ********************************************************* Step 4a: application initialization
 #ifndef WIN32
     CreatePidFile(GetPidFile(), getpid());
@@ -1419,11 +1426,11 @@ bool AppInitMain(NodeContext& node)
                 pcoinscatcher.reset();
                 // new CBlockTreeDB tries to delete the existing file, which
                 // fails if it's still open from the previous loop. Close it first:
-                pblocktree.reset();
-                pblocktree.reset(new CBlockTreeDB(nBlockTreeDBCache, false, fReset));
+                blockIndex.pblocktreedb.reset();
+                blockIndex.pblocktreedb.reset(new CBlockTreeDB(nBlockTreeDBCache, false, fReset));
 
                 if (fReset) {
-                    pblocktree->WriteReindexing(true);
+                    blockIndex.pblocktreedb->WriteReindexing(true);
                     //If we're reindexing in prune mode, wipe away unusable block files and all undo data files
                     if (blockFileManager.GetOptions().fPruneMode)
                         blockFileManager.CleanupBlockRevFiles();
@@ -1442,7 +1449,7 @@ bool AppInitMain(NodeContext& node)
 
                 // If the loaded chain has a wrong genesis, bail out immediately
                 // (we're likely using a testnet datadir, or the other way around).
-                if (!mapBlockIndex.empty() && !LookupBlockIndex(g_chainstate_manager.Settings().GenesisBlock().GetHash())) {
+                if (!blockIndex.mapBlockIndex.empty() && !blockIndex.LookupBlockIndex(g_chainstate_manager.Settings().GenesisBlock().GetHash())) {
                     return InitError(_("Incorrect or no genesis block found. Wrong datadir for network?"));
                 }
 
@@ -1519,7 +1526,7 @@ bool AppInitMain(NodeContext& node)
                 {
                     const char key = xFieldHistory.DBKey(x);
                     XFieldChangeListWrapper xFieldListDB(key);
-                    pblocktree->ReadXField(key, xFieldListDB);
+                    blockIndex.pblocktreedb->ReadXField(key, xFieldListDB);
                     for(auto &XFieldDB:xFieldListDB)
                         xFieldHistory.Add(x, XFieldDB);
                 }
@@ -1680,7 +1687,7 @@ bool AppInitMain(NodeContext& node)
     //// debug print
     {
         LOCK(cs_main);
-        LogPrintf("mapBlockIndex.size() = %u\n", mapBlockIndex.size());
+        LogPrintf("mapBlockIndex.size() = %u\n", blockIndex.mapBlockIndex.size());
         chain_active_height = chainActive.Height();
     }
     LogPrintf("nBestHeight = %d\n", chain_active_height);

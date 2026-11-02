@@ -151,6 +151,7 @@ fs::path BasicTestingSetup::GetDataDir()
 
 TestingSetup::TestingSetup(const std::string& chainName) : BasicTestingSetup(chainName)
 {
+    BlockIndexMap& blockIndex = g_chainstate_manager.BlockIndex();
         SetDataDir("tempdir");
         // Ideally we'd move all the RPC tests to the functional testing framework
         // instead of unit tests, but for now we need these here.
@@ -166,9 +167,9 @@ TestingSetup::TestingSetup(const std::string& chainName) : BasicTestingSetup(cha
 
         try {
             mempool.setSanityCheck(1.0);
-            pblocktree.reset(new CBlockTreeDB(1 << 20, true));
             {
                 LOCK(cs_main);
+                blockIndex.pblocktreedb.reset(new CBlockTreeDB(1 << 20, true));
                 pcoinsdbview.reset(new CCoinsViewDB(g_chainstate_manager.IssuedColorIds(), 1 << 23, true));
             }
             pcoinsTip.reset(new CCoinsViewCache(pcoinsdbview.get()));
@@ -201,6 +202,7 @@ TestingSetup::TestingSetup(const std::string& chainName) : BasicTestingSetup(cha
 
 void TestingSetup::TearDown()
 {
+        BlockIndexMap& blockIndex = g_chainstate_manager.BlockIndex();
         scheduler.stop();
         GetMainSignals().FlushBackgroundCallbacks();
         GetMainSignals().UnregisterBackgroundSignalScheduler();
@@ -209,7 +211,8 @@ void TestingSetup::TearDown()
         UnloadBlockIndex();
         pcoinsTip.reset();
         pcoinsdbview.reset();
-        pblocktree.reset();
+        LOCK(cs_main);
+        blockIndex.pblocktreedb.reset();
 }
 
 TestingSetup::~TestingSetup()

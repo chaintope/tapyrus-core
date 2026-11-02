@@ -104,6 +104,7 @@ void EnsureWalletIsUnlocked(CWallet * const pwallet)
 
 static void WalletTxToJSON(const CWalletTx& wtx, UniValue& entry)
 {
+    BlockIndexMap& blockIndex = g_chainstate_manager.BlockIndex();
     int confirms = wtx.GetDepthInMainChain();
     entry.pushKV("confirmations", confirms);
     if (wtx.IsCoinBase())
@@ -113,7 +114,7 @@ static void WalletTxToJSON(const CWalletTx& wtx, UniValue& entry)
         AssertLockHeld(cs_main);
         entry.pushKV("blockhash", wtx.hashBlock.GetHex());
         entry.pushKV("blockindex", wtx.nIndex);
-        entry.pushKV("blocktime", LookupBlockIndex(wtx.hashBlock)->GetBlockTime());
+        entry.pushKV("blocktime", blockIndex.LookupBlockIndex(wtx.hashBlock)->GetBlockTime());
     } else {
         entry.pushKV("trusted", wtx.IsTrusted());
     }
@@ -1615,6 +1616,7 @@ UniValue listtransactions(const JSONRPCRequest& request)
 
 static UniValue listsinceblock(const JSONRPCRequest& request)
 {
+    BlockIndexMap& blockIndex = g_chainstate_manager.BlockIndex();
     std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
     CWallet* const pwallet = wallet.get();
 
@@ -1685,7 +1687,7 @@ static UniValue listsinceblock(const JSONRPCRequest& request)
         uint256 blockId;
 
         blockId.SetHex(request.params[0].get_str());
-        paltindex = pindex = LookupBlockIndex(blockId);
+        paltindex = pindex = blockIndex.LookupBlockIndex(blockId);
         if (!pindex) {
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Block not found");
         }

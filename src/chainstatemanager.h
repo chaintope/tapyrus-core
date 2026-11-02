@@ -6,6 +6,7 @@
 #define TAPYRUS_CHAINSTATEMANAGER_H
 
 #include <blockfilemanager.h>
+#include <blockindexmap.h>
 #include <consensussettings.h>
 #include <cs_main.h>
 #include <heightderivedconsensusrules.h>
@@ -23,7 +24,7 @@ class CBlockIndex;
 /**
  * Owns the node's chain-wide state, as Bitcoin Core's ChainstateManager does.
  * So far it holds the xfield history and the issued colorIds of the active chain,
- * the consensus settings and the block files.
+ * the consensus settings, the block index and the block files.
  */
 class ChainstateManager
 {
@@ -54,7 +55,10 @@ public:
     /** The NON_REISSUABLE and NFT colorIds issued on the active chain; they change with the tip. */
     CIssuedColorIds& IssuedColorIds() EXCLUSIVE_LOCKS_REQUIRED(cs_main) { return m_issued_colorids; }
 
-    /** Creates the block file manager once -prune is known; replaces any earlier one. */
+    /** Every block header we know of, by hash, and the block tree database. */
+    BlockIndexMap& BlockIndex() { return m_block_index; }
+
+    /** Creates the block file manager once -prune is known; replaces any earlier one, keeping the block index. */
     void InitBlockFileManager(const BlockFileManager::Options& options);
 
     BlockFileManager& GetBlockFileManager() { assert(m_block_file_manager); return *m_block_file_manager; }
@@ -65,6 +69,8 @@ private:
     CXFieldHistory m_xfield_history;
     CIssuedColorIds m_issued_colorids GUARDED_BY(cs_main);
     std::unique_ptr<const ConsensusSettings> m_consensus_settings;
+    //! Declared before the block file manager, which keeps a reference to it.
+    BlockIndexMap m_block_index;
     //! Built from the start-up options, so it cannot be a plain member.
     std::unique_ptr<BlockFileManager> m_block_file_manager;
 };

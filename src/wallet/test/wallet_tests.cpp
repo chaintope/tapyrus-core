@@ -194,13 +194,14 @@ BOOST_FIXTURE_TEST_CASE(importwallet_rescan, TestChainSetup)
 
 static int64_t AddTx(CWallet& wallet, uint32_t lockTime, int64_t mockTime, int64_t blockTime)
 {
+    BlockIndexMap& blockIndex = g_chainstate_manager.BlockIndex();
     CMutableTransaction tx;
     tx.nLockTime = lockTime;
     SetMockTime(mockTime);
     CBlockIndex* block = nullptr;
     if (blockTime > 0) {
         LOCK(cs_main);
-        auto inserted = mapBlockIndex.emplace(GetRandHash(), new CBlockIndex);
+        auto inserted = blockIndex.mapBlockIndex.emplace(GetRandHash(), new CBlockIndex);
         assert(inserted.second);
         const uint256& hash = inserted.first->first;
         block = inserted.first->second;

@@ -55,7 +55,6 @@ class ConnectTrace;
 
 extern RecursiveMutex cs_main;
 
-BlockMap& mapBlockIndex = g_chainstate.mapBlockIndex;
 CChain& chainActive = g_chainstate.chainActive;
 CBlockIndex *pindexBestHeader = nullptr;
 Mutex g_best_block_mutex;
@@ -78,13 +77,7 @@ CScript COINBASE_FLAGS;
 
 CBlockIndex *&pindexBestInvalid = g_chainstate.pindexBestInvalid;
 
-/** All pairs A->B, where A (or one of its ancestors) misses transactions, but B has transactions.
- * Pruned nodes may have entries where B is missing data.
- */
-std::multimap<CBlockIndex*, CBlockIndex*>& mapBlocksUnlinked = g_chainstate.mapBlocksUnlinked;
 
-/** Dirty block index entries. */
-std::set<CBlockIndex*> setDirtyBlockIndex;
 
 // Minimum number of blocks in the sampling window for ChainTxData refresh.
 static constexpr int64_t MIN_CHAIN_TX_WINDOW = 100;
@@ -140,12 +133,13 @@ void RefreshChainTxDataFromTip(const CBlockIndex* pindexNew)
 
 CBlockIndex* FindForkInGlobalIndex(const CChain& chain, const CBlockLocator& locator)
 {
+    BlockIndexMap& blockIndex = g_chainstate_manager.BlockIndex();
     AssertLockHeld(cs_main);
 
     // Find the latest block common to locator and chain - we expect that
     // locator.vHave is sorted descending by height.
     for (const uint256& hash : locator.vHave) {
-        CBlockIndex* pindex = LookupBlockIndex(hash);
+        CBlockIndex* pindex = blockIndex.LookupBlockIndex(hash);
         if (pindex) {
             if (chain.Contains(pindex))
                 return pindex;
@@ -159,7 +153,6 @@ CBlockIndex* FindForkInGlobalIndex(const CChain& chain, const CBlockLocator& loc
 
 std::unique_ptr<CCoinsViewDB> pcoinsdbview;
 std::unique_ptr<CCoinsViewCache> pcoinsTip;
-std::unique_ptr<CBlockTreeDB> pblocktree;
 
 const CBlockIndex* GetLastCheckpointIfEnabled()
 {
@@ -899,8 +892,9 @@ std::optional<ScriptError> CScriptCheck::operator()() {
 
 int GetSpendHeight(const CCoinsViewCache& inputs)
 {
+    BlockIndexMap& blockIndex = g_chainstate_manager.BlockIndex();
     LOCK(cs_main);
-    CBlockIndex* pindexPrev = LookupBlockIndex(inputs.GetBestBlock());
+    CBlockIndex* pindexPrev = blockIndex.LookupBlockIndex(inputs.GetBestBlock());
     return pindexPrev->nHeight + 1;
 }
 
@@ -1130,19 +1124,20 @@ bool TestBlockValidity(CValidationState& state, const CBlock& block, CBlockIndex
 
 bool static LoadBlockIndexDB() EXCLUSIVE_LOCKS_REQUIRED(cs_main)
 {
-    if (!g_chainstate.LoadBlockIndex(*pblocktree))
+    if (!g_chainstate.LoadBlockIndex())
         return false;
 
-    return g_chainstate_manager.GetBlockFileManager().LoadBlockFileInfo(*pblocktree);
+    return g_chainstate_manager.GetBlockFileManager().LoadBlockFileInfo();
 }
 
 bool LoadChainTip()
 {
+    BlockIndexMap& blockIndex = g_chainstate_manager.BlockIndex();
     AssertLockHeld(cs_main);
 
     if (chainActive.Tip() && chainActive.Tip()->GetBlockHash() == pcoinsTip->GetBestBlock()) return true;
 
-    if (pcoinsTip->GetBestBlock().IsNull() && mapBlockIndex.size() == 1) {
+    if (pcoinsTip->GetBestBlock().IsNull() && blockIndex.mapBlockIndex.size() == 1) {
         // In case we just added the genesis block, connect it now, so
         // that we always have a chainActive.Tip() when we return.
         LogPrintf("%s: Connecting genesis block...\n", __func__);
@@ -1154,7 +1149,7 @@ bool LoadChainTip()
     }
 
     // Load pointer to end of best chain
-    CBlockIndex* pindex = LookupBlockIndex(pcoinsTip->GetBestBlock());
+    CBlockIndex* pindex = blockIndex.LookupBlockIndex(pcoinsTip->GetBestBlock());
     if (!pindex) {
         return false;
     }
@@ -1202,26 +1197,21 @@ void UnloadBlockIndex()
     pindexBestInvalid = nullptr;
     pindexBestHeader = nullptr;
     mempool.clear();
-    mapBlocksUnlinked.clear();
+    g_chainstate_manager.BlockIndex().Unload();
     g_chainstate_manager.GetBlockFileManager().Unload();
-    setDirtyBlockIndex.clear();
-
-    for (BlockMap::value_type& entry : mapBlockIndex) {
-        delete entry.second;
-    }
-    mapBlockIndex.clear();
 
     g_chainstate.UnloadBlockIndex();
 }
 
 bool LoadBlockIndex()
 {
+    BlockIndexMap& blockIndex = g_chainstate_manager.BlockIndex();
     // Load block index from databases
     bool needs_init = g_chainstate_manager.GetBlockFileManager().fReindex;
     if (!needs_init) {
         bool ret = LoadBlockIndexDB();
         if (!ret) return false;
-        needs_init = mapBlockIndex.empty();
+        needs_init = blockIndex.mapBlockIndex.empty();
     }
 
     if (needs_init) {

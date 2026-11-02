@@ -147,6 +147,7 @@ bool DumpMempool(void)
 
 bool LoadExternalBlockFile(FILE* fileIn, CDiskBlockPos *dbp, CXFieldHistoryMap* pxfieldHistory)
 {
+    BlockIndexMap& blockIndex = g_chainstate_manager.BlockIndex();
     // Map of disk positions for blocks with unknown parent (only used for reindex)
     static std::multimap<uint256, CDiskBlockPos> mapBlocksUnknownParent;
     int64_t nStart = GetTimeMillis();
@@ -221,7 +222,7 @@ bool LoadExternalBlockFile(FILE* fileIn, CDiskBlockPos *dbp, CXFieldHistoryMap* 
                 {
                     LOCK(cs_main);
                     // detect out of order blocks, and store them for later
-                    if (hash != g_chainstate_manager.Settings().GenesisBlock().GetHash() && !LookupBlockIndex(block.hashPrevBlock)) {
+                    if (hash != g_chainstate_manager.Settings().GenesisBlock().GetHash() && !blockIndex.LookupBlockIndex(block.hashPrevBlock)) {
                         LogPrint(BCLog::REINDEX, "%s: Out of order block %s, parent %s not known\n", __func__, hash.ToString(),
                                 block.hashPrevBlock.ToString());
                         if (dbp)
@@ -230,7 +231,7 @@ bool LoadExternalBlockFile(FILE* fileIn, CDiskBlockPos *dbp, CXFieldHistoryMap* 
                     }
 
                     // process in case the block isn't known yet
-                    CBlockIndex* pindex = LookupBlockIndex(hash);
+                    CBlockIndex* pindex = blockIndex.LookupBlockIndex(hash);
                     if (!pindex || (pindex->nStatus & BLOCK_HAVE_DATA) == 0) {
                         CValidationState state;
                         if (g_chainstate.AcceptBlock(pblock, state, nullptr, true, dbp, nullptr, pxfieldHistory)) {
@@ -311,7 +312,7 @@ bool FlushStateToDisk(CValidationState &state, FlushStateMode mode, int nManualP
         bool fDoFullFlush = false;
         BlockFileManager& blockFileManager = g_chainstate_manager.GetBlockFileManager();
         LOCK(blockFileManager.cs_LastBlockFile);
-        blockFileManager.FindFilesToPruneOnFlush(setFilesToPrune, nManualPruneHeight, *pblocktree);
+        blockFileManager.FindFilesToPruneOnFlush(setFilesToPrune, nManualPruneHeight, chainActive.Tip(), IsInitialBlockDownload());
         fFlushForPrune = !setFilesToPrune.empty();
         int64_t nNow = GetTimeMicros();
         // Avoid writing/flushing immediately after startup.
@@ -346,7 +347,7 @@ bool FlushStateToDisk(CValidationState &state, FlushStateMode mode, int nManualP
             // First make sure all block and undo data is flushed to disk.
             blockFileManager.FlushBlockFile();
             // Then update all block file information (which may refer to block and undo files).
-            if (!blockFileManager.WriteBlockIndexDB(*pblocktree)) {
+            if (!blockFileManager.WriteBlockIndexDB()) {
                 return AbortNode(state, "Failed to write to block index database");
             }
             // Finally remove any pruned files

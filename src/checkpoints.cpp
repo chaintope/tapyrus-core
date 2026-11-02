@@ -4,7 +4,9 @@
 
 #include <checkpoints.h>
 
+#include <blockfilemanager.h>
 #include <blockindex.h>
+#include <chainstatemanager.h>
 #include <consensussettings.h>
 #include <validation.h>
 
@@ -14,13 +16,14 @@ namespace Checkpoints {
 
     CBlockIndex* GetLastCheckpoint(const CCheckpointData& data)
     {
+        BlockIndexMap& blockIndex = g_chainstate_manager.BlockIndex();
         AssertLockHeld(cs_main);
         const MapCheckpoints& checkpoints = data.mapCheckpoints;
 
         for (auto it = checkpoints.rbegin(); it != checkpoints.rend(); ++it) {
             const MapCheckpoints::value_type& i = *it;
             const uint256& hash = i.second;
-            CBlockIndex* pindex = LookupBlockIndex(hash);
+            CBlockIndex* pindex = blockIndex.LookupBlockIndex(hash);
             if (pindex) {
                 return pindex;
             }

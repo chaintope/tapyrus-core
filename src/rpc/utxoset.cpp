@@ -5,7 +5,9 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <cs_main.h>
+#include <blockfilemanager.h>
 #include <blockindex.h>
+#include <chainstatemanager.h>
 #include <coin.h>
 #include <coinsview.h>
 #include <core_io.h>
@@ -71,6 +73,7 @@ static void ApplyStats(CCoinsStats &stats, CHashWriter& ss, const uint256& hash,
 //! Calculate statistics about the unspent transaction output set
 static bool GetUTXOStats(CCoinsViewDB *view, CCoinsStats &stats)
 {
+    BlockIndexMap& blockIndex = g_chainstate_manager.BlockIndex();
     std::unique_ptr<CCoinsViewDBCursor> pcursor(static_cast<CCoinsViewDBCursor*>(view->Cursor()));
     assert(pcursor);
 
@@ -78,7 +81,7 @@ static bool GetUTXOStats(CCoinsViewDB *view, CCoinsStats &stats)
     stats.hashBlock = pcursor->GetBestBlock();
     {
         LOCK(cs_main);
-        stats.nHeight = LookupBlockIndex(stats.hashBlock)->nHeight;
+        stats.nHeight = blockIndex.LookupBlockIndex(stats.hashBlock)->nHeight;
     }
     ss << stats.hashBlock;
     uint256 prevkey;
@@ -384,6 +387,7 @@ static void CreateUTXOSnapshot(
     const fs::path& temppath,
     UniValue& result)
 {
+    BlockIndexMap& blockIndex = g_chainstate_manager.BlockIndex();
     std::unique_ptr<CCoinsViewCursor> pcursor;
     const CBlockIndex* tip;
     CCoinsStats maybe_stats;
@@ -411,7 +415,7 @@ static void CreateUTXOSnapshot(
         }
 
         pcursor = std::unique_ptr<CCoinsViewCursor>(pcoinsdbview.get()->Cursor());
-        tip = LookupBlockIndex(maybe_stats.hashBlock);
+        tip = blockIndex.LookupBlockIndex(maybe_stats.hashBlock);
     }
 
     LogPrint(BCLog::RPC, "writing UTXO snapshot at height %d (%s) to file %s (via %s)\n",

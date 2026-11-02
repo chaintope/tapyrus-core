@@ -19,9 +19,9 @@
 #include <set>
 #include <vector>
 
+class BlockIndexMap;
 class CBlock;
 class CBlockIndex;
-class CBlockTreeDB;
 class CBlockUndo;
 class CValidationState;
 class HeightDerivedConsensusRules;
@@ -30,6 +30,8 @@ class HeightDerivedConsensusRules;
  * Owns the block and undo files (blk?????.dat and rev?????.dat), as Bitcoin
  * Core's BlockManager does: where the next block goes, reading blocks back,
  * and pruning. The file bookkeeping is guarded by cs_LastBlockFile only.
+ * It records where each block is in the block index, BlockIndexMap, which
+ * ChainstateManager owns and passes in.
  */
 class BlockFileManager
 {
@@ -66,7 +68,7 @@ public:
     // Setting the target to > than 550MB will make it likely we can respect the target.
     static constexpr uint64_t MIN_DISK_SPACE_FOR_BLOCK_FILES{550 * 1024 * 1024};
 
-    explicit BlockFileManager(const Options& options);
+    BlockFileManager(const Options& options, BlockIndexMap& blockIndex);
 
     const Options& GetOptions() const { return m_options; }
 
@@ -84,14 +86,14 @@ public:
     bool LoadingBlocks() const { return fImporting || fReindex; }
 
     /** Reads the file info and the pruned and reindexing flags from the block tree, and checks the blk files the index needs exist. */
-    bool LoadBlockFileInfo(CBlockTreeDB& blocktree) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
+    bool LoadBlockFileInfo() EXCLUSIVE_LOCKS_REQUIRED(cs_main);
     /** Forgets the file info, as when the block index is unloaded. */
     void Unload();
 
     /** Store block on disk. If dbp is non-nullptr, the file is known to already reside on disk */
     CDiskBlockPos SaveBlockToDisk(const CBlock& block, int nHeight, const CDiskBlockPos* dbp);
     /** Writes the undo data of a connected block, once, and records where in the index. */
-    bool WriteUndoDataForBlock(const CBlockUndo& blockundo, CValidationState& state, CBlockIndex* pindex);
+    bool WriteUndoDataForBlock(const CBlockUndo& blockundo, CValidationState& state, CBlockIndex* pindex) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
     void FlushBlockFile(bool fFinalize = false);
 
     /** Functions for disk access for blocks */
@@ -121,7 +123,7 @@ public:
     /**
      *  Mark one block file as pruned.
      */
-    void PruneOneBlockFile(const int fileNumber);
+    void PruneOneBlockFile(const int fileNumber) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 
     /**
      *  Actually unlink the specified files
@@ -135,11 +137,12 @@ public:
      * The files a flush can prune, marked pruned in the index: up to
      * nManualPruneHeight when it is positive, else those over the prune target
      * if a check is due. Records in the block tree that files have been pruned.
+     * tip is the active chain's tip; fInitialBlockDownload leaves a larger buffer.
      */
-    void FindFilesToPruneOnFlush(std::set<int>& setFilesToPrune, int nManualPruneHeight, CBlockTreeDB& blocktree);
+    void FindFilesToPruneOnFlush(std::set<int>& setFilesToPrune, int nManualPruneHeight, const CBlockIndex* tip, bool fInitialBlockDownload) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 
     /** Writes the changed file info and block index entries to the block tree. */
-    bool WriteBlockIndexDB(CBlockTreeDB& blocktree);
+    bool WriteBlockIndexDB() EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 
     /**
      * If we're using -prune with -reindex, then delete block files that will be ignored by the
@@ -159,7 +162,7 @@ private:
     FILE* OpenDiskFile(const CDiskBlockPos& pos, const char* prefix, bool fReadOnly) const;
 
     /* Calculate the block/rev files to delete based on height specified by user with RPC command pruneblockchain */
-    void FindFilesToPruneManual(std::set<int>& setFilesToPrune, int nManualPruneHeight);
+    void FindFilesToPruneManual(std::set<int>& setFilesToPrune, int nManualPruneHeight, const CBlockIndex* tip) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 
     /**
      * Prune block and undo files (blk???.dat and undo???.dat) so that the disk space used is less than a user-defined target.
@@ -176,9 +179,10 @@ private:
      *
      * @param[out]   setFilesToPrune   The set of file indices that can be unlinked will be returned
      */
-    void FindFilesToPrune(std::set<int>& setFilesToPrune);
+    void FindFilesToPrune(std::set<int>& setFilesToPrune, const CBlockIndex* tip, bool fInitialBlockDownload) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 
     const Options m_options;
+    BlockIndexMap& m_block_index;
 
     std::vector<CBlockFileInfo> vinfoBlockFile GUARDED_BY(cs_LastBlockFile);
     int nLastBlockFile GUARDED_BY(cs_LastBlockFile) = 0;

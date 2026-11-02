@@ -73,5 +73,5 @@ HeightDerivedConsensusRules ChainstateManager::BuildRules(std::optional<int32_t>
 
 void ChainstateManager::InitBlockFileManager(const BlockFileManager::Options& options)
 {
-    m_block_file_manager = std::make_unique<BlockFileManager>(options);
+    m_block_file_manager = std::make_unique<BlockFileManager>(options, m_block_index);
 }
