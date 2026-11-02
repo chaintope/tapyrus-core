@@ -10,6 +10,8 @@
 #include <consensus/merkle.h>
 #include <consensus/tx_check.h>
 #include <consensus/validation.h>
+#include <consensusinterface.h>
+#include <heightderivedconsensusrules.h>
 #include <validation.h>
 #include <miner.h>
 #include <policy/policy.h>
@@ -47,7 +49,7 @@ static CFeeRate blockMinFeeRate = CFeeRate(DEFAULT_BLOCK_MIN_TX_FEE);
 static BlockAssembler AssemblerForTest(const CChainParams& params) {
     BlockAssembler::Options options;
 
-    options.nBlockMaxSize = g_chainstate_manager.XFieldHistory().GetCurrentMaxBlockSize();
+    options.nBlockMaxSize = g_chainstate_manager.Consensus().RulesLatest().MaxBlockSize();
     options.blockMinFeeRate = blockMinFeeRate;
     return BlockAssembler(params, options);
 }
