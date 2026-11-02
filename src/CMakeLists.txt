@@ -341,6 +341,7 @@ include(InstallBinaryComponent)
 # Blockchain/mempool consensus-application state: chain index, UTXO set,
 # block/tx validation, mempool, block-storage indexes (leveldb-backed).
 add_library(tapyrus_chainstate STATIC EXCLUDE_FROM_ALL
+  abortnode.cpp
   blockprune.cpp
   chain.cpp
   chainstate.cpp

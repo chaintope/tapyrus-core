@@ -9,7 +9,7 @@
 // collide with libFuzzer's/AFL's main() from pstt_fuzz_driver.h.
 #include <cstdlib>
 
-// AbortNode() (validation.cpp) calls this after a fatal internal error.
+// AbortNode() (abortnode.cpp) calls this after a fatal internal error.
 // Aborting rather than exiting cleanly makes libFuzzer report it as a
 // crash and write an artifact: an exit(0) here would look like a normal
 // run to both libFuzzer and the CI loop, hiding exactly the failures a
