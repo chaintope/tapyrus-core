@@ -132,8 +132,12 @@ private:
     CBlock* pblock;
 
     // Configuration parameters for the block size
-    unsigned int nBlockMaxSize;
+    const size_t m_requested_block_max_size;
     CFeeRate blockMinFeeRate;
+
+    // Limits of the block being built, from the consensus rules of the next block
+    unsigned int nBlockMaxSize;
+    uint32_t m_max_block_sigops;
 
     // Information on the current status of the block
     uint64_t nBlockSize;
