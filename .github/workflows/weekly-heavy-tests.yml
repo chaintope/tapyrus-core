@@ -47,7 +47,6 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  CI_FAILFAST_TEST_LEAVE_DANGLING: 1
   CTEST_OUTPUT_ON_FAILURE: 'ON'
   CMAKE_BUILD_PARALLEL_LEVEL: 4
   LC_ALL: C.UTF-8
@@ -298,14 +297,10 @@ jobs:
       - name: Stop dangling test processes
         if: always()
         run: |
-          # CI_FAILFAST_TEST_LEAVE_DANGLING=1 intentionally skips node.stop()
-          # on a failed/timed-out test so datadirs/logs survive for
-          # inspection, but a still-running tapyrusd keeps rotating its
-          # wallet's BDB log files -- racing the artifact zip below and
-          # producing sporadic ENOENT errors during zip creation. The
-          # process itself isn't needed (there's no live-attach step after
-          # the job ends), only the on-disk data is, so kill it here to
-          # make the directory quiescent before archiving.
+          # A test cut off by the step timeout leaves its tapyrusd running,
+          # and a running node keeps rotating its wallet's BDB log files,
+          # racing the artifact zip below (sporadic ENOENT). Only the
+          # on-disk data is needed, so kill the nodes before archiving.
           pkill -9 -f tapyrusd || true
           sleep 2
 
@@ -713,7 +708,26 @@ jobs:
           cd "$BASE_ROOT_DIR"
           export PATH="$BASE_BUILD_DIR/bin:$PATH"
           ulimit -c unlimited
-          python3 test/functional/test_runner.py --tmpdir="$TAPYRUS_TEST_DIR" -j 1 --combinedlogslen=4000 --failfast --quiet
+          python3 test/functional/test_runner.py --tmpdir="$TAPYRUS_TEST_DIR" -j 1 --combinedlogslen=4000 --quiet
+
+      - name: Stop dangling test processes
+        if: failure() || cancelled()
+        run: |
+          # A tapyrusd left running keeps writing to its datadir while the
+          # upload below zips it, so stop any before archiving.
+          pkill -9 -f tapyrusd || true
+          sleep 2
+
+      - name: Upload test results (on failure)
+        # Holds only the failed tests' directories (passing tests remove
+        # theirs), each with the combined.log test_runner.py writes.
+        if: (failure() || cancelled()) && !matrix.config.target_platform
+        uses: actions/upload-artifact@v6
+        with:
+          name: build-from-scratch-${{ matrix.versions }}-test-results-${{ matrix.config.name }}-${{ github.run_id }}
+          path: ${{ github.workspace }}/tapyrus_test
+          retention-days: 7
+          if-no-files-found: ignore
 
       - name: Upload core dumps (on failure)
         if: failure() || cancelled()

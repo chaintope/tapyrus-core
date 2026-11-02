@@ -511,8 +511,11 @@ class CTransaction():
         return True
 
     def __repr__(self):
-        return "CTransaction(nFeatures=%i vin=%s vout=%s wit=%s nLockTime=%i)" \
-            % (self.nFeatures, repr(self.vin), repr(self.vout), repr(self.wit), self.nLockTime)
+        # Tapyrus transactions have no witness; show it only when a test has
+        # built one, e.g. a Bitcoin transaction sent to check it is rejected.
+        wit = "" if self.wit.is_null() else " wit=%s" % repr(self.wit)
+        return "CTransaction(nFeatures=%i vin=%s vout=%s%s nLockTime=%i)" \
+            % (self.nFeatures, repr(self.vin), repr(self.vout), wit, self.nLockTime)
 
 class CBlockHeader():
     def __init__(self, header=None):
