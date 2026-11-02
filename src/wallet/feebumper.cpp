@@ -16,7 +16,6 @@
 #include <txmempool.h>
 #include <utilmoneystr.h>
 #include <util.h>
-#include <connman.h>
 
 //! Check whether transaction has descendant in wallet or mempool, or has been
 //! mined, or conflicts with a mined transaction. Return a feebumper::Result.
@@ -280,7 +279,7 @@ bool SignTransaction(CWallet* wallet, CMutableTransaction& mtx) {
     return wallet->SignTransaction(mtx);
 }
 
-Result CommitTransaction(CWallet* wallet, const uint256& txid, CMutableTransaction&& mtx, std::vector<std::string>& errors, uint256& bumped_txid)
+Result CommitTransaction(CWallet* wallet, const uint256& txid, CMutableTransaction&& mtx, CConnman* connman, std::vector<std::string>& errors, uint256& bumped_txid)
 {
     LOCK2(cs_main, wallet->cs_wallet);
     if (!errors.empty()) {
@@ -306,7 +305,7 @@ Result CommitTransaction(CWallet* wallet, const uint256& txid, CMutableTransacti
 
     CReserveKey reservekey(wallet);
     CValidationState state;
-    if (!wallet->CommitTransaction(tx, std::move(mapValue), oldWtx.vOrderForm, reservekey, g_connman.get(), state)) {
+    if (!wallet->CommitTransaction(tx, std::move(mapValue), oldWtx.vOrderForm, reservekey, connman, state)) {
         // NOTE: CommitTransaction never returns false, so this should never happen.
         errors.push_back(strprintf("The transaction was rejected: %s", FormatStateMessage(state)));
         return Result::WALLET_ERROR;

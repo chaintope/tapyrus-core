@@ -187,7 +187,18 @@ static bool RPCAuthorized(const std::string& strAuth, std::string& strAuthUserna
     return multiUserAuthorized(strUserPass);
 }
 
-static bool HTTPReq_JSONRPC(HTTPRequest* req, const std::string &)
+/** Serves JSON-RPC requests against one node. */
+class HTTPRPCHandler
+{
+public:
+    explicit HTTPRPCHandler(NodeContext& node) : m_node(node) {}
+    bool operator()(HTTPRequest* req, const std::string&) const;
+
+private:
+    NodeContext& m_node;
+};
+
+bool HTTPRPCHandler::operator()(HTTPRequest* req, const std::string&) const
 {
     // JSONRPC handles only POST
     if (req->GetRequestMethod() != HTTPRequest::POST) {
@@ -202,7 +213,7 @@ static bool HTTPReq_JSONRPC(HTTPRequest* req, const std::string &)
         return false;
     }
 
-    JSONRPCRequest jreq;
+    JSONRPCRequest jreq(m_node);
     CService peer = req->GetPeer();
     jreq.peerAddr = peer.ToString();
     if (!RPCAuthorized(authHeader.second, jreq.authUser)) {
@@ -369,16 +380,17 @@ static bool InitRPCAuthentication()
     return true;
 }
 
-bool StartHTTPRPC()
+bool StartHTTPRPC(NodeContext& node)
 {
     LogPrint(BCLog::RPC, "Starting HTTP RPC server\n");
     if (!InitRPCAuthentication())
         return false;
 
-    RegisterHTTPHandler("/", true, HTTPReq_JSONRPC);
+    const HTTPRPCHandler handle_rpc(node);
+    RegisterHTTPHandler("/", true, handle_rpc);
 #if ENABLE_WALLET
     // ifdef can be removed once we switch to better endpoint support and API versioning
-    RegisterHTTPHandler("/wallet/", false, HTTPReq_JSONRPC);
+    RegisterHTTPHandler("/wallet/", false, handle_rpc);
 #endif
     assert(EventBase());
     httpRPCTimerInterface = MakeUnique<HTTPRPCTimerInterface>(EventBase());

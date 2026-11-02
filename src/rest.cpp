@@ -10,6 +10,7 @@
 #include <primitives/block.h>
 #include <primitives/transaction.h>
 #include <validation.h>
+#include <httprpc.h>
 #include <httpserver.h>
 #include <rpc/blockchain.h>
 #include <rpc/mempool.h>
@@ -66,14 +67,46 @@ struct CCoin {
     }
 };
 
-static bool RESTERR(HTTPRequest* req, enum HTTPStatusCode status, std::string message)
+/** Serves the REST interface against one node. Each registered prefix gets
+ *  its own copy, routed to one handler method. */
+class RESTHandler
+{
+public:
+    using Method = bool (RESTHandler::*)(HTTPRequest* req, const std::string& strURIPart) const;
+
+    RESTHandler(NodeContext& node, Method method) : m_node(node), m_method(method) {}
+    bool operator()(HTTPRequest* req, const std::string& strURIPart) const { return (this->*m_method)(req, strURIPart); }
+
+    bool rest_headers(HTTPRequest* req, const std::string& strURIPart) const;
+    bool rest_block_extended(HTTPRequest* req, const std::string& strURIPart) const;
+    bool rest_block_notxdetails(HTTPRequest* req, const std::string& strURIPart) const;
+    bool rest_chaininfo(HTTPRequest* req, const std::string& strURIPart) const;
+    bool rest_mempool_info(HTTPRequest* req, const std::string& strURIPart) const;
+    bool rest_mempool_contents(HTTPRequest* req, const std::string& strURIPart) const;
+    bool rest_tx(HTTPRequest* req, const std::string& strURIPart) const;
+    bool rest_getutxos(HTTPRequest* req, const std::string& strURIPart) const;
+
+private:
+    NodeContext& m_node;
+    Method m_method;
+
+    bool rest_block(HTTPRequest* req, const std::string& strURIPart, bool showTxDetails) const;
+
+    static bool RESTERR(HTTPRequest* req, enum HTTPStatusCode status, std::string message);
+    static RetFormat ParseDataFormat(std::string& param, const std::string& strReq);
+    static std::string AvailableDataFormatsString();
+    static bool ParseHashStr(const std::string& strReq, uint256& v);
+    static bool CheckWarmup(HTTPRequest* req);
+};
+
+bool RESTHandler::RESTERR(HTTPRequest* req, enum HTTPStatusCode status, std::string message)
 {
     req->WriteHeader("Content-Type", "text/plain");
     req->WriteReply(status, message + "\r\n");
     return false;
 }
 
-static RetFormat ParseDataFormat(std::string& param, const std::string& strReq)
+RetFormat RESTHandler::ParseDataFormat(std::string& param, const std::string& strReq)
 {
     const std::string::size_type pos = strReq.rfind('.');
     if (pos == std::string::npos)
@@ -94,7 +127,7 @@ static RetFormat ParseDataFormat(std::string& param, const std::string& strReq)
     return rf_names[0].rf;
 }
 
-static std::string AvailableDataFormatsString()
+std::string RESTHandler::AvailableDataFormatsString()
 {
     std::string formats;
     for (unsigned int i = 0; i < ARRAYLEN(rf_names); i++)
@@ -110,7 +143,7 @@ static std::string AvailableDataFormatsString()
     return formats;
 }
 
-static bool ParseHashStr(const std::string& strReq, uint256& v)
+bool RESTHandler::ParseHashStr(const std::string& strReq, uint256& v)
 {
     if (!IsHex(strReq) || (strReq.size() != 64))
         return false;
@@ -119,7 +152,7 @@ static bool ParseHashStr(const std::string& strReq, uint256& v)
     return true;
 }
 
-static bool CheckWarmup(HTTPRequest* req)
+bool RESTHandler::CheckWarmup(HTTPRequest* req)
 {
     std::string statusmessage;
     if (RPCIsInWarmup(&statusmessage))
@@ -127,8 +160,8 @@ static bool CheckWarmup(HTTPRequest* req)
     return true;
 }
 
-static bool rest_headers(HTTPRequest* req,
-                         const std::string& strURIPart)
+bool RESTHandler::rest_headers(HTTPRequest* req,
+                         const std::string& strURIPart) const
 {
     if (!CheckWarmup(req))
         return false;
@@ -202,9 +235,9 @@ static bool rest_headers(HTTPRequest* req,
     }
 }
 
-static bool rest_block(HTTPRequest* req,
+bool RESTHandler::rest_block(HTTPRequest* req,
                        const std::string& strURIPart,
-                       bool showTxDetails)
+                       bool showTxDetails) const
 {
     if (!CheckWarmup(req))
         return false;
@@ -267,12 +300,12 @@ static bool rest_block(HTTPRequest* req,
     }
 }
 
-static bool rest_block_extended(HTTPRequest* req, const std::string& strURIPart)
+bool RESTHandler::rest_block_extended(HTTPRequest* req, const std::string& strURIPart) const
 {
     return rest_block(req, strURIPart, true);
 }
 
-static bool rest_block_notxdetails(HTTPRequest* req, const std::string& strURIPart)
+bool RESTHandler::rest_block_notxdetails(HTTPRequest* req, const std::string& strURIPart) const
 {
     return rest_block(req, strURIPart, false);
 }
@@ -280,7 +313,7 @@ static bool rest_block_notxdetails(HTTPRequest* req, const std::string& strURIPa
 // A bit of a hack - dependency on a function defined in rpc/blockchain.cpp
 UniValue getblockchaininfo(const JSONRPCRequest& request);
 
-static bool rest_chaininfo(HTTPRequest* req, const std::string& strURIPart)
+bool RESTHandler::rest_chaininfo(HTTPRequest* req, const std::string& strURIPart) const
 {
     if (!CheckWarmup(req))
         return false;
@@ -289,7 +322,7 @@ static bool rest_chaininfo(HTTPRequest* req, const std::string& strURIPart)
 
     switch (rf) {
     case RetFormat::JSON: {
-        JSONRPCRequest jsonRequest;
+        JSONRPCRequest jsonRequest(m_node);
         jsonRequest.params = UniValue(UniValue::VARR);
         UniValue chainInfoObject = getblockchaininfo(jsonRequest);
         std::string strJSON = chainInfoObject.write() + "\n";
@@ -303,7 +336,7 @@ static bool rest_chaininfo(HTTPRequest* req, const std::string& strURIPart)
     }
 }
 
-static bool rest_mempool_info(HTTPRequest* req, const std::string& strURIPart)
+bool RESTHandler::rest_mempool_info(HTTPRequest* req, const std::string& strURIPart) const
 {
     if (!CheckWarmup(req))
         return false;
@@ -325,7 +358,7 @@ static bool rest_mempool_info(HTTPRequest* req, const std::string& strURIPart)
     }
 }
 
-static bool rest_mempool_contents(HTTPRequest* req, const std::string& strURIPart)
+bool RESTHandler::rest_mempool_contents(HTTPRequest* req, const std::string& strURIPart) const
 {
     if (!CheckWarmup(req))
         return false;
@@ -347,7 +380,7 @@ static bool rest_mempool_contents(HTTPRequest* req, const std::string& strURIPar
     }
 }
 
-static bool rest_tx(HTTPRequest* req, const std::string& strURIPart)
+bool RESTHandler::rest_tx(HTTPRequest* req, const std::string& strURIPart) const
 {
     if (!CheckWarmup(req))
         return false;
@@ -400,7 +433,7 @@ static bool rest_tx(HTTPRequest* req, const std::string& strURIPart)
     }
 }
 
-static bool rest_getutxos(HTTPRequest* req, const std::string& strURIPart)
+bool RESTHandler::rest_getutxos(HTTPRequest* req, const std::string& strURIPart) const
 {
     if (!CheckWarmup(req))
         return false;
@@ -608,22 +641,22 @@ static bool rest_getutxos(HTTPRequest* req, const std::string& strURIPart)
 
 static const struct {
     const char* prefix;
-    bool (*handler)(HTTPRequest* req, const std::string& strReq);
+    RESTHandler::Method handler;
 } uri_prefixes[] = {
-      {"/rest/tx/", rest_tx},
-      {"/rest/block/notxdetails/", rest_block_notxdetails},
-      {"/rest/block/", rest_block_extended},
-      {"/rest/chaininfo", rest_chaininfo},
-      {"/rest/mempool/info", rest_mempool_info},
-      {"/rest/mempool/contents", rest_mempool_contents},
-      {"/rest/headers/", rest_headers},
-      {"/rest/getutxos", rest_getutxos},
+      {"/rest/tx/", &RESTHandler::rest_tx},
+      {"/rest/block/notxdetails/", &RESTHandler::rest_block_notxdetails},
+      {"/rest/block/", &RESTHandler::rest_block_extended},
+      {"/rest/chaininfo", &RESTHandler::rest_chaininfo},
+      {"/rest/mempool/info", &RESTHandler::rest_mempool_info},
+      {"/rest/mempool/contents", &RESTHandler::rest_mempool_contents},
+      {"/rest/headers/", &RESTHandler::rest_headers},
+      {"/rest/getutxos", &RESTHandler::rest_getutxos},
 };
 
-bool StartREST()
+bool StartREST(NodeContext& node)
 {
     for (unsigned int i = 0; i < ARRAYLEN(uri_prefixes); i++)
-        RegisterHTTPHandler(uri_prefixes[i].prefix, false, uri_prefixes[i].handler);
+        RegisterHTTPHandler(uri_prefixes[i].prefix, false, RESTHandler(node, uri_prefixes[i].handler));
     return true;
 }
 

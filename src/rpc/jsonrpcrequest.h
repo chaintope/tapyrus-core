@@ -10,6 +10,8 @@
 
 #include <string>
 
+struct NodeContext;
+
 class JSONRPCRequest
 {
 public:
@@ -20,8 +22,10 @@ public:
     std::string URI;
     std::string authUser;
     std::string peerAddr;
+    //! The node the request runs against.
+    NodeContext& context;
 
-    JSONRPCRequest() : id(NullUniValue), params(NullUniValue), fHelp(false) {}
+    explicit JSONRPCRequest(NodeContext& node) : id(NullUniValue), params(NullUniValue), fHelp(false), context(node) {}
     void parse(const UniValue& valRequest);
 };
 

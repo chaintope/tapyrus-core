@@ -124,12 +124,28 @@ class SignRawTransactionsTest(BitcoinTestFramework):
         # Perform same test with signrawtransaction
         assert_raises_rpc_error(-22, "TX decode failed", self.nodes[0].signrawtransaction, p2wpkh_raw_tx)
 
+    def wallet_uri_test(self):
+        """signrawtransaction signs with the wallet named in the request URI."""
+        self.nodes[0].createwallet('w2')
+        default_wallet = self.nodes[0].get_wallet_rpc('')
+        w2 = self.nodes[0].get_wallet_rpc('w2')
+
+        address = w2.getnewaddress()
+        prevtxs = [{'txid': '9b907ef1e3c26fc71fe4a4b3580bc75264112f95050014157059c736f0202e71', 'vout': 0,
+                    'scriptPubKey': w2.getaddressinfo(address)['scriptPubKey']}]
+        rawTx = w2.createrawtransaction(prevtxs, {'mpLQjfK79b7CCV4VMJWEWAj5Mpx8Up5zxB': 0.1})
+
+        assert w2.signrawtransaction(rawTx, prevtxs)['complete']
+        assert not default_wallet.signrawtransaction(rawTx, prevtxs)['complete']
+
     def run_test(self):
         for scheme in ["ECDSA", "SCHNORR"]:
             self.log.info("Running %s tests" % scheme)
             self.successful_signing_test(scheme)
             self.script_verification_error_test(scheme)
             self.log.info("Completed %s tests" % scheme)
+        self.log.info("Running the wallet URI test")
+        self.wallet_uri_test()
 
 
 if __name__ == '__main__':

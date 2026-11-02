@@ -26,7 +26,7 @@
 
 static int test_one_input_getpeerinfo(const uint8_t* data, size_t size)
 {
-    GetFuzzNodeSetup();
+    FuzzNodeSetup& setup = GetFuzzNodeSetup();
 
     FuzzedDataProvider fdp(data, size);
     const std::string json = fdp.ConsumeRemainingBytesAsString();
@@ -34,7 +34,7 @@ static int test_one_input_getpeerinfo(const uint8_t* data, size_t size)
     UniValue params;
     if (!params.read(json)) return 0;
 
-    JSONRPCRequest request;
+    JSONRPCRequest request(setup.m_node);
     request.strMethod = "getpeerinfo";
     request.params = params;
 

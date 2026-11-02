@@ -16,6 +16,7 @@
 #include <key_io.h>
 #include <miner.h>
 #include <connman.h>
+#include <nodecontext.h>
 #include <policy/fees.h>
 #include <rpc/blockchain.h>
 #include <rpc/mining.h>
@@ -23,6 +24,7 @@
 #include <rpc/server.h>
 #include <rpc/jsonrpcrequest.h>
 #include <rpc/rpctable.h>
+#include <rpc/util.h>
 #include <shutdown.h>
 #include <tapyrusmodes.h>
 #include <txmempool.h>
@@ -443,10 +445,10 @@ static UniValue getblocktemplate(const JSONRPCRequest& request)
     if (strMode != "template")
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid mode");
 
-    if(!g_connman)
-        throw JSONRPCError(RPC_CLIENT_P2P_DISABLED, "Error: Peer-to-peer functionality missing or disabled");
+    assert(request.context.connman);
+    CConnman& connman = *request.context.connman;
 
-    if (g_connman->GetNodeCount(CConnman::CONNECTIONS_ALL) == 0)
+    if (connman.GetNodeCount(CConnman::CONNECTIONS_ALL) == 0)
         throw JSONRPCError(RPC_CLIENT_NOT_CONNECTED, "Tapyrus is not connected!");
 
     if (IsInitialBlockDownload())

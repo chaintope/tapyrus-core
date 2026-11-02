@@ -169,7 +169,7 @@ void TestGUI()
     std::unique_ptr<const PlatformStyle> platformStyle(PlatformStyle::instantiate("other"));
     SendCoinsDialog sendCoinsDialog(platformStyle.get());
     TransactionView transactionView(platformStyle.get());
-    auto node = interfaces::MakeNode();
+    auto node = interfaces::MakeNode(test.m_node);
     OptionsModel optionsModel(*node);
     AddWallet(wallet);
     WalletModel walletModel(std::move(node->getWallets().back()), *node, platformStyle.get(), &optionsModel);
@@ -288,7 +288,7 @@ void TestGUI_coloredCoin()
 
     // ── Create WalletModel and all GUI widgets ──────────────────────────
     std::unique_ptr<const PlatformStyle> platformStyle(PlatformStyle::instantiate("other"));
-    auto node = interfaces::MakeNode();
+    auto node = interfaces::MakeNode(test.m_node);
     OptionsModel optionsModel(*node);
     AddWallet(wallet);
     WalletModel walletModel(std::move(node->getWallets().back()), *node,
@@ -703,7 +703,8 @@ static SendCoinsRecipient handleRequest(PaymentServer* server, std::vector<unsig
 void paymentServerTest()
 {
     SelectParams(TAPYRUS_OP_MODE::PROD);
-    auto node = interfaces::MakeNode();
+    NodeContext context;
+    auto node = interfaces::MakeNode(context);
     OptionsModel optionsModel(*node);
     PaymentServer* server = new PaymentServer(nullptr, false);
     server->setOptionsModel(&optionsModel);

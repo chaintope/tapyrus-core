@@ -110,7 +110,7 @@ BOOST_FIXTURE_TEST_CASE(rescan, TestChainSetup)
         key.pushKV("timestamp", newTip->GetBlockTimeMax() + TIMESTAMP_WINDOW + 1);
         key.pushKV("internal", UniValue(true));
         keys.push_back(key);
-        JSONRPCRequest request;
+        JSONRPCRequest request(m_node);
         request.params.setArray();
         request.params.push_back(keys);
 
@@ -158,7 +158,7 @@ BOOST_FIXTURE_TEST_CASE(importwallet_rescan, TestChainSetup)
         wallet->mapKeyMetadata[coinbaseKey.GetPubKey().GetID()].nCreateTime = KEY_TIME;
         wallet->AddKeyPubKey(coinbaseKey, coinbaseKey.GetPubKey());
 
-        JSONRPCRequest request;
+        JSONRPCRequest request(m_node);
         request.params.setArray();
         request.params.push_back(backup_file);
         AddWallet(wallet);
@@ -171,7 +171,7 @@ BOOST_FIXTURE_TEST_CASE(importwallet_rescan, TestChainSetup)
     {
         std::shared_ptr<CWallet> wallet = std::make_shared<CWallet>("dummy", WalletDatabase::CreateDummy());
 
-        JSONRPCRequest request;
+        JSONRPCRequest request(m_node);
         request.params.setArray();
         request.params.push_back(backup_file);
         AddWallet(wallet);

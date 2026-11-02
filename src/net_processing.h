@@ -13,6 +13,8 @@
 #include <neteventsinterface.h>
 #include <validationinterface.h>
 #include <consensus/params.h>
+#include <cs_main.h>
+#include <sync.h>
 
 /** Default for -maxorphantx, maximum number of orphan transactions kept in memory */
 static const unsigned int DEFAULT_MAX_ORPHAN_TRANSACTIONS = 100;
@@ -21,12 +23,19 @@ static const unsigned int DEFAULT_BLOCK_RECONSTRUCTION_EXTRA_TXN = 100;
 /** Maximum number of outstanding CMPCTBLOCK requests for the same block. */
 static const unsigned int MAX_CMPCTBLOCKS_INFLIGHT_PER_BLOCK = 3;
 
+class BlockTransactionsRequest;
+class CBlockHeader;
+class CChainParams;
+
+/** Guards the orphan transaction pool. */
+extern RecursiveMutex g_cs_orphans;
+
 class PeerLogicValidation final : public CValidationInterface, public NetEventsInterface {
 private:
-    CConnman* const connman;
+    CConnman& m_connman;
 
 public:
-    explicit PeerLogicValidation(CConnman* connman, CScheduler &scheduler);
+    PeerLogicValidation(CConnman& connman, CScheduler& scheduler);
 
     /**
      * Overridden from CValidationInterface.
@@ -80,6 +89,16 @@ public:
 private:
     int64_t m_stale_tip_check_time; //! Next time to check for stale tip
 
+    void PushNodeVersion(CNode* pnode, int64_t nTime);
+    void MaybeSetPeerAsAnnouncingHeaderAndIDs(NodeId nodeid);
+    void RelayAddress(const CAddress& addr, bool fReachable);
+    void ProcessGetBlockData(CNode* pfrom, const CInv& inv);
+    void ProcessGetData(CNode* pfrom, const std::atomic<bool>& interruptMsgProc);
+    void SendBlockTransactions(const CBlock& block, const BlockTransactionsRequest& req, CNode* pfrom);
+    bool ProcessHeadersMessage(CNode* pfrom, const std::vector<CBlockHeader>& headers, const CChainParams& chainparams, bool punish_duplicate_invalid);
+    void ProcessOrphanTx(std::set<uint256>& orphan_work_set) EXCLUSIVE_LOCKS_REQUIRED(cs_main, g_cs_orphans);
+    bool ProcessMessage(CNode* pfrom, const std::string& strCommand, CDataStream& vRecv, int64_t nTimeReceived, const CChainParams& chainparams, const std::atomic<bool>& interruptMsgProc);
+    bool MaybeDiscourageAndDisconnect(CNode* pnode);
 };
 
 struct CNodeStateStats {

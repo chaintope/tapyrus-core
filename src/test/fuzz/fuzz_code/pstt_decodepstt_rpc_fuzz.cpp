@@ -27,6 +27,7 @@
 
 #include <core_io.h>
 #include <key.h>
+#include <nodecontext.h>
 #include <rpc/protocol.h>
 #include <rpc/jsonrpcrequest.h>
 #include <univalue.h>
@@ -44,7 +45,8 @@ static int test_one_input_decodepstt_rpc(const uint8_t* data, size_t size)
 {
     const std::string base64_pstt(reinterpret_cast<const char*>(data), size);
 
-    JSONRPCRequest request;
+    NodeContext node;
+    JSONRPCRequest request(node);
     request.params = UniValue(UniValue::VARR);
     request.params.push_back(base64_pstt);
 

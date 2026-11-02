@@ -15,6 +15,7 @@
 #include <string>
 #include <vector>
 
+class CConnman;
 class CRPCTable;
 class CWallet;
 class CCoinControl;
@@ -39,8 +40,8 @@ UniValue getaddressinfo(const JSONRPCRequest& request);
 UniValue signrawtransactionwithwallet(const JSONRPCRequest& request);
 
 // Token operation helpers — also called from interfaces/wallet.cpp (GUI layer).
-UniValue IssueReissuableToken(CWallet* const pwallet, const std::string& script, CAmount tokenValue, CCoinControl& coin_control);
-UniValue IssueToken(CWallet* const pwallet, CAmount tokenValue, CCoinControl& coin_control);
-CTransactionRef BurnToken(CWallet* const pwallet, const ColorIdentifier& colorId, CAmount nValue);
+UniValue IssueReissuableToken(CWallet* const pwallet, const std::string& script, CAmount tokenValue, CCoinControl& coin_control, CConnman* connman);
+UniValue IssueToken(CWallet* const pwallet, CAmount tokenValue, CCoinControl& coin_control, CConnman* connman);
+CTransactionRef BurnToken(CWallet* const pwallet, const ColorIdentifier& colorId, CAmount nValue, CConnman* connman);
 
 #endif //BITCOIN_WALLET_RPCWALLET_H

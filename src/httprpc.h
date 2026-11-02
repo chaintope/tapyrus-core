@@ -8,10 +8,13 @@
 #include <string>
 #include <map>
 
+struct NodeContext;
+
 /** Start HTTP RPC subsystem.
  * Precondition; HTTP and RPC has been started.
+ * Every request runs against the given node.
  */
-bool StartHTTPRPC();
+bool StartHTTPRPC(NodeContext& node);
 /** Interrupt HTTP RPC subsystem.
  */
 void InterruptHTTPRPC();
@@ -23,7 +26,7 @@ void StopHTTPRPC();
 /** Start HTTP REST subsystem.
  * Precondition; HTTP and RPC has been started.
  */
-bool StartREST();
+bool StartREST(NodeContext& node);
 /** Interrupt RPC REST subsystem.
  */
 void InterruptREST();

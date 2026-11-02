@@ -12,6 +12,7 @@
 
 class CScheduler;
 class CWallet;
+struct NodeContext;
 
 class WalletInitInterface;
 extern const WalletInitInterface& g_wallet_init_interface;
@@ -22,8 +23,8 @@ class thread_group;
 } // namespace boost
 
 /** Interrupt threads */
-void Interrupt();
-void Shutdown();
+void Interrupt(NodeContext& node);
+void Shutdown(NodeContext& node);
 //!Initialize the logging infrastructure
 void InitLogging();
 //!Parameter interaction: change current parameters depending on various rules
@@ -57,7 +58,7 @@ bool AppInitLockDataDirectory();
  * @note This should only be done after daemonization. Call Shutdown() if this function fails.
  * @pre Parameters should be parsed and config file should be read, AppInitLockDataDirectory should have been called.
  */
-bool AppInitMain();
+bool AppInitMain(NodeContext& node);
 
 /**
  * Setup the arguments for gArgs

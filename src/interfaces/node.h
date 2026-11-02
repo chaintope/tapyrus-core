@@ -28,6 +28,7 @@ class RPCTimerInterface;
 class UniValue;
 class proxyType;
 struct CNodeStateStats;
+struct NodeContext;
 
 namespace interfaces {
 class Handler;
@@ -230,7 +231,7 @@ public:
 };
 
 //! Return implementation of Node interface.
-std::unique_ptr<Node> MakeNode();
+std::unique_ptr<Node> MakeNode(NodeContext& context);
 
 } // namespace interfaces
 

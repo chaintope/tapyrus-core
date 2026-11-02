@@ -14,7 +14,7 @@
 #include <validation.h>
 #include <key_io.h>
 #include <messagemagic.h>
-#include <connman.h>
+#include <nodecontext.h>
 #include <outputtype.h>
 #include <policy/feerate.h>
 #include <policy/fees.h>
@@ -361,7 +361,7 @@ static UniValue setlabel(const JSONRPCRequest& request)
 }
 
 
-static CTransactionRef SendMoney(CWallet * const pwallet, const CTxDestination &address, CAmount nValue, bool fSubtractFeeFromAmount, const CCoinControl& coin_control, mapValue_t mapValue, const ColorIdentifier& colorId)
+static CTransactionRef SendMoney(CWallet * const pwallet, const CTxDestination &address, CAmount nValue, bool fSubtractFeeFromAmount, const CCoinControl& coin_control, mapValue_t mapValue, const ColorIdentifier& colorId, CConnman* connman)
 {
     CAmount curBalance = pwallet->GetBalance()[colorId];
 
@@ -371,10 +371,6 @@ static CTransactionRef SendMoney(CWallet * const pwallet, const CTxDestination &
 
     if (nValue > curBalance)
         throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS, "Insufficient funds");
-
-    if (pwallet->GetBroadcastTransactions() && !g_connman) {
-        throw JSONRPCError(RPC_CLIENT_P2P_DISABLED, "Error: Peer-to-peer functionality missing or disabled");
-    }
 
     // Parse Tapyrus address
     CScript scriptPubKey = GetScriptForDestination(address);
@@ -395,7 +391,7 @@ static CTransactionRef SendMoney(CWallet * const pwallet, const CTxDestination &
         throw JSONRPCError(RPC_WALLET_ERROR, strError);
     }
     CValidationState state;
-    if (!pwallet->CommitTransaction(tx, std::move(mapValue), {} /* orderForm */, reservekey, g_connman.get(), state)) {
+    if (!pwallet->CommitTransaction(tx, std::move(mapValue), {} /* orderForm */, reservekey, connman, state)) {
         strError = strprintf("Error: The transaction was rejected! Reason given: %s", FormatStateMessage(state));
         throw JSONRPCError(RPC_WALLET_ERROR, strError);
     }
@@ -506,7 +502,8 @@ static UniValue sendtoaddress(const JSONRPCRequest& request)
     if(pwallet->GetBalance()[colorId] < nAmount)
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Insufficient token balance in wallet");
 
-    CTransactionRef tx = SendMoney(pwallet, dest, nAmount, fSubtractFeeFromAmount, coin_control, std::move(mapValue), colorId);
+    assert(request.context.connman);
+    CTransactionRef tx = SendMoney(pwallet, dest, nAmount, fSubtractFeeFromAmount, coin_control, std::move(mapValue), colorId, request.context.connman.get());
     return tx->GetHashMalFix().GetHex();
 }
 
@@ -914,10 +911,8 @@ static UniValue sendmany(const JSONRPCRequest& request)
 
     LOCK2(cs_main, pwallet->cs_wallet);
 
-    if (pwallet->GetBroadcastTransactions() && !g_connman) {
-        throw JSONRPCError(RPC_CLIENT_P2P_DISABLED, "Error: Peer-to-peer functionality missing or disabled");
-    }
-
+    assert(request.context.connman);
+    CConnman* connman = request.context.connman.get();
     UniValue sendTo = request.params[0].get_obj();
 
     mapValue_t mapValue;
@@ -1001,7 +996,7 @@ static UniValue sendmany(const JSONRPCRequest& request)
     if (!fCreated)
         throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS, strFailReason);
     CValidationState state;
-    if (!pwallet->CommitTransaction(tx, std::move(mapValue), {} /* orderForm */, keyChange, g_connman.get(), state)) {
+    if (!pwallet->CommitTransaction(tx, std::move(mapValue), {} /* orderForm */, keyChange, connman, state)) {
         strFailReason = strprintf("Transaction commit failed:: %s", FormatStateMessage(state));
         throw JSONRPCError(RPC_WALLET_ERROR, strFailReason);
     }
@@ -2713,8 +2708,8 @@ static UniValue resendwallettransactions(const JSONRPCRequest& request)
             "Returns array of transaction ids that were re-broadcast.\n"
             );
 
-    if (!g_connman)
-        throw JSONRPCError(RPC_CLIENT_P2P_DISABLED, "Error: Peer-to-peer functionality missing or disabled");
+    assert(request.context.connman);
+    CConnman& connman = *request.context.connman;
 
     LOCK2(cs_main, pwallet->cs_wallet);
 
@@ -2722,7 +2717,7 @@ static UniValue resendwallettransactions(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_WALLET_ERROR, "Error: Wallet transaction broadcasting is disabled with -walletbroadcast");
     }
 
-    std::vector<uint256> txids = pwallet->ResendWalletTransactionsBefore(GetTime(), g_connman.get());
+    std::vector<uint256> txids = pwallet->ResendWalletTransactionsBefore(GetTime(), &connman);
     UniValue result(UniValue::VARR);
     for (const uint256& txid : txids)
     {
@@ -3357,7 +3352,8 @@ static UniValue bumpfee(const JSONRPCRequest& request)
     }
     // commit the bumped transaction
     uint256 txid;
-    if (feebumper::CommitTransaction(pwallet, hash, std::move(mtx), errors, txid) != feebumper::Result::OK) {
+    assert(request.context.connman);
+    if (feebumper::CommitTransaction(pwallet, hash, std::move(mtx), request.context.connman.get(), errors, txid) != feebumper::Result::OK) {
         throw JSONRPCError(RPC_WALLET_ERROR, errors[0]);
     }
     // Retain the reserved change key only after full commit; any earlier failure
@@ -4632,12 +4628,13 @@ UniValue issuetoken(const JSONRPCRequest& request)
     pwallet->BlockUntilSyncedToCurrentChain();
     EnsureWalletIsUnlocked(pwallet);
 
+    assert(request.context.connman);
     CCoinControl coin_control;
     coin_control.m_colorId = colorId;
 
     // For reissuable tokens try to create a UTXO with the given scriptpubkey first and then issuing transaction using that utxo
     if(coin_control.m_colorId.type == TokenTypes::REISSUABLE)
-        return IssueReissuableToken(pwallet, request.params[2].getValStr(), tokenValue, coin_control);
+        return IssueReissuableToken(pwallet, request.params[2].getValStr(), tokenValue, coin_control, request.context.connman.get());
     else
     {
         uint256 txid = uint256S(request.params[2].get_str());
@@ -4671,7 +4668,7 @@ UniValue issuetoken(const JSONRPCRequest& request)
         //This output is ours. Add it to coin control so that it will be used as an input in transaction creation
         coin_control.Select(out);
         coin_control.m_colorTxType = ColoredTxType::ISSUE;
-        return IssueToken(pwallet, tokenValue, coin_control);
+        return IssueToken(pwallet, tokenValue, coin_control, request.context.connman.get());
     }
 }
 
@@ -4728,7 +4725,8 @@ UniValue reissuetoken(const JSONRPCRequest& request)
 
     CCoinControl coin_control;
     coin_control.m_colorId = colorId;
-    return IssueReissuableToken(pwallet, HexStr(script.begin(), script.end()), tokenValue, coin_control);
+    assert(request.context.connman);
+    return IssueReissuableToken(pwallet, HexStr(script.begin(), script.end()), tokenValue, coin_control, request.context.connman.get());
 }
 
 UniValue transfertoken(const JSONRPCRequest& request)
@@ -4805,7 +4803,8 @@ UniValue burntoken(const JSONRPCRequest& request)
     if (colorId.type != TokenTypes::NONE && (curBalance == 0 || curBalance < nAmount))
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Insufficient token balance in wallet");
 
-    CTransactionRef tx = BurnToken(pwallet, colorId, nAmount);
+    assert(request.context.connman);
+    CTransactionRef tx = BurnToken(pwallet, colorId, nAmount, request.context.connman.get());
 
     return tx->GetHashMalFix().GetHex();
 }

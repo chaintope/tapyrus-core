@@ -32,6 +32,7 @@
 #include <localaddress.h>
 #include <mapport.h>
 #include <net_processing.h>
+#include <nodecontext.h>
 #include <policy/feerate.h>
 #include <policy/fees.h>
 #include <policy/policy.h>
@@ -88,8 +89,6 @@ static const bool DEFAULT_STOPAFTERBLOCKIMPORT = false;
 
 // Set once by InitLogging(), before the signal handlers are installed; null with -nodebuglogfile.
 static DebugLogFile* g_debug_log_file = nullptr;
-
-std::unique_ptr<PeerLogicValidation> peerLogic;
 
 #if !defined(ENABLE_WALLET) || !(ENABLE_WALLET)
 class DummyWalletInit : public WalletInitInterface {
@@ -184,7 +183,7 @@ static std::unique_ptr<ECCVerifyHandle> globalVerifyHandle;
 
 static CScheduler scheduler;
 
-void Interrupt()
+void Interrupt(NodeContext& node)
 {
     InterruptHTTPServer();
     InterruptHTTPRPC();
@@ -192,14 +191,14 @@ void Interrupt()
     InterruptREST();
     InterruptTorControl();
     InterruptMapPort();
-    if (g_connman)
-        g_connman->Interrupt();
+    if (node.connman)
+        node.connman->Interrupt();
     if (g_txindex) {
         g_txindex->Interrupt();
     }
 }
 
-void Shutdown()
+void Shutdown(NodeContext& node)
 {
     LogPrintf("%s: In progress...\n", __func__);
     static Mutex cs_Shutdown;
@@ -223,8 +222,8 @@ void Shutdown()
 
     // Because these depend on each-other, we make sure that neither can be
     // using the other before destroying them.
-    if (peerLogic) UnregisterValidationInterface(peerLogic.get());
-    if (g_connman) g_connman->Stop();
+    if (node.peer_logic) UnregisterValidationInterface(node.peer_logic.get());
+    if (node.connman) node.connman->Stop();
     if (g_txindex) g_txindex->Stop();
 
     StopTorControl();
@@ -235,8 +234,8 @@ void Shutdown()
 
     // After the threads that potentially access these pointers have been stopped,
     // destruct and reset all to nullptr.
-    peerLogic.reset();
-    g_connman.reset();
+    node.peer_logic.reset();
+    node.connman.reset();
     g_txindex.reset();
 
     if (g_is_mempool_loaded && gArgs.GetBoolArg("-persistmempool", DEFAULT_PERSIST_MEMPOOL)) {
@@ -770,16 +769,16 @@ static bool InitSanityCheck(void)
     return true;
 }
 
-static bool AppInitServers()
+static bool AppInitServers(NodeContext& node)
 {
     RPCServer::OnStarted(&OnRPCStarted);
     RPCServer::OnStopped(&OnRPCStopped);
     if (!InitHTTPServer())
         return false;
     StartRPC();
-    if (!StartHTTPRPC())
+    if (!StartHTTPRPC(node))
         return false;
-    if (gArgs.GetBoolArg("-rest", DEFAULT_REST_ENABLE) && !StartREST())
+    if (gArgs.GetBoolArg("-rest", DEFAULT_REST_ENABLE) && !StartREST(node))
         return false;
     StartHTTPServer();
     return true;
@@ -1250,7 +1249,7 @@ bool AppInitLockDataDirectory()
     return true;
 }
 
-bool AppInitMain()
+bool AppInitMain(NodeContext& node)
 {
     // ********************************************************* Step 4a: application initialization
 #ifndef WIN32
@@ -1353,7 +1352,7 @@ bool AppInitMain()
     if (gArgs.GetBoolArg("-server", false))
     {
         uiInterface.InitMessage.connect(SetRPCWarmupStatus);
-        if (!AppInitServers())
+        if (!AppInitServers(node))
             return InitError(_("Unable to start HTTP server. See debug log for details."));
     }
 
@@ -1366,12 +1365,12 @@ bool AppInitMain()
     // is not yet setup and may end up being set up twice if we
     // need to reindex later.
 
-    assert(!g_connman);
-    g_connman = std::unique_ptr<CConnman>(new CConnman(GetRand(std::numeric_limits<uint64_t>::max()), GetRand(std::numeric_limits<uint64_t>::max())));
-    CConnman& connman = *g_connman;
+    assert(!node.connman);
+    node.connman = std::unique_ptr<CConnman>(new CConnman(GetRand(std::numeric_limits<uint64_t>::max()), GetRand(std::numeric_limits<uint64_t>::max())));
+    CConnman& connman = *node.connman;
 
-    peerLogic.reset(new PeerLogicValidation(&connman, scheduler));
-    RegisterValidationInterface(peerLogic.get());
+    node.peer_logic.reset(new PeerLogicValidation(connman, scheduler));
+    RegisterValidationInterface(node.peer_logic.get());
 
     // sanitize comments per BIP-0014, format user agent and check total size
     std::vector<std::string> uacomments;
@@ -1796,7 +1795,7 @@ bool AppInitMain()
     connOptions.nMaxFeeler = 1;
     connOptions.nBestHeight = chain_active_height;
     connOptions.uiInterface = &uiInterface;
-    connOptions.m_msgproc = peerLogic.get();
+    connOptions.m_msgproc = node.peer_logic.get();
     connOptions.nSendBufferMaxSize = 1000*gArgs.GetArg("-maxsendbuffer", DEFAULT_MAXSENDBUFFER);
     connOptions.nReceiveFloodSize = 1000*gArgs.GetArg("-maxreceivebuffer", DEFAULT_MAXRECEIVEBUFFER);
     connOptions.m_added_nodes = gArgs.GetArgs("-addnode");

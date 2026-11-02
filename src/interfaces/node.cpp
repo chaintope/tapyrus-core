@@ -17,6 +17,7 @@
 #include <netnode.h>
 #include <mapport.h>
 #include <net_processing.h>
+#include <nodecontext.h>
 #include <netaddress.h>
 #include <netbase.h>
 #include <policy/feerate.h>
@@ -53,6 +54,9 @@ namespace {
 
 class NodeImpl : public Node
 {
+public:
+    explicit NodeImpl(NodeContext& context) : m_context(context) {}
+
     bool parseParameters(int argc, const char* const argv[], std::string& error) override
     {
         return gArgs.ParseParameters(argc, argv, error);
@@ -71,11 +75,11 @@ class NodeImpl : public Node
         return AppInitBasicSetup() && AppInitParameterInteraction() && AppInitSanityChecks() &&
                AppInitLockDataDirectory();
     }
-    bool appInitMain() override { return AppInitMain(); }
+    bool appInitMain() override { return AppInitMain(m_context); }
     void appShutdown() override
     {
-        Interrupt();
-        Shutdown();
+        Interrupt(m_context);
+        Shutdown(m_context);
     }
     void startShutdown() override { StartShutdown(); }
     bool shutdownRequested() override { return ShutdownRequested(); }
@@ -92,15 +96,15 @@ class NodeImpl : public Node
     bool getProxy(Network net, proxyType& proxy_info) override { return GetProxy(net, proxy_info); }
     size_t getNodeCount(CConnman::NumConnections flags) override
     {
-        return g_connman ? g_connman->GetNodeCount(flags) : 0;
+        return m_context.connman ? m_context.connman->GetNodeCount(flags) : 0;
     }
     bool getNodesStats(NodesStats& stats) override
     {
         stats.clear();
 
-        if (g_connman) {
+        if (m_context.connman) {
             std::vector<CNodeStats> stats_temp;
-            g_connman->GetNodeStats(stats_temp);
+            m_context.connman->GetNodeStats(stats_temp);
 
             stats.reserve(stats_temp.size());
             for (auto& node_stats_temp : stats_temp) {
@@ -121,37 +125,37 @@ class NodeImpl : public Node
     }
     bool getBanned(banmap_t& banmap) override
     {
-        if (g_connman) {
-            g_connman->GetBanned(banmap);
+        if (m_context.connman) {
+            m_context.connman->GetBanned(banmap);
             return true;
         }
         return false;
     }
     bool ban(const CNetAddr& net_addr, BanReason reason, int64_t ban_time_offset) override
     {
-        if (g_connman) {
-            g_connman->Ban(net_addr, reason, ban_time_offset);
+        if (m_context.connman) {
+            m_context.connman->Ban(net_addr, reason, ban_time_offset);
             return true;
         }
         return false;
     }
     bool unban(const CSubNet& ip) override
     {
-        if (g_connman) {
-            g_connman->Unban(ip);
+        if (m_context.connman) {
+            m_context.connman->Unban(ip);
             return true;
         }
         return false;
     }
     bool disconnect(NodeId id) override
     {
-        if (g_connman) {
-            return g_connman->DisconnectNode(id);
+        if (m_context.connman) {
+            return m_context.connman->DisconnectNode(id);
         }
         return false;
     }
-    int64_t getTotalBytesRecv() override { return g_connman ? g_connman->GetTotalBytesRecv() : 0; }
-    int64_t getTotalBytesSent() override { return g_connman ? g_connman->GetTotalBytesSent() : 0; }
+    int64_t getTotalBytesRecv() override { return m_context.connman ? m_context.connman->GetTotalBytesRecv() : 0; }
+    int64_t getTotalBytesSent() override { return m_context.connman ? m_context.connman->GetTotalBytesSent() : 0; }
     size_t getMempoolSize() override { LOCK(mempool.cs); return ::mempool.size(); }
     size_t getMempoolDynamicUsage() override { return ::mempool.DynamicMemoryUsage(); }
     bool getHeaderTip(int& height, int64_t& block_time) override
@@ -191,11 +195,11 @@ class NodeImpl : public Node
     bool getImporting() override { return ::fImporting; }
     void setNetworkActive(bool active) override
     {
-        if (g_connman) {
-            g_connman->SetNetworkActive(active);
+        if (m_context.connman) {
+            m_context.connman->SetNetworkActive(active);
         }
     }
-    bool getNetworkActive() override { return g_connman && g_connman->GetNetworkActive(); }
+    bool getNetworkActive() override { return m_context.connman && m_context.connman->GetNetworkActive(); }
     CAmount getMaxTxFee() override { return ::maxTxFee; }
     CFeeRate estimateSmartFee(int num_blocks, bool conservative, int* returned_target = nullptr) override
     {
@@ -209,7 +213,7 @@ class NodeImpl : public Node
     CFeeRate getDustRelayFee() override { return ::dustRelayFee; }
     UniValue executeRpc(const std::string& command, const UniValue& params, const std::string& uri) override
     {
-        JSONRPCRequest req;
+        JSONRPCRequest req(m_context);
         req.params = params;
         req.strMethod = command;
         req.URI = uri;
@@ -228,7 +232,7 @@ class NodeImpl : public Node
 #if ENABLE_WALLET
         std::vector<std::unique_ptr<Wallet>> wallets;
         for (const std::shared_ptr<CWallet>& wallet : GetWallets()) {
-            wallets.emplace_back(MakeWallet(wallet));
+            wallets.emplace_back(MakeWallet(wallet, m_context.connman));
         }
         return wallets;
 #else
@@ -254,7 +258,7 @@ class NodeImpl : public Node
     std::unique_ptr<Handler> handleLoadWallet(LoadWalletFn fn) override
     {
         CHECK_WALLET(
-            return MakeHandler(::uiInterface.LoadWallet.connect([fn](std::shared_ptr<CWallet> wallet) { fn(MakeWallet(wallet)); })));
+            return MakeHandler(::uiInterface.LoadWallet.connect([this, fn](std::shared_ptr<CWallet> wallet) { fn(MakeWallet(wallet, m_context.connman)); })));
     }
     std::unique_ptr<Handler> handleNotifyNumConnectionsChanged(NotifyNumConnectionsChangedFn fn) override
     {
@@ -287,10 +291,13 @@ class NodeImpl : public Node
                     GuessVerificationProgress(Params().TxData(), block));
             }));
     }
+
+private:
+    NodeContext& m_context;
 };
 
 } // namespace
 
-std::unique_ptr<Node> MakeNode() { return MakeUnique<NodeImpl>(); }
+std::unique_ptr<Node> MakeNode(NodeContext& context) { return MakeUnique<NodeImpl>(context); }
 
 } // namespace interfaces
