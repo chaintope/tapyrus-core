@@ -38,6 +38,12 @@ P2P
   and that peer was disconnected for a block download timeout 10 minutes or
   more later.
 
+- A peer could run a node out of memory by sending TCP urgent data, which made
+  the node keep reading from that peer after its receive queue was full. The
+  node now never reads from a peer while its queue is full. All platforms were
+  exposed, because the node uses `select()` on every platform. Bitcoin Core
+  disclosed the same issue as CVE-2026-117350 for its non-Linux systems.
+
 Downgrading warning
 -------------------
 
