@@ -16,9 +16,6 @@
 
 typedef std::vector<unsigned char> valtype;
 
-bool fAcceptDatacarrier = DEFAULT_ACCEPT_DATACARRIER;
-bool fAcceptMultipleDatacarrier = DEFAULT_ACCEPT_MULTIPLE_DATACARRIER;
-unsigned nMaxDatacarrierBytes = MAX_OP_RETURN_RELAY;
 
 
 const char* GetTxnOutputType(txnouttype t)
@@ -99,10 +96,10 @@ static bool CheckScriptSyntax(const CScript& script)
         if(!script.GetOp(it, opcode, data))
             return false;
 
-        if (data.size() > MAX_SCRIPT_ELEMENT_SIZE)
+        if (data.size() > ConsensusConstants::MAX_SCRIPT_ELEMENT_SIZE)
             return false;
 
-        if (opcode > OP_16 && ++nOpCount > MAX_OPS_PER_SCRIPT)
+        if (opcode > OP_16 && ++nOpCount > ConsensusConstants::MAX_OPS_PER_SCRIPT)
             return false;
 
         if( opcode == OP_CAT ||

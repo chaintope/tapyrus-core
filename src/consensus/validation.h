@@ -9,7 +9,7 @@
 #include <string>
 #include <sstream>
 #include <version.h>
-#include <consensus/consensus.h>
+#include <consensusconstants.h>
 #include <primitives/transaction.h>
 #include <primitives/block.h>
 
@@ -93,5 +93,12 @@ public:
     std::string GetRejectReason() const { return strRejectReason; }
     std::string GetDebugMessage() const { return strDebugMessage; }
 };
+
+/** Convert CValidationState to a human-readable message for logging */
+inline std::string FormatStateMessage(const CValidationState &state)
+{
+    return state.GetRejectReason() + (state.GetDebugMessage().empty() ? "" : ", " + state.GetDebugMessage())
+           + " (code " + std::to_string(state.GetRejectCode()) + ")";
+}
 
 #endif // BITCOIN_CONSENSUS_VALIDATION_H

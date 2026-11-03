@@ -3,11 +3,13 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <amount.h>
+#include <chainstatemanager.h>
 #include <coin.h>
 #include <coinsview.h>
 #include <coinsviewcache.h>
 #include <coloridentifier.h>
 #include <consensus/validation.h>
+#include <consensusconstants.h>
 #include <cs_main.h>
 #include <hash.h>
 #include <issuedcolorids.h>
@@ -16,7 +18,6 @@
 #include <script/interpreter.h>
 #include <script/script.h>
 #include <script/standard.h>
-#include <softforkmanager.h>
 #include <test/test_tapyrus.h>
 #include <transactioncolorchecker.h>
 #include <validation.h>
@@ -51,7 +52,7 @@ bool LegacyCheckColorIdentifierValidity(const CTransaction& tx, CValidationState
         // outColorId is NONE: IsColoredPayToPubkeyHash / IsColoredPayToScriptHash
         // check both structure and type byte; reaching here means neither matched.
         if (outColorId.type == TokenTypes::NONE) {
-            if (GetSoftForkManager().IsActive(SCRIPT_VERIFY_CP2SH_COLORED, blockHeight))
+            if (g_chainstate_manager.Consensus().IsActive(SCRIPT_VERIFY_CP2SH_COLORED, blockHeight))
                 return state.DoS(100, false, REJECT_INVALID, "bad-txns-nonstandard-opcolor");
             continue;
         }
@@ -73,7 +74,7 @@ bool LegacyCheckColorIdentifierValidity(const CTransaction& tx, CValidationState
             ColorIdentifier cid = GetColorIdFromScript(coin.out.scriptPubKey);
 
             if (cid.type == TokenTypes::NONE && coin.out.scriptPubKey.IsColoredScript()) {
-                if (GetSoftForkManager().IsActive(SCRIPT_VERIFY_CP2SH_COLORED, blockHeight))
+                if (g_chainstate_manager.Consensus().IsActive(SCRIPT_VERIFY_CP2SH_COLORED, blockHeight))
                     return state.DoS(100, false, REJECT_INVALID, "bad-txns-nonstandard-opcolor");
                 continue;
             }
@@ -121,7 +122,7 @@ bool LegacyCheckColorIdentifierValidity(const CTransaction& tx, CValidationState
         //  the defining UTXO is consumed and its colorId = Hash(prevout) is globally unique.)
         if(isIssuance && (outColorId.type == TokenTypes::NON_REISSUABLE || outColorId.type == TokenTypes::NFT))
         {
-            if(g_colorid_state && g_colorid_state->IsIssued(outColorId))
+            if(g_chainstate_manager.IssuedColorIds().IsIssued(outColorId))
                 return state.DoS(100, false, REJECT_INVALID, "bad-txns-colorid-already-issued");
         }
     }
@@ -147,7 +148,7 @@ bool LegacyVerifyTokenBalances(const CTransaction& tx, CValidationState& state, 
         // A legacy non-standard OP_COLOR UTXO (colorId resolves to NONE) is rejected
         // post-activation.  Pre-activation its nValue falls through to the TPC bucket.
         if (cid.type == TokenTypes::NONE && coin.out.scriptPubKey.IsColoredScript() &&
-            GetSoftForkManager().IsActive(SCRIPT_VERIFY_CP2SH_COLORED, blockHeight))
+            g_chainstate_manager.Consensus().IsActive(SCRIPT_VERIFY_CP2SH_COLORED, blockHeight))
             return state.DoS(100, false, REJECT_INVALID, "bad-txns-nonstandard-opcolor");
         auto it = inColoredCoinBalances.find(cid);
         if (it == inColoredCoinBalances.end())
@@ -267,7 +268,7 @@ CScript ColoredScript(const ColorIdentifier& colorId)
 // A coin of value -1 counts as spent, so only outputs may draw it.
 CAmount RandomValue(bool allowNegative)
 {
-    static const std::vector<CAmount> values{CAmount{0}, CAmount{1}, CAmount{2}, CAmount{1000}, CAmount{50000}, MAX_MONEY, CAmount{-1}};
+    static const std::vector<CAmount> values{CAmount{0}, CAmount{1}, CAmount{2}, CAmount{1000}, CAmount{50000}, ConsensusConstants::MAX_MONEY, CAmount{-1}};
     return values.at(InsecureRandRange(values.size() - (allowNegative ? 0 : 1)));
 }
 
@@ -368,13 +369,13 @@ BOOST_AUTO_TEST_CASE(checker_matches_legacy_functions)
 
         {
             LOCK(cs_main);
-            g_colorid_state.reset(new CIssuedColorIds());
+            g_chainstate_manager.IssuedColorIds() = CIssuedColorIds();
             std::set<ColorIdentifier> issued;
             for (const ColorIdentifier& colorId : candidates) {
                 if (InsecureRandRange(4) == 0)
                     issued.insert(colorId);
             }
-            g_colorid_state->Insert(issued);
+            g_chainstate_manager.IssuedColorIds().Insert(issued);
         }
 
         const int32_t height = InsecureRandBool() ? int32_t{0} : std::numeric_limits<int32_t>::max();
@@ -382,7 +383,7 @@ BOOST_AUTO_TEST_CASE(checker_matches_legacy_functions)
 
         LOCK(cs_main);
         PrecomputedColorData data(tx, view, height);
-        data.SetIssued(*g_colorid_state);
+        data.SetIssued(g_chainstate_manager.IssuedColorIds());
         const TransactionColorChecker checker(data);
 
         CValidationState legacyOutputState, checkerOutputState;

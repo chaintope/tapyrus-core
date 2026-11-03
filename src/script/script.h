@@ -7,6 +7,7 @@
 #ifndef BITCOIN_SCRIPT_SCRIPT_H
 #define BITCOIN_SCRIPT_SCRIPT_H
 
+#include <consensusconstants.h>
 #include <crypto/common.h>
 #include <prevector.h>
 #include <serialize.h>
@@ -20,25 +21,6 @@
 #include <string.h>
 #include <string>
 #include <vector>
-
-// Maximum number of bytes pushable to the stack
-static const unsigned int MAX_SCRIPT_ELEMENT_SIZE = 520;
-
-// Maximum number of non-push operations per script
-static const int MAX_OPS_PER_SCRIPT = 201;
-
-// Maximum number of public keys per multisig
-static const int MAX_PUBKEYS_PER_MULTISIG = 20;
-
-// Maximum script length in bytes
-static const int MAX_SCRIPT_SIZE = 10000;
-
-// Maximum number of values on script interpreter stack
-static const int MAX_STACK_SIZE = 1000;
-
-// Threshold for nLockTime: below this value it is interpreted as block number,
-// otherwise as UNIX timestamp.
-static const unsigned int LOCKTIME_THRESHOLD = 500000000; // Tue Nov  5 00:53:20 1985 UTC
 
 template <typename T>
 std::vector<unsigned char> ToByteVector(const T& in)
@@ -191,8 +173,7 @@ enum opcodetype
     OP_INVALIDOPCODE = 0xff,
 };
 
-// Maximum value that an opcode can be
-static const unsigned int MAX_OPCODE = OP_COLOR;
+static_assert(ConsensusConstants::MAX_OPCODE == OP_COLOR, "OP_COLOR is the highest valid opcode");
 
 const char* GetOpName(opcodetype opcode);
 
@@ -558,7 +539,7 @@ public:
      */
     bool IsUnspendable() const
     {
-        return (size() > 0 && *begin() == OP_RETURN) || (size() > MAX_SCRIPT_SIZE);
+        return (size() > 0 && *begin() == OP_RETURN) || (size() > ConsensusConstants::MAX_SCRIPT_SIZE);
     }
 
     void clear()

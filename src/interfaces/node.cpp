@@ -8,7 +8,8 @@
 #include <amount.h>
 #include <blockindex.h>
 #include <chainparams.h>
-#include <dynamicparams.h>
+#include <chainstatemanager.h>
+#include <consensussettings.h>
 #include <init.h>
 #include <interfaces/handler.h>
 #include <interfaces/wallet.h>
@@ -72,7 +73,7 @@ public:
     uint32_t getLogCategories() override { return LogInstance().GetCategoryMask(); }
     bool baseInitialize() override
     {
-        return AppInitBasicSetup() && AppInitParameterInteraction() && AppInitSanityChecks() &&
+        return AppInitBasicSetup() && AppInitParameterInteraction(m_context) && AppInitSanityChecks() &&
                AppInitLockDataDirectory();
     }
     bool appInitMain() override { return AppInitMain(m_context); }
@@ -102,7 +103,7 @@ public:
     {
         stats.clear();
 
-        if (m_context.connman) {
+        if (m_context.connman && m_context.peerman) {
             std::vector<CNodeStats> stats_temp;
             m_context.connman->GetNodeStats(stats_temp);
 
@@ -116,7 +117,7 @@ public:
             if (lockMain) {
                 for (auto& node_stats : stats) {
                     std::get<1>(node_stats) =
-                        GetNodeStateStats(std::get<0>(node_stats).nodeid, std::get<2>(node_stats));
+                        m_context.peerman->GetNodeStateStats(std::get<0>(node_stats).nodeid, std::get<2>(node_stats));
                 }
             }
             return true;
@@ -179,7 +180,7 @@ public:
         if (::chainActive.Tip()) {
             return ::chainActive.Tip()->GetBlockTime();
         }
-        return DynamicParams().GenesisBlock().GetBlockTime(); // Genesis block's time of current network
+        return g_chainstate_manager.Consensus().Settings().GenesisBlock().GetBlockTime(); // Genesis block's time of current network
     }
     double getVerificationProgress() override
     {
@@ -200,7 +201,6 @@ public:
         }
     }
     bool getNetworkActive() override { return m_context.connman && m_context.connman->GetNetworkActive(); }
-    CAmount getMaxTxFee() override { return ::maxTxFee; }
     CFeeRate estimateSmartFee(int num_blocks, bool conservative, int* returned_target = nullptr) override
     {
         FeeCalculation fee_calc;
@@ -210,7 +210,8 @@ public:
         }
         return result;
     }
-    CFeeRate getDustRelayFee() override { return ::dustRelayFee; }
+    CFeeRate getDustRelayFee() override { return m_context.policy->dustRelayFee; }
+    int64_t getExpectedBlockTime() override { return m_context.policy->expectedBlockTime; }
     UniValue executeRpc(const std::string& command, const UniValue& params, const std::string& uri) override
     {
         JSONRPCRequest req(m_context);

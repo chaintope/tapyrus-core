@@ -51,13 +51,12 @@ bool IsStandard(const CScript& scriptPubKey, txnouttype& whichType)
     {
         unsigned char m = vSolutions.front()[0];
         unsigned char n = vSolutions.back()[0];
-        // Support up to x-of-3 multisig txns as standard
-        if (n < 1 || n > 3)
+        if (n < 1 || n > g_policy_settings->maxBareMultisigKeys)
             return false;
         if (m < 1 || m > n)
             return false;
     } else if (whichType == TX_NULL_DATA &&
-               (!fAcceptDatacarrier || scriptPubKey.size() > nMaxDatacarrierBytes))
+               (!g_policy_settings->acceptDatacarrier || scriptPubKey.size() > g_policy_settings->maxDatacarrierBytes))
             return false;
 
     return whichType != TX_NONSTANDARD;
@@ -73,23 +72,17 @@ bool IsStandardTx(const CTransaction& tx, std::string& reason)
     // Extremely large transactions with lots of inputs can cost the network
     // almost as much to process as they cost the sender in fees, because
     // computing signature hashes is O(ninputs*txsize). Limiting transactions
-    // to MAX_STANDARD_TX_SIZE mitigates CPU exhaustion attacks.
+    // to -maxstandardtxsize mitigates CPU exhaustion attacks.
     unsigned int sz = GetSerializeSize(tx, SER_NETWORK, PROTOCOL_VERSION);
-    if (sz > MAX_STANDARD_TX_SIZE) {
+    if (sz > g_policy_settings->maxStandardTxSize) {
         reason = "tx-size";
         return false;
     }
 
     for (const CTxIn& txin : tx.vin)
     {
-        // Biggest 'standard' txin is a 15-of-15 P2SH multisig with compressed
-        // keys (remember the 520 byte limit on redeemScript size). That works
-        // out to a (15*(33+1))+3=513 byte redeemScript, 513+1+15*(73+1)+3=1627
-        // bytes of scriptSig, which we round off to 1650 bytes for some minor
-        // future-proofing. That's also enough to spend a 20-of-20
-        // CHECKMULTISIG scriptPubKey, though such a scriptPubKey is not
-        // considered standard.
-        if (txin.scriptSig.size() > 1650) {
+        // See DEFAULT_MAX_SCRIPTSIG_SIZE for why 1650 bytes is the default.
+        if (txin.scriptSig.size() > g_policy_settings->maxScriptSigSize) {
             reason = "scriptsig-size";
             return false;
         }
@@ -109,14 +102,14 @@ bool IsStandardTx(const CTransaction& tx, std::string& reason)
 
         if (whichType == TX_NULL_DATA)
             nDataOut++;
-        else if (IsDust(txout, ::dustRelayFee)) {
+        else if (IsDust(txout, g_policy_settings->dustRelayFee)) {
             reason = "dust";
             return false;
         }
     }
 
     // multiple OP_RETURN txout are permitted with new option
-    if (nDataOut > 1 && !fAcceptMultipleDatacarrier){
+    if (nDataOut > 1 && !g_policy_settings->acceptMultipleDatacarrier){
         reason = "multi-op-return";
         return false;
     }
@@ -165,7 +158,7 @@ bool AreInputsStandard(const CTransaction& tx, const CCoinsViewCache& mapInputs)
             if (stack.empty())
                 return false;
             CScript subscript(stack.back().begin(), stack.back().end());
-            if (subscript.GetSigOpCount(true) > MAX_P2SH_SIGOPS) {
+            if (subscript.GetSigOpCount(true) > g_policy_settings->maxP2shSigOps) {
                 return false;
             }
         }
@@ -174,13 +167,10 @@ bool AreInputsStandard(const CTransaction& tx, const CCoinsViewCache& mapInputs)
     return true;
 }
 
-CFeeRate incrementalRelayFee = CFeeRate(DEFAULT_INCREMENTAL_RELAY_FEE);
-CFeeRate dustRelayFee = CFeeRate(DUST_RELAY_TX_FEE);
-unsigned int nBytesPerSigOp = DEFAULT_BYTES_PER_SIGOP;
 
 int64_t GetTransactionSize(int64_t nSize, int64_t nSigOpCost)
 {
-    return std::max(nSize, nSigOpCost * nBytesPerSigOp);
+    return std::max(nSize, nSigOpCost * g_policy_settings->bytesPerSigOp);
 }
 
 int64_t GetTransactionSize(const CTransaction& tx, int32_t nSigOpCost)

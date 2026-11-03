@@ -8,8 +8,6 @@
 #include <blockindex.h>
 #include <chainparams.h>
 #include <chainstatemanager.h>
-#include <consensus/consensus.h>
-#include <consensus/params.h>
 #include <consensus/validation.h>
 #include <core_io.h>
 #include <validation.h>
@@ -528,10 +526,8 @@ static UniValue getblocktemplate(const JSONRPCRequest& request)
     }
     assert(pindexPrev);
     CBlock* pblock = &pblocktemplate->block; // pointer for convenience
-    const Consensus::Params& consensusParams = Params().GetConsensus();
-
     // Update nTime
-    UpdateTime(pblock, consensusParams, pindexPrev);
+    UpdateTime(pblock, pindexPrev);
 
     UniValue aCaps(UniValue::VARR); aCaps.push_back("proposal");
 

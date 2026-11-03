@@ -5,7 +5,7 @@
 #include <checkpoints.h>
 
 #include <blockindex.h>
-#include <chainparams.h>
+#include <consensussettings.h>
 #include <validation.h>
 
 #include <stdint.h>

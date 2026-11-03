@@ -416,7 +416,7 @@ public:
             std::vector<COutput> vecOutputs;
             {
                 LOCK2(::cs_main, m_wallet.cs_wallet);
-                m_wallet.AvailableCoins(vecOutputs, true, nullptr, 0, MAX_MONEY, MAX_MONEY, 0, 0, 9999999, false);
+                m_wallet.AvailableCoins(vecOutputs, true, nullptr, 0, ConsensusConstants::MAX_MONEY, ConsensusConstants::MAX_MONEY, 0, 0, 9999999, false);
             }
 
             COutPoint tpcUtxo;
@@ -569,6 +569,7 @@ public:
         return result;
     }
     CAmount getRequiredFee(unsigned int tx_bytes) override { return GetRequiredFee(m_wallet, tx_bytes); }
+    CAmount getDefaultMaxTxFee() override { return m_wallet.m_default_max_tx_fee; }
     CAmount getMinimumFee(unsigned int tx_bytes,
         const CCoinControl& coin_control,
         int* returned_target,

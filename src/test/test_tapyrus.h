@@ -12,12 +12,13 @@
 #include <fs.h>
 #include <key.h>
 #include <nodecontext.h>
+#include <policy/policysettings.h>
 #include <pubkey.h>
 #include <random.h>
 #include <scheduler.h>
 #include <txdb.h>
 #include <txmempool.h>
-#include <consensus/consensus.h>
+#include <consensusconstants.h>
 #include <xfieldhistory.h>
 
 #include <memory>
@@ -71,6 +72,21 @@ protected:
     // The chain's xfield history (g_chainstate_manager's), shared by every
     // test in the binary.
     static CXFieldHistory* pxFieldHistory;
+};
+
+/**
+ * Points g_policy_settings at settings built from the given options on top of
+ * the defaults, for its lifetime.
+ */
+class PolicySettingsOverride
+{
+public:
+    explicit PolicySettingsOverride(const std::vector<std::pair<std::string, std::string>>& options);
+    ~PolicySettingsOverride();
+
+private:
+    const PolicySettings* const m_previous;
+    std::unique_ptr<const PolicySettings> m_settings;
 };
 
 /** Testing setup that configures a complete environment.

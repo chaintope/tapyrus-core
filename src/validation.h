@@ -10,6 +10,7 @@
 #include <tapyrus-config.h>
 
 #include <amount.h>
+#include <consensusconstants.h>
 #include <coinsview.h>
 #include <coinsviewcache.h>
 #include <fs.h>
@@ -44,6 +45,7 @@ class CScriptCheck;
 class CBlockPolicyEstimator;
 class CTxMemPool;
 class CValidationState;
+class HeightDerivedConsensusRules;
 struct ChainTxData;
 struct XFieldChange;
 
@@ -52,28 +54,12 @@ struct LockPoints;
 #define MICRO 0.000001
 #define MILLI 0.001
 
-/** Default for -whitelistrelay. */
-static const bool DEFAULT_WHITELISTRELAY = true;
-/** Default for -whitelistforcerelay. */
-static const bool DEFAULT_WHITELISTFORCERELAY = true;
-/** Default for -minrelaytxfee, minimum relay fee for transactions */
-static const unsigned int DEFAULT_MIN_RELAY_TX_FEE = 1000;
-//! -maxtxfee default
-static const CAmount DEFAULT_TRANSACTION_MAXFEE = 0.1 * COIN;
+//! Default maximum fee of sendrawtransaction, testmempoolaccept and submitpackage
+static const CAmount DEFAULT_MAX_RAW_TX_FEE = 0.1 * ConsensusConstants::COIN;
 //! Discourage users to set fees higher than this amount (in tapyrus) per kB
-static const CAmount HIGH_TX_FEE_PER_KB = 0.01 * COIN;
+static const CAmount HIGH_TX_FEE_PER_KB = 0.01 * ConsensusConstants::COIN;
 //! -maxtxfee will warn if called with a higher fee than this amount (in tapyrus)
 static const CAmount HIGH_MAX_TX_FEE = 100 * HIGH_TX_FEE_PER_KB;
-/** Default for -limitancestorcount, max number of in-mempool ancestors */
-static const unsigned int DEFAULT_ANCESTOR_LIMIT = 25;
-/** Default for -limitancestorsize, maximum kilobytes of tx + all in-mempool ancestors */
-static const unsigned int DEFAULT_ANCESTOR_SIZE_LIMIT = 101;
-/** Default for -limitdescendantcount, max number of in-mempool descendants */
-static const unsigned int DEFAULT_DESCENDANT_LIMIT = 25;
-/** Default for -limitdescendantsize, maximum kilobytes of in-mempool descendants */
-static const unsigned int DEFAULT_DESCENDANT_SIZE_LIMIT = 101;
-/** Default for -mempoolexpiry, expiration time for mempool transactions in hours */
-static const unsigned int DEFAULT_MEMPOOL_EXPIRY = 336;
 /** Maximum kilobytes for transactions to store for processing during reorg */
 static const unsigned int MAX_DISCONNECTED_TX_POOL_SIZE = 20000;
 /** The maximum size of a blk?????.dat file (since 0.8) */
@@ -124,12 +110,6 @@ static const int64_t MAX_FEE_ESTIMATION_TIP_AGE = 3 * 60 * 60;
 static const bool DEFAULT_CHECKPOINTS_ENABLED = true;
 static const bool DEFAULT_TXINDEX = false;
 static const unsigned int DEFAULT_BANSCORE_THRESHOLD = 100;
-/** Default for -persistmempool */
-static const bool DEFAULT_PERSIST_MEMPOOL = true;
-/** Default for -mempoolreplacement */
-static const bool DEFAULT_ENABLE_REPLACEMENT = true;
-/** Default for using fee filter */
-static const bool DEFAULT_FEEFILTER = true;
 
 /** Maximum number of headers to announce when relaying blocks with headers message.*/
 static const unsigned int MAX_BLOCKS_TO_ANNOUNCE = 8;
@@ -153,22 +133,14 @@ extern uint64_t nLastBlockSize;
 extern Mutex g_best_block_mutex;
 extern CConditionVariable g_best_block_cv;
 extern uint256 g_best_block;
-/** Tracks all NON_REISSUABLE/NFT colorIds ever issued on this chain; see issuedcolorids.h. */
-class CIssuedColorIds;
-extern std::unique_ptr<CIssuedColorIds> g_colorid_state;
 extern std::atomic_bool fImporting;
 extern std::atomic_bool fReindex;
 extern int nScriptCheckThreads;
 extern bool fCheckBlockIndex;
 extern bool fCheckpointsEnabled;
 extern size_t nCoinCacheUsage;
-/** A fee rate smaller than this is considered zero fee (for relaying, mining and transaction creation) */
-extern CFeeRate minRelayTxFee;
-/** Absolute maximum transaction fee (in tapyrus) used by wallet and mempool (rejects high fee in sendrawtransaction) */
-extern CAmount maxTxFee;
 /** If the tip is older than this (in seconds), the node is considered to be in initial block download. */
 extern int64_t nMaxTipAge;
-extern bool fEnableReplacement;
 
 /** Block hash whose ancestors we will assume to have valid scripts without checking them. */
 extern uint256 hashAssumeValid;
@@ -204,9 +176,6 @@ extern bool fPruneMode;
 /** Number of MiB of block files that we're trying to stay below. */
 extern uint64_t nPruneTarget;
 /** Block files containing a block-height within MIN_BLOCKS_TO_KEEP of chainActive.Tip() will not be pruned. */
-#ifdef DEBUG
-extern bool acceptnonstdtxn;
-#endif
 static const unsigned int MIN_BLOCKS_TO_KEEP = 288;
 /** Minimum blocks required to signal NODE_NETWORK_LIMITED */
 static const unsigned int NODE_NETWORK_LIMITED_MIN_BLOCKS = 288;
@@ -277,7 +246,7 @@ void StartScriptCheckWorkerThreads(int threads_num);
 /** Check whether we are doing an initial block download (synchronizing from disk or network) */
 bool IsInitialBlockDownload();
 /** Retrieve a transaction (from memory pool, or from disk, if possible) */
-bool GetTransaction(const uint256& hash, CTransactionRef& tx, const Consensus::Params& params, uint256& hashBlock, bool fAllowSlow = false, CBlockIndex* blockIndex = nullptr);
+bool GetTransaction(const uint256& hash, CTransactionRef& tx, uint256& hashBlock, bool fAllowSlow = false, CBlockIndex* blockIndex = nullptr);
 /**
  * Find the best known block, and make it the tip of the block chain
  *
@@ -285,7 +254,6 @@ bool GetTransaction(const uint256& hash, CTransactionRef& tx, const Consensus::P
  * validationinterface callback.
  */
 bool ActivateBestChain(CValidationState& state, std::shared_ptr<const CBlock> pblock = std::shared_ptr<const CBlock>());
-CAmount GetBlockSubsidy(int nHeight, const Consensus::Params& consensus);
 
 /** Guess verification progress (as a fraction between 0.0=genesis and 1.0=current tip). */
 double GuessVerificationProgress(const ChainTxData& data, const CBlockIndex* pindex);
@@ -304,9 +272,6 @@ bool AcceptToMemoryPool(const CTransactionRef &tx, CTxMempoolAcceptanceOptions &
 /** remove old transactions from mempool based on age to keep it within size limits*/
 void LimitMempoolSize(CTxMemPool& pool, size_t limit, unsigned long age);
 
-/** Convert CValidationState to a human-readable message for logging */
-std::string FormatStateMessage(const CValidationState &state);
-
 /** Apply the effects of this transaction on the UTXO set represented by view */
 void UpdateCoins(const CTransaction& tx, CCoinsViewCache& inputs, int nHeight);
 
@@ -314,32 +279,36 @@ void UpdateCoins(const CTransaction& tx, CCoinsViewCache& inputs, CTxUndo &txund
 
 /** Transaction validation functions */
 
-/**
- * Check if transaction will be final in the next block to be created.
- *
- * Calls IsFinalTx() with current block height and appropriate block time.
- *
- * See consensus/consensus.h for flag definitions.
- */
-bool CheckFinalTx(const CTransaction &tx, int flags = -1);
 
 /**
  * Test whether the LockPoints height and time are still valid on the current chain
  */
 bool TestLockPointValidity(const LockPoints* lp);
 
+/** The last checkpoint in the block index, or null when -checkpoints is off or none is known. */
+const CBlockIndex* GetLastCheckpointIfEnabled() EXCLUSIVE_LOCKS_REQUIRED(cs_main);
+
 /**
- * Check if transaction will be BIP 68 final in the next block to be created.
+ * Check if transaction will be final in the next block to be created on the active tip.
+ * Calls IsFinalTx() with current block height and appropriate block time.
  *
- * Simulates calling SequenceLocks() with data from the tip of the current active chain.
- * Optionally stores in LockPoints the resulting height and time calculated and the hash
- * of the block needed for calculation or skips the calculation and uses the LockPoints
- * passed in for evaluation.
+ * The LOCKTIME_* flags are defined in ConsensusConstants.
+ */
+bool CheckFinalTx(const CTransaction &tx, int flags = -1);
+
+/**
+ * Check if transaction will be BIP 68 final in the next block to be created on the active tip.
+ *
+ * Simulates calling ConsensusInterface::SequenceLocks() with data from the tip of the current
+ * active chain. Optionally stores in LockPoints the resulting height and time calculated and
+ * the hash of the block needed for calculation or skips the calculation and uses the
+ * LockPoints passed in for evaluation.
  * The LockPoints should not be considered valid if CheckSequenceLocks returns false.
  *
- * See consensus/consensus.h for flag definitions.
+ * The LOCKTIME_* flags are defined in ConsensusConstants.
  */
 bool CheckSequenceLocks(const CTransaction &tx, int flags,  CCoinsViewMemPool& viewMemPool, LockPoints* lp = nullptr, bool useExistingLockPoints = false);
+
 
 /**
  * Check whether all inputs of this transaction are valid (no double spends, scripts & sigs, amounts)
@@ -360,30 +329,6 @@ bool CheckInputs(const CTransaction& tx, CValidationState &state, const CCoinsVi
 
 /** Functions for validating blocks and updating the block tree */
 
-/** Context-dependent validity checks.
- *  By "context", we mean only the previous block headers, but not the UTXO
- *  set; UTXO-related validity checks are done in ConnectBlock().
- *  NOTE: This function is not currently invoked by ConnectBlock(), so we
- *  should consider upgrade issues if we change which consensus rules are
- *  enforced in this function (eg by adding a new consensus rule). See comment
- *  in ConnectBlock().
- *  Note that -reindex-chainstate skips the validation that happens here!
- */
-bool ContextualCheckBlockHeader(const CBlockHeader& block, CValidationState& state, const CBlockIndex* pindexPrev, int64_t nAdjustedTime) EXCLUSIVE_LOCKS_REQUIRED(::cs_main);
-
-/** NOTE: This function is not currently invoked by ConnectBlock(), so we
- *  should consider upgrade issues if we change which consensus rules are
- *  enforced in this function (eg by adding a new consensus rule). See comment
- *  in ConnectBlock().
- *  Note that -reindex-chainstate skips the validation that happens here!
- */
-bool ContextualCheckBlock(const CBlock& block, CValidationState& state, const CBlockIndex* pindexPrev);
-
-/** Context-independent header validity checks */
-bool CheckBlockHeader(const CBlockHeader& block, CValidationState& state, CXFieldHistoryMap& xfieldHistory, int nHeight = -1, bool fCheckPOW = true);
-
-/** Context-independent validity checks */
-bool CheckBlock(const CBlock& block, CValidationState& state, CXFieldHistoryMap& xfieldHistory, bool fCheckPOW = true, bool fCheckMerkleRoot = true, int nHeight = -1);
 
 /** Check a block is completely valid from start to finish (only works on top of our current best block) */
 bool TestBlockValidity(CValidationState& state, const CBlock& block, CBlockIndex* pindexPrev, bool fCheckPOW = true, bool fCheckMerkleRoot = true) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
@@ -435,8 +380,6 @@ static const unsigned int REJECT_HIGHFEE = 0x100;
 /** Get block file info entry for one block file */
 CBlockFileInfo* GetBlockFileInfo(size_t n);
 
-unsigned int GetBlockScriptFlags(const CBlockIndex* pindex);
-unsigned int GetBlockScriptFlags(int32_t blockHeight);
 
 //! Check whether the block associated with this index entry is pruned or not.
 inline bool IsBlockPruned(const CBlockIndex* pblockindex)
@@ -445,10 +388,5 @@ inline bool IsBlockPruned(const CBlockIndex* pblockindex)
 }
 
 bool isBlockHeightInCoinbase(const CBlock& block);
-
-
-/** Abort with a message */
-bool AbortNode(const std::string& strMessage, const std::string& userMessage="");
-bool AbortNode(CValidationState& state, const std::string& strMessage, const std::string& userMessage="");
 
 #endif // BITCOIN_VALIDATION_H

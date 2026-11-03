@@ -6,21 +6,13 @@
 #ifndef TAPYRUS_POLICY_PACKAGES_H
 #define TAPYRUS_POLICY_PACKAGES_H
 
-#include <consensus/consensus.h>
+#include <consensusconstants.h>
 #include <consensus/validation.h>
 #include <policy/policy.h>
 #include <primitives/transaction.h>
 #include <validation.h>
 #include <cstdint>
 #include <vector>
-
-/** Default maximum number of transactions in a package. */
-static constexpr uint32_t MAX_PACKAGE_COUNT{25};
-
-// A package's transactions may form a single chain, which must fit the mempool's ancestor and
-// descendant limits. Ensure that, at their defaults, those limits admit a full-size chain package.
-static_assert(DEFAULT_DESCENDANT_LIMIT >= MAX_PACKAGE_COUNT);
-static_assert(DEFAULT_ANCESTOR_LIMIT >= MAX_PACKAGE_COUNT);
 
 /** A package is an set of transactions. The transactions cannot conflict with (spend the
  * same inputs as) one another. */
@@ -29,8 +21,8 @@ using Package = std::vector<CTransactionRef>;
 using PackageValidationState = std::map<const uint256, const CValidationState >;
 
 /** Package policy checks that need no chain state:
- * 1. The number of transactions cannot exceed MAX_PACKAGE_COUNT.
- * 2. The total size cannot exceed MAX_PACKAGE_COUNT * 1000. This is deliberately independent of
+ * 1. The number of transactions cannot exceed -maxpackagecount.
+ * 2. The total size cannot exceed -maxpackagecount * 1000. This is deliberately independent of
  *    the ancestor and descendant limits, which bound chain length, not size.
  * 3. If any dependencies exist between transactions, parents must appear before children.
  * 4. Transactions cannot conflict, i.e., spend the same inputs.

@@ -20,7 +20,7 @@ BOOST_FIXTURE_TEST_CASE(test_create_transaction, TestWalletSetup)
     std::vector<unsigned char> vchPubkey = ParseHex("03363d90d447b00c9c99ceac05b6262ee053441c7e55552ffe526bad8f83ff4640");
     CPubKey pubkey(vchPubkey.begin(), vchPubkey.end());
 
-    ImportCoin(10 * COIN);
+    ImportCoin(10 * ConsensusConstants::COIN);
 
     // Create a tx that sends TPC to key1 from key0
     CCoinControl coinControl;
@@ -51,7 +51,6 @@ BOOST_FIXTURE_TEST_CASE(test_create_transaction, TestWalletSetup)
     BOOST_CHECK_EQUAL(strError, "Recipient that receives colored coin must not be a target of subtract fee");
 
     // test to create too small value transaction.
-    dustRelayFee = CFeeRate(DUST_RELAY_TX_FEE);
     nFeeRequired = 0;
     strError = "";
     mapChangePosRet.clear();
@@ -68,7 +67,7 @@ BOOST_FIXTURE_TEST_CASE(test_creating_hybrid_transaction, TestWalletSetup)
     std::vector<unsigned char> vchPubkey = ParseHex("03363d90d447b00c9c99ceac05b6262ee053441c7e55552ffe526bad8f83ff4640");
     CPubKey pubkey(vchPubkey.begin(), vchPubkey.end());
 
-    ImportCoin(10 * COIN);
+    ImportCoin(10 * ConsensusConstants::COIN);
 
     ColorIdentifier cid;
     BOOST_CHECK(IssueNonReissunableColoredCoin(200 * CENT, cid));
@@ -130,7 +129,7 @@ BOOST_FIXTURE_TEST_CASE(test_creating_colored_transaction, TestWalletSetup)
     std::vector<unsigned char> vchPubkey = ParseHex("03363d90d447b00c9c99ceac05b6262ee053441c7e55552ffe526bad8f83ff4640");
     CPubKey pubkey(vchPubkey.begin(), vchPubkey.end());
 
-    ImportCoin(10 * COIN);
+    ImportCoin(10 * ConsensusConstants::COIN);
 
     ColorIdentifier cid;
     BOOST_CHECK(IssueNonReissunableColoredCoin(200 * CENT, cid));
@@ -239,7 +238,7 @@ BOOST_FIXTURE_TEST_CASE(test_creating_colored_transaction, TestWalletSetup)
 // IsColoredOutPointWith must guard against an out-of-range vout index without crashing.
 BOOST_FIXTURE_TEST_CASE(IsColoredOutPointWith_bounds_check, TestWalletSetup)
 {
-    ImportCoin(10 * COIN);
+    ImportCoin(10 * ConsensusConstants::COIN);
     ColorIdentifier cid;
     BOOST_REQUIRE(IssueNonReissunableColoredCoin(100 * CENT, cid));
 

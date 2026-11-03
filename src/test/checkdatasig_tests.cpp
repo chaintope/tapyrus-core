@@ -6,6 +6,7 @@
 #include <test/test_tapyrus.h>
 
 #include <policy/policy.h>
+#include <policy/policyconstants.h>
 #include <script/interpreter.h>
 #include <script/transactionsignaturechecker.h>
 
@@ -46,7 +47,7 @@ static void CheckError(uint32_t flags, const stacktype &original_stack,
     txCredit.vout.resize(1);
     txCredit.vin[0].prevout.SetNull();
     txCredit.vin[0].scriptSig = CScript() << CScriptNum(0) << CScriptNum(0);
-    txCredit.vin[0].nSequence = CTxIn::SEQUENCE_FINAL;
+    txCredit.vin[0].nSequence = ConsensusConstants::SEQUENCE_FINAL;
     txCredit.vout[0].scriptPubKey = script;
     txCredit.vout[0].nValue = 0;
 
@@ -70,7 +71,7 @@ static void CheckPass(uint32_t flags, const stacktype &original_stack,
     txCredit.vout.resize(1);
     txCredit.vin[0].prevout.SetNull();
     txCredit.vin[0].scriptSig = CScript() << CScriptNum(0) << CScriptNum(0);
-    txCredit.vin[0].nSequence = CTxIn::SEQUENCE_FINAL;
+    txCredit.vin[0].nSequence = ConsensusConstants::SEQUENCE_FINAL;
     txCredit.vout[0].scriptPubKey = script;
     txCredit.vout[0].nValue = 0;
     MutableTransactionSignatureChecker checker(&txCredit, 0, 0);
@@ -92,19 +93,19 @@ BOOST_AUTO_TEST_CASE(checkdatasig_test) {
     CheckError(0, {{0x00}}, CScript() << OP_CHECKDATASIGVERIFY,SCRIPT_ERR_INVALID_STACK_OPERATION);
     CheckError(0, {{0x00}, {0x00}}, CScript() << OP_CHECKDATASIGVERIFY, SCRIPT_ERR_INVALID_STACK_OPERATION);
 
-    CheckError(STANDARD_NOT_MANDATORY_VERIFY_FLAGS, {}, CScript()<< OP_CHECKDATASIG, SCRIPT_ERR_INVALID_STACK_OPERATION);
-    CheckError(STANDARD_NOT_MANDATORY_VERIFY_FLAGS,{{0x00}}, CScript() << OP_CHECKDATASIG, SCRIPT_ERR_INVALID_STACK_OPERATION);
-    CheckError(STANDARD_NOT_MANDATORY_VERIFY_FLAGS, {{0x00}, {0x00}}, CScript() << OP_CHECKDATASIG, SCRIPT_ERR_INVALID_STACK_OPERATION);
-    CheckError(STANDARD_NOT_MANDATORY_VERIFY_FLAGS, {}, CScript() << OP_CHECKDATASIGVERIFY,SCRIPT_ERR_INVALID_STACK_OPERATION);
-    CheckError(STANDARD_NOT_MANDATORY_VERIFY_FLAGS, {{0x00}}, CScript() << OP_CHECKDATASIGVERIFY,SCRIPT_ERR_INVALID_STACK_OPERATION);
-    CheckError(STANDARD_NOT_MANDATORY_VERIFY_FLAGS, {{0x00}, {0x00}}, CScript() << OP_CHECKDATASIGVERIFY, SCRIPT_ERR_INVALID_STACK_OPERATION);
+    CheckError(PolicyConstants::STANDARD_NOT_MANDATORY_VERIFY_FLAGS, {}, CScript()<< OP_CHECKDATASIG, SCRIPT_ERR_INVALID_STACK_OPERATION);
+    CheckError(PolicyConstants::STANDARD_NOT_MANDATORY_VERIFY_FLAGS,{{0x00}}, CScript() << OP_CHECKDATASIG, SCRIPT_ERR_INVALID_STACK_OPERATION);
+    CheckError(PolicyConstants::STANDARD_NOT_MANDATORY_VERIFY_FLAGS, {{0x00}, {0x00}}, CScript() << OP_CHECKDATASIG, SCRIPT_ERR_INVALID_STACK_OPERATION);
+    CheckError(PolicyConstants::STANDARD_NOT_MANDATORY_VERIFY_FLAGS, {}, CScript() << OP_CHECKDATASIGVERIFY,SCRIPT_ERR_INVALID_STACK_OPERATION);
+    CheckError(PolicyConstants::STANDARD_NOT_MANDATORY_VERIFY_FLAGS, {{0x00}}, CScript() << OP_CHECKDATASIGVERIFY,SCRIPT_ERR_INVALID_STACK_OPERATION);
+    CheckError(PolicyConstants::STANDARD_NOT_MANDATORY_VERIFY_FLAGS, {{0x00}, {0x00}}, CScript() << OP_CHECKDATASIGVERIFY, SCRIPT_ERR_INVALID_STACK_OPERATION);
 
-    CheckError(STANDARD_SCRIPT_VERIFY_FLAGS, {}, CScript()<< OP_CHECKDATASIG, SCRIPT_ERR_INVALID_STACK_OPERATION);
-    CheckError(STANDARD_SCRIPT_VERIFY_FLAGS,{{0x00}}, CScript() << OP_CHECKDATASIG, SCRIPT_ERR_INVALID_STACK_OPERATION);
-    CheckError(STANDARD_SCRIPT_VERIFY_FLAGS, {{0x00}, {0x00}}, CScript() << OP_CHECKDATASIG, SCRIPT_ERR_INVALID_STACK_OPERATION);
-    CheckError(STANDARD_SCRIPT_VERIFY_FLAGS, {}, CScript() << OP_CHECKDATASIGVERIFY,SCRIPT_ERR_INVALID_STACK_OPERATION);
-    CheckError(STANDARD_SCRIPT_VERIFY_FLAGS, {{0x00}}, CScript() << OP_CHECKDATASIGVERIFY,SCRIPT_ERR_INVALID_STACK_OPERATION);
-    CheckError(STANDARD_SCRIPT_VERIFY_FLAGS, {{0x00}, {0x00}}, CScript() << OP_CHECKDATASIGVERIFY, SCRIPT_ERR_INVALID_STACK_OPERATION);
+    CheckError(PolicyConstants::STANDARD_SCRIPT_VERIFY_FLAGS, {}, CScript()<< OP_CHECKDATASIG, SCRIPT_ERR_INVALID_STACK_OPERATION);
+    CheckError(PolicyConstants::STANDARD_SCRIPT_VERIFY_FLAGS,{{0x00}}, CScript() << OP_CHECKDATASIG, SCRIPT_ERR_INVALID_STACK_OPERATION);
+    CheckError(PolicyConstants::STANDARD_SCRIPT_VERIFY_FLAGS, {{0x00}, {0x00}}, CScript() << OP_CHECKDATASIG, SCRIPT_ERR_INVALID_STACK_OPERATION);
+    CheckError(PolicyConstants::STANDARD_SCRIPT_VERIFY_FLAGS, {}, CScript() << OP_CHECKDATASIGVERIFY,SCRIPT_ERR_INVALID_STACK_OPERATION);
+    CheckError(PolicyConstants::STANDARD_SCRIPT_VERIFY_FLAGS, {{0x00}}, CScript() << OP_CHECKDATASIGVERIFY,SCRIPT_ERR_INVALID_STACK_OPERATION);
+    CheckError(PolicyConstants::STANDARD_SCRIPT_VERIFY_FLAGS, {{0x00}, {0x00}}, CScript() << OP_CHECKDATASIGVERIFY, SCRIPT_ERR_INVALID_STACK_OPERATION);
 
     // Check various pubkey encoding.
     const valtype message{};
@@ -122,15 +123,15 @@ BOOST_AUTO_TEST_CASE(checkdatasig_test) {
     CheckError(0, {{}, message, pubkey}, CScript() << OP_CHECKDATASIGVERIFY, SCRIPT_ERR_CHECKDATASIGVERIFY);
     CheckError(0, {{}, message, pubkeyC}, CScript() << OP_CHECKDATASIGVERIFY, SCRIPT_ERR_CHECKDATASIGVERIFY);
 
-    CheckPass(STANDARD_NOT_MANDATORY_VERIFY_FLAGS, {{}, message, pubkey}, CScript() << OP_CHECKDATASIG, {{}});
-    CheckPass(STANDARD_NOT_MANDATORY_VERIFY_FLAGS, {{}, message, pubkeyC}, CScript() << OP_CHECKDATASIG, {{}});
-    CheckError(STANDARD_NOT_MANDATORY_VERIFY_FLAGS, {{}, message, pubkey}, CScript() << OP_CHECKDATASIGVERIFY, SCRIPT_ERR_CHECKDATASIGVERIFY);
-    CheckError(STANDARD_NOT_MANDATORY_VERIFY_FLAGS, {{}, message, pubkeyC}, CScript() << OP_CHECKDATASIGVERIFY, SCRIPT_ERR_CHECKDATASIGVERIFY);
+    CheckPass(PolicyConstants::STANDARD_NOT_MANDATORY_VERIFY_FLAGS, {{}, message, pubkey}, CScript() << OP_CHECKDATASIG, {{}});
+    CheckPass(PolicyConstants::STANDARD_NOT_MANDATORY_VERIFY_FLAGS, {{}, message, pubkeyC}, CScript() << OP_CHECKDATASIG, {{}});
+    CheckError(PolicyConstants::STANDARD_NOT_MANDATORY_VERIFY_FLAGS, {{}, message, pubkey}, CScript() << OP_CHECKDATASIGVERIFY, SCRIPT_ERR_CHECKDATASIGVERIFY);
+    CheckError(PolicyConstants::STANDARD_NOT_MANDATORY_VERIFY_FLAGS, {{}, message, pubkeyC}, CScript() << OP_CHECKDATASIGVERIFY, SCRIPT_ERR_CHECKDATASIGVERIFY);
 
-    CheckPass(STANDARD_SCRIPT_VERIFY_FLAGS, {{}, message, pubkey}, CScript() << OP_CHECKDATASIG, {{}});
-    CheckPass(STANDARD_SCRIPT_VERIFY_FLAGS, {{}, message, pubkeyC}, CScript() << OP_CHECKDATASIG, {{}});
-    CheckError(STANDARD_SCRIPT_VERIFY_FLAGS, {{}, message, pubkey}, CScript() << OP_CHECKDATASIGVERIFY, SCRIPT_ERR_CHECKDATASIGVERIFY);
-    CheckError(STANDARD_SCRIPT_VERIFY_FLAGS, {{}, message, pubkeyC}, CScript() << OP_CHECKDATASIGVERIFY, SCRIPT_ERR_CHECKDATASIGVERIFY);
+    CheckPass(PolicyConstants::STANDARD_SCRIPT_VERIFY_FLAGS, {{}, message, pubkey}, CScript() << OP_CHECKDATASIG, {{}});
+    CheckPass(PolicyConstants::STANDARD_SCRIPT_VERIFY_FLAGS, {{}, message, pubkeyC}, CScript() << OP_CHECKDATASIG, {{}});
+    CheckError(PolicyConstants::STANDARD_SCRIPT_VERIFY_FLAGS, {{}, message, pubkey}, CScript() << OP_CHECKDATASIGVERIFY, SCRIPT_ERR_CHECKDATASIGVERIFY);
+    CheckError(PolicyConstants::STANDARD_SCRIPT_VERIFY_FLAGS, {{}, message, pubkeyC}, CScript() << OP_CHECKDATASIGVERIFY, SCRIPT_ERR_CHECKDATASIGVERIFY);
 
     // Flags dependent checks.
     const CScript script = CScript() << OP_CHECKDATASIG << OP_NOT << OP_VERIFY;
@@ -154,9 +155,9 @@ BOOST_AUTO_TEST_CASE(checkdatasig_test) {
         }
     
 
-        CheckPass(STANDARD_SCRIPT_VERIFY_FLAGS, {validsig, message, pubkey}, CScript() << OP_CHECKDATASIG, {{0x01}});
+        CheckPass(PolicyConstants::STANDARD_SCRIPT_VERIFY_FLAGS, {validsig, message, pubkey}, CScript() << OP_CHECKDATASIG, {{0x01}});
 
-        CheckPass(STANDARD_SCRIPT_VERIFY_FLAGS, {validsig, message, pubkey}, CScript() << OP_CHECKDATASIGVERIFY, {});
+        CheckPass(PolicyConstants::STANDARD_SCRIPT_VERIFY_FLAGS, {validsig, message, pubkey}, CScript() << OP_CHECKDATASIGVERIFY, {});
 
         const valtype minimalsig{0x30, 0x06, 0x02, 0x01, 0x01, 0x02, 0x01, 0x01};
         const valtype nondersig{0x30, 0x80, 0x06, 0x02, 0x01,

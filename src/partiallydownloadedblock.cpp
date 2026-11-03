@@ -5,8 +5,11 @@
 
 #include <partiallydownloadedblock.h>
 
+#include <checkblock.h>
+#include <heightderivedconsensusrules.h>
+
 #include <chainstatemanager.h>
-#include <consensus/consensus.h>
+#include <consensusconstants.h>
 #include <consensus/validation.h>
 #include <hash.h>
 #include <txmempool.h>
@@ -18,7 +21,7 @@
 ReadStatus PartiallyDownloadedBlock::InitData(const CBlockHeaderAndShortTxIDs& cmpctblock, const std::vector<std::pair<uint256, CTransactionRef>>& extra_txn) {
     if (cmpctblock.header.IsNull() || (cmpctblock.shorttxids.empty() && cmpctblock.prefilledtxn.empty()))
         return READ_STATUS_INVALID;
-    if (cmpctblock.shorttxids.size() + cmpctblock.prefilledtxn.size() > g_chainstate_manager.XFieldHistory().GetCurrentMaxBlockSize() / MIN_SERIALIZABLE_TRANSACTION_SIZE)
+    if (cmpctblock.shorttxids.size() + cmpctblock.prefilledtxn.size() > g_chainstate_manager.XFieldHistory().GetCurrentMaxBlockSize() / ConsensusConstants::MIN_SERIALIZABLE_TRANSACTION_SIZE)
         return READ_STATUS_INVALID;
 
     if (!header.IsNull() || !txn_available.empty()) return READ_STATUS_INVALID;
@@ -148,7 +151,7 @@ bool PartiallyDownloadedBlock::IsTxAvailable(size_t index) const {
     return txn_available[index] != nullptr;
 }
 
-ReadStatus PartiallyDownloadedBlock::FillBlock(CBlock& block, const std::vector<CTransactionRef>& vtx_missing, int nHeight) {
+ReadStatus PartiallyDownloadedBlock::FillBlock(CBlock& block, const std::vector<CTransactionRef>& vtx_missing, const HeightDerivedConsensusRules& consensusAtHeight) {
     if (header.IsNull()) return READ_STATUS_INVALID;
 
     uint256 hash = header.GetHash();
@@ -173,7 +176,7 @@ ReadStatus PartiallyDownloadedBlock::FillBlock(CBlock& block, const std::vector<
         return READ_STATUS_INVALID;
 
     CValidationState state;
-    if (!CheckBlock(block, state, g_chainstate_manager.XFieldHistory(), true, true, nHeight)) {
+    if (!CheckBlock(block, state, consensusAtHeight, true, true)) {
         // TODO: We really want to just check merkle tree manually here,
         // but that is expensive, and CheckBlock caches a block's
         // "checked-status" (in the CBlock?). CBlock should be able to

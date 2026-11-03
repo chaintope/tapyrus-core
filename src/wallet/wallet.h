@@ -8,6 +8,7 @@
 #define BITCOIN_WALLET_WALLET_H
 
 #include <amount.h>
+#include <consensusconstants.h>
 #include <outputtype.h>
 #include <policy/feerate.h>
 #include <streams.h>
@@ -50,6 +51,8 @@ static const CAmount DEFAULT_FALLBACK_FEE = 20000;
 static const CAmount DEFAULT_DISCARD_FEE = 10000;
 //! -mintxfee default
 static const CAmount DEFAULT_TRANSACTION_MINFEE = 1000;
+//! -maxtxfee default
+static const CAmount DEFAULT_TRANSACTION_MAXFEE = 0.1 * ConsensusConstants::COIN;
 //! minimum recommended increment for BIP 125 replacement txs
 static const CAmount WALLET_INCREMENTAL_RELAY_FEE = 5000;
 //! Default for -spendzeroconfchange
@@ -823,7 +826,7 @@ public:
     /**
      * populate vCoins with vector of available COutputs.
      */
-    void AvailableCoins(std::vector<COutput>& vCoins, bool fOnlySafe=true, const CCoinControl *coinControl = nullptr, const CAmount& nMinimumAmount = 1, const CAmount& nMaximumAmount = MAX_MONEY, const CAmount& nMinimumSumAmount = MAX_MONEY, const uint64_t nMaximumCount = 0, const int nMinDepth = 0, const int nMaxDepth = 9999999, bool only_token = false) const EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
+    void AvailableCoins(std::vector<COutput>& vCoins, bool fOnlySafe=true, const CCoinControl *coinControl = nullptr, const CAmount& nMinimumAmount = 1, const CAmount& nMaximumAmount = ConsensusConstants::MAX_MONEY, const CAmount& nMinimumSumAmount = ConsensusConstants::MAX_MONEY, const uint64_t nMaximumCount = 0, const int nMinDepth = 0, const int nMaxDepth = 9999999, bool only_token = false) const EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
 
     /**
      * Return list of available coins and locked coins grouped by non-change output address.
@@ -980,6 +983,8 @@ public:
     bool m_signal_rbf{DEFAULT_WALLET_RBF};
     bool m_allow_fallback_fee{true}; ///<! will be defined via chainparams
     CFeeRate m_min_fee{DEFAULT_TRANSACTION_MINFEE}; //!< Override with -mintxfee
+    //! Absolute maximum fee of a transaction this wallet creates (-maxtxfee)
+    CAmount m_default_max_tx_fee{DEFAULT_TRANSACTION_MAXFEE};
     /**
      * If fee estimation does not have enough data to provide estimates, use this fee instead.
      * Has no effect if not using fee estimation
