@@ -66,10 +66,12 @@ jobs:
         config:
           # The runner image decides the architecture: ubuntu-24.04 and
           # macos-15-intel are x86_64, ubuntu-24.04-arm and macos-14 are ARM64.
+          # Only this entry builds tracing, so a break is caught on its PR.
           - name: Linux x86_64
             os: ubuntu-24.04
             compiler: clang
             platform: linux
+            tracing: 'ON'
           - name: Linux ARM64
             os: ubuntu-24.04-arm
             compiler: clang
@@ -200,7 +202,7 @@ jobs:
             "-DBUILD_GUI=OFF"
             "-DENABLE_BENCH=OFF"
             "-DWITH_BDB=ON"
-            "-DENABLE_TRACING=OFF"
+            "-DENABLE_TRACING=${{ matrix.config.tracing || 'OFF' }}"
             "-DCMAKE_BUILD_TYPE=RelWithDebInfo"
             "-DBUILD_SCRIPT_VERIFY=ON"
           )

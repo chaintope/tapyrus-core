@@ -4,7 +4,7 @@
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 # Purpose: catch regressions that are too slow to check on every push, once a
-# day on master and on every pull request.
+# day on master and on manual runs.
 #   daily-test: builds every supported platform/feature combination (Linux
 #     x86_64/ARM64, macOS ARM64, cross builds for macOS and Windows) and runs
 #     unit, util and extended functional tests on the native ones. Tapyrus is

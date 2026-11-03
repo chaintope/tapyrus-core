@@ -10,7 +10,7 @@ These are the dependencies currently used by Tapyrus Core. You can find instruct
 |GCC|13.3.0|15.2.0|13.3.0|
 |Python (scripts, tests)|3.12.3|3.14.4|3.10|
 
-The two CI columns are what the Linux CI runners install from each Ubuntu release; these tools are not pinned. Ubuntu 24.04 runs the smoke tests and the `minimum` variant of the weekly `build-from-scratch` job; Ubuntu 26.04 runs the daily tests, the weekly job's `current` variant and the other weekly jobs. `Minimum required` is the floor the CMake configure step enforces for CMake and Python. The configure step checks no compiler version, so the compiler minimums are the oldest versions CI builds with, those of Ubuntu 24.04.
+The two CI columns are what the Linux CI runners install from each Ubuntu release; these tools are not pinned. Ubuntu 24.04 runs the smoke tests and the `minimum` variant of the weekly `build-from-scratch` job; Ubuntu 26.04 runs the daily tests, the weekly job's `current` variant, one extra Linux x86_64 `minimum` build and the other weekly jobs. `Minimum required` is the floor the CMake configure step enforces for CMake and Python. The configure step checks no compiler version, so the compiler minimums are the oldest versions CI builds with, those of Ubuntu 24.04.
 
 The packages below are built by `depends`:
 

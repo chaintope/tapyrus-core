@@ -400,6 +400,7 @@ jobs:
             host: aarch64-linux-gnu
           - name: macOS arm64 native
             os: macos-latest
+            os_minimum: macos-latest
             platform: macos
             host: arm64-apple-darwin
           - name: macOS x86_64 cross
@@ -423,8 +424,19 @@ jobs:
             target_platform: windows
             target_arch: x86_64
             host: x86_64-w64-mingw32
-    # macOS native has no os_minimum and runs both variants on macos-latest.
-    runs-on: ${{ matrix.versions == 'minimum' && matrix.config.os_minimum || matrix.config.os }}
+        # Minimum versions with the newest compiler. One entry only, because
+        # each is another job of up to 5.5h.
+        include:
+          - versions: minimum
+            config:
+              name: Linux x86_64 native newest compiler
+              os: ubuntu-latest
+              os_minimum: ubuntu-latest
+              platform: linux
+              host: x86_64-pc-linux-gnu
+    # A lookup, so an entry without the key gets no runner and fails instead of
+    # silently using the other variant's.
+    runs-on: ${{ matrix.config[matrix.versions == 'minimum' && 'os_minimum' || 'os'] }}
     # 5.5h, leaving 30 minutes of margin below GitHub-hosted runners' 6h hard
     # cap: this job's from-scratch depends build (no cache, deliberately) plus
     # full GUI+wallet build plus unit/util/functional tests has no prior
@@ -864,9 +876,6 @@ jobs:
 
   upnp-port-mapping:
     name: UPnP port mapping (real IGD)
-    # The ubuntu:26.04 container tapyrusd runs in below must be the same release
-    # as this runner, so the runtime library sonames it installs match what the
-    # build linked. Update the container and sonames when ubuntu-latest moves.
     runs-on: ubuntu-latest
     # Verifies -DWITH_MINIUPNPC=ON's actual port-mapping code path (mapport.cpp's
     # ThreadMapPort) against a real UPnP IGD implementation (miniupnpd), not
@@ -885,6 +894,14 @@ jobs:
       - name: Install build dependencies
         timeout-minutes: 10
         run: sudo apt-get $APT_OPTS update && sudo apt-get $APT_OPTS install -y cmake clang libboost-dev libevent-dev libminiupnpc-dev pkg-config
+
+      - name: Use the runner's Ubuntu release for the containers
+        # tapyrusd is built here and run in a container, so both need the same
+        # libraries. The containers install the -dev packages below because
+        # their names, unlike the runtime libraries', don't change per release.
+        run: |
+          source /etc/os-release
+          echo "UBUNTU_IMAGE=ubuntu:${VERSION_ID}" >> "$GITHUB_ENV"
 
       - name: Build tapyrusd and tapyrus-genesis with UPnP support
         run: |
@@ -930,7 +947,7 @@ jobs:
           docker run -d --name upnp_igd \
             --cap-add=NET_ADMIN \
             --network upnp-test-net \
-            ubuntu:26.04 sleep infinity
+            "$UBUNTU_IMAGE" sleep infinity
 
           # miniupnpd.conf is written *after* installing the package, not
           # bind-mounted in beforehand -- the package's postinst debconf
@@ -960,10 +977,10 @@ jobs:
             --network upnp-test-net \
             -v "$PWD/build/bin/tapyrusd:/usr/local/bin/tapyrusd:ro" \
             -v "$PWD/upnp_test/data:/data" \
-            ubuntu:26.04 bash -c "
+            "$UBUNTU_IMAGE" bash -c "
               apt-get update -qq &&
               DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends \
-                libevent-core-2.1-7t64 libevent-pthreads-2.1-7t64 libevent-extra-2.1-7t64 libminiupnpc21 &&
+                libevent-dev libminiupnpc-dev &&
               exec tapyrusd -datadir=/data
             "
 
@@ -1015,7 +1032,9 @@ jobs:
           docker network rm upnp-test-net || true
 
   integration-test:
-    # Called from here because GitHub disables a schedule after 60 days without
-    # activity, and tapyrus-integration-tests changes rarely.
+    # Started from here because GitHub disables schedules in inactive
+    # repositories, and tapyrus-integration-tests changes rarely. The run also
+    # shows in this repository's Actions tab. Keep @main: a called run always
+    # gets that repository's default branch scripts.
     if: github.event_name == 'schedule'
     uses: chaintope/tapyrus-integration-tests/.github/workflows/weekly-integration-test.yml@main
