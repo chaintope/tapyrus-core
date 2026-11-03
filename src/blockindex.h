@@ -79,10 +79,10 @@ public:
     int nFile;
 
     //! Byte offset within blk?????.dat where this block's data is stored
-    unsigned int nDataPos;
+    uint64_t nDataPos;
 
     //! Byte offset within rev?????.dat where this block's undo data is stored
-    unsigned int nUndoPos;
+    uint64_t nUndoPos;
 
     //! Number of transactions in this block.
     //! Note: in a potential headers-first mode, this number cannot be relied upon

@@ -680,12 +680,23 @@ public:
     }
 
     bool Seek(uint64_t nPos) {
+        // fseek takes a 32-bit long on Windows, so use the 64-bit calls there.
+#ifdef WIN32
+        int64_t nLongPos = nPos;
+#else
         long nLongPos = nPos;
+#endif
         if (nPos != (uint64_t)nLongPos)
             return false;
+#ifdef WIN32
+        if (_fseeki64(src, nLongPos, SEEK_SET))
+            return false;
+        nLongPos = _ftelli64(src);
+#else
         if (fseek(src, nLongPos, SEEK_SET))
             return false;
         nLongPos = ftell(src);
+#endif
         nSrcPos = nLongPos;
         nReadPos = nLongPos;
         return true;
