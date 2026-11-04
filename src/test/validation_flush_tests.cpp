@@ -7,7 +7,7 @@
 // Adaptations for Tapyrus:
 //   - No Chainstate class / GetCoinsCacheSizeState(): threshold logic inlined
 //     from FlushStateToDisk() in file_io.cpp (fCacheLarge / fCacheCritical).
-//   - Uses global pcoinsTip and nCoinCacheUsage from validation.h.
+//   - Uses global pcoinsTip and the nCoinCacheUsage option of ChainstateManager.
 //   - AddTestCoin() reimplemented using COutPoint(uint256, n) directly.
 //   - InsecureRand256() / InsecureRand32() replace FastRandomContext helpers.
 
@@ -74,9 +74,8 @@ BOOST_AUTO_TEST_CASE(getcoinscachesizestate)
     // second pass (12 MiB) needs ~55k coins to cross its LARGE threshold.
     constexpr size_t  MAX_ATTEMPTS = 200'000;
 
-    // Save and restore nCoinCacheUsage so other tests are not affected.
-    const size_t saved_nCoinCacheUsage = nCoinCacheUsage;
-    nCoinCacheUsage = static_cast<size_t>(MAX_COINS_BYTES);
+    // The override restores the cache size when the test ends.
+    ChainstateOptionsOverride smallCache(ChainstateOptionsOverride::TestOptions({{"-par", TestingSetup::SCRIPT_CHECK_PAR}}, static_cast<size_t>(MAX_COINS_BYTES)));
 
     // Run twice: once with no mempool head-room, once with head-room.
     for (int64_t max_mempool_size_bytes : {int64_t{0}, MAX_MEMPOOL_BYTES}) {
@@ -113,7 +112,6 @@ BOOST_AUTO_TEST_CASE(getcoinscachesizestate)
         BOOST_CHECK_LE(static_cast<int64_t>(view.DynamicMemoryUsage()), large_threshold);
     }
 
-    nCoinCacheUsage = saved_nCoinCacheUsage;
 }
 
 BOOST_AUTO_TEST_SUITE_END()

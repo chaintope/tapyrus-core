@@ -8,6 +8,7 @@
 
 #include <memory>
 
+class CacheSettings;
 class CConnman;
 class PeerManager;
 struct PolicySettings;
@@ -19,6 +20,7 @@ struct PolicySettings;
 struct NodeContext {
     //! First, so the objects below that read it are destroyed before it.
     std::unique_ptr<const PolicySettings> policy;
+    std::unique_ptr<const CacheSettings> cache;
     std::unique_ptr<CConnman> connman;
     std::unique_ptr<PeerManager> peerman;
 

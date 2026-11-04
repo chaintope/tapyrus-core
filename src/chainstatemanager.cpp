@@ -16,10 +16,29 @@
 
 ChainstateManager g_chainstate_manager;
 
-ChainstateManager::Options::Options(const ArgsManager& args)
+ChainstateManager::Options::Options(const ArgsManager& args, bool defaultConsistencyChecks, size_t coinCacheUsage)
     : fReindexChainState(args.GetBoolArg("-reindex-chainstate", false)),
-      fReloadXField(args.GetBoolArg("-reloadxfield", false))
+      fReloadXField(args.GetBoolArg("-reloadxfield", false)),
+      fCheckBlockIndex(args.GetBoolArg("-checkblockindex", defaultConsistencyChecks)),
+      fCheckpointsEnabled(args.GetBoolArg("-checkpoints", DEFAULT_CHECKPOINTS_ENABLED)),
+      hashAssumeValid(uint256S(args.GetArg("-assumevalid", ""))),
+      nMaxTipAge(args.GetArg("-maxtipage", DEFAULT_MAX_TIP_AGE)),
+      nScriptCheckThreads(ParseScriptCheckThreads(args)),
+      nCoinCacheUsage(coinCacheUsage)
 {
+}
+
+int ChainstateManager::Options::ParseScriptCheckThreads(const ArgsManager& args)
+{
+    // -par=0 means autodetect, but nScriptCheckThreads==0 means no concurrency
+    int nScriptCheckThreads = args.GetArg("-par", DEFAULT_SCRIPTCHECK_THREADS);
+    if (nScriptCheckThreads <= 0)
+        nScriptCheckThreads += GetNumCores();
+    if (nScriptCheckThreads <= 1)
+        nScriptCheckThreads = 0;
+    else if (nScriptCheckThreads > MAX_SCRIPTCHECK_THREADS)
+        nScriptCheckThreads = MAX_SCRIPTCHECK_THREADS;
+    return nScriptCheckThreads;
 }
 
 void ChainstateManager::InitOptions(const Options& options)

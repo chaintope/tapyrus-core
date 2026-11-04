@@ -10,10 +10,11 @@
 #include <qt/guiutil.h>
 
 #include <interfaces/node.h>
-#include <validation.h> // For DEFAULT_SCRIPTCHECK_THREADS
+#include <cachesettings.h> // for -dbcache defaults
+#include <chainstatemanager.h> // For DEFAULT_SCRIPTCHECK_THREADS
+#include <clientversion.h>
 #include <net.h>
 #include <netbase.h>
-#include <txdb.h> // for -dbcache defaults
 #include <qt/intro.h>
 #include <QDebug>
 #include <QSettings>

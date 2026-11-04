@@ -12,6 +12,7 @@
 #include <amount.h>
 #include <blockfilemanager.h>
 #include <blockindex.h>
+#include <cachesettings.h>
 #include <diskblockpos.h>
 #include <chainparams.h>
 #include <chainstatemanager.h>
@@ -352,7 +353,7 @@ static void OnRPCStopped()
 {
     uiInterface.NotifyBlockTip.disconnect(&RPCNotifyBlockChange);
     RPCNotifyBlockChange(false, nullptr);
-    g_best_block_cv.notify_all();
+    g_chainstate_manager.m_best_block_cv.notify_all();
     LogPrint(BCLog::RPC, "RPC stopped.\n");
 }
 
@@ -1034,24 +1035,6 @@ bool AppInitParameterInteraction(NodeContext& node)
     if (ratio != 0) {
         mempool.setSanityCheck(1.0 / ratio);
     }
-    fCheckBlockIndex = gArgs.GetBoolArg("-checkblockindex", chainparams.DefaultConsistencyChecks());
-    fCheckpointsEnabled = gArgs.GetBoolArg("-checkpoints", DEFAULT_CHECKPOINTS_ENABLED);
-
-    hashAssumeValid = uint256S(gArgs.GetArg("-assumevalid", ""));
-    if (!hashAssumeValid.IsNull())
-        LogPrintf("Assuming ancestors of block %s have valid signatures.\n", hashAssumeValid.GetHex());
-    else
-        LogPrintf("Validating signatures for all blocks.\n");
-
-    // -par=0 means autodetect, but nScriptCheckThreads==0 means no concurrency
-    nScriptCheckThreads = gArgs.GetArg("-par", DEFAULT_SCRIPTCHECK_THREADS);
-    if (nScriptCheckThreads <= 0)
-        nScriptCheckThreads += GetNumCores();
-    if (nScriptCheckThreads <= 1)
-        nScriptCheckThreads = 0;
-    else if (nScriptCheckThreads > MAX_SCRIPTCHECK_THREADS)
-        nScriptCheckThreads = MAX_SCRIPTCHECK_THREADS;
-
     nConnectTimeout = gArgs.GetArg("-timeout", DEFAULT_CONNECT_TIMEOUT);
     if (nConnectTimeout <= 0)
         nConnectTimeout = DEFAULT_CONNECT_TIMEOUT;
@@ -1071,7 +1054,13 @@ bool AppInitParameterInteraction(NodeContext& node)
         InitWarning(_("-maxtxfee is set very high! Fees this large could be paid on a single transaction."));
     }
 
-    g_chainstate_manager.InitOptions(ChainstateManager::Options(gArgs));
+    node.cache = std::make_unique<const CacheSettings>(gArgs);
+    g_chainstate_manager.InitOptions(ChainstateManager::Options(gArgs, chainparams.DefaultConsistencyChecks(), node.cache->nCoinCacheUsage));
+    const uint256& hashAssumeValid = g_chainstate_manager.GetOptions().hashAssumeValid;
+    if (!hashAssumeValid.IsNull())
+        LogPrintf("Assuming ancestors of block %s have valid signatures.\n", hashAssumeValid.GetHex());
+    else
+        LogPrintf("Validating signatures for all blocks.\n");
     try {
         g_chainstate_manager.InitBlockFileManager(BlockFileManager::Options(gArgs, Params().PruneAfterHeight()));
     } catch (const std::exception& e) {
@@ -1083,8 +1072,6 @@ bool AppInitParameterInteraction(NodeContext& node)
 
     if (gArgs.GetBoolArg("-peerbloomfilters", DEFAULT_PEERBLOOMFILTERS))
         nLocalServices = ServiceFlags(nLocalServices | NODE_BLOOM);
-
-    nMaxTipAge = gArgs.GetArg("-maxtipage", DEFAULT_MAX_TIP_AGE);
 
     if (!gArgs.GetBoolArg("-dnsseed", true) && gArgs.IsArgSet("-addseeder")) {
         return InitError("DNS seeding is disabled. But DNS seeders are configured in -addseeder.");
@@ -1204,6 +1191,7 @@ bool AppInitMain(NodeContext& node)
     InitSignatureCache();
     InitScriptExecutionCache();
 
+    const int nScriptCheckThreads = g_chainstate_manager.GetOptions().nScriptCheckThreads;
     LogPrintf("Using %u threads for script verification\n", nScriptCheckThreads);
     if (nScriptCheckThreads) {
         StartScriptCheckWorkerThreads(nScriptCheckThreads);
@@ -1371,26 +1359,15 @@ bool AppInitMain(NodeContext& node)
     BlockFileManager& blockFileManager = g_chainstate_manager.GetBlockFileManager();
     g_chainstate_manager.SetReindexing(gArgs.GetBoolArg("-reindex", false));
 
-    // cache size calculations
-    int64_t nTotalCache = (gArgs.GetArg("-dbcache", nDefaultDbCache) << 20);
-    nTotalCache = std::max(nTotalCache, nMinDbCache << 20); // total cache cannot be less than nMinDbCache
-    nTotalCache = std::min(nTotalCache, nMaxDbCache << 20); // total cache cannot be greater than nMaxDbcache
-    int64_t nBlockTreeDBCache = std::min(nTotalCache / 8, nMaxBlockDBCache << 20);
-    nTotalCache -= nBlockTreeDBCache;
-    int64_t nTxIndexCache = std::min(nTotalCache / 8, gArgs.GetBoolArg("-txindex", DEFAULT_TXINDEX) ? nMaxTxIndexCache << 20 : 0);
-    nTotalCache -= nTxIndexCache;
-    int64_t nCoinDBCache = std::min(nTotalCache / 2, (nTotalCache / 4) + (1 << 23)); // use 25%-50% of the remainder for disk cache
-    nCoinDBCache = std::min(nCoinDBCache, nMaxCoinsDBCache << 20); // cap total coins db cache
-    nTotalCache -= nCoinDBCache;
-    nCoinCacheUsage = nTotalCache; // the rest goes to in-memory cache
+    const CacheSettings& cache = *node.cache;
     int64_t nMempoolSizeMax = node.policy->maxMempool;
     LogPrintf("Cache configuration:\n");
-    LogPrintf("* Using %.1fMiB for block index database\n", nBlockTreeDBCache * (1.0 / 1024 / 1024));
+    LogPrintf("* Using %.1fMiB for block index database\n", cache.nBlockTreeDBCache * (1.0 / 1024 / 1024));
     if (gArgs.GetBoolArg("-txindex", DEFAULT_TXINDEX)) {
-        LogPrintf("* Using %.1fMiB for transaction index database\n", nTxIndexCache * (1.0 / 1024 / 1024));
+        LogPrintf("* Using %.1fMiB for transaction index database\n", cache.nTxIndexCache * (1.0 / 1024 / 1024));
     }
-    LogPrintf("* Using %.1fMiB for chain state database\n", nCoinDBCache * (1.0 / 1024 / 1024));
-    LogPrintf("* Using %.1fMiB for in-memory UTXO set (plus up to %.1fMiB of unused mempool space)\n", nCoinCacheUsage * (1.0 / 1024 / 1024), nMempoolSizeMax * (1.0 / 1024 / 1024));
+    LogPrintf("* Using %.1fMiB for chain state database\n", cache.nCoinDBCache * (1.0 / 1024 / 1024));
+    LogPrintf("* Using %.1fMiB for in-memory UTXO set (plus up to %.1fMiB of unused mempool space)\n", cache.nCoinCacheUsage * (1.0 / 1024 / 1024), nMempoolSizeMax * (1.0 / 1024 / 1024));
 
     bool fLoaded = false;
     while (!fLoaded && !ShutdownRequested()) {
@@ -1412,7 +1389,7 @@ bool AppInitMain(NodeContext& node)
                 // new CBlockTreeDB tries to delete the existing file, which
                 // fails if it's still open from the previous loop. Close it first:
                 blockIndex.pblocktreedb.reset();
-                blockIndex.pblocktreedb.reset(new CBlockTreeDB(nBlockTreeDBCache, false, wipeBlockTree));
+                blockIndex.pblocktreedb.reset(new CBlockTreeDB(cache.nBlockTreeDBCache, false, wipeBlockTree));
 
                 if (wipeBlockTree) {
                     blockIndex.pblocktreedb->WriteReindexing(true);
@@ -1461,7 +1438,7 @@ bool AppInitMain(NodeContext& node)
                 // At this point we're either in reindex or we've loaded a useful
                 // block tree into mapBlockIndex!
 
-                pcoinsdbview.reset(new CCoinsViewDB(g_chainstate_manager.IssuedColorIds(), nCoinDBCache, false, wipeBlockTree || g_chainstate_manager.GetOptions().fReindexChainState));
+                pcoinsdbview.reset(new CCoinsViewDB(g_chainstate_manager.IssuedColorIds(), cache.nCoinDBCache, false, wipeBlockTree || g_chainstate_manager.GetOptions().fReindexChainState));
                 pcoinscatcher.reset(new CCoinsViewErrorCatcher(pcoinsdbview.get()));
 
                 // Reset the issued colorIds before ReplayBlocks so that DisconnectBlock
@@ -1606,7 +1583,7 @@ bool AppInitMain(NodeContext& node)
 
     // ********************************************************* Step 8: start indexers
     if (gArgs.GetBoolArg("-txindex", DEFAULT_TXINDEX)) {
-        g_txindex = MakeUnique<TxIndex>(nTxIndexCache, false, g_chainstate_manager.IsReindexing());
+        g_txindex = MakeUnique<TxIndex>(cache.nTxIndexCache, false, g_chainstate_manager.IsReindexing());
         g_txindex->Start();
     }
 

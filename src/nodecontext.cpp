@@ -5,6 +5,7 @@
 
 #include <nodecontext.h>
 
+#include <cachesettings.h>
 #include <connman.h>
 #include <net_processing.h>
 #include <policy/policysettings.h>

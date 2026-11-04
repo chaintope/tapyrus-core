@@ -11,10 +11,13 @@
 #include <cs_main.h>
 #include <heightderivedconsensusrules.h>
 #include <issuedcolorids.h>
+#include <sync.h>
+#include <uint256.h>
 #include <xfieldhistory.h>
 
 #include <atomic>
 #include <cassert>
+#include <cstddef>
 #include <cstdint>
 #include <memory>
 #include <optional>
@@ -23,22 +26,50 @@ class ArgsManager;
 class CBlock;
 class CBlockIndex;
 
+static const int64_t DEFAULT_MAX_TIP_AGE = 24 * 60 * 60;
+static const bool DEFAULT_CHECKPOINTS_ENABLED = true;
+/** Maximum number of script-checking threads allowed */
+static const int MAX_SCRIPTCHECK_THREADS = 16;
+/** -par default (number of script-checking threads, 0 = auto) */
+static const int DEFAULT_SCRIPTCHECK_THREADS = 0;
+
 /**
  * Owns the node's chain-wide state, as Bitcoin Core's ChainstateManager does.
  * So far it holds the xfield history and the issued colorIds of the active chain,
- * the consensus settings, the block index and the block files.
+ * the consensus settings, the block index, the block files, the start-up options
+ * and the best block.
  */
 class ChainstateManager
 {
 public:
-    /** How start-up rebuilds the chainstate: read once from tapyrus.conf and the command line. */
+    /** Read once from tapyrus.conf and the command line at start-up and fixed for the node's lifetime. */
     struct Options {
-        explicit Options(const ArgsManager& args);
+        /**
+         * Reads the chainstate arguments. defaultConsistencyChecks is the chain's
+         * default for -checkblockindex; coinCacheUsage is what -dbcache leaves for
+         * the in-memory coins cache.
+         */
+        Options(const ArgsManager& args, bool defaultConsistencyChecks, size_t coinCacheUsage);
 
         /** -reindex-chainstate: the coins database is rebuilt from the block files. */
         const bool fReindexChainState;
         /** -reloadxfield: the block tree is wiped and the xfield history rebuilt from the block files. */
         const bool fReloadXField;
+        /** -checkblockindex: the block index is checked for consistency after every change. */
+        const bool fCheckBlockIndex;
+        /** -checkpoints: headers that fork from the chain below the last checkpoint are rejected. */
+        const bool fCheckpointsEnabled;
+        /** Block hash whose ancestors we will assume to have valid scripts without checking them. */
+        const uint256 hashAssumeValid;
+        /** If the tip is older than this (in seconds), the node is considered to be in initial block download. */
+        const int64_t nMaxTipAge;
+        /** Script-check worker threads; 0 checks scripts on the connecting thread. */
+        const int nScriptCheckThreads;
+        /** Bytes the in-memory coins cache may use. */
+        const size_t nCoinCacheUsage;
+
+    private:
+        static int ParseScriptCheckThreads(const ArgsManager& args);
     };
 
     /** Sets the options once at start-up; tests set them again for each fixture. */
@@ -100,6 +131,12 @@ public:
     bool ReadBlock(CBlock& block, const CBlockIndex* pindex);
     /** Whether the block of this index entry has been pruned. */
     bool IsBlockPruned(const CBlockIndex* pblockindex) const EXCLUSIVE_LOCKS_REQUIRED(cs_main);
+
+    //! The hash of the active tip. getblocktemplate long-polls on it; the tip
+    //! update sets it and RPC stop wakes the waiters.
+    Mutex m_best_block_mutex;
+    CConditionVariable m_best_block_cv;
+    uint256 m_best_block GUARDED_BY(m_best_block_mutex);
 
 private:
     HeightDerivedConsensusRules BuildRules(std::optional<int32_t> height, const CXFieldHistoryMap& history) const;

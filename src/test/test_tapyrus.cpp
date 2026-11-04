@@ -81,7 +81,6 @@ BasicTestingSetup::BasicTestingSetup(const std::string& chainName)
         SetupNetworking();
         InitSignatureCache();
         InitScriptExecutionCache();
-        fCheckBlockIndex = true;
         SelectParams(TAPYRUS_OP_MODE::PROD);
         SetDataDir("tempdir");
         writeTestGenesisBlockToFile(GetDataDir());
@@ -92,7 +91,7 @@ BasicTestingSetup::BasicTestingSetup(const std::string& chainName)
         g_policy_settings = m_node.policy.get();
         g_chainstate_manager.InitXFieldHistory(g_chainstate_manager.Settings().GenesisBlock());
         pxFieldHistory = &g_chainstate_manager.XFieldHistory();
-        g_chainstate_manager.InitOptions(ChainstateManager::Options(gArgs));
+        g_chainstate_manager.InitOptions(ChainstateOptionsOverride::TestOptions({}));
         g_chainstate_manager.InitBlockFileManager(BlockFileManager::Options(gArgs, Params().PruneAfterHeight()));
         {
             LOCK(cs_main);
@@ -135,6 +134,29 @@ PolicySettingsOverride::PolicySettingsOverride(const std::vector<std::pair<std::
 PolicySettingsOverride::~PolicySettingsOverride()
 {
     g_policy_settings = m_previous;
+}
+
+ChainstateManager::Options ChainstateOptionsOverride::TestOptions(const std::vector<std::pair<std::string, std::string>>& args, size_t coinCacheUsage)
+{
+    ArgsManager argsManager;
+    // No script-check worker threads unless asked for: none are started, and
+    // checks handed to a missing queue would be dropped.
+    argsManager.ForceSetArg("-par", "1");
+    for (const auto& arg : args) {
+        argsManager.ForceSetArg(arg.first, arg.second);
+    }
+    return ChainstateManager::Options(argsManager, /*defaultConsistencyChecks=*/true, coinCacheUsage);
+}
+
+ChainstateOptionsOverride::ChainstateOptionsOverride(const ChainstateManager::Options& options)
+    : m_previous(g_chainstate_manager.GetOptions())
+{
+    g_chainstate_manager.InitOptions(options);
+}
+
+ChainstateOptionsOverride::~ChainstateOptionsOverride()
+{
+    g_chainstate_manager.InitOptions(m_previous);
 }
 
 fs::path BasicTestingSetup::SetDataDir(const std::string& name)
@@ -183,8 +205,8 @@ TestingSetup::TestingSetup(const std::string& chainName) : BasicTestingSetup(cha
                     throw std::runtime_error(strprintf("ActivateBestChain failed. (%s)", FormatStateMessage(state)));
                 }
             }
-            nScriptCheckThreads = 3;
-            StartScriptCheckWorkerThreads(nScriptCheckThreads);
+            g_chainstate_manager.InitOptions(ChainstateOptionsOverride::TestOptions({{"-par", SCRIPT_CHECK_PAR}}));
+            StartScriptCheckWorkerThreads(g_chainstate_manager.GetOptions().nScriptCheckThreads);
             m_node.connman = std::unique_ptr<CConnman>(new CConnman(0x1337, 0x1337)); // Deterministic randomness for tests.
             m_node.peerman.reset(new PeerManager(*m_node.connman, scheduler));
         } catch (...) {
