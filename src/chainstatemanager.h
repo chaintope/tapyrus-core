@@ -36,8 +36,8 @@ static const int DEFAULT_SCRIPTCHECK_THREADS = 0;
 /**
  * Owns the node's chain-wide state, as Bitcoin Core's ChainstateManager does.
  * So far it holds the xfield history and the issued colorIds of the active chain,
- * the consensus settings, the block index, the block files, the start-up options
- * and the best block.
+ * the consensus settings, the block index, the block files, the start-up options,
+ * the best block, the best header and the best invalid block.
  */
 class ChainstateManager
 {
@@ -106,6 +106,11 @@ public:
     /** Every block header we know of, by hash, and the block tree database. */
     BlockIndexMap& BlockIndex() { return m_block_index; }
 
+    /** The best header we've seen so far; getheaders requests start from it. */
+    CBlockIndex*& BestHeader() EXCLUSIVE_LOCKS_REQUIRED(cs_main) { return m_best_header; }
+    /** The highest block found invalid. */
+    CBlockIndex*& BestInvalid() EXCLUSIVE_LOCKS_REQUIRED(cs_main) { return m_best_invalid; }
+
     /** Creates the block file manager once -prune is known; replaces any earlier one, keeping the block index. */
     void InitBlockFileManager(const BlockFileManager::Options& options);
 
@@ -144,6 +149,8 @@ private:
     std::unique_ptr<const Options> m_options;
     CXFieldHistory m_xfield_history;
     CIssuedColorIds m_issued_colorids GUARDED_BY(cs_main);
+    CBlockIndex* m_best_header GUARDED_BY(cs_main){nullptr};
+    CBlockIndex* m_best_invalid GUARDED_BY(cs_main){nullptr};
     std::unique_ptr<const ConsensusSettings> m_consensus_settings;
     //! Declared before the block file manager, which keeps a reference to it.
     BlockIndexMap m_block_index;

@@ -33,7 +33,7 @@
 
 // Defined in validation.cpp; declared here to avoid pulling in validation.h
 // (which includes chainstate.h, creating an indirect self-inclusion).
-void RefreshChainTxDataFromTip(const CBlockIndex* pindexNew);
+void RefreshChainTxDataFromTip(const CBlockIndex* pindexNew) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 
 static int64_t nTimeCheck = 0;
 static int64_t nTimeForks = 0;
@@ -86,7 +86,7 @@ static void CheckForkWarningConditions()
     if (pindexBestForkTip && chainActive.Height() - pindexBestForkTip->nHeight >= 72)
         pindexBestForkTip = nullptr;
 
-    if (pindexBestForkTip || (pindexBestInvalid && pindexBestInvalid->nHeight > chainActive.Tip()->nHeight + 6))
+    if (pindexBestForkTip || (g_chainstate_manager.BestInvalid() && g_chainstate_manager.BestInvalid()->nHeight > chainActive.Tip()->nHeight + 6))
     {
         if (!GetfLargeWorkForkFound() && pindexBestForkBase)
         {
@@ -114,10 +114,10 @@ static void CheckForkWarningConditions()
     }
 }
 
-void static InvalidChainFound(CBlockIndex* pindexNew)
+void static InvalidChainFound(CBlockIndex* pindexNew) EXCLUSIVE_LOCKS_REQUIRED(cs_main)
 {
-    if (!pindexBestInvalid || pindexNew->nHeight > pindexBestInvalid->nHeight)
-        pindexBestInvalid = pindexNew;
+    if (!g_chainstate_manager.BestInvalid() || pindexNew->nHeight > g_chainstate_manager.BestInvalid()->nHeight)
+        g_chainstate_manager.BestInvalid() = pindexNew;
 
     LogPrintf("%s: invalid block=%s  height=%d  date=%s\n", __func__,
       pindexNew->GetBlockHash().ToString(), pindexNew->nHeight, FormatISO8601DateTime(pindexNew->GetBlockTime()));
@@ -135,7 +135,7 @@ void NotifyHeaderTip() LOCKS_EXCLUDED(cs_main) {
     CBlockIndex* pindexHeader = nullptr;
     {
         LOCK(cs_main);
-        pindexHeader = pindexBestHeader;
+        pindexHeader = g_chainstate_manager.BestHeader();
 
         if (pindexHeader != pindexHeaderOld) {
             fNotify = true;
@@ -468,7 +468,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         BlockMap::const_iterator  it = blockIndex.mapBlockIndex.find(hashAssumeValid);
         if (it != blockIndex.mapBlockIndex.end()) {
             if (it->second->GetAncestor(pindex->nHeight) == pindex &&
-                pindexBestHeader->GetAncestor(pindex->nHeight) == pindex) {
+                g_chainstate_manager.BestHeader()->GetAncestor(pindex->nHeight) == pindex) {
                 // This block is a member of the assumed verified chain and an ancestor of the best header.
                 // The equivalent time check discourages hash power from extorting the network via DOS attack
                 //  into accepting an invalid block through telling users they must manually set assumevalid.
@@ -476,7 +476,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                 //  it hard to hide the implication of the demand.  This also avoids having release candidates
                 //  that are hardly doing any signature verification at all in testing without having to
                 //  artificially set the default assumed verified block further back.
-                fScriptChecks = (pindexBestHeader->GetBlockTime() - pindex->GetBlockTime() <= 60 * 60 * 24 * 7 * 2);
+                fScriptChecks = (g_chainstate_manager.BestHeader()->GetBlockTime() - pindex->GetBlockTime() <= 60 * 60 * 24 * 7 * 2);
             }
         }
     }
@@ -862,8 +862,8 @@ CBlockIndex* CChainState::FindMostWorkChain() {
             bool fMissingData = !(pindexTest->nStatus & BLOCK_HAVE_DATA);
             if (fFailedChain || fMissingData) {
                 // Candidate chain is not usable (either invalid or missing data)
-                if (fFailedChain && (pindexBestInvalid == nullptr || pindexNew->nHeight > pindexBestInvalid->nHeight))
-                    pindexBestInvalid = pindexNew;
+                if (fFailedChain && (g_chainstate_manager.BestInvalid() == nullptr || pindexNew->nHeight > g_chainstate_manager.BestInvalid()->nHeight))
+                    g_chainstate_manager.BestInvalid() = pindexNew;
                 CBlockIndex *pindexFailed = pindexNew;
                 // Remove the entire chain from the set.
                 while (pindexTest != pindexFailed) {
@@ -1177,9 +1177,9 @@ void CChainState::ResetBlockFailureFlags(CBlockIndex *pindex) {
             if (it->second->IsValid(BLOCK_VALID_TRANSACTIONS) && it->second->nChainTx && setBlockIndexCandidates.value_comp()(chainActive.Tip(), it->second)) {
                 setBlockIndexCandidates.insert(it->second);
             }
-            if (it->second == pindexBestInvalid) {
+            if (it->second == g_chainstate_manager.BestInvalid()) {
                 // Reset invalid block marker if it was pointing to one of those.
-                pindexBestInvalid = nullptr;
+                g_chainstate_manager.BestInvalid() = nullptr;
             }
             m_failed_blocks.erase(it->second);
         }
@@ -1303,7 +1303,7 @@ bool CChainState::AcceptBlockHeader(const CBlockHeader& block, CValidationState&
         }
     }
     if (pindex == nullptr)
-        pindex = blockIndex.AddToBlockIndex(block, pindexBestHeader);
+        pindex = blockIndex.AddToBlockIndex(block, g_chainstate_manager.BestHeader());
 
     //if this header was valid and has any xfield change remember it until we finish processing the headers message
     if(pxfieldHistory
@@ -1417,10 +1417,10 @@ bool CChainState::LoadBlockIndex()
     {
         if (pindex->IsValid(BLOCK_VALID_TRANSACTIONS) && (pindex->nChainTx || pindex->pprev == nullptr))
             setBlockIndexCandidates.insert(pindex);
-        if (pindex->nStatus & BLOCK_FAILED_MASK && (!pindexBestInvalid || pindex->nHeight > pindexBestInvalid->nHeight))
-            pindexBestInvalid = pindex;
-        if (pindex->IsValid(BLOCK_VALID_TREE) && (pindexBestHeader == nullptr || CBlockIndexWorkComparator()(pindexBestHeader, pindex)))
-            pindexBestHeader = pindex;
+        if (pindex->nStatus & BLOCK_FAILED_MASK && (!g_chainstate_manager.BestInvalid() || pindex->nHeight > g_chainstate_manager.BestInvalid()->nHeight))
+            g_chainstate_manager.BestInvalid() = pindex;
+        if (pindex->IsValid(BLOCK_VALID_TREE) && (g_chainstate_manager.BestHeader() == nullptr || CBlockIndexWorkComparator()(g_chainstate_manager.BestHeader(), pindex)))
+            g_chainstate_manager.BestHeader() = pindex;
     }
 
     return true;
@@ -1621,7 +1621,7 @@ bool CChainState::LoadGenesisBlock()
 
         if (blockPos.IsNull())
             return error("%s: writing genesis block to disk failed", __func__);
-        CBlockIndex *pindex = blockIndex.AddToBlockIndex(block, pindexBestHeader);
+        CBlockIndex *pindex = blockIndex.AddToBlockIndex(block, g_chainstate_manager.BestHeader());
         ReceivedBlockTransactions(block, pindex, blockPos);
 
         g_chainstate_manager.InitXFieldHistory(g_chainstate_manager.Settings().GenesisBlock());

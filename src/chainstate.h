@@ -116,7 +116,6 @@ private:
 
 public:
     CChain chainActive;
-    CBlockIndex *pindexBestInvalid = nullptr;
 
     std::unique_ptr< CCheckQueue<CScriptCheck> >scriptcheckqueue;
 

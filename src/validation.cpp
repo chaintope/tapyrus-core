@@ -56,7 +56,6 @@ class ConnectTrace;
 extern RecursiveMutex cs_main;
 
 CChain& chainActive = g_chainstate.chainActive;
-CBlockIndex *pindexBestHeader = nullptr;
 
 CBlockPolicyEstimator feeEstimator;
 CTxMemPool mempool(&feeEstimator);
@@ -64,8 +63,6 @@ std::atomic_bool g_is_mempool_loaded{false};
 
 /** Constant stuff for coinbase transactions we create: */
 CScript COINBASE_FLAGS;
-
-CBlockIndex *&pindexBestInvalid = g_chainstate.pindexBestInvalid;
 
 
 
@@ -80,11 +77,11 @@ static constexpr int64_t MIN_CHAIN_TX_WINDOW = 100;
  * becomes more stable as the chain grows. Triggered by height modulo so no
  * extra state is needed; rate is computed via pprev walk over the window.
  *
- * nTxCount is estimated using pindexBestHeader (the furthest header known from
+ * nTxCount is estimated using the best header (the furthest header known from
  * peers) so that during IBD, progress = nChainTx / nTxCount tracks
  * height / bestHeaderHeight rather than extrapolating years of empty time.
  */
-void RefreshChainTxDataFromTip(const CBlockIndex* pindexNew)
+void RefreshChainTxDataFromTip(const CBlockIndex* pindexNew) EXCLUSIVE_LOCKS_REQUIRED(cs_main)
 {
     if (!pindexNew || pindexNew->nHeight == 0)
         return;
@@ -107,8 +104,8 @@ void RefreshChainTxDataFromTip(const CBlockIndex* pindexNew)
         static_cast<int64_t>(pindexNew->nChainTx) - static_cast<int64_t>(pWindow->nChainTx)) / dt;
 
     const int64_t bestHeight =
-        (pindexBestHeader && pindexBestHeader->nHeight > pindexNew->nHeight)
-        ? static_cast<int64_t>(pindexBestHeader->nHeight)
+        (g_chainstate_manager.BestHeader() && g_chainstate_manager.BestHeader()->nHeight > pindexNew->nHeight)
+        ? static_cast<int64_t>(g_chainstate_manager.BestHeader()->nHeight)
         : static_cast<int64_t>(pindexNew->nHeight);
 
     const double txPerBlock = static_cast<double>(pindexNew->nChainTx) /
@@ -293,7 +290,7 @@ static bool IsCurrentForFeeEstimation()
         return false;
     if (chainActive.Tip()->GetBlockTime() < (GetTime() - MAX_FEE_ESTIMATION_TIP_AGE))
         return false;
-    if (chainActive.Height() < pindexBestHeader->nHeight - 1)
+    if (chainActive.Height() < g_chainstate_manager.BestHeader()->nHeight - 1)
         return false;
     return true;
 }
@@ -1187,8 +1184,8 @@ void UnloadBlockIndex()
 {
     LOCK(cs_main);
     chainActive.SetTip(nullptr);
-    pindexBestInvalid = nullptr;
-    pindexBestHeader = nullptr;
+    g_chainstate_manager.BestInvalid() = nullptr;
+    g_chainstate_manager.BestHeader() = nullptr;
     mempool.clear();
     g_chainstate_manager.BlockIndex().Unload();
     g_chainstate_manager.GetBlockFileManager().Unload();

@@ -206,8 +206,8 @@ BOOST_AUTO_TEST_CASE(chainstate_initialization_edge_cases)
     // Verify chainActive is accessible
     BOOST_CHECK(chainstate.chainActive.Height() >= 0);
 
-    // Verify pindexBestInvalid starts as nullptr
-    BOOST_CHECK(chainstate.pindexBestInvalid == nullptr);
+    // Verify the best invalid block starts as nullptr
+    BOOST_CHECK(g_chainstate_manager.BestInvalid() == nullptr);
 
     // Test mapBlocksUnlinked (multimap) - should be empty in a clean chain
     BOOST_CHECK(blockIndex.mapBlocksUnlinked.empty());

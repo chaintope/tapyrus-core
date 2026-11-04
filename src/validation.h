@@ -114,9 +114,6 @@ extern CTxMemPool mempool;
 extern std::atomic_bool g_is_mempool_loaded;
 extern uint64_t nLastBlockTx;
 extern uint64_t nLastBlockSize;
-/** Best header we've seen so far (used for getheaders queries' starting points). */
-extern CBlockIndex *pindexBestHeader;
-
 /** The currently-connected chain of blocks (protected by cs_main). */
 extern CChain& chainActive;
 
@@ -125,8 +122,6 @@ extern std::unique_ptr<CCoinsViewDB> pcoinsdbview;
 
 /** Global variable that points to the active CCoinsView (protected by cs_main) */
 extern std::unique_ptr<CCoinsViewCache> pcoinsTip;
-
-extern CBlockIndex *&pindexBestInvalid;
 
 /** Minimum blocks required to signal NODE_NETWORK_LIMITED */
 static const unsigned int NODE_NETWORK_LIMITED_MIN_BLOCKS = 288;

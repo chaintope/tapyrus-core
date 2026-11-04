@@ -164,9 +164,9 @@ public:
     bool getHeaderTip(int& height, int64_t& block_time) override
     {
         LOCK(::cs_main);
-        if (::pindexBestHeader) {
-            height = ::pindexBestHeader->nHeight;
-            block_time = ::pindexBestHeader->GetBlockTime();
+        if (g_chainstate_manager.BestHeader()) {
+            height = g_chainstate_manager.BestHeader()->nHeight;
+            block_time = g_chainstate_manager.BestHeader()->GetBlockTime();
             return true;
         }
         return false;

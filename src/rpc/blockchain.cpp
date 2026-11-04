@@ -725,7 +725,7 @@ UniValue getblockchaininfo(const JSONRPCRequest& request)
     obj.pushKV("chain",                 FederationParams().NetworkIDString());
     obj.pushKV("mode",                  TAPYRUS_MODES::GetChainName(gArgs.GetChainMode()));
     obj.pushKV("blocks",                (int)chainActive.Height());
-    obj.pushKV("headers",               pindexBestHeader ? pindexBestHeader->nHeight : -1);
+    obj.pushKV("headers",               g_chainstate_manager.BestHeader() ? g_chainstate_manager.BestHeader()->nHeight : -1);
     obj.pushKV("bestblockhash",         chainActive.Tip()->GetBlockHash().GetHex());
     obj.pushKV("mediantime",            (int64_t)chainActive.Tip()->GetMedianTimePast());
     obj.pushKV("verificationprogress",  GuessVerificationProgress(Params().TxData(), chainActive.Tip()));
