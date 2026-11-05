@@ -301,6 +301,7 @@ target_link_libraries(tapyrus-qt
   tapyrus_chainstate
   tapyrus_peer
   tapyrus_rpc
+  tapyrus_wallet_interface
   $<TARGET_NAME_IF_EXISTS:tapyrus_wallet>
   $<TARGET_NAME_IF_EXISTS:tapyrus_zmq>
 )

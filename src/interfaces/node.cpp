@@ -239,7 +239,7 @@ public:
 #if ENABLE_WALLET
         std::vector<std::unique_ptr<Wallet>> wallets;
         for (const std::shared_ptr<CWallet>& wallet : GetWallets()) {
-            wallets.emplace_back(MakeWallet(wallet, m_context.connman));
+            wallets.emplace_back(MakeWallet(wallet));
         }
         return wallets;
 #else
@@ -265,7 +265,7 @@ public:
     std::unique_ptr<Handler> handleLoadWallet(LoadWalletFn fn) override
     {
         CHECK_WALLET(
-            return MakeHandler(::uiInterface.LoadWallet.connect([this, fn](std::shared_ptr<CWallet> wallet) { fn(MakeWallet(wallet, m_context.connman)); })));
+            return MakeHandler(::uiInterface.LoadWallet.connect([fn](std::shared_ptr<CWallet> wallet) { fn(MakeWallet(wallet)); })));
     }
     std::unique_ptr<Handler> handleNotifyNumConnectionsChanged(NotifyNumConnectionsChangedFn fn) override
     {

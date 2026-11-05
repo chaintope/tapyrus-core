@@ -68,6 +68,7 @@ target_link_libraries(test-tapyrus-qt
 	tapyrus_chainstate
 	tapyrus_peer
 	tapyrus_rpc
+	tapyrus_wallet_interface
 	$<TARGET_NAME_IF_EXISTS:tapyrus_zmq>
 	Qt6::Test
 )

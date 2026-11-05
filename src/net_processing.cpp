@@ -3152,7 +3152,7 @@ bool PeerManager::SendMessages(CNode* pto)
         // transactions become unconfirmed and spams other nodes.
         if (!g_chainstate_manager.LoadingBlocks() && !IsInitialBlockDownload())
         {
-            GetMainSignals().Broadcast(nTimeBestReceived, &m_connman);
+            GetMainSignals().Broadcast(nTimeBestReceived);
         }
 
         //
