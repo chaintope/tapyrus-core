@@ -101,6 +101,8 @@ public:
     bool ParameterInteraction() const override {return true;}
     void RegisterRPC(CRPCTable &) const override {}
     bool Verify() const override {return true;}
+    void SetNodeContextLookup(interfaces::NodeContextLookup* node_lookup) const override {}
+    interfaces::NodeContextLookup* GetNodeContextLookup() const override {return nullptr;}
     bool Open() const override {LogPrintf("No wallet support compiled in!\n"); return true;}
     void Start(CScheduler& scheduler) const override {}
     void Flush() const override {}

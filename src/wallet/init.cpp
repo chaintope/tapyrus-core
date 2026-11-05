@@ -176,7 +176,7 @@ bool WalletInit::Open() const
     for (const std::string& walletFile : gArgs.GetArgs("-wallet")) {
         fs::path wallet_path = fs::path(walletFile).is_absolute() ? fs::path(walletFile) : GetWalletDir() / fs::path(walletFile);
 
-        std::shared_ptr<CWallet> pwallet = CWallet::CreateWalletFromFile(walletFile, wallet_path);
+        std::shared_ptr<CWallet> pwallet = CWallet::CreateWalletFromFile(m_node_lookup, walletFile, wallet_path);
         if (!pwallet) {
             return false;
         }

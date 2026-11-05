@@ -30,7 +30,8 @@
 #
 # Per-executable direct library links:
 #   tapyrusd               -- tapyrus_chainstate, tapyrus_peer, tapyrus_rpc, tapyrus_util,
-#                              tapyrus_wallet (cond., ENABLE_WALLET), tapyrus_zmq (cond., ENABLE_ZMQ)
+#                              tapyrus_wallet_interface, tapyrus_wallet (cond., ENABLE_WALLET),
+#                              tapyrus_zmq (cond., ENABLE_ZMQ)
 #   tapyrus-qt              -- same as tapyrusd minus tapyrus_util, plus its own compiled-in
 #                              copy of interfaces/node.cpp (see the comment on tapyrus_util's
 #                              add_library() below)
@@ -494,6 +495,20 @@ target_link_libraries(tapyrus_rpc
 )
 
 
+# The node-side implementation of the interfaces its clients (the wallet, and
+# later the GUI) reach it through. The clients' own libraries never link it;
+# the executables that create a node do.
+add_library(tapyrus_wallet_interface STATIC EXCLUDE_FROM_ALL
+  interfaces/nodecontextlookupimpl.cpp
+)
+target_link_libraries(tapyrus_wallet_interface
+  PRIVATE
+    core_interface
+    tapyrus_chainstate
+    tapyrus_peer
+    Boost::headers
+)
+
 # tapyrus Core tapyrusd. init.cpp and noui.cpp wire the libraries together
 # at start-up and shutdown, and debuglogfile.cpp is the debug.log writer
 # init.cpp installs; none of them has a use outside this executable.
@@ -511,6 +526,7 @@ if(BUILD_DAEMON)
     tapyrus_peer
     tapyrus_rpc
     tapyrus_util
+    tapyrus_wallet_interface
     $<TARGET_NAME_IF_EXISTS:tapyrus_zmq>
     $<TARGET_NAME_IF_EXISTS:tapyrus_wallet>
     univalue

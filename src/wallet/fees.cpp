@@ -5,10 +5,9 @@
 
 #include <wallet/fees.h>
 
+#include <interfaces/nodecontextlookup.h>
 #include <policy/policy.h>
-#include <txmempool.h>
 #include <util.h>
-#include <validation.h>
 #include <wallet/coincontrol.h>
 #include <wallet/wallet.h>
 
@@ -19,9 +18,9 @@ CAmount GetRequiredFee(const CWallet& wallet, unsigned int nTxBytes)
 }
 
 
-CAmount GetMinimumFee(const CWallet& wallet, unsigned int nTxBytes, const CCoinControl& coin_control, const CTxMemPool& pool, const CBlockPolicyEstimator& estimator, FeeCalculation* feeCalc)
+CAmount GetMinimumFee(const CWallet& wallet, unsigned int nTxBytes, const CCoinControl& coin_control, FeeCalculation* feeCalc)
 {
-    CAmount fee_needed = GetMinimumFeeRate(wallet, coin_control, pool, estimator, feeCalc).GetFee(nTxBytes);
+    CAmount fee_needed = GetMinimumFeeRate(wallet, coin_control, feeCalc).GetFee(nTxBytes);
     // Always obey the maximum
     if (fee_needed > g_policy_settings->maxTxFee) {
         fee_needed = g_policy_settings->maxTxFee;
@@ -35,7 +34,7 @@ CFeeRate GetRequiredFeeRate(const CWallet& wallet)
     return std::max(wallet.m_min_fee, g_policy_settings->minRelayTxFee);
 }
 
-CFeeRate GetMinimumFeeRate(const CWallet& wallet, const CCoinControl& coin_control, const CTxMemPool& pool, const CBlockPolicyEstimator& estimator, FeeCalculation* feeCalc)
+CFeeRate GetMinimumFeeRate(const CWallet& wallet, const CCoinControl& coin_control, FeeCalculation* feeCalc)
 {
     /* User control of how to calculate fee uses the following parameter precedence:
        1. coin_control.m_feerate
@@ -64,7 +63,8 @@ CFeeRate GetMinimumFeeRate(const CWallet& wallet, const CCoinControl& coin_contr
         if (coin_control.m_fee_mode == FeeEstimateMode::CONSERVATIVE) conservative_estimate = true;
         else if (coin_control.m_fee_mode == FeeEstimateMode::ECONOMICAL) conservative_estimate = false;
 
-        feerate_needed = estimator.estimateSmartFee(target, feeCalc, conservative_estimate);
+        const interfaces::NodeContextLookup* node_lookup = wallet.NodeLookup();
+        feerate_needed = node_lookup ? node_lookup->estimateSmartFee(target, conservative_estimate, feeCalc) : CFeeRate(0);
         if (feerate_needed == CFeeRate(0)) {
             // if we don't have enough data for estimateSmartFee, then use fallback fee
             feerate_needed = wallet.m_fallback_fee;
@@ -74,7 +74,7 @@ CFeeRate GetMinimumFeeRate(const CWallet& wallet, const CCoinControl& coin_contr
             if (wallet.m_fallback_fee == CFeeRate(0)) return feerate_needed;
         }
         // Obey mempool min fee when using smart fee estimation
-        CFeeRate min_mempool_feerate = pool.GetMinFee(g_policy_settings->maxMempool);
+        CFeeRate min_mempool_feerate = node_lookup ? node_lookup->mempoolMinFee() : CFeeRate(0);
         if (feerate_needed < min_mempool_feerate) {
             feerate_needed = min_mempool_feerate;
             if (feeCalc) feeCalc->reason = FeeReason::MEMPOOL_MIN;
@@ -90,10 +90,10 @@ CFeeRate GetMinimumFeeRate(const CWallet& wallet, const CCoinControl& coin_contr
     return feerate_needed;
 }
 
-CFeeRate GetDiscardRate(const CWallet& wallet, const CBlockPolicyEstimator& estimator)
+CFeeRate GetDiscardRate(const CWallet& wallet)
 {
-    unsigned int highest_target = estimator.HighestTargetTracked(FeeEstimateHorizon::LONG_HALFLIFE);
-    CFeeRate discard_rate = estimator.estimateSmartFee(highest_target, nullptr /* FeeCalculation */, false /* conservative */);
+    const interfaces::NodeContextLookup* node_lookup = wallet.NodeLookup();
+    CFeeRate discard_rate = node_lookup ? node_lookup->estimateSmartFee(node_lookup->estimateMaxBlocks(), false /* conservative */, nullptr /* FeeCalculation */) : CFeeRate(0);
     // Don't let discard_rate be greater than longest possible fee estimate if we get a valid fee estimate
     discard_rate = (discard_rate == CFeeRate(0)) ? wallet.m_discard_rate : std::min(discard_rate, wallet.m_discard_rate);
     // Discard rate must be at least dustRelayFee

@@ -219,6 +219,7 @@ target_link_libraries(test_tapyrus
         $<TARGET_NAME_IF_EXISTS:tapyrus_wallet>
         tapyrus_cli
         tapyrus_rpc
+        tapyrus_wallet_interface
         tapyrus_peer
         tapyrus_chainstate
         tapyrus_codec
