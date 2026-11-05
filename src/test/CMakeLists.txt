@@ -321,7 +321,7 @@ endfunction()
 #   dozens of CWallet methods, CConnman's full API, libevent's C interface
 #   -- none of it reachable from ParsePsttInputEntries/decodepstt either.
 #   fuzz/rpc_glue_stub.cpp defines just those three functions,
-#   which avoids tapyrus_wallet, tapyrus_zmq, and their init-time glue
+#   which avoids tapyrus_wallet, tapyrus_zmq, and their start-up code
 #   (wallet/init.cpp's g_wallet_init_interface = WalletInit() static
 #   initializer in particular) entirely.
 function(add_pstt_fuzz_target_with_rpc_glue name source)

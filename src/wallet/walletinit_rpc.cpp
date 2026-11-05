@@ -3,10 +3,8 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 //
-// Holds the one WalletInit method that needs tapyrus_rpc
-// (RegisterWalletRPCCommands(), in wallet/rpcwallet.cpp). Neither this
-// file nor wallet/init.cpp compiles into a library -- both are glue; see
-// tapyrusd's add_executable() in src/CMakeLists.txt.
+// Holds the one WalletInit method that needs the wallet RPCs
+// (RegisterWalletRPCCommands(), in wallet/rpcwallet.cpp).
 
 #include <util.h>
 #include <wallet/rpcwallet.h>
