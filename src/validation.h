@@ -305,9 +305,6 @@ bool AcceptToMemoryPool(const CTransactionRef &tx, CTxMempoolAcceptanceOptions &
 /** remove old transactions from mempool based on age to keep it within size limits*/
 void LimitMempoolSize(CTxMemPool& pool, size_t limit, unsigned long age);
 
-/** Convert CValidationState to a human-readable message for logging */
-std::string FormatStateMessage(const CValidationState &state);
-
 /** Apply the effects of this transaction on the UTXO set represented by view */
 void UpdateCoins(const CTransaction& tx, CCoinsViewCache& inputs, int nHeight);
 
@@ -378,13 +375,9 @@ bool ContextualCheckBlockHeader(const CBlockHeader& block, CValidationState& sta
  *  in ConnectBlock().
  *  Note that -reindex-chainstate skips the validation that happens here!
  */
+/** A coinbase records its block's height: the previous block's plus one. */
+bool CheckCoinbaseHeight(const CBlock& block, CValidationState& state, const CBlockIndex* pindexPrev);
 bool ContextualCheckBlock(const CBlock& block, CValidationState& state, const CBlockIndex* pindexPrev);
-
-/** Context-independent header validity checks */
-bool CheckBlockHeader(const CBlockHeader& block, CValidationState& state, const HeightDerivedConsensusRules& consensusAtHeight, bool fCheckPOW = true);
-
-/** Context-independent validity checks */
-bool CheckBlock(const CBlock& block, CValidationState& state, const HeightDerivedConsensusRules& consensusAtHeight, bool fCheckPOW = true, bool fCheckMerkleRoot = true);
 
 /** Check a block is completely valid from start to finish (only works on top of our current best block) */
 bool TestBlockValidity(CValidationState& state, const CBlock& block, CBlockIndex* pindexPrev, bool fCheckPOW = true, bool fCheckMerkleRoot = true) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
@@ -443,7 +436,6 @@ inline bool IsBlockPruned(const CBlockIndex* pblockindex)
     return (fHavePruned && !(pblockindex->nStatus & BLOCK_HAVE_DATA) && pblockindex->nTx > 0);
 }
 
-bool isBlockHeightInCoinbase(const CBlock& block);
 
 
 /** Abort with a message */

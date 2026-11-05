@@ -5,6 +5,7 @@
 
 #include <partiallydownloadedblock.h>
 
+#include <checkblock.h>
 #include <heightderivedconsensusrules.h>
 
 #include <chainstatemanager.h>

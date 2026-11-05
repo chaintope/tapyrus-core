@@ -2,66 +2,15 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-// CheckBlock()/CheckBlockHeader() live in their own translation unit,
-// separate from validation.cpp, specifically so tapyrus-genesis can compile
-// its own copy (see its add_executable() in the top-level src/CMakeLists.txt)
-// without linking tapyrus_chainstate: validation.cpp is one translation unit
-// shared by functions that touch g_chainstate/leveldb-backed disk storage
-// (FlushStateToDisk, ReadBlockFromDisk, ...), and static archives are
-// extracted per translation unit, not per function -- referencing anything
-// in that file, including CheckBlock, pulls all of it in. Compiling this
-// file's own copy directly into tapyrus-genesis (with TAPYRUS_GENESIS_SKIP
-// defined) satisfies CheckBlock/CheckBlockHeader/isBlockHeightInCoinbase
-// before the linker ever consults libtapyrus_chainstate.a, so that archive's
-// copy of this same file (compiled without the macro, for every other
-// consumer) is simply never extracted.
-#include <validation.h>
+#include <checkblock.h>
 
 #include <consensus/merkle.h>
-#include <consensus/tx_verify.h>
+#include <consensus/tx_check.h>
 #include <consensus/validation.h>
+#include <heightderivedconsensusrules.h>
 #include <primitives/block.h>
 #include <pubkey.h>
 #include <tinyformat.h>
-#include <heightderivedconsensusrules.h>
-
-#ifndef TAPYRUS_GENESIS_SKIP
-// tapyrus coinbase must have blockheight in the prevout.n. Only meaningful
-// once a chain exists to compare against -- see the TAPYRUS_GENESIS_SKIP
-// note on CheckBlock() below for why this is compiled out entirely for
-// tapyrus-genesis, which calls CheckBlock() before any chain is loaded.
-bool isBlockHeightInCoinbase(const CBlock& block)
-{
-    // when block and chainActive.Tip() are adjacent blocks we can compare and validate the block height.
-    // otherwise we may be rewinding the block chain and they are unrelated blocks.
-    CBlockIndex* pindex = chainActive.Tip();
-    if(!pindex)
-        return false;
-
-    if(pindex->nHeight == 0)
-        return true;
-
-    uint32_t blockHeight = block.GetHeight();
-
-    if(block.GetHash() == pindex->GetBlockHash() && blockHeight != (uint32_t)pindex->nHeight)
-        return false;
-    else if(block.GetBlockHeader().hashPrevBlock == pindex->GetBlockHash() && blockHeight != (uint32_t)pindex->nHeight + 1)
-        return false;
-    else if(pindex->GetBlockHeader().hashPrevBlock == block.GetHash() && blockHeight != (uint32_t)pindex->nHeight - 1)
-        return false;
-
-    else // if the two blocks are unrelated, we assume the block height is valid.
-        return true;
-}
-#endif
-
-std::string FormatStateMessage(const CValidationState &state)
-{
-    return strprintf("%s%s (code %i)",
-        state.GetRejectReason(),
-        state.GetDebugMessage().empty() ? "" : ", "+state.GetDebugMessage(),
-        state.GetRejectCode());
-}
 
 bool CheckBlockHeader(const CBlockHeader& block, CValidationState& state, const HeightDerivedConsensusRules& consensusAtHeight, bool fCheckPOW)
 {
@@ -129,18 +78,6 @@ bool CheckBlock(const CBlock& block, CValidationState& state, const HeightDerive
     for(auto txOut: block.vtx[0]->vout)
         if(txOut.scriptPubKey.IsColoredScript())
             return state.DoS(100, false, REJECT_INVALID, "bad-cb-issuetoken", false, "coinbase cannot issue tokens");
-
-#ifndef TAPYRUS_GENESIS_SKIP
-    // tapyrus coinbase must have blockheight in the prevout.n. Skipped
-    // entirely under TAPYRUS_GENESIS_SKIP (see the file-level note
-    // above): tapyrus-genesis calls CheckBlock() before any chain is loaded,
-    // so chainActive.Tip() would be null and this is a no-op for it anyway --
-    // but referencing chainActive at all forces g_chainstate's translation
-    // unit (chainstate.cpp, leveldb-backed) into the link.
-    CBlockIndex* pindexPrev = chainActive.Tip();
-    if(pindexPrev && !isBlockHeightInCoinbase(block) )
-        return state.DoS(100, false, REJECT_INVALID, "bad-cb-invalid", false, "incorrect block height in coinbase");
-#endif
 
     // All potential-corruption validation must be done before we do any
     // transaction validation, as otherwise we may mark the header as invalid

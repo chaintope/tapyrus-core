@@ -5,6 +5,7 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <consensussettings.h>
+#include <consensus/tx_check.h>
 #include <miner.h>
 
 #include <amount.h>

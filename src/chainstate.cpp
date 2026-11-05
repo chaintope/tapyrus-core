@@ -5,6 +5,7 @@
 #include <chainstate.h>
 #include <chainstatemanager.h>
 #include <chainparams.h>
+#include <checkblock.h>
 #include <consensussettings.h>
 #include <util.h>
 #include <issuedcolorids.h>
@@ -1464,6 +1465,11 @@ bool CChainState::AcceptBlock(const std::shared_ptr<const CBlock>& pblock, CVali
 
     CBlockIndex *pindexDummy = nullptr;
     CBlockIndex *&pindex = ppindex ? *ppindex : pindexDummy;
+
+    // Before AcceptBlockHeader, so a block with a wrong height leaves no index entry.
+    const BlockMap::const_iterator prev = mapBlockIndex.find(block.hashPrevBlock);
+    if (prev != mapBlockIndex.end() && !CheckCoinbaseHeight(block, state, prev->second))
+        return false;
 
     if (!AcceptBlockHeader(block, state, &pindex, pxfieldHistory))
         return false;
