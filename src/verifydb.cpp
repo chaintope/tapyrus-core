@@ -5,6 +5,7 @@
 #include <verifydb.h>
 
 #include <chainstatemanager.h>
+#include <checkblock.h>
 #include <policy/packages.h>
 #include <shutdown.h>
 #include <ui_interface.h>

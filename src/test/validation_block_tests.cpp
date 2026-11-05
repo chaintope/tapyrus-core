@@ -7,6 +7,7 @@
 
 #include <chainparams.h>
 #include <chainstatemanager.h>
+#include <checkblock.h>
 #include <consensus/merkle.h>
 #include <consensus/validation.h>
 #include <consensussettings.h>

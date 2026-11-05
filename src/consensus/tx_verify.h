@@ -18,11 +18,6 @@ class CValidationState;
 
 /** Transaction validation functions */
 
-/** Context-independent validity checks; maxBlockSize is the block size limit the transaction must fit in */
-bool CheckTransaction(const CTransaction& tx, CValidationState& state, uint32_t maxBlockSize, bool fCheckDuplicateInputs=true);
-/** Catches calls still written for the old signature, whose bool would silently become a zero size limit */
-bool CheckTransaction(const CTransaction& tx, CValidationState& state, bool fCheckDuplicateInputs, bool unused=true) = delete;
-
 namespace Consensus {
 /**
  * Check whether all inputs of this transaction are valid (no double spends and amounts)
@@ -34,13 +29,6 @@ bool CheckTxInputs(const CTransaction& tx, CValidationState& state, const CCoins
 } // namespace Consensus
 
 /** Auxiliary functions for transaction validation (ideally should not be exposed) */
-
-/**
- * Count ECDSA signature operations the old-fashioned (pre-0.6) way
- * @return number of sigops this transaction's outputs will produce when spent
- * @see CTransaction::FetchInputs
- */
-unsigned int GetLegacySigOpCount(const CTransaction& tx);
 
 /**
  * Count ECDSA signature operations in pay-to-script-hash inputs.
