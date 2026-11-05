@@ -5,6 +5,8 @@
 #include <chainstatemanager.h>
 
 #include <blockindex.h>
+#include <chain.h>
+#include <chainstate.h>
 #include <util.h>
 #include <primitives/block.h>
 #include <primitives/xfieldvalues.h>
@@ -15,6 +17,10 @@
 #include <utility>
 
 ChainstateManager g_chainstate_manager;
+
+ChainstateManager::ChainstateManager() = default;
+
+ChainstateManager::~ChainstateManager() = default;
 
 ChainstateManager::Options::Options(const ArgsManager& args, bool defaultConsistencyChecks, size_t coinCacheUsage)
     : fReindexChainState(args.GetBoolArg("-reindex-chainstate", false)),
@@ -149,4 +155,20 @@ void ChainstateManager::LoadPersistentFlags()
     bool fReindexing = false;
     blocktree.ReadReindexing(fReindexing);
     if (fReindexing) m_reindexing = true;
+}
+
+void ChainstateManager::InitializeChainstate()
+{
+    m_active_chainstate = std::make_unique<Chainstate>();
+}
+
+Chainstate& ChainstateManager::ActiveChainstate() const
+{
+    assert(m_active_chainstate);
+    return *m_active_chainstate;
+}
+
+CChain& ChainstateManager::ActiveChain() const
+{
+    return ActiveChainstate().m_chain;
 }

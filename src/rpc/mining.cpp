@@ -57,7 +57,7 @@ UniValue generateBlocks(std::shared_ptr<CReserveScript> coinbaseScript, int nGen
 
     {   // Don't keep cs_main locked
         LOCK(cs_main);
-        nHeight = chainActive.Height();
+        nHeight = g_chainstate_manager.ActiveChain().Height();
         nHeightEnd = nHeight+nGenerate;
     }
     unsigned int nExtraNonce = 0;
@@ -70,7 +70,7 @@ UniValue generateBlocks(std::shared_ptr<CReserveScript> coinbaseScript, int nGen
         CBlock *pblock = &pblocktemplate->block;
         {
             LOCK(cs_main);
-            IncrementExtraNonce(pblock, chainActive.Tip(), nExtraNonce);
+            IncrementExtraNonce(pblock, g_chainstate_manager.ActiveChain().Tip(), nExtraNonce);
         }
 
         std::vector<unsigned char> proof;
@@ -245,7 +245,7 @@ UniValue getnewblock(const JSONRPCRequest& request)
         // IncrementExtraNonce sets coinbase flags and builds merkle tree
         LOCK(cs_main);
         unsigned int nExtraNonce = 0;
-        IncrementExtraNonce(&pblocktemplate->block, chainActive.Tip(), nExtraNonce);
+        IncrementExtraNonce(&pblocktemplate->block, g_chainstate_manager.ActiveChain().Tip(), nExtraNonce);
     }
 
     CDataStream ssBlock(SER_NETWORK, PROTOCOL_VERSION);
@@ -277,7 +277,7 @@ static UniValue getmininginfo(const JSONRPCRequest& request)
     LOCK(cs_main);
 
     UniValue obj(UniValue::VOBJ);
-    obj.pushKV("blocks",           (int)chainActive.Height());
+    obj.pushKV("blocks",           (int)g_chainstate_manager.ActiveChain().Height());
     obj.pushKV("currentblocksize", (uint64_t)nLastBlockSize);
     obj.pushKV("currentblocktx",   (uint64_t)nLastBlockTx);
     // TODO: push signed block multisig condition
@@ -423,7 +423,7 @@ static UniValue getblocktemplate(const JSONRPCRequest& request)
                 return "duplicate-inconclusive";
             }
 
-            CBlockIndex* const pindexPrev = chainActive.Tip();
+            CBlockIndex* const pindexPrev = g_chainstate_manager.ActiveChain().Tip();
             // TestBlockValidity only supports blocks built on the current Tip
             if (block.hashPrevBlock != pindexPrev->GetBlockHash())
                 return "inconclusive-not-best-prevblk";
@@ -473,7 +473,7 @@ static UniValue getblocktemplate(const JSONRPCRequest& request)
         else
         {
             // NOTE: Spec does not specify behaviour for non-string longpollid, but this makes testing easier
-            hashWatchedChain = chainActive.Tip()->GetBlockHash();
+            hashWatchedChain = g_chainstate_manager.ActiveChain().Tip()->GetBlockHash();
             nTransactionsUpdatedLastLP = nTransactionsUpdatedLast;
         }
 
@@ -505,7 +505,7 @@ static UniValue getblocktemplate(const JSONRPCRequest& request)
     static CBlockIndex* pindexPrev;
     static int64_t nStart;
     static std::unique_ptr<CBlockTemplate> pblocktemplate;
-    if (pindexPrev != chainActive.Tip() ||
+    if (pindexPrev != g_chainstate_manager.ActiveChain().Tip() ||
         (mempool.GetTransactionsUpdated() != nTransactionsUpdatedLast && GetTime() - nStart > 5))
     {
         // Clear pindexPrev so future calls make a new block, despite any failures from here on
@@ -513,7 +513,7 @@ static UniValue getblocktemplate(const JSONRPCRequest& request)
 
         // Store the pindexBest used before CreateNewBlock, to avoid races
         nTransactionsUpdatedLast = mempool.GetTransactionsUpdated();
-        CBlockIndex* pindexPrevNew = chainActive.Tip();
+        CBlockIndex* pindexPrevNew = g_chainstate_manager.ActiveChain().Tip();
         nStart = GetTime();
 
         // Create new block
@@ -585,7 +585,7 @@ static UniValue getblocktemplate(const JSONRPCRequest& request)
     result.pushKV("transactions", transactions);
     result.pushKV("coinbaseaux", aux);
     result.pushKV("coinbasevalue", (int64_t)pblock->vtx[0]->vout[0].nValue);
-    result.pushKV("longpollid", chainActive.Tip()->GetBlockHash().GetHex() + i64tostr(nTransactionsUpdatedLast));
+    result.pushKV("longpollid", g_chainstate_manager.ActiveChain().Tip()->GetBlockHash().GetHex() + i64tostr(nTransactionsUpdatedLast));
     result.pushKV("mintime", (int64_t)pindexPrev->GetMedianTimePast()+1);
     result.pushKV("mutable", aMutable);
     result.pushKV("noncerange", "00000000ffffffff");
@@ -930,7 +930,7 @@ UniValue testproposedblock(const JSONRPCRequest& request)
 
     }
 
-    CBlockIndex* const pindexPrev = chainActive.Tip();
+    CBlockIndex* const pindexPrev = g_chainstate_manager.ActiveChain().Tip();
     // TestBlockValidity only supports blocks built on the current Tip
     if (block.hashPrevBlock != pindexPrev->GetBlockHash())
         throw JSONRPCError(RPC_VERIFY_ERROR, "proposal was not based on our best chain");

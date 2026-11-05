@@ -11,6 +11,7 @@
 #include <checkqueue.h>
 #include <coinsview.h>
 #include <coinsviewcache.h>
+#include <coinsviews.h>
 #include <sync.h>
 #include <chain.h>
 #include <blockindex.h>
@@ -18,10 +19,13 @@
 #include <xfieldhistorymap.h>
 #include <undo.h>
 #include <scriptcheck.h>
+#include <cassert>
 #include <map>
+#include <memory>
 #include <set>
 
 class CBlockTreeDB;
+class CCoinsViewDB;
 class CIssuedColorIds;
 
 
@@ -54,7 +58,7 @@ struct CBlockIndexWorkComparator
 };
 
 /**
- * CChainState stores and provides an API to update our local knowledge of the
+ * Chainstate stores and provides an API to update our local knowledge of the
  * current best chain and header tree.
  *
  * It generally provides access to the current block tree, as well as functions
@@ -67,7 +71,7 @@ struct CBlockIndexWorkComparator
  * library, callbacks via the validation interface, or read/write-to-disk
  * functions (eventually this will also be via callbacks).
  */
-class CChainState {
+class Chainstate {
 private:
     /**
      * The set of all CBlockIndex entries with BLOCK_VALID_TRANSACTIONS (for itself and all ancestors) and
@@ -114,10 +118,22 @@ private:
      */
     Mutex m_cs_chainstate;
 
+    //! The coins views; null until InitCoinsDB().
+    std::unique_ptr<CoinsViews> m_coins_views;
+
 public:
-    CChain chainActive;
+    CChain m_chain;
 
     std::unique_ptr< CCheckQueue<CScriptCheck> >scriptcheckqueue;
+
+    /** Opens the coins database; replaces any earlier coins views. */
+    void InitCoinsDB(CIssuedColorIds& issuedColorIds, size_t cache_size_bytes, bool in_memory, bool should_wipe);
+    /** Creates the coins cache once the database is consistent. */
+    void InitCoinsCache() EXCLUSIVE_LOCKS_REQUIRED(cs_main);
+    bool CanFlushToDisk() const EXCLUSIVE_LOCKS_REQUIRED(cs_main) { return m_coins_views && m_coins_views->m_cacheview; }
+    CCoinsViewCache& CoinsTip() EXCLUSIVE_LOCKS_REQUIRED(cs_main) { assert(m_coins_views && m_coins_views->m_cacheview); return *m_coins_views->m_cacheview; }
+    CCoinsViewDB& CoinsDB() EXCLUSIVE_LOCKS_REQUIRED(cs_main) { assert(m_coins_views); return *m_coins_views->m_dbview; }
+    void ResetCoinsViews() EXCLUSIVE_LOCKS_REQUIRED(cs_main) { m_coins_views.reset(); }
 
     /** Loads the block index, then the candidates, best invalid and best header from it. */
     bool LoadBlockIndex() EXCLUSIVE_LOCKS_REQUIRED(cs_main);
@@ -136,7 +152,7 @@ public:
     bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pindex,
                     CCoinsViewCache& view, CIssuedColorIds& issuedColorIds, bool fJustCheck = false);
 
-    // Block disconnection on our pcoinsTip:
+    // Block disconnection on our coins tip:
     bool DisconnectTip(CValidationState& state, DisconnectedBlockTransactions *disconnectpool);
 
     // Manual block validity manipulation:
@@ -170,8 +186,6 @@ private:
 
     bool RollforwardBlock(const CBlockIndex* pindex, CCoinsViewCache& inputs, CIssuedColorIds& issuedColorIds) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 } ;
-
-extern CChainState g_chainstate;
 
 void NotifyHeaderTip() LOCKS_EXCLUDED(cs_main);
 

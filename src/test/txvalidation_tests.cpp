@@ -137,7 +137,7 @@ struct TestChainSetupPostActivation : public TestChainSetup {
     TestChainSetupPostActivation() : TestChainSetup() {
         CScript scriptPubKey = CScript() << ToByteVector(coinbaseKey.GetPubKey()) << OP_CHECKSIG;
         int current;
-        { LOCK(cs_main); current = chainActive.Height(); }
+        { LOCK(cs_main); current = g_chainstate_manager.ActiveChain().Height(); }
         for (int i = current; i < CP2SH_ACTIVATION_TEST_HEIGHT; i++) {
             std::vector<CMutableTransaction> noTxns;
             CreateAndProcessBlock(noTxns, scriptPubKey);

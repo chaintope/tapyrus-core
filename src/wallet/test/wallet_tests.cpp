@@ -56,14 +56,14 @@ BOOST_FIXTURE_TEST_CASE(rescan, TestChainSetup)
 {
     // Cap last block file size, and mine new block in a new block file.
     CBlockIndex* const nullBlock = nullptr;
-    CBlockIndex* oldTip = chainActive.Tip();
+    CBlockIndex* oldTip = g_chainstate_manager.ActiveChain().Tip();
     {
         BlockFileManager& blockFileManager = g_chainstate_manager.GetBlockFileManager();
         LOCK(blockFileManager.cs_LastBlockFile);
         blockFileManager.GetBlockFileInfo(oldTip->GetBlockPos().nFile)->nSize = BlockFileManager::MAX_BLOCKFILE_SIZE;
     }
     CreateAndProcessBlock({}, GetScriptForRawPubKey(coinbaseKey.GetPubKey()));
-    CBlockIndex* newTip = chainActive.Tip();
+    CBlockIndex* newTip = g_chainstate_manager.ActiveChain().Tip();
 
     LOCK(cs_main);
 
@@ -141,7 +141,7 @@ BOOST_FIXTURE_TEST_CASE(importwallet_rescan, TestChainSetup)
 {
     // Create two blocks with same timestamp to verify that importwallet rescan
     // will pick up both blocks, not just the first.
-    const int64_t BLOCK_TIME = chainActive.Tip()->GetBlockTimeMax() + 5;
+    const int64_t BLOCK_TIME = g_chainstate_manager.ActiveChain().Tip()->GetBlockTimeMax() + 5;
     SetMockTime(BLOCK_TIME);
     CreateAndProcessBlock({}, GetScriptForRawPubKey(coinbaseKey.GetPubKey()));
     CreateAndProcessBlock({}, GetScriptForRawPubKey(coinbaseKey.GetPubKey()));
@@ -279,7 +279,7 @@ public:
         AddKey(*wallet, coinbaseKey);
         WalletRescanReserver reserver(wallet.get());
         reserver.reserve();
-        wallet->ScanForWalletTransactions(chainActive.Genesis(), nullptr, reserver);
+        wallet->ScanForWalletTransactions(g_chainstate_manager.ActiveChain().Genesis(), nullptr, reserver);
     }
 
     ~ListCoinsTestingSetup()
@@ -309,7 +309,7 @@ public:
         auto it = wallet->mapWallet.find(tx->GetHashMalFix());
         bool res = it != wallet->mapWallet.end();
         BOOST_CHECK(res);
-        it->second.SetMerkleBranch(chainActive.Tip(), 1);
+        it->second.SetMerkleBranch(g_chainstate_manager.ActiveChain().Tip(), 1);
         return it->second;
     }
 
@@ -511,7 +511,7 @@ public:
         AddKey(*wallet, key2);
         WalletRescanReserver reserver(wallet.get());
         reserver.reserve();
-        wallet->ScanForWalletTransactions(chainActive.Genesis(), nullptr, reserver);
+        wallet->ScanForWalletTransactions(g_chainstate_manager.ActiveChain().Genesis(), nullptr, reserver);
     }
 
     ~BalanceTestingSetup()
@@ -529,7 +529,7 @@ public:
 
         WalletRescanReserver reserver(wallet.get());
         reserver.reserve();
-        if(!wallet->ScanForWalletTransactions(chainActive.Genesis(), nullptr, reserver, true)) {
+        if(!wallet->ScanForWalletTransactions(g_chainstate_manager.ActiveChain().Genesis(), nullptr, reserver, true)) {
             return false;
         }
 
@@ -780,7 +780,7 @@ BOOST_FIXTURE_TEST_CASE(wallet_tx_getdebit_and_getcredit, TestChainSetup)
     AddKey(wallet, key0);
     WalletRescanReserver reserver(&wallet);
     reserver.reserve();
-    wallet.ScanForWalletTransactions(chainActive.Genesis(), nullptr, reserver);
+    wallet.ScanForWalletTransactions(g_chainstate_manager.ActiveChain().Genesis(), nullptr, reserver);
 
     ColorIdentifier defaultColorId;
     ColorIdentifier colorId(ColorIdentifier(m_coinbase_txns[0]->vout[0].scriptPubKey));
@@ -843,7 +843,7 @@ BOOST_FIXTURE_TEST_CASE(wallet_tx_getdebit_and_getcredit_with_watch_only, TestCh
     AddKey(wallet, coinbaseKey);
     WalletRescanReserver reserver(&wallet);
     reserver.reserve();
-    wallet.ScanForWalletTransactions(chainActive.Genesis(), nullptr, reserver);
+    wallet.ScanForWalletTransactions(g_chainstate_manager.ActiveChain().Genesis(), nullptr, reserver);
 
     ColorIdentifier defaultColorId;
     ColorIdentifier colorId(ColorIdentifier(m_coinbase_txns[0]->vout[0].scriptPubKey));
@@ -925,7 +925,7 @@ BOOST_FIXTURE_TEST_CASE(wallet_tx_getchange, TestChainSetup)
     AddKey(wallet, key0);
     WalletRescanReserver reserver(&wallet);
     reserver.reserve();
-    wallet.ScanForWalletTransactions(chainActive.Genesis(), nullptr, reserver);
+    wallet.ScanForWalletTransactions(g_chainstate_manager.ActiveChain().Genesis(), nullptr, reserver);
 
     ColorIdentifier defaultColorId;
     ColorIdentifier colorId(ColorIdentifier(m_coinbase_txns[0]->vout[0].scriptPubKey));

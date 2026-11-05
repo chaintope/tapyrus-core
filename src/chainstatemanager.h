@@ -25,6 +25,8 @@
 class ArgsManager;
 class CBlock;
 class CBlockIndex;
+class CChain;
+class Chainstate;
 
 static const int64_t DEFAULT_MAX_TIP_AGE = 24 * 60 * 60;
 static const bool DEFAULT_CHECKPOINTS_ENABLED = true;
@@ -37,7 +39,7 @@ static const int DEFAULT_SCRIPTCHECK_THREADS = 0;
  * Owns the node's chain-wide state, as Bitcoin Core's ChainstateManager does.
  * So far it holds the xfield history and the issued colorIds of the active chain,
  * the consensus settings, the block index, the block files, the start-up options,
- * the best block, the best header and the best invalid block.
+ * the best block, the best header, the best invalid block and the active chainstate.
  */
 class ChainstateManager
 {
@@ -71,6 +73,11 @@ public:
     private:
         static int ParseScriptCheckThreads(const ArgsManager& args);
     };
+
+    //! Declared here and defined in the .cpp, so this header needs only a
+    //! forward declaration of Chainstate.
+    ChainstateManager();
+    ~ChainstateManager();
 
     /** Sets the options once at start-up; tests set them again for each fixture. */
     void InitOptions(const Options& options);
@@ -137,6 +144,13 @@ public:
     /** Whether the block of this index entry has been pruned. */
     bool IsBlockPruned(const CBlockIndex* pblockindex) const EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 
+    /** Creates the chainstate; replaces any earlier one. */
+    void InitializeChainstate();
+    bool HasChainstate() const { return m_active_chainstate != nullptr; }
+
+    Chainstate& ActiveChainstate() const;
+    CChain& ActiveChain() const;
+
     //! The hash of the active tip. getblocktemplate long-polls on it; the tip
     //! update sets it and RPC stop wakes the waiters.
     Mutex m_best_block_mutex;
@@ -159,6 +173,8 @@ private:
     //! Read by the network thread while the import thread clears it.
     std::atomic_bool m_reindexing{false};
     bool m_have_pruned GUARDED_BY(cs_main) = false;
+    //! The only chainstate; the manager decides which chainstate is active, as in Core.
+    std::unique_ptr<Chainstate> m_active_chainstate;
 };
 
 extern ChainstateManager g_chainstate_manager;

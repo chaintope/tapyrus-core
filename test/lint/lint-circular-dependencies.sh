@@ -9,6 +9,7 @@
 export LC_ALL=C
 
 EXPECTED_CIRCULAR_DEPENDENCIES=(
+    "chainstate -> chainstatemanager -> chainstate"
     "chainstate -> file_io -> validation -> chainstate"
     "checkpoints -> validation -> checkpoints"
     "file_io -> validation -> file_io"

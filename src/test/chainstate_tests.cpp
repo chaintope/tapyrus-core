@@ -3,9 +3,9 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 /**
- * Unit tests for CChainState class - Edge Cases
+ * Unit tests for Chainstate class - Edge Cases
  *
- * This test suite focuses on edge cases and boundary conditions in the CChainState
+ * This test suite focuses on edge cases and boundary conditions in the Chainstate
  * class and related components. It tests scenarios that are less common but critical
  * for robustness, including:
  *
@@ -188,23 +188,23 @@ BOOST_AUTO_TEST_CASE(disconnect_result_edge_cases)
 }
 
 /**
- * Test CChainState member initialization edge cases
+ * Test Chainstate member initialization edge cases
  *
- * Verify that CChainState members are properly initialized and handle
+ * Verify that Chainstate members are properly initialized and handle
  * edge cases in their initial states.
  */
 BOOST_AUTO_TEST_CASE(chainstate_initialization_edge_cases)
 {
     // Access global chainstate
-    CChainState& chainstate = g_chainstate;
+    Chainstate& chainstate = g_chainstate_manager.ActiveChainstate();
     BlockIndexMap& blockIndex = g_chainstate_manager.BlockIndex();
     LOCK(cs_main);
 
     // Verify mapBlockIndex is accessible and has entries (genesis + chain blocks loaded by fixture)
     BOOST_CHECK(!blockIndex.mapBlockIndex.empty());
 
-    // Verify chainActive is accessible
-    BOOST_CHECK(chainstate.chainActive.Height() >= 0);
+    // Verify the active chain is accessible
+    BOOST_CHECK(chainstate.m_chain.Height() >= 0);
 
     // Verify the best invalid block starts as nullptr
     BOOST_CHECK(g_chainstate_manager.BestInvalid() == nullptr);
@@ -301,7 +301,7 @@ BOOST_AUTO_TEST_CASE(precious_block_edge_cases)
  */
 BOOST_AUTO_TEST_CASE(block_index_candidates_edge_cases)
 {
-    // Create a set with the same comparator as CChainState
+    // Create a set with the same comparator as Chainstate
     std::set<CBlockIndex*, CBlockIndexWorkComparator> testSet;
 
     // Case 1: Empty set operations
@@ -598,7 +598,7 @@ BOOST_AUTO_TEST_CASE(block_sequence_id_edge_cases)
         LOCK(cs_main);
         CValidationState state;
         // AcceptBlockHeader adds just the header to mapBlockIndex with sequence ID 0
-        bool accepted = g_chainstate.AcceptBlockHeader(header, state, &pindexHeader);
+        bool accepted = g_chainstate_manager.ActiveChainstate().AcceptBlockHeader(header, state, &pindexHeader);
 
         if (accepted && pindexHeader) {
             // Verify that header-only blocks have sequence ID 0
@@ -730,7 +730,7 @@ BOOST_AUTO_TEST_CASE(check_block_header_orphan_uses_latest_aggpubkey)
         LOCK(cs_main);
         CValidationState state;
         CBlockIndex* pindex = nullptr;
-        g_chainstate.AcceptBlockHeader(header, state, &pindex, &tempHistory);
+        g_chainstate_manager.ActiveChainstate().AcceptBlockHeader(header, state, &pindex, &tempHistory);
         BOOST_CHECK_EQUAL(state.GetRejectReason(), "prev-blk-not-found");
     }
 }
@@ -820,11 +820,11 @@ BOOST_AUTO_TEST_CASE(disconnect_block_dry_run_preserves_colorid_state)
     // Before the fix, this called IssuedColorIds().Erase(colorid) unconditionally.
     {
         LOCK(cs_main);
-        CBlockIndex* pindex = chainActive.Tip();
+        CBlockIndex* pindex = g_chainstate_manager.ActiveChain().Tip();
         BOOST_REQUIRE(pindex->GetBlockHash() == issueBlock.GetHash());
 
-        CCoinsViewCache coins(pcoinsTip.get());
-        DisconnectResult res = g_chainstate.DisconnectBlock(
+        CCoinsViewCache coins(&g_chainstate_manager.ActiveChainstate().CoinsTip());
+        DisconnectResult res = g_chainstate_manager.ActiveChainstate().DisconnectBlock(
             issueBlock, pindex, coins, g_chainstate_manager.IssuedColorIds(), /*fDryRun=*/true);
         BOOST_CHECK(res != DISCONNECT_FAILED);
     }
@@ -838,7 +838,7 @@ BOOST_AUTO_TEST_CASE(disconnect_block_dry_run_preserves_colorid_state)
     // Level 3 disconnects without reconnecting, so it must erase from a copy, not the live set.
     {
         LOCK(cs_main);
-        BOOST_REQUIRE(CVerifyDB().VerifyDB(pcoinsTip.get(), 3, 0));
+        BOOST_REQUIRE(CVerifyDB().VerifyDB(&g_chainstate_manager.ActiveChainstate().CoinsTip(), 3, 0));
         BOOST_CHECK(g_chainstate_manager.IssuedColorIds().IsIssued(colorid));
     }
 }
@@ -951,7 +951,7 @@ BOOST_AUTO_TEST_CASE(duplicate_nonreissuable_issuance_rejected)
         reissueTx.vout[0].scriptPubKey = colorScript;
 
         CValidationState state;
-        PrecomputedColorData colorData(CTransaction(reissueTx), syntheticView, chainActive.Tip()->nHeight);
+        PrecomputedColorData colorData(CTransaction(reissueTx), syntheticView, g_chainstate_manager.ActiveChain().Tip()->nHeight);
         colorData.SetIssued(g_chainstate_manager.IssuedColorIds());
         bool valid = TransactionColorChecker(colorData).CheckOutputColorIds(state);
 
@@ -1113,7 +1113,7 @@ BOOST_AUTO_TEST_CASE(duplicate_nft_issuance_after_burn_rejected)
         reissueTx.vout[0].scriptPubKey = colorScript;
 
         CValidationState state;
-        PrecomputedColorData colorData(CTransaction(reissueTx), syntheticView, chainActive.Tip()->nHeight);
+        PrecomputedColorData colorData(CTransaction(reissueTx), syntheticView, g_chainstate_manager.ActiveChain().Tip()->nHeight);
         colorData.SetIssued(g_chainstate_manager.IssuedColorIds());
         bool valid = TransactionColorChecker(colorData).CheckOutputColorIds(state);
 

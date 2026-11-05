@@ -856,6 +856,8 @@ struct CTxMempoolAcceptanceOptions {
     CAmount nAbsurdFee;
     CValidationState state;
     int64_t nAcceptTime;
+    /** Resolves inputs against the mempool and the coins tip. AcceptToMemoryPool sets
+     *  the default one, under cs_main, unless the caller has set its own. */
     CCoinsViewMemPool* mempool_view;
     std::vector<CTransactionRef> txnReplaced;
     std::vector<COutPoint> coins_to_uncache;

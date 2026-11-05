@@ -69,8 +69,8 @@ UniValue blockheaderToJSON(const CBlockIndex* blockindex)
     result.pushKV("hash", blockindex->GetBlockHash().GetHex());
     int confirmations = -1;
     // Only report confirmations if the block is on the prod chain
-    if (chainActive.Contains(blockindex))
-        confirmations = chainActive.Height() - blockindex->nHeight + 1;
+    if (g_chainstate_manager.ActiveChain().Contains(blockindex))
+        confirmations = g_chainstate_manager.ActiveChain().Height() - blockindex->nHeight + 1;
     result.pushKV("confirmations", confirmations);
     result.pushKV("height", blockindex->nHeight);
     result.pushKV("features", blockindex->nFeatures);
@@ -85,7 +85,7 @@ UniValue blockheaderToJSON(const CBlockIndex* blockindex)
 
     if (blockindex->pprev)
         result.pushKV("previousblockhash", blockindex->pprev->GetBlockHash().GetHex());
-    CBlockIndex *pnext = chainActive.Next(blockindex);
+    CBlockIndex *pnext = g_chainstate_manager.ActiveChain().Next(blockindex);
     if (pnext)
         result.pushKV("nextblockhash", pnext->GetBlockHash().GetHex());
     return result;
@@ -98,8 +98,8 @@ UniValue blockToJSON(const CBlock& block, const CBlockIndex* blockindex, bool tx
     result.pushKV("hash", blockindex->GetBlockHash().GetHex());
     int confirmations = -1;
     // Only report confirmations if the block is on the prod chain
-    if (chainActive.Contains(blockindex))
-        confirmations = chainActive.Height() - blockindex->nHeight + 1;
+    if (g_chainstate_manager.ActiveChain().Contains(blockindex))
+        confirmations = g_chainstate_manager.ActiveChain().Height() - blockindex->nHeight + 1;
     result.pushKV("confirmations", confirmations);
     result.pushKV("size", (int)::GetSerializeSize(block, SER_NETWORK, PROTOCOL_VERSION));
     result.pushKV("height", blockindex->nHeight);
@@ -128,7 +128,7 @@ UniValue blockToJSON(const CBlock& block, const CBlockIndex* blockindex, bool tx
 
     if (blockindex->pprev)
         result.pushKV("previousblockhash", blockindex->pprev->GetBlockHash().GetHex());
-    CBlockIndex *pnext = chainActive.Next(blockindex);
+    CBlockIndex *pnext = g_chainstate_manager.ActiveChain().Next(blockindex);
     if (pnext)
         result.pushKV("nextblockhash", pnext->GetBlockHash().GetHex());
     return result;
@@ -148,7 +148,7 @@ static UniValue getblockcount(const JSONRPCRequest& request)
         );
 
     LOCK(cs_main);
-    return chainActive.Height();
+    return g_chainstate_manager.ActiveChain().Height();
 }
 
 static UniValue getbestblockhash(const JSONRPCRequest& request)
@@ -165,7 +165,7 @@ static UniValue getbestblockhash(const JSONRPCRequest& request)
         );
 
     LOCK(cs_main);
-    return chainActive.Tip()->GetBlockHash().GetHex();
+    return g_chainstate_manager.ActiveChain().Tip()->GetBlockHash().GetHex();
 }
 
 void RPCNotifyBlockChange(bool ibd, const CBlockIndex * pindex)
@@ -347,10 +347,10 @@ static UniValue getblockhash(const JSONRPCRequest& request)
     LOCK(cs_main);
 
     int32_t nHeight = request.params[0].get_int();
-    if (nHeight < 0 || nHeight > chainActive.Height())
+    if (nHeight < 0 || nHeight > g_chainstate_manager.ActiveChain().Height())
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Block height out of range");
 
-    CBlockIndex* pblockindex = chainActive[nHeight];
+    CBlockIndex* pblockindex = g_chainstate_manager.ActiveChain()[nHeight];
     return pblockindex->GetBlockHash().GetHex();
 }
 // TODO: add proof in result
@@ -542,7 +542,7 @@ static UniValue pruneblockchain(const JSONRPCRequest& request)
     // too low to be a block time (corresponds to timestamp from Sep 2001).
     if (heightParam > 1000000000) {
         // Add a 2 hour buffer to include blocks which might have had old timestamps
-        CBlockIndex* pindex = chainActive.FindEarliestAtLeast(heightParam - TIMESTAMP_WINDOW);
+        CBlockIndex* pindex = g_chainstate_manager.ActiveChain().FindEarliestAtLeast(heightParam - TIMESTAMP_WINDOW);
         if (!pindex) {
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Could not find block with at least the specified timestamp.");
         }
@@ -550,7 +550,7 @@ static UniValue pruneblockchain(const JSONRPCRequest& request)
     }
 
     unsigned int height = (unsigned int) heightParam;
-    unsigned int chainHeight = (unsigned int) chainActive.Height();
+    unsigned int chainHeight = (unsigned int) g_chainstate_manager.ActiveChain().Height();
     if (chainHeight < g_chainstate_manager.GetBlockFileManager().GetOptions().nPruneAfterHeight)
         throw JSONRPCError(RPC_MISC_ERROR, "Blockchain is too short for pruning.");
     else if (height > chainHeight)
@@ -619,17 +619,17 @@ UniValue gettxout(const JSONRPCRequest& request)
     Coin coin;
     if (fMempool) {
         LOCK(mempool.cs);
-        CCoinsViewMemPool view(pcoinsTip.get(), mempool);
+        CCoinsViewMemPool view(&g_chainstate_manager.ActiveChainstate().CoinsTip(), mempool);
         if (!view.GetCoin(out, coin) || mempool.isSpent(out)) {
             return NullUniValue;
         }
     } else {
-        if (!pcoinsTip->GetCoin(out, coin)) {
+        if (!g_chainstate_manager.ActiveChainstate().CoinsTip().GetCoin(out, coin)) {
             return NullUniValue;
         }
     }
 
-    const CBlockIndex* pindex = blockIndex.LookupBlockIndex(pcoinsTip->GetBestBlock());
+    const CBlockIndex* pindex = blockIndex.LookupBlockIndex(g_chainstate_manager.ActiveChainstate().CoinsTip().GetBestBlock());
     ret.pushKV("bestblock", pindex->GetBlockHash().GetHex());
     if (coin.nHeight == MEMPOOL_HEIGHT) {
         ret.pushKV("confirmations", 0);
@@ -673,7 +673,7 @@ static UniValue verifychain(const JSONRPCRequest& request)
     if (!request.params[1].isNull())
         nCheckDepth = request.params[1].get_int();
 
-    return CVerifyDB().VerifyDB(pcoinsTip.get(), nCheckLevel, nCheckDepth);
+    return CVerifyDB().VerifyDB(&g_chainstate_manager.ActiveChainstate().CoinsTip(), nCheckLevel, nCheckDepth);
 }
 
 std::string GetXFieldNameForRpc(TAPYRUS_XFIELDTYPES x){
@@ -724,16 +724,16 @@ UniValue getblockchaininfo(const JSONRPCRequest& request)
     UniValue obj(UniValue::VOBJ);
     obj.pushKV("chain",                 FederationParams().NetworkIDString());
     obj.pushKV("mode",                  TAPYRUS_MODES::GetChainName(gArgs.GetChainMode()));
-    obj.pushKV("blocks",                (int)chainActive.Height());
+    obj.pushKV("blocks",                (int)g_chainstate_manager.ActiveChain().Height());
     obj.pushKV("headers",               g_chainstate_manager.BestHeader() ? g_chainstate_manager.BestHeader()->nHeight : -1);
-    obj.pushKV("bestblockhash",         chainActive.Tip()->GetBlockHash().GetHex());
-    obj.pushKV("mediantime",            (int64_t)chainActive.Tip()->GetMedianTimePast());
-    obj.pushKV("verificationprogress",  GuessVerificationProgress(Params().TxData(), chainActive.Tip()));
+    obj.pushKV("bestblockhash",         g_chainstate_manager.ActiveChain().Tip()->GetBlockHash().GetHex());
+    obj.pushKV("mediantime",            (int64_t)g_chainstate_manager.ActiveChain().Tip()->GetMedianTimePast());
+    obj.pushKV("verificationprogress",  GuessVerificationProgress(Params().TxData(), g_chainstate_manager.ActiveChain().Tip()));
     obj.pushKV("initialblockdownload",  IsInitialBlockDownload());
     obj.pushKV("size_on_disk",          g_chainstate_manager.GetBlockFileManager().CalculateCurrentUsage());
     obj.pushKV("pruned",                g_chainstate_manager.GetBlockFileManager().GetOptions().fPruneMode);
     if (g_chainstate_manager.GetBlockFileManager().GetOptions().fPruneMode) {
-        CBlockIndex* block = chainActive.Tip();
+        CBlockIndex* block = g_chainstate_manager.ActiveChain().Tip();
         assert(block);
         while (block->pprev && (block->pprev->nStatus & BLOCK_HAVE_DATA)) {
             block = block->pprev;
@@ -813,11 +813,11 @@ static UniValue getchaintips(const JSONRPCRequest& request)
     LOCK(cs_main);
 
     /*
-     * Idea:  the set of chain tips is chainActive.tip, plus orphan blocks which do not have another orphan building off of them.
+     * Idea:  the set of chain tips is the active tip, plus orphan blocks which do not have another orphan building off of them.
      * Algorithm:
      *  - Make one pass through mapBlockIndex, picking out the orphan blocks, and also storing a set of the orphan block's pprev pointers.
      *  - Iterate through the orphan blocks. If the block isn't pointed to by another orphan, it is a chain tip.
-     *  - add chainActive.Tip()
+     *  - add the active tip
      */
     std::set<const CBlockIndex*, CompareBlocksByHeight> setTips;
     std::set<const CBlockIndex*> setOrphans;
@@ -825,7 +825,7 @@ static UniValue getchaintips(const JSONRPCRequest& request)
 
     for (const std::pair<const uint256, CBlockIndex*>& item : blockIndex.mapBlockIndex)
     {
-        if (!chainActive.Contains(item.second)) {
+        if (!g_chainstate_manager.ActiveChain().Contains(item.second)) {
             setOrphans.insert(item.second);
             setPrevs.insert(item.second->pprev);
         }
@@ -839,7 +839,7 @@ static UniValue getchaintips(const JSONRPCRequest& request)
     }
 
     // Always report the currently active tip.
-    setTips.insert(chainActive.Tip());
+    setTips.insert(g_chainstate_manager.ActiveChain().Tip());
 
     /* Construct the output array.  */
     UniValue res(UniValue::VARR);
@@ -849,11 +849,11 @@ static UniValue getchaintips(const JSONRPCRequest& request)
         obj.pushKV("height", block->nHeight);
         obj.pushKV("hash", block->phashBlock->GetHex());
 
-        const int branchLen = block->nHeight - chainActive.FindFork(block)->nHeight;
+        const int branchLen = block->nHeight - g_chainstate_manager.ActiveChain().FindFork(block)->nHeight;
         obj.pushKV("branchlen", branchLen);
 
         std::string status;
-        if (chainActive.Contains(block)) {
+        if (g_chainstate_manager.ActiveChain().Contains(block)) {
             // This block is part of the currently active chain.
             status = "active";
         } else if (block->nStatus & BLOCK_FAILED_MASK) {
@@ -1036,7 +1036,7 @@ static UniValue getchaintxstats(const JSONRPCRequest& request)
 
     if (request.params[1].isNull()) {
         LOCK(cs_main);
-        pindex = chainActive.Tip();
+        pindex = g_chainstate_manager.ActiveChain().Tip();
     } else {
         uint256 hash = uint256S(request.params[1].get_str());
         LOCK(cs_main);
@@ -1044,7 +1044,7 @@ static UniValue getchaintxstats(const JSONRPCRequest& request)
         if (!pindex) {
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Block not found");
         }
-        if (!chainActive.Contains(pindex)) {
+        if (!g_chainstate_manager.ActiveChain().Contains(pindex)) {
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Block is not in prod chain");
         }
     }
@@ -1199,7 +1199,7 @@ static UniValue getblockstats(const JSONRPCRequest& request)
     CBlockIndex* pindex;
     if (request.params[0].isNum()) {
         const int height = request.params[0].get_int();
-        const int current_tip = chainActive.Height();
+        const int current_tip = g_chainstate_manager.ActiveChain().Height();
         if (height < 0) {
             throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Target block height %d is negative", height));
         }
@@ -1207,7 +1207,7 @@ static UniValue getblockstats(const JSONRPCRequest& request)
             throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Target block height %d after current tip %d", height, current_tip));
         }
 
-        pindex = chainActive[height];
+        pindex = g_chainstate_manager.ActiveChain()[height];
     } else {
         const std::string strHash = request.params[0].get_str();
         const uint256 hash(uint256S(strHash));
@@ -1215,7 +1215,7 @@ static UniValue getblockstats(const JSONRPCRequest& request)
         if (!pindex) {
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Block not found");
         }
-        if (!chainActive.Contains(pindex)) {
+        if (!g_chainstate_manager.ActiveChain().Contains(pindex)) {
             throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Block is not in chain %s", FederationParams().NetworkIDString()));
         }
     }

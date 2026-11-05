@@ -40,7 +40,7 @@ static std::shared_ptr<CBlock> PrepareBlock(const CScript& coinbase_scriptPubKey
             .CreateNewBlock(coinbase_scriptPubKey)
             ->block);
 
-    block->nTime = ::chainActive.Tip()->GetMedianTimePast() + 1;
+    block->nTime = g_chainstate_manager.ActiveChain().Tip()->GetMedianTimePast() + 1;
     block->hashMerkleRoot = BlockMerkleRoot(*block);
     block->hashImMerkleRoot = BlockMerkleRoot(*block, nullptr, true);
 
@@ -84,6 +84,7 @@ static void AssembleBlock(benchmark::State& state)
     g_chainstate_manager.InitOptions(ChainstateManager::Options(gArgs, /*defaultConsistencyChecks=*/false, /*coinCacheUsage=*/size_t{5000} * 300));
     g_chainstate_manager.InitBlockFileManager(BlockFileManager::Options(gArgs, Params().PruneAfterHeight()));
     BlockIndexMap& blockIndex = g_chainstate_manager.BlockIndex();
+    g_chainstate_manager.InitializeChainstate();
 
     const CKey privKey(DecodeSecret(SIGN_BLOCK_PRIVKEY));
     const CPubKey pubkey(privKey.GetPubKey());
@@ -101,16 +102,17 @@ static void AssembleBlock(benchmark::State& state)
         {
             LOCK(cs_main);
             blockIndex.pblocktreedb.reset(new CBlockTreeDB(1 << 20, true));
-            ::pcoinsdbview.reset(new CCoinsViewDB(g_chainstate_manager.IssuedColorIds(), 1 << 23, true));
+            Chainstate& chainstate = g_chainstate_manager.ActiveChainstate();
+            chainstate.InitCoinsDB(g_chainstate_manager.IssuedColorIds(), 1 << 23, true, false);
+            chainstate.InitCoinsCache();
         }
-        ::pcoinsTip.reset(new CCoinsViewCache(pcoinsdbview.get()));
 
         GetMainSignals().RegisterBackgroundSignalScheduler(scheduler);
 
         LoadGenesisBlock();
         CValidationState state;
         ActivateBestChain(state);
-        assert(::chainActive.Tip() != nullptr);
+        assert(g_chainstate_manager.ActiveChain().Tip() != nullptr);
     }
 
     // Collect some loose transactions that spend the coinbases of our mined blocks

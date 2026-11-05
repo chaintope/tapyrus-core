@@ -520,8 +520,9 @@ void CTxMemPool::removeRecursive(const CTransaction &origTx, MemPoolRemovalReaso
 void CTxMemPool::removeForReorg(const CCoinsViewCache *pcoins, unsigned int nMemPoolHeight, int flags)
 {
     // Remove transactions spending a coinbase which are now immature and no-longer-final transactions
+    AssertLockHeld(cs_main); // coins tip access
     LOCK(cs);
-    CCoinsViewCache& coins_tip = *pcoinsTip;
+    CCoinsViewCache& coins_tip = g_chainstate_manager.ActiveChainstate().CoinsTip();
     CCoinsViewMemPool viewMemPool(&coins_tip, mempool);
     setEntries txToRemove;
     for (indexed_transaction_set::const_iterator it = mapTx.begin(); it != mapTx.end(); it++) {
@@ -607,11 +608,11 @@ void CTxMemPool::removeForBlock(const std::vector<CTransactionRef>& vtx, unsigne
 
 void CTxMemPool::removeForScriptFlagChange(unsigned int newMempoolScriptFlags, int32_t newBlockHeight)
 {
-    AssertLockHeld(cs_main); // pcoinsTip access
+    AssertLockHeld(cs_main); // coins tip access
     LOCK(cs);
     // Wrap CCoinsViewMemPool in a CCoinsViewCache so it satisfies CheckInputs's
     // parameter type while still resolving intra-mempool dependencies.
-    CCoinsViewMemPool viewMemPool(pcoinsTip.get(), *this);
+    CCoinsViewMemPool viewMemPool(&g_chainstate_manager.ActiveChainstate().CoinsTip(), *this);
     CCoinsViewCache view(&viewMemPool);
 
     setEntries txToRemove;
@@ -1180,4 +1181,4 @@ std::string RemovalReasonToString(const MemPoolRemovalReason& r) noexcept
         default:return "unknown";
     }
 }
-CTxMempoolAcceptanceOptions:: CTxMempoolAcceptanceOptions():context(ValidationContext::TRANSACTION), flags(MempoolAcceptanceFlags::NONE), nAbsurdFee(0), nAcceptTime(0), mempool_view(new CCoinsViewMemPool(pcoinsTip.get(), mempool)){}
+CTxMempoolAcceptanceOptions:: CTxMempoolAcceptanceOptions():context(ValidationContext::TRANSACTION), flags(MempoolAcceptanceFlags::NONE), nAbsurdFee(0), nAcceptTime(0), mempool_view(nullptr){}

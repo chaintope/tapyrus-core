@@ -62,8 +62,8 @@ bool BaseIndex::Init()
     }
 
     LOCK(cs_main);
-    m_best_block_index = FindForkInGlobalIndex(chainActive, locator);
-    m_synced = m_best_block_index.load() == chainActive.Tip();
+    m_best_block_index = FindForkInGlobalIndex(g_chainstate_manager.ActiveChain(), locator);
+    m_synced = m_best_block_index.load() == g_chainstate_manager.ActiveChain().Tip();
     return true;
 }
 
@@ -72,15 +72,15 @@ static const CBlockIndex* NextSyncBlock(const CBlockIndex* pindex_prev)
     AssertLockHeld(cs_main);
 
     if (!pindex_prev) {
-        return chainActive.Genesis();
+        return g_chainstate_manager.ActiveChain().Genesis();
     }
 
-    const CBlockIndex* pindex = chainActive.Next(pindex_prev);
+    const CBlockIndex* pindex = g_chainstate_manager.ActiveChain().Next(pindex_prev);
     if (pindex) {
         return pindex;
     }
 
-    return chainActive.Next(chainActive.FindFork(pindex_prev));
+    return g_chainstate_manager.ActiveChain().Next(g_chainstate_manager.ActiveChain().FindFork(pindex_prev));
 }
 
 void BaseIndex::ThreadSync()
@@ -144,7 +144,7 @@ void BaseIndex::ThreadSync()
 bool BaseIndex::WriteBestBlock(const CBlockIndex* block_index)
 {
     LOCK(cs_main);
-    if (!GetDB().WriteBestBlock(chainActive.GetLocator(block_index))) {
+    if (!GetDB().WriteBestBlock(g_chainstate_manager.ActiveChain().GetLocator(block_index))) {
         return error("%s: Failed to write locator to disk", __func__);
     }
     return true;
@@ -237,9 +237,9 @@ bool BaseIndex::BlockUntilSyncedToCurrentChain()
 
     {
         // Skip the queue-draining stuff if we know we're caught up with
-        // chainActive.Tip().
+        // the active tip.
         LOCK(cs_main);
-        const CBlockIndex* chain_tip = chainActive.Tip();
+        const CBlockIndex* chain_tip = g_chainstate_manager.ActiveChain().Tip();
         const CBlockIndex* best_block_index = m_best_block_index.load();
         if (best_block_index->GetAncestor(chain_tip->nHeight) == chain_tip) {
             return true;

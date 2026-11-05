@@ -348,6 +348,7 @@ add_library(tapyrus_chainstate STATIC EXCLUDE_FROM_ALL
   chain.cpp
   chainstate.cpp
   chainstatemanager.cpp
+  coinsviews.cpp
   contextualconsensusrules.cpp
   checkpoints.cpp
   cs_main.cpp
