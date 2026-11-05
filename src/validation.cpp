@@ -434,23 +434,6 @@ static bool DoAllInputsExist(const CTransaction& tx, CValidationState& state, CT
     return true;
 }
 
-unsigned int GetBlockScriptFlags(int32_t blockHeight) {
-    AssertLockHeld(cs_main);
-
-    unsigned int flags = SCRIPT_VERIFY_NONE;
-
-    // Activation logic and network-id lookup are encapsulated in the softfork manager.
-    if (GetSoftForkManager().IsActive(SCRIPT_VERIFY_CP2SH_COLORED, blockHeight))
-        flags |= SCRIPT_VERIFY_CP2SH_COLORED;
-
-    return flags;
-}
-
-unsigned int GetBlockScriptFlags(const CBlockIndex* pindex) {
-    return GetBlockScriptFlags(pindex->nHeight);
-}
-
-
 static bool AcceptToMemoryPoolWorker(const CTransactionRef &ptx, CTxMempoolAcceptanceOptions& opt)
 {
     const CTransaction& tx = *ptx;
@@ -743,8 +726,7 @@ static bool AcceptToMemoryPoolWorker(const CTransactionRef &ptx, CTxMempoolAccep
         // activation at height H is enforced by the mempool at tip == H-1.
         // Using tip height here would admit txs that are valid pre-activation but
         // invalid post-activation, producing an invalid block at height H.
-        const int32_t nextBlockHeight = chainActive.Tip()->nHeight + 1;
-        const unsigned int tipScriptFlags = GetBlockScriptFlags(nextBlockHeight);
+        const unsigned int tipScriptFlags = g_chainstate_manager.RulesAfter(*chainActive.Tip()).ScriptFlags();
         const unsigned int mempoolScriptFlags = STANDARD_SCRIPT_VERIFY_FLAGS | tipScriptFlags;
         // Pass tipScriptFlags as mandatoryFlags so that softfork flags active at
         // nextBlockHeight are treated as mandatory even when they also appear in
@@ -1120,7 +1102,7 @@ bool ContextualCheckBlockHeader(const CBlockHeader& block, CValidationState& sta
         // Don't accept any forks from the prod chain prior to last checkpoint.
         // GetLastCheckpoint finds the last checkpoint in MapCheckpoints that's in our
         // MapBlockIndex.
-        CBlockIndex* pcheckpoint = Checkpoints::GetLastCheckpoint(g_consensus_settings->Checkpoints());
+        CBlockIndex* pcheckpoint = Checkpoints::GetLastCheckpoint(g_chainstate_manager.Settings().Checkpoints());
         if (pcheckpoint && nHeight < pcheckpoint->nHeight)
             return state.DoS(100, error("%s: forked chain older than last checkpoint (height %d)", __func__, nHeight), REJECT_CHECKPOINT, "bad-fork-prior-to-checkpoint");
     }
@@ -1191,7 +1173,7 @@ bool ProcessNewBlock(const std::shared_ptr<const CBlock> pblock, bool fForceProc
         CValidationState state;
         // Ensure that CheckBlock() passes before calling AcceptBlock, as
         // belt-and-suspenders.
-        bool ret = CheckBlock(*pblock, state, g_chainstate_manager.XFieldHistory());
+        bool ret = CheckBlock(*pblock, state, g_chainstate_manager.RulesLatest());
 
         LOCK(cs_main);
 
@@ -1228,7 +1210,7 @@ bool TestBlockValidity(CValidationState& state, const CBlock& block, CBlockIndex
     // NOTE: CheckBlockHeader is called by CheckBlock
     if (!ContextualCheckBlockHeader(block, state, pindexPrev, GetAdjustedTime()))
         return error("%s: Consensus::ContextualCheckBlockHeader: %s", __func__, FormatStateMessage(state));
-    if (!CheckBlock(block, state, g_chainstate_manager.XFieldHistory(), fCheckPOW, fCheckMerkleRoot, pindexPrev->nHeight + 1))
+    if (!CheckBlock(block, state, g_chainstate_manager.RulesAfter(*pindexPrev), fCheckPOW, fCheckMerkleRoot))
         return error("%s: Consensus::CheckBlock: %s", __func__, FormatStateMessage(state));
     if (!ContextualCheckBlock(block, state, pindexPrev))
         return error("%s: Consensus::ContextualCheckBlock: %s", __func__, FormatStateMessage(state));

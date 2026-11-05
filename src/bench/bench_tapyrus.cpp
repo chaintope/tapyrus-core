@@ -76,8 +76,8 @@ int main(int argc, char** argv)
     SetupEnvironment();
     writeTestGenesisBlockToFile(GetDataDir(false));
     SelectFederationParams(TAPYRUS_OP_MODE::PROD);
-    g_consensus_settings = std::make_unique<const ConsensusSettings>(ReadGenesisBlock(), TAPYRUS_OP_MODE::PROD, FederationParams().NetworkId());
-    g_chainstate_manager.InitXFieldHistory(g_consensus_settings->GenesisBlock());
+    g_chainstate_manager.InitConsensusSettings(std::make_unique<const ConsensusSettings>(ReadGenesisBlock(), TAPYRUS_OP_MODE::PROD, FederationParams().NetworkId()));
+    g_chainstate_manager.InitXFieldHistory(g_chainstate_manager.Settings().GenesisBlock());
 
     int64_t evaluations = gArgs.GetArg("-evals", DEFAULT_BENCH_EVALUATIONS);
     std::string regex_filter = gArgs.GetArg("-filter", DEFAULT_BENCH_FILTER);

@@ -23,8 +23,7 @@
 #include <primitives/block.h>
 #include <pubkey.h>
 #include <tinyformat.h>
-#include <xfieldhistory.h>
-#include <xfieldhistorymap.h>
+#include <heightderivedconsensusrules.h>
 
 #ifndef TAPYRUS_GENESIS_SKIP
 // tapyrus coinbase must have blockheight in the prevout.n. Only meaningful
@@ -64,7 +63,7 @@ std::string FormatStateMessage(const CValidationState &state)
         state.GetRejectCode());
 }
 
-bool CheckBlockHeader(const CBlockHeader& block, CValidationState& state, CXFieldHistoryMap& xfieldHistory, int nHeight, bool fCheckPOW)
+bool CheckBlockHeader(const CBlockHeader& block, CValidationState& state, const HeightDerivedConsensusRules& consensusAtHeight, bool fCheckPOW)
 {
     //check block features
     if(block.nFeatures != ConsensusConstants::TAPYRUS_BLOCK_FEATURES)
@@ -87,27 +86,16 @@ bool CheckBlockHeader(const CBlockHeader& block, CValidationState& state, CXFiel
             strprintf("Proof must be %u bytes, got %u",
                       CPubKey::SCHNORR_SIGNATURE_SIZE, block.proof.size()));
 
-    // Aggpubkey to verify blocks is read from the xfield history at the block's
-    // height, not at the chain tip. Both temp and non-temp paths now call Get(height) uniformly.
-    // nHeight < 0 means the caller has no known block height (e.g. AcceptBlockHeader
-    // with no pindexPrev, or ReadBlockFromDisk on an orphan child during reindex).
-    // Use UINT32_MAX so Get() returns the latest rotation entry for those callers,
-    // avoiding spurious bad-proof failures against post-rotation headers.
-    // nHeight == 0 is the genesis block and must use height 0 (returns genesis key).
-    const uint32_t uHeight = (nHeight >= 0) ? static_cast<uint32_t>(nHeight) : UINT32_MAX;
-    const XFieldAggPubKey aggregatePubkeyObj = std::get<XFieldAggPubKey>(xfieldHistory.Get(TAPYRUS_XFIELDTYPES::AGGPUBKEY, uHeight).xfieldValue);
-    CPubKey aggregatePubkey(aggregatePubkeyObj.getPubKey());
-
+    // The aggregate key is the one at the block's height, not at the chain tip.
     const uint256 blockHash = block.GetHashForSign();
-
-    //verify signature
-    if(!aggregatePubkey.Verify_Schnorr(blockHash, block.proof))
-        return state.Invalid(false, REJECT_INVALID, "bad-proof", strprintf("Proof verification failed at height [%d]", nHeight));
+    if(!consensusAtHeight.AggregatePubKey().Verify_Schnorr(blockHash, block.proof))
+        return state.Invalid(false, REJECT_INVALID, "bad-proof", strprintf("Proof verification failed at height [%s]",
+                             consensusAtHeight.Height() ? std::to_string(*consensusAtHeight.Height()) : "unknown"));
 
     return true;
 }
 
-bool CheckBlock(const CBlock& block, CValidationState& state, CXFieldHistoryMap& xfieldHistory, bool fCheckPOW, bool fCheckMerkleRoot, int nHeight)
+bool CheckBlock(const CBlock& block, CValidationState& state, const HeightDerivedConsensusRules& consensusAtHeight, bool fCheckPOW, bool fCheckMerkleRoot)
 {
     // These are checks that are independent of context.
 
@@ -154,30 +142,19 @@ bool CheckBlock(const CBlock& block, CValidationState& state, CXFieldHistoryMap&
         return state.DoS(100, false, REJECT_INVALID, "bad-cb-invalid", false, "incorrect block height in coinbase");
 #endif
 
-    // Use the structurally-derived height for xfield policy lookups.
-    // When nHeight == -1 (caller has no index context, e.g. the pre-lock belt-and-suspenders
-    // check in ProcessNewBlock), fall back to UINT32_MAX so Get() returns the latest entry —
-    // the same conservative behaviour as AcceptBlockHeader's secondary check.
-    // Never use block.GetHeight() (coinbase prevout.n) for lookups: that field is
-    // attacker-controlled and is only verified equal to the structural height for
-    // blocks adjacent to the tip (see isBlockHeightInCoinbase).
-    uint32_t height = (nHeight >= 0) ? static_cast<uint32_t>(nHeight) : UINT32_MAX;
     // All potential-corruption validation must be done before we do any
     // transaction validation, as otherwise we may mark the header as invalid
     // because we receive the wrong transactions for it.
 
-    // Size limits - use Get(height) to get the correct limit for this specific block height
-    // This is important during reindex when processing blocks with different max block sizes
-    XFieldMaxBlockSize maxBlockSizeChange = std::get<XFieldMaxBlockSize>(xfieldHistory.Get(TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE, height).xfieldValue);
-
+    // Size limits: the limit at this block's position, which can differ from the tip's during reindex.
     uint32_t serializedSize = ::GetSerializeSize(block, SER_NETWORK, PROTOCOL_VERSION);
-    if (block.vtx.empty() || block.vtx.size() > maxBlockSizeChange.data || serializedSize > maxBlockSizeChange.data) {
+    if (block.vtx.empty() || block.vtx.size() > consensusAtHeight.MaxBlockSize() || serializedSize > consensusAtHeight.MaxBlockSize()) {
         return state.DoS(100, false, REJECT_INVALID, "bad-blk-length", false, "size limits failed");
     }
 
     // Check that the header is valid (particularly PoW).  This is mostly
     // redundant with the call in AcceptBlockHeader.
-    if (!CheckBlockHeader(block, state, xfieldHistory, height, fCheckPOW))
+    if (!CheckBlockHeader(block, state, consensusAtHeight, fCheckPOW))
         return false;
 
     //the rest must not be coinbase
@@ -189,7 +166,7 @@ bool CheckBlock(const CBlock& block, CValidationState& state, CXFieldHistoryMap&
     for (const auto& tx : block.vtx)
     {
         // Each transaction must fit in this block's own size limit, not the latest one.
-        if (!CheckTransaction(*tx, state, maxBlockSizeChange.data, true))
+        if (!CheckTransaction(*tx, state, consensusAtHeight.MaxBlockSize(), true))
             return state.Invalid(false, state.GetRejectCode(), state.GetRejectReason(),
                                  strprintf("Transaction check failed (tx hash %s) %s", tx->GetHashMalFix().ToString(), state.GetDebugMessage()));
     }
@@ -198,7 +175,7 @@ bool CheckBlock(const CBlock& block, CValidationState& state, CXFieldHistoryMap&
     {
         nSigOps += GetLegacySigOpCount(*tx);
     }
-    if (nSigOps > maxBlockSizeChange.GetMaxBlockSigops())
+    if (nSigOps > consensusAtHeight.MaxBlockSigops())
         return state.DoS(100, false, REJECT_INVALID, "bad-blk-sigops", false, strprintf("out-of-bounds SigOpCount [%d]", nSigOps));
 
     if (fCheckPOW && fCheckMerkleRoot)

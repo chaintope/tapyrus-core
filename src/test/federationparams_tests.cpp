@@ -6,6 +6,7 @@
 #include <consensussettings.h>
 #include <eccverifyhandle.h>
 #include <genesisblock.h>
+#include <heightderivedconsensusrules.h>
 #include <softforkmanager.h>
 #include <script/interpreter.h>
 #include <script/sigcache.h>
@@ -125,12 +126,10 @@ BOOST_AUTO_TEST_CASE(create_genesis_block)
     CPubKey aggregatePubkey(validAggPubKey, validAggPubKey + 33);
     const auto genesis = createGenesisBlock(aggregatePubkey, key);
 
-    // CheckBlock() reads AGGPUBKEY/MAXBLOCKSIZE from the history it is given,
-    // so seed one from this genesis block.
-    CXFieldHistory xfieldHistory(genesis);
-
+    // The genesis block's own rules: its aggregate key and the initial block size limit.
+    const HeightDerivedConsensusRules consensusAtHeight(0, ConsensusConstants::MAX_BLOCK_SIZE, aggregatePubkey, SCRIPT_VERIFY_NONE);
     CValidationState state;
-    BOOST_CHECK(CheckBlock(genesis, state, xfieldHistory, true, true));
+    BOOST_CHECK(CheckBlock(genesis, state, consensusAtHeight, true, true));
 }
 
 BOOST_AUTO_TEST_CASE(create_genesis_block_one_publickey)
