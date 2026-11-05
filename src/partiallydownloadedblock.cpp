@@ -5,6 +5,8 @@
 
 #include <partiallydownloadedblock.h>
 
+#include <heightderivedconsensusrules.h>
+
 #include <chainstatemanager.h>
 #include <consensusconstants.h>
 #include <consensus/validation.h>
@@ -148,7 +150,7 @@ bool PartiallyDownloadedBlock::IsTxAvailable(size_t index) const {
     return txn_available[index] != nullptr;
 }
 
-ReadStatus PartiallyDownloadedBlock::FillBlock(CBlock& block, const std::vector<CTransactionRef>& vtx_missing, int nHeight) {
+ReadStatus PartiallyDownloadedBlock::FillBlock(CBlock& block, const std::vector<CTransactionRef>& vtx_missing, const HeightDerivedConsensusRules& consensusAtHeight) {
     if (header.IsNull()) return READ_STATUS_INVALID;
 
     uint256 hash = header.GetHash();
@@ -173,7 +175,7 @@ ReadStatus PartiallyDownloadedBlock::FillBlock(CBlock& block, const std::vector<
         return READ_STATUS_INVALID;
 
     CValidationState state;
-    if (!CheckBlock(block, state, g_chainstate_manager.XFieldHistory(), true, true, nHeight)) {
+    if (!CheckBlock(block, state, consensusAtHeight, true, true)) {
         // TODO: We really want to just check merkle tree manually here,
         // but that is expensive, and CheckBlock caches a block's
         // "checked-status" (in the CBlock?). CBlock should be able to

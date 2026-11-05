@@ -286,7 +286,7 @@ BOOST_AUTO_TEST_CASE(blockHeaderWithxfieldType3_maxxfieldtype)
 BOOST_AUTO_TEST_CASE(checkblock_tx_size_uses_block_height_limit)
 {
     const uint32_t laterLimit{2000};
-    CXFieldHistory history(g_consensus_settings->GenesisBlock());
+    CXFieldHistory history(g_chainstate_manager.Settings().GenesisBlock());
     history.Add(TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE, XFieldChange(XFieldMaxBlockSize(laterLimit), 100, uint256()));
 
     CMutableTransaction coinbase;
@@ -315,12 +315,16 @@ BOOST_AUTO_TEST_CASE(checkblock_tx_size_uses_block_height_limit)
     block.vtx.push_back(MakeTransactionRef(coinbase));
     block.vtx.push_back(MakeTransactionRef(bigTx));
 
+    CBlockIndex at50;
+    at50.nHeight = 50;
     CValidationState state;
-    const bool ok = CheckBlock(block, state, history, false, false, 50);
+    const bool ok = CheckBlock(block, state, g_chainstate_manager.RulesAt(at50, history), false, false);
     BOOST_CHECK_MESSAGE(ok, FormatStateMessage(state));
 
+    CBlockIndex at150;
+    at150.nHeight = 150;
     CValidationState laterState;
-    BOOST_CHECK(!CheckBlock(block, laterState, history, false, false, 150));
+    BOOST_CHECK(!CheckBlock(block, laterState, g_chainstate_manager.RulesAt(at150, history), false, false));
     BOOST_CHECK_EQUAL(laterState.GetRejectReason(), "bad-blk-length");
 }
 

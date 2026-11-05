@@ -276,7 +276,7 @@ bool LoadExternalBlockFile(FILE* fileIn, CDiskBlockPos *dbp, CXFieldHistoryMap* 
                 {
                     LOCK(cs_main);
                     // detect out of order blocks, and store them for later
-                    if (hash != g_consensus_settings->GenesisBlock().GetHash() && !LookupBlockIndex(block.hashPrevBlock)) {
+                    if (hash != g_chainstate_manager.Settings().GenesisBlock().GetHash() && !LookupBlockIndex(block.hashPrevBlock)) {
                         LogPrint(BCLog::REINDEX, "%s: Out of order block %s, parent %s not known\n", __func__, hash.ToString(),
                                 block.hashPrevBlock.ToString());
                         if (dbp)
@@ -294,13 +294,13 @@ bool LoadExternalBlockFile(FILE* fileIn, CDiskBlockPos *dbp, CXFieldHistoryMap* 
                         if (state.IsError()) {
                           break;
                       }
-                    } else if (hash != g_consensus_settings->GenesisBlock().GetHash() && pindex->nHeight % 1000 == 0) {
+                    } else if (hash != g_chainstate_manager.Settings().GenesisBlock().GetHash() && pindex->nHeight % 1000 == 0) {
                       LogPrint(BCLog::REINDEX, "%s Block Import: already had block %s at height %d\n", __func__, hash.ToString(), pindex->nHeight);
                     }
                 }
 
                 // Activate the genesis block so normal node progress can continue
-                if (hash == g_consensus_settings->GenesisBlock().GetHash()) {
+                if (hash == g_chainstate_manager.Settings().GenesisBlock().GetHash()) {
                     CValidationState state;
                     if (!ActivateBestChain(state)) {
                         break;
@@ -319,7 +319,8 @@ bool LoadExternalBlockFile(FILE* fileIn, CDiskBlockPos *dbp, CXFieldHistoryMap* 
                     while (range.first != range.second) {
                         std::multimap<uint256, CDiskBlockPos>::iterator it = range.first;
                         std::shared_ptr<CBlock> pblockrecursive = std::make_shared<CBlock>();
-                        if (ReadBlockFromDisk(*pblockrecursive, it->second, pxfieldHistory))
+                        const CXFieldHistoryMap& history = pxfieldHistory ? *pxfieldHistory : g_chainstate_manager.XFieldHistory();
+                        if (ReadBlockFromDisk(*pblockrecursive, it->second, g_chainstate_manager.RulesLatest(history)))
                         {
                             LogPrint(BCLog::REINDEX, "%s: Processing out of order child %s of %s\n", __func__, pblockrecursive->GetHash().ToString(),
                                     head.ToString());
@@ -582,7 +583,7 @@ bool ReadRawBlockFromDisk(std::vector<uint8_t>& block, const CDiskBlockPos& pos,
 }
 
 
-bool ReadBlockFromDisk(CBlock& block, const CDiskBlockPos& pos, CXFieldHistoryMap* pxfieldHistory, int nHeight)
+bool ReadBlockFromDisk(CBlock& block, const CDiskBlockPos& pos, const HeightDerivedConsensusRules& consensusAtHeight)
 {
     block.SetNull();
 
@@ -600,13 +601,11 @@ bool ReadBlockFromDisk(CBlock& block, const CDiskBlockPos& pos, CXFieldHistoryMa
         return error("Deserialize or I/O error - %s at %s while reading block", e.what(), pos.ToString());
     }
 
-    // Use nHeight from the trusted block index (pindex->nHeight) when available.
-    // When nHeight == -1 (caller has no index context), fall back to UINT32_MAX so
-    // Get() returns the latest aggregate key — the safe conservative choice.
-    // Never use block.GetHeight() (coinbase prevout.n): that field is attacker-controlled.
+    // The rules come from the trusted block index, never from block.GetHeight()
+    // (coinbase prevout.n), which is attacker-controlled.
     CValidationState state;
-    if(!CheckBlockHeader(block.GetBlockHeader(), state, pxfieldHistory ? *pxfieldHistory : g_chainstate_manager.XFieldHistory(), nHeight, true))
-        return error("Errors in block header at %s while reading block: %s nHeight = %d", pos.ToString(), FormatStateMessage(state), nHeight);
+    if(!CheckBlockHeader(block.GetBlockHeader(), state, consensusAtHeight, true))
+        return error("Errors in block header at %s while reading block: %s", pos.ToString(), FormatStateMessage(state));
 
     return true;
 }
@@ -619,10 +618,8 @@ bool ReadBlockFromDisk(CBlock& block, const CBlockIndex* pindex)
         blockPos = pindex->GetBlockPos();
     }
 
-    // Pass pindex->nHeight so CheckBlockHeader uses the correct aggregate key for
-    // this block's height, not the latest one.  pindex->nHeight is from our trusted
-    // block index and is not attacker-controlled.
-    if (!ReadBlockFromDisk(block, blockPos, nullptr, pindex->nHeight))
+    // The rules at this block's height, not the latest ones.
+    if (!ReadBlockFromDisk(block, blockPos, g_chainstate_manager.RulesAt(*pindex)))
         return false;
     if (block.GetHash() != pindex->GetBlockHash())
         return error("GetHash() doesn't match index for %s at %s while reading block",

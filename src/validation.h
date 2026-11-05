@@ -45,6 +45,7 @@ class CScriptCheck;
 class CBlockPolicyEstimator;
 class CTxMemPool;
 class CValidationState;
+class HeightDerivedConsensusRules;
 struct ChainTxData;
 struct XFieldChange;
 
@@ -380,10 +381,10 @@ bool ContextualCheckBlockHeader(const CBlockHeader& block, CValidationState& sta
 bool ContextualCheckBlock(const CBlock& block, CValidationState& state, const CBlockIndex* pindexPrev);
 
 /** Context-independent header validity checks */
-bool CheckBlockHeader(const CBlockHeader& block, CValidationState& state, CXFieldHistoryMap& xfieldHistory, int nHeight = -1, bool fCheckPOW = true);
+bool CheckBlockHeader(const CBlockHeader& block, CValidationState& state, const HeightDerivedConsensusRules& consensusAtHeight, bool fCheckPOW = true);
 
 /** Context-independent validity checks */
-bool CheckBlock(const CBlock& block, CValidationState& state, CXFieldHistoryMap& xfieldHistory, bool fCheckPOW = true, bool fCheckMerkleRoot = true, int nHeight = -1);
+bool CheckBlock(const CBlock& block, CValidationState& state, const HeightDerivedConsensusRules& consensusAtHeight, bool fCheckPOW = true, bool fCheckMerkleRoot = true);
 
 /** Check a block is completely valid from start to finish (only works on top of our current best block) */
 bool TestBlockValidity(CValidationState& state, const CBlock& block, CBlockIndex* pindexPrev, bool fCheckPOW = true, bool fCheckMerkleRoot = true) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
@@ -435,8 +436,6 @@ static const unsigned int REJECT_HIGHFEE = 0x100;
 /** Get block file info entry for one block file */
 CBlockFileInfo* GetBlockFileInfo(size_t n);
 
-unsigned int GetBlockScriptFlags(const CBlockIndex* pindex);
-unsigned int GetBlockScriptFlags(int32_t blockHeight);
 
 //! Check whether the block associated with this index entry is pruned or not.
 inline bool IsBlockPruned(const CBlockIndex* pblockindex)
