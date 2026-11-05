@@ -116,9 +116,9 @@ static CSoftForkManager RegisterSoftForks(uint32_t networkId)
     softForks.Register(CSoftFork(networkId, SCRIPT_VERIFY_CP2SH_COLORED,
                                  HeightActivation(CP2SH_ACTIVATION_TEST_HEIGHT)));
 #else
-    if (networkId == ConsensusSettings::TESTNET_NETWORK_ID) {
+    if (networkId == ConsensusConstants::TESTNET_NETWORK_ID) {
         softForks.Register(CSoftFork(networkId, SCRIPT_VERIFY_CP2SH_COLORED,
-                                     HeightActivation(ConsensusSettings::TESTNET_CP2SH_ACTIVATION_HEIGHT)));
+                                     HeightActivation(ConsensusConstants::TESTNET_CP2SH_ACTIVATION_HEIGHT)));
     }
 #endif
     return softForks;

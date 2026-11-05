@@ -157,7 +157,7 @@ BOOST_AUTO_TEST_CASE(create_genesis_block_one_publickey)
     BOOST_CHECK_EQUAL(HexStr(scriptSig.begin(), scriptSig.end()), "");
 
     BOOST_CHECK_EQUAL(baseChainParams->GenesisBlock().vtx[0]->vout.size(), 1);
-    BOOST_CHECK_EQUAL(baseChainParams->GenesisBlock().vtx[0]->vout[0].nValue, 50 * ConsensusSettings::COIN);
+    BOOST_CHECK_EQUAL(baseChainParams->GenesisBlock().vtx[0]->vout[0].nValue, 50 * ConsensusConstants::COIN);
     CScript scriptPubKey = baseChainParams->GenesisBlock().vtx[0]->vout[0].scriptPubKey;
     BOOST_CHECK_EQUAL(HexStr(scriptPubKey.begin(), scriptPubKey.end()),
     "76a914834e0737cdb9008db614cd95ec98824e952e3dc588ac");
@@ -175,16 +175,16 @@ BOOST_AUTO_TEST_CASE(softfork_manager_testnet_activation_heights)
 {
     // Mirror the production registration for Chaintope testnet (networkId 1939510133).
     CSoftForkManager sfm;
-    sfm.Register(CSoftFork(ConsensusSettings::TESTNET_NETWORK_ID, SCRIPT_VERIFY_CP2SH_COLORED,
-                           HeightActivation(ConsensusSettings::TESTNET_CP2SH_ACTIVATION_HEIGHT)));
+    sfm.Register(CSoftFork(ConsensusConstants::TESTNET_NETWORK_ID, SCRIPT_VERIFY_CP2SH_COLORED,
+                           HeightActivation(ConsensusConstants::TESTNET_CP2SH_ACTIVATION_HEIGHT)));
 
     // One block before activation: not yet active.
-    BOOST_CHECK(!sfm.IsActive(ConsensusSettings::TESTNET_NETWORK_ID, SCRIPT_VERIFY_CP2SH_COLORED, ConsensusSettings::TESTNET_CP2SH_ACTIVATION_HEIGHT - 1));
-    BOOST_CHECK_EQUAL(sfm.GetScriptFlags(ConsensusSettings::TESTNET_NETWORK_ID, ConsensusSettings::TESTNET_CP2SH_ACTIVATION_HEIGHT - 1), 0u);
+    BOOST_CHECK(!sfm.IsActive(ConsensusConstants::TESTNET_NETWORK_ID, SCRIPT_VERIFY_CP2SH_COLORED, ConsensusConstants::TESTNET_CP2SH_ACTIVATION_HEIGHT - 1));
+    BOOST_CHECK_EQUAL(sfm.GetScriptFlags(ConsensusConstants::TESTNET_NETWORK_ID, ConsensusConstants::TESTNET_CP2SH_ACTIVATION_HEIGHT - 1), 0u);
 
     // At activation height: active.
-    BOOST_CHECK(sfm.IsActive(ConsensusSettings::TESTNET_NETWORK_ID, SCRIPT_VERIFY_CP2SH_COLORED, ConsensusSettings::TESTNET_CP2SH_ACTIVATION_HEIGHT));
-    BOOST_CHECK_EQUAL(sfm.GetScriptFlags(ConsensusSettings::TESTNET_NETWORK_ID, ConsensusSettings::TESTNET_CP2SH_ACTIVATION_HEIGHT),
+    BOOST_CHECK(sfm.IsActive(ConsensusConstants::TESTNET_NETWORK_ID, SCRIPT_VERIFY_CP2SH_COLORED, ConsensusConstants::TESTNET_CP2SH_ACTIVATION_HEIGHT));
+    BOOST_CHECK_EQUAL(sfm.GetScriptFlags(ConsensusConstants::TESTNET_NETWORK_ID, ConsensusConstants::TESTNET_CP2SH_ACTIVATION_HEIGHT),
                       static_cast<unsigned>(SCRIPT_VERIFY_CP2SH_COLORED));
 
     // Unregistered network: IsActive returns true (active from genesis by default).

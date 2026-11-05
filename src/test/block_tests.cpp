@@ -179,7 +179,7 @@ BOOST_AUTO_TEST_CASE(create_genesis_block_default)
     BOOST_CHECK_EQUAL(HexStr(scriptSig.begin(), scriptSig.end()), "");
 
     BOOST_CHECK_EQUAL(genesis.vtx[0]->vout.size(), 1);
-    BOOST_CHECK_EQUAL(genesis.vtx[0]->vout[0].nValue, 50 * ConsensusSettings::COIN);
+    BOOST_CHECK_EQUAL(genesis.vtx[0]->vout[0].nValue, 50 * ConsensusConstants::COIN);
     CScript scriptPubKey = genesis.vtx[0]->vout[0].scriptPubKey;
     BOOST_CHECK_EQUAL(HexStr(scriptPubKey.begin(), scriptPubKey.end()), "76a914834e0737cdb9008db614cd95ec98824e952e3dc588ac");
 
@@ -311,7 +311,7 @@ BOOST_AUTO_TEST_CASE(checkblock_tx_size_uses_block_height_limit)
     BOOST_CHECK_EQUAL(txState.GetRejectReason(), "bad-txns-oversize");
 
     CBlock block;
-    block.nFeatures = ConsensusSettings::TAPYRUS_BLOCK_FEATURES;
+    block.nFeatures = ConsensusConstants::TAPYRUS_BLOCK_FEATURES;
     block.vtx.push_back(MakeTransactionRef(coinbase));
     block.vtx.push_back(MakeTransactionRef(bigTx));
 

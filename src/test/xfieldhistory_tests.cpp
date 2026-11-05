@@ -236,7 +236,7 @@ BOOST_AUTO_TEST_CASE(xfieldhistory_init_add_remove_edges)
     BOOST_CHECK_EQUAL(fresh.GetListCopy(TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE).size(), 1);
     BOOST_CHECK(fresh.Get(TAPYRUS_XFIELDTYPES::AGGPUBKEY, 0).xfieldValue == genesis.xfield.xfieldValue);
     BOOST_CHECK_EQUAL(fresh.Get(TAPYRUS_XFIELDTYPES::AGGPUBKEY, 0).blockHash, genesis.GetHash());
-    BOOST_CHECK_EQUAL(std::get<XFieldMaxBlockSize>(fresh.Get(TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE, 0).xfieldValue).data, ConsensusSettings::MAX_BLOCK_SIZE);
+    BOOST_CHECK_EQUAL(std::get<XFieldMaxBlockSize>(fresh.Get(TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE, 0).xfieldValue).data, ConsensusConstants::MAX_BLOCK_SIZE);
 
     // Adding an identical change is a no-op; the same value and height from another block is not
     const XFieldChange latest = m_history.Get(TAPYRUS_XFIELDTYPES::AGGPUBKEY, 60);
@@ -315,7 +315,7 @@ BOOST_AUTO_TEST_CASE(xfieldhistory_get_bounds)
     BOOST_CHECK(m_history.Get(TAPYRUS_XFIELDTYPES::AGGPUBKEY, 1000000).xfieldValue == key12);
 
     // Fixture sizes: genesis@0, 4000000@30, 8000000@50, 16000000@70
-    BOOST_CHECK_EQUAL(std::get<XFieldMaxBlockSize>(m_history.Get(TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE, 29).xfieldValue).data, ConsensusSettings::MAX_BLOCK_SIZE);
+    BOOST_CHECK_EQUAL(std::get<XFieldMaxBlockSize>(m_history.Get(TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE, 29).xfieldValue).data, ConsensusConstants::MAX_BLOCK_SIZE);
     BOOST_CHECK_EQUAL(std::get<XFieldMaxBlockSize>(m_history.Get(TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE, 30).xfieldValue).data, 4000000);
     BOOST_CHECK_EQUAL(std::get<XFieldMaxBlockSize>(m_history.Get(TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE, 69).xfieldValue).data, 8000000);
     BOOST_CHECK_EQUAL(std::get<XFieldMaxBlockSize>(m_history.Get(TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE, 70).xfieldValue).data, 16000000);

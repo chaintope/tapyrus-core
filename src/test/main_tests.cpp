@@ -27,7 +27,7 @@ public:
 static void TestBlockSubsidyHalvings(const ConsensusSettings& settings)
 {
     int maxHalvings = 64;
-    CAmount nInitialSubsidy = 50 * ConsensusSettings::COIN;
+    CAmount nInitialSubsidy = 50 * ConsensusConstants::COIN;
 
     CAmount nPreviousSubsidy = nInitialSubsidy * 2; // for height == 0
     BOOST_CHECK_EQUAL(nPreviousSubsidy, nInitialSubsidy * 2);
@@ -53,7 +53,7 @@ BOOST_AUTO_TEST_CASE(subsidy_limit_test)
     CAmount nSum = 0;
     for (int nHeight = 0; nHeight < 14000000; nHeight += 1000) {
         CAmount nSubsidy = g_consensus_settings->BlockSubsidy(nHeight);
-        BOOST_CHECK(nSubsidy <= 50 * ConsensusSettings::COIN);
+        BOOST_CHECK(nSubsidy <= 50 * ConsensusConstants::COIN);
         nSum += nSubsidy * 1000;
         BOOST_CHECK(MoneyRange(nSum));
     }
