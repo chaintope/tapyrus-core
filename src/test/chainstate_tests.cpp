@@ -18,12 +18,12 @@
  */
 
 #include <chainstate.h>
+#include <contextualconsensusrules.h>
 #include <checkblock.h>
 #include <test/test_tapyrus.h>
 #include <chainstatemanager.h>
 #include <validation.h>
 #include <consensus/validation.h>
-#include <consensus/tx_verify.h>
 #include <coin.h>
 #include <coinsview.h>
 #include <coinsviewcache.h>
@@ -1350,7 +1350,7 @@ BOOST_AUTO_TEST_CASE(connectblock_premature_coinbase_dos_score_is_zero)
 
     CValidationState state;
     CAmount txfee = 0;
-    bool ok = Consensus::CheckTxInputs(
+    bool ok = ContextualConsensusRules::CheckTxInputs(
         CTransaction(spendTx), state, view, coinbaseHeight, txfee);
 
     // Must be rejected as a premature spend …

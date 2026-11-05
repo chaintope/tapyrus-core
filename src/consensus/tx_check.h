@@ -22,4 +22,10 @@ bool CheckTransaction(const CTransaction& tx, CValidationState& state, bool fChe
  */
 unsigned int GetLegacySigOpCount(const CTransaction& tx);
 
+/**
+ * Check if transaction is final and can be included in a block with the
+ * specified height and time. Consensus critical.
+ */
+bool IsFinalTx(const CTransaction &tx, int nBlockHeight, int64_t nBlockTime);
+
 #endif // TAPYRUS_CONSENSUS_TX_CHECK_H

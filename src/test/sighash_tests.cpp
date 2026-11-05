@@ -5,7 +5,6 @@
 
 #include <chainstatemanager.h>
 #include <consensus/tx_check.h>
-#include <consensus/tx_verify.h>
 #include <consensus/validation.h>
 #include <test/data/sighash.json.h>
 #include <hash.h>
