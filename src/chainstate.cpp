@@ -3,6 +3,7 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <chainstate.h>
+#include <contextualconsensusrules.h>
 #include <chainstatemanager.h>
 #include <chainparams.h>
 #include <checkblock.h>
@@ -10,7 +11,6 @@
 #include <util.h>
 #include <issuedcolorids.h>
 
-#include <consensus/tx_verify.h>
 #include <index/txindex.h>
 #include <policy/packages.h>
 #include <policy/policy.h>
@@ -616,7 +616,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
 
         if (!tx.IsCoinBase())
         {
-            if (!Consensus::CheckTxInputs(tx, state, view, pindex->nHeight, txfee)) {
+            if (!ContextualConsensusRules::CheckTxInputs(tx, state, view, pindex->nHeight, txfee)) {
                 // Do not add to the DoS score already set by CheckTxInputs.
                 // "bad-txns-premature-spend-of-coinbase" deliberately uses DoS=0
                 // (via state.Invalid) so that a peer relaying a block during a
@@ -639,7 +639,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                 prevheights[j] = view.AccessCoin(tx.vin[j].prevout).nHeight;
             }
 
-            if (!SequenceLocks(tx, nLockTimeFlags, &prevheights, *pindex)) {
+            if (!ContextualConsensusRules::SequenceLocks(tx, nLockTimeFlags, &prevheights, *pindex)) {
                 return state.DoS(100, error("%s: contains a non-BIP68-final transaction", __func__),
                                  REJECT_INVALID, "bad-txns-nonfinal");
             }
@@ -648,7 +648,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         // GetTransactionSigOps counts 2 types of sigops:
         // * legacy (always)
         // * p2sh (when P2SH enabled in flags and excludes coinbase)
-        nSigOpsCost += GetTransactionSigOps(tx, view, SCRIPT_VERIFY_NONE);
+        nSigOpsCost += ContextualConsensusRules::GetTransactionSigOps(tx, view, SCRIPT_VERIFY_NONE);
         if (nSigOpsCost > consensusAtHeight.MaxBlockSigops())
             return state.DoS(100, error("ConnectBlock(): too many sigops"),
                              REJECT_INVALID, "bad-blk-sigops");
@@ -1412,7 +1412,7 @@ bool CChainState::AcceptBlockHeader(const CBlockHeader& block, CValidationState&
             return state.DoS(10, error("%s: prev block not found", __func__), 0, "prev-blk-not-found");
         if (pindexPrev->nStatus & BLOCK_FAILED_MASK)
             return state.DoS(100, error("%s: prev block invalid", __func__), REJECT_INVALID, "bad-prevblk");
-        if (!ContextualCheckBlockHeader(block, state, pindexPrev, GetAdjustedTime()))
+        if (!ContextualConsensusRules::ContextualCheckBlockHeader(block, state, *pindexPrev, GetAdjustedTime(), GetLastCheckpointIfEnabled()))
             return error("%s: Consensus::ContextualCheckBlockHeader: %s, %s", __func__, hash.ToString(), FormatStateMessage(state));
 
         // If the previous block index isn't valid, determine if it descends from any block which
@@ -1468,7 +1468,7 @@ bool CChainState::AcceptBlock(const std::shared_ptr<const CBlock>& pblock, CVali
 
     // Before AcceptBlockHeader, so a block with a wrong height leaves no index entry.
     const BlockMap::const_iterator prev = mapBlockIndex.find(block.hashPrevBlock);
-    if (prev != mapBlockIndex.end() && !CheckCoinbaseHeight(block, state, prev->second))
+    if (prev != mapBlockIndex.end() && !ContextualConsensusRules::CheckCoinbaseHeight(block, state, prev->second))
         return false;
 
     if (!AcceptBlockHeader(block, state, &pindex, pxfieldHistory))
@@ -1502,7 +1502,7 @@ bool CChainState::AcceptBlock(const std::shared_ptr<const CBlock>& pblock, CVali
 
     const CXFieldHistoryMap& history = pxfieldHistory ? *pxfieldHistory : g_chainstate_manager.XFieldHistory();
     if (!CheckBlock(block, state, g_chainstate_manager.RulesAt(*pindex, history), false, true) ||
-        !ContextualCheckBlock(block, state, pindex->pprev)) {
+        !ContextualConsensusRules::ContextualCheckBlock(block, state, pindex->pprev)) {
         if (state.IsInvalid() && !state.CorruptionPossible()) {
             pindex->nStatus |= BLOCK_FAILED_VALID;
             setDirtyBlockIndex.insert(pindex);

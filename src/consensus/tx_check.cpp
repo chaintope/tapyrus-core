@@ -74,3 +74,16 @@ unsigned int GetLegacySigOpCount(const CTransaction& tx)
     }
     return nSigOps;
 }
+
+bool IsFinalTx(const CTransaction &tx, int nBlockHeight, int64_t nBlockTime)
+{
+    if (tx.nLockTime == 0)
+        return true;
+    if ((int64_t)tx.nLockTime < ((int64_t)tx.nLockTime < ConsensusConstants::LOCKTIME_THRESHOLD ? (int64_t)nBlockHeight : nBlockTime))
+        return true;
+    for (const auto& txin : tx.vin) {
+        if (!(txin.nSequence == ConsensusConstants::SEQUENCE_FINAL))
+            return false;
+    }
+    return true;
+}

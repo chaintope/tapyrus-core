@@ -312,9 +312,17 @@ void UpdateCoins(const CTransaction& tx, CCoinsViewCache& inputs, CTxUndo &txund
 
 /** Transaction validation functions */
 
+
 /**
- * Check if transaction will be final in the next block to be created.
- *
+ * Test whether the LockPoints height and time are still valid on the current chain
+ */
+bool TestLockPointValidity(const LockPoints* lp);
+
+/** The last checkpoint in the block index, or null when -checkpoints is off or none is known. */
+const CBlockIndex* GetLastCheckpointIfEnabled() EXCLUSIVE_LOCKS_REQUIRED(cs_main);
+
+/**
+ * Check if transaction will be final in the next block to be created on the active tip.
  * Calls IsFinalTx() with current block height and appropriate block time.
  *
  * The LOCKTIME_* flags are defined in ConsensusConstants.
@@ -322,22 +330,18 @@ void UpdateCoins(const CTransaction& tx, CCoinsViewCache& inputs, CTxUndo &txund
 bool CheckFinalTx(const CTransaction &tx, int flags = -1);
 
 /**
- * Test whether the LockPoints height and time are still valid on the current chain
- */
-bool TestLockPointValidity(const LockPoints* lp);
-
-/**
- * Check if transaction will be BIP 68 final in the next block to be created.
+ * Check if transaction will be BIP 68 final in the next block to be created on the active tip.
  *
- * Simulates calling SequenceLocks() with data from the tip of the current active chain.
- * Optionally stores in LockPoints the resulting height and time calculated and the hash
- * of the block needed for calculation or skips the calculation and uses the LockPoints
- * passed in for evaluation.
+ * Simulates calling ContextualConsensusRules::SequenceLocks() with data from the tip of the current
+ * active chain. Optionally stores in LockPoints the resulting height and time calculated and
+ * the hash of the block needed for calculation or skips the calculation and uses the
+ * LockPoints passed in for evaluation.
  * The LockPoints should not be considered valid if CheckSequenceLocks returns false.
  *
  * The LOCKTIME_* flags are defined in ConsensusConstants.
  */
 bool CheckSequenceLocks(const CTransaction &tx, int flags,  CCoinsViewMemPool& viewMemPool, LockPoints* lp = nullptr, bool useExistingLockPoints = false);
+
 
 /**
  * Check whether all inputs of this transaction are valid (no double spends, scripts & sigs, amounts)
@@ -358,26 +362,6 @@ bool CheckInputs(const CTransaction& tx, CValidationState &state, const CCoinsVi
 
 /** Functions for validating blocks and updating the block tree */
 
-/** Context-dependent validity checks.
- *  By "context", we mean only the previous block headers, but not the UTXO
- *  set; UTXO-related validity checks are done in ConnectBlock().
- *  NOTE: This function is not currently invoked by ConnectBlock(), so we
- *  should consider upgrade issues if we change which consensus rules are
- *  enforced in this function (eg by adding a new consensus rule). See comment
- *  in ConnectBlock().
- *  Note that -reindex-chainstate skips the validation that happens here!
- */
-bool ContextualCheckBlockHeader(const CBlockHeader& block, CValidationState& state, const CBlockIndex* pindexPrev, int64_t nAdjustedTime) EXCLUSIVE_LOCKS_REQUIRED(::cs_main);
-
-/** NOTE: This function is not currently invoked by ConnectBlock(), so we
- *  should consider upgrade issues if we change which consensus rules are
- *  enforced in this function (eg by adding a new consensus rule). See comment
- *  in ConnectBlock().
- *  Note that -reindex-chainstate skips the validation that happens here!
- */
-/** A coinbase records its block's height: the previous block's plus one. */
-bool CheckCoinbaseHeight(const CBlock& block, CValidationState& state, const CBlockIndex* pindexPrev);
-bool ContextualCheckBlock(const CBlock& block, CValidationState& state, const CBlockIndex* pindexPrev);
 
 /** Check a block is completely valid from start to finish (only works on top of our current best block) */
 bool TestBlockValidity(CValidationState& state, const CBlock& block, CBlockIndex* pindexPrev, bool fCheckPOW = true, bool fCheckMerkleRoot = true) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
