@@ -209,9 +209,9 @@ Result CreateTransaction(const CWallet* wallet, const uint256& txid, const CCoin
     }
 
     // Check that in all cases the new fee doesn't violate maxTxFee
-     if (new_fee > wallet->m_default_max_tx_fee) {
+     if (new_fee > g_policy_settings->maxTxFee) {
          errors.push_back(strprintf("Specified or calculated fee %s is too high (cannot be higher than maxTxFee %s)",
-                               FormatMoney(new_fee), FormatMoney(wallet->m_default_max_tx_fee)));
+                               FormatMoney(new_fee), FormatMoney(g_policy_settings->maxTxFee)));
          return Result::WALLET_ERROR;
      }
 

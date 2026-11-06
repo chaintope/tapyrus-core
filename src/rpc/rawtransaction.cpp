@@ -1183,7 +1183,7 @@ static UniValue sendrawtransaction(const JSONRPCRequest& request)
     CTransactionRef tx(MakeTransactionRef(std::move(mtx)));
     const uint256& hashTx = tx->GetHashMalFix();
 
-    CAmount nMaxRawTxFee = DEFAULT_MAX_RAW_TX_FEE;
+    CAmount nMaxRawTxFee = g_policy_settings->maxTxFee;
     if (!request.params[1].isNull() && request.params[1].get_bool())
         nMaxRawTxFee = 0;
 
