@@ -64,7 +64,7 @@ UniValue generateBlocks(std::shared_ptr<CReserveScript> coinbaseScript, int nGen
     UniValue blockHashes(UniValue::VARR);
     while (nHeight < nHeightEnd && !ShutdownRequested())
     {
-        std::unique_ptr<CBlockTemplate> pblocktemplate(BlockAssembler(Params()).CreateNewBlock(coinbaseScript->reserveScript));
+        std::unique_ptr<CBlockTemplate> pblocktemplate(BlockAssembler(g_chainstate_manager, BlockAssembler::Options(*g_policy_settings, gArgs)).CreateNewBlock(coinbaseScript->reserveScript));
         if (!pblocktemplate.get())
             throw JSONRPCError(RPC_INTERNAL_ERROR, "Couldn't create new block");
         CBlock *pblock = &pblocktemplate->block;
@@ -238,7 +238,7 @@ UniValue getnewblock(const JSONRPCRequest& request)
     }
     CScript coinbaseScript {GetScriptForDestination(destination)};
 
-    std::unique_ptr<CBlockTemplate> pblocktemplate(BlockAssembler(Params()).CreateNewBlock(coinbaseScript, true, &xfield));
+    std::unique_ptr<CBlockTemplate> pblocktemplate(BlockAssembler(g_chainstate_manager, BlockAssembler::Options(*request.context.policy, gArgs)).CreateNewBlock(coinbaseScript, true, &xfield));
     if (!pblocktemplate.get())
         throw JSONRPCError(RPC_INTERNAL_ERROR, "Wallet keypool empty");
     {
@@ -278,8 +278,8 @@ static UniValue getmininginfo(const JSONRPCRequest& request)
 
     UniValue obj(UniValue::VOBJ);
     obj.pushKV("blocks",           (int)g_chainstate_manager.ActiveChain().Height());
-    obj.pushKV("currentblocksize", (uint64_t)nLastBlockSize);
-    obj.pushKV("currentblocktx",   (uint64_t)nLastBlockTx);
+    obj.pushKV("currentblocksize", BlockAssembler::m_last_block_size.load());
+    obj.pushKV("currentblocktx",   BlockAssembler::m_last_block_tx.load());
     // TODO: push signed block multisig condition
     obj.pushKV("pooledtx",         (uint64_t)mempool.size());
     obj.pushKV("chain",            FederationParams().NetworkIDString());
@@ -361,7 +361,7 @@ static UniValue getblocktemplate(const JSONRPCRequest& request)
             "      ,...\n"
             "  ],\n"
             "  \"coinbaseaux\" : {                 (json object) data that should be included in the coinbase's scriptSig content\n"
-            "      \"flags\" : \"xx\"                  (string) key name is to be ignored, and value included in scriptSig\n"
+            "      \"flags\" : \"\"                    (string) always empty: Tapyrus adds nothing to the coinbase scriptSig\n"
             "  },\n"
             "  \"coinbasevalue\" : n,              (numeric) maximum allowable input to coinbase transaction, including the generation award and transaction fees (in tapyrus)\n"
             "  \"coinbasetxn\" : { ... },          (json object) information for coinbase transaction\n"
@@ -518,7 +518,7 @@ static UniValue getblocktemplate(const JSONRPCRequest& request)
 
         // Create new block
         CScript scriptDummy = CScript() << OP_TRUE;
-        pblocktemplate = BlockAssembler(Params()).CreateNewBlock(scriptDummy);
+        pblocktemplate = BlockAssembler(g_chainstate_manager, BlockAssembler::Options(*request.context.policy, gArgs)).CreateNewBlock(scriptDummy);
         if (!pblocktemplate)
             throw JSONRPCError(RPC_OUT_OF_MEMORY, "Out of memory");
 
@@ -567,7 +567,8 @@ static UniValue getblocktemplate(const JSONRPCRequest& request)
     }
 
     UniValue aux(UniValue::VOBJ);
-    aux.pushKV("flags", HexStr(COINBASE_FLAGS.begin(), COINBASE_FLAGS.end()));
+    // Tapyrus adds nothing to the coinbase scriptSig; the key stays so the output keeps its shape.
+    aux.pushKV("flags", "");
 
     UniValue aMutable(UniValue::VARR);
     aMutable.push_back("time");
