@@ -5,13 +5,20 @@
 #ifndef TAPYRUS_CHAINSTATEMANAGER_H
 #define TAPYRUS_CHAINSTATEMANAGER_H
 
+#include <consensussettings.h>
+#include <heightderivedconsensusrules.h>
 #include <xfieldhistory.h>
 
+#include <cstdint>
+#include <memory>
+#include <optional>
+
 class CBlock;
+class CBlockIndex;
 
 /**
  * Owns the node's chain-wide state, as Bitcoin Core's ChainstateManager does.
- * So far it holds only the xfield history of the active chain.
+ * So far it holds the xfield history of the active chain and the consensus settings.
  */
 class ChainstateManager
 {
@@ -21,8 +28,29 @@ public:
 
     CXFieldHistory& XFieldHistory() { return m_xfield_history; }
 
+    /** Sets the consensus settings once at start-up; tests set them again for each fixture. */
+    void InitConsensusSettings(std::unique_ptr<const ConsensusSettings> settings);
+
+    const ConsensusSettings& Settings() const;
+
+    /** The rules of this block, from the active chain's history or a working copy that may run ahead of the tip. */
+    HeightDerivedConsensusRules RulesAt(const CBlockIndex& block) const;
+    HeightDerivedConsensusRules RulesAt(const CBlockIndex& block, const CXFieldHistoryMap& history) const;
+    /** The rules of the next block on prev. */
+    HeightDerivedConsensusRules RulesAfter(const CBlockIndex& prev) const;
+    HeightDerivedConsensusRules RulesAfter(const CBlockIndex& prev, const CXFieldHistoryMap& history) const;
+    /**
+     * The rules of the history's latest entries, for a block whose position is not
+     * known. Every registered soft fork counts as active.
+     */
+    HeightDerivedConsensusRules RulesLatest() const;
+    HeightDerivedConsensusRules RulesLatest(const CXFieldHistoryMap& history) const;
+
 private:
+    HeightDerivedConsensusRules BuildRules(std::optional<int32_t> height, const CXFieldHistoryMap& history) const;
+
     CXFieldHistory m_xfield_history;
+    std::unique_ptr<const ConsensusSettings> m_consensus_settings;
 };
 
 extern ChainstateManager g_chainstate_manager;

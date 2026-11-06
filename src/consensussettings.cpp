@@ -16,10 +16,7 @@
 #include <utilstrencodings.h>
 #include <version.h>
 
-#include <assert.h>
 #include <stdexcept>
-
-std::unique_ptr<const ConsensusSettings> g_consensus_settings;
 
 static std::unique_ptr<const CBlock> CheckGenesisBlock(const std::vector<unsigned char>& genesisBytes)
 {
@@ -124,6 +121,24 @@ static CSoftForkManager RegisterSoftForks(uint32_t networkId)
     return softForks;
 }
 
+bool ConsensusSettings::IsActive(uint32_t flag, int32_t height) const
+{
+    return m_soft_forks.IsActive(m_network_id, flag, height);
+}
+
+uint32_t ConsensusSettings::ActivationFlagsChange(int32_t oldHeight, int32_t newHeight) const
+{
+    return m_soft_forks.ActivationFlagsChange(m_network_id, oldHeight, newHeight);
+}
+
+uint32_t ConsensusSettings::ScriptFlagsAt(int32_t height) const
+{
+    uint32_t scriptFlags = SCRIPT_VERIFY_NONE;
+    if (IsActive(SCRIPT_VERIFY_CP2SH_COLORED, height))
+        scriptFlags |= SCRIPT_VERIFY_CP2SH_COLORED;
+    return scriptFlags;
+}
+
 ConsensusSettings::ConsensusSettings(const std::vector<unsigned char>& genesis, TAPYRUS_OP_MODE mode, uint32_t networkId)
     : ConsensusSettings(genesis, mode, networkId, SubsidyHalvingIntervalFor(mode))
 {
@@ -151,16 +166,4 @@ int64_t ConsensusSettings::BlockSubsidy(int32_t height) const
     // Subsidy is cut in half every 210,000 blocks which will occur approximately every 4 years.
     subsidy >>= halvings;
     return subsidy;
-}
-
-const CSoftForkManager& GetSoftForkManager()
-{
-    assert(g_consensus_settings);
-    return g_consensus_settings->SoftForkManager();
-}
-
-bool CSoftForkManager::IsActive(unsigned int flag, int32_t blockHeight) const
-{
-    assert(g_consensus_settings);
-    return IsActive(g_consensus_settings->NetworkId(), flag, blockHeight);
 }
