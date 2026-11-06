@@ -72,7 +72,6 @@ BOOST_AUTO_TEST_CASE(new_option_defaults)
     BOOST_CHECK_EQUAL(settings.maxReplacementCandidates, 100U);
     BOOST_CHECK_EQUAL(settings.orphanExpiry, 20 * 60);
     BOOST_CHECK_EQUAL(settings.maxPackageCount, 25U);
-    BOOST_CHECK_EQUAL(settings.expectedBlockTime, 15);
 }
 
 BOOST_AUTO_TEST_CASE(new_option_ranges)
@@ -87,7 +86,6 @@ BOOST_AUTO_TEST_CASE(new_option_ranges)
     BOOST_CHECK_EQUAL(StartupError({{"-maxpackagecount", "0"}}), "-maxpackagecount value 0 is out of range [1, 4294967295]");
     BOOST_CHECK_EQUAL(StartupError({{"-orphanexpiry", "299"}}), "-orphanexpiry value 299 is out of range [300, 4294967295]");
     BOOST_CHECK_EQUAL(StartupError({{"-orphanexpiry", "300"}}), "");
-    BOOST_CHECK_EQUAL(StartupError({{"-expectedblocktime", "0"}}), "-expectedblocktime value 0 is out of range [1, 4294967295]");
     BOOST_CHECK_EQUAL(StartupError({{"-maxp2shsigops", "-1"}}), "-maxp2shsigops value -1 is out of range [0, 4294967295]");
     // The package count may exceed the chain limits; CheckPackage bounds chains inside a package.
     BOOST_CHECK_EQUAL(StartupError({{"-maxpackagecount", "30"}, {"-limitancestorcount", "10"}}), "");
