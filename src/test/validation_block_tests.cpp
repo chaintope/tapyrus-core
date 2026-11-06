@@ -64,7 +64,7 @@ std::shared_ptr<CBlock> Block(const uint256& prev_hash, int height)
     CScript pubKey;
     pubKey << i++ << OP_TRUE;
 
-    auto ptemplate = BlockAssembler(Params()).CreateNewBlock(pubKey, false);
+    auto ptemplate = BlockAssembler(g_chainstate_manager, BlockAssembler::Options(*g_policy_settings, gArgs)).CreateNewBlock(pubKey, false);
     auto pblock = std::make_shared<CBlock>(ptemplate->block);
     pblock->hashPrevBlock = prev_hash;
     pblock->nTime = ++time;

@@ -11,13 +11,16 @@
 #include <txmempool.h>
 #include <validation.h>
 
+#include <atomic>
 #include <stdint.h>
 #include <memory>
 #include <boost/multi_index_container.hpp>
 #include <boost/multi_index/ordered_index.hpp>
 
 class CBlockIndex;
-class CChainParams;
+class ArgsManager;
+class ChainstateManager;
+struct PolicySettings;
 class CScript;
 
 namespace Consensus { struct Params; };
@@ -125,15 +128,30 @@ struct update_for_parent_inclusion
 /** Generate a new block, without valid proof-of-work */
 class BlockAssembler
 {
+public:
+    /** The node options that control assembly, read once when the assembler is built. */
+    struct Options {
+        /** Reads -blockmaxsize, -blockmintxfee and -blockfeatures from the policy settings, and -printpriority from args. */
+        Options(const PolicySettings& policy, const ArgsManager& args);
+
+        /** -blockmaxsize: the requested size; CreateNewBlock caps it below the next block's size limit. */
+        const size_t nBlockMaxSize;
+        /** -blockmintxfee: packages paying less are left out. */
+        const CFeeRate blockMinFeeRate;
+        /** nFeatures of the blocks built: -blockfeatures in DEV mode, the default otherwise. */
+        const int32_t nBlockFeatures;
+        /** -printpriority: log the fee rate and txid of each transaction added. */
+        const bool fPrintPriority;
+    };
+
 private:
+    ChainstateManager& m_chainman;
+    const Options m_options;
+
     // The constructed block template
     std::unique_ptr<CBlockTemplate> pblocktemplate;
     // A convenience pointer that always refers to the CBlock in pblocktemplate
     CBlock* pblock;
-
-    // Configuration parameters for the block size
-    const size_t m_requested_block_max_size;
-    CFeeRate blockMinFeeRate;
 
     // Limits of the block being built, from the consensus rules of the next block
     unsigned int nBlockMaxSize;
@@ -149,17 +167,15 @@ private:
     // Chain context for the block
     int nHeight;
     int64_t nLockTimeCutoff;
-    const CChainParams& chainparams;
 
 public:
-    struct Options {
-        Options();
-        size_t nBlockMaxSize;
-        CFeeRate blockMinFeeRate;
-    };
+    BlockAssembler(ChainstateManager& chainman, const Options& options);
 
-    explicit BlockAssembler(const CChainParams& params);
-    BlockAssembler(const CChainParams& params, const Options& options);
+    /** Size and transaction count of the last block template built, for
+     *  getmininginfo. An assembler lives for one template, so these outlive it;
+     *  both are zero until the first template. */
+    inline static std::atomic<uint64_t> m_last_block_size{0};
+    inline static std::atomic<uint64_t> m_last_block_tx{0};
 
     /** Construct a new block template with coinbase to scriptPubKeyIn */
     std::unique_ptr<CBlockTemplate> CreateNewBlock(const CScript& scriptPubKeyIn, int required_age_in_secs=0, CXField* pXField = nullptr);

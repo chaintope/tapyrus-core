@@ -10,7 +10,6 @@
 
 #include <amount.h>
 #include <blockindex.h>
-#include <chainparams.h>
 #include <chainstatemanager.h>
 #include <consensus/merkle.h>
 #include <consensus/validation.h>
@@ -34,9 +33,6 @@
 // pool, we select by highest fee rate of a transaction combined with all
 // its ancestors.
 
-uint64_t nLastBlockTx = 0;
-uint64_t nLastBlockSize = 0;
-
 int64_t UpdateTime(CBlockHeader* pblock, const CBlockIndex* pindexPrev)
 {
     int64_t nOldTime = pblock->nTime;
@@ -48,27 +44,18 @@ int64_t UpdateTime(CBlockHeader* pblock, const CBlockIndex* pindexPrev)
     return nNewTime - nOldTime;
 }
 
-BlockAssembler::Options::Options() {
-    blockMinFeeRate = CFeeRate(DEFAULT_BLOCK_MIN_TX_FEE);
-    nBlockMaxSize = DEFAULT_BLOCK_MAX_SIZE;
-}
-
-BlockAssembler::BlockAssembler(const CChainParams& params, const Options& options)
-    : m_requested_block_max_size(options.nBlockMaxSize), chainparams(params)
+BlockAssembler::Options::Options(const PolicySettings& policy, const ArgsManager& args)
+    : nBlockMaxSize(policy.blockMaxSize),
+      blockMinFeeRate(policy.blockMinTxFee),
+      nBlockFeatures(policy.blockFeatures),
+      fPrintPriority(args.GetBoolArg("-printpriority", DEFAULT_PRINTPRIORITY))
 {
-    blockMinFeeRate = options.blockMinFeeRate;
 }
 
-static BlockAssembler::Options DefaultOptions()
+BlockAssembler::BlockAssembler(ChainstateManager& chainman, const Options& options)
+    : m_chainman(chainman), m_options(options)
 {
-    // Block resource limits
-    BlockAssembler::Options options;
-    options.blockMinFeeRate = g_policy_settings->blockMinTxFee;
-    options.nBlockMaxSize = g_policy_settings->blockMaxSize;
-    return options;
 }
-
-BlockAssembler::BlockAssembler(const CChainParams& params) : BlockAssembler(params, DefaultOptions()) {}
 
 void BlockAssembler::resetBlock()
 {
@@ -101,20 +88,16 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     pblocktemplate->vTxSigOpsCost.push_back(-1); // updated at end
 
     LOCK2(cs_main, mempool.cs);
-    CBlockIndex* pindexPrev = g_chainstate_manager.ActiveChain().Tip();
+    CBlockIndex* pindexPrev = m_chainman.ActiveChain().Tip();
     assert(pindexPrev != nullptr);
     nHeight = pindexPrev->nHeight + 1;
 
-    const HeightDerivedConsensusRules consensusAtHeight = g_chainstate_manager.RulesAfter(*pindexPrev);
+    const HeightDerivedConsensusRules consensusAtHeight = m_chainman.RulesAfter(*pindexPrev);
     // Limit size to between 1K and the block size limit less 1K for sanity
-    nBlockMaxSize = static_cast<unsigned int>(std::max(size_t{1000}, std::min(size_t{consensusAtHeight.MaxBlockSize()} - size_t{1000}, m_requested_block_max_size)));
+    nBlockMaxSize = static_cast<unsigned int>(std::max(size_t{1000}, std::min(size_t{consensusAtHeight.MaxBlockSize()} - size_t{1000}, m_options.nBlockMaxSize)));
     m_max_block_sigops = consensusAtHeight.MaxBlockSigops();
 
-    pblock->nFeatures = ConsensusConstants::TAPYRUS_BLOCK_FEATURES;
-    // -dev only: allow overriding block.nFeatures with
-    // -blockversion=N to test forking scenarios
-    if (chainparams.MineBlocksOnDemand())
-        pblock->nFeatures = g_policy_settings->blockFeatures;
+    pblock->nFeatures = m_options.nBlockFeatures;
 
     if(pXField && pXField->xfieldType != TAPYRUS_XFIELDTYPES::NONE)
     {
@@ -133,8 +116,8 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
 
     int64_t nTime1 = GetTimeMicros();
 
-    nLastBlockTx = nBlockTx;
-    nLastBlockSize = nBlockSize;
+    m_last_block_tx = nBlockTx;
+    m_last_block_size = nBlockSize;
 
     // Create coinbase transaction.
     CMutableTransaction coinbaseTx;
@@ -143,7 +126,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     coinbaseTx.vin[0].prevout.n = nHeight;
     coinbaseTx.vout.resize(1);
     coinbaseTx.vout[0].scriptPubKey = scriptPubKeyIn;
-    coinbaseTx.vout[0].nValue = nFees + g_chainstate_manager.Settings().BlockSubsidy(nHeight);
+    coinbaseTx.vout[0].nValue = nFees + m_chainman.Settings().BlockSubsidy(nHeight);
     //coinbaseTx.vin[0].scriptSig = CScript();
     pblock->vtx[0] = MakeTransactionRef(std::move(coinbaseTx));
     pblocktemplate->vTxFees[0] = -nFees;
@@ -211,8 +194,7 @@ void BlockAssembler::AddToBlock(CTxMemPool::txiter iter)
     nFees += iter->GetFee();
     inBlock.insert(iter);
 
-    bool fPrintPriority = gArgs.GetBoolArg("-printpriority", DEFAULT_PRINTPRIORITY);
-    if (fPrintPriority) {
+    if (m_options.fPrintPriority) {
         LogPrintf("fee %s txid %s\n",
                   CFeeRate(iter->GetModifiedFee(), iter->GetTxSize()).ToString(),
                   iter->GetTx().GetHashMalFix().ToString());
@@ -357,7 +339,7 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
             packageSigOpsCost = modit->nSigOpCostWithAncestors;
         }
 
-        if (packageFees < blockMinFeeRate.GetFee(packageSize)) {
+        if (packageFees < m_options.blockMinFeeRate.GetFee(packageSize)) {
             // Everything else we might consider has a lower fee rate
             return;
         }
@@ -431,7 +413,7 @@ void IncrementExtraNonce(CBlock* pblock, const CBlockIndex* pindexPrev, unsigned
     ++nExtraNonce;
     unsigned int nHeight = pindexPrev->nHeight+1; // Height first in coinbase required for block.version=2
     CMutableTransaction txCoinbase(*pblock->vtx[0]);
-    txCoinbase.vin[0].scriptSig = (CScript() << nHeight << CScriptNum(nExtraNonce)) + COINBASE_FLAGS;
+    txCoinbase.vin[0].scriptSig = CScript() << nHeight << CScriptNum(nExtraNonce);
     assert(txCoinbase.vin[0].scriptSig.size() <= 100);
 
     pblock->vtx[0] = MakeTransactionRef(std::move(txCoinbase));

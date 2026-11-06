@@ -46,12 +46,12 @@ private:
 
 static CFeeRate blockMinFeeRate = CFeeRate(DEFAULT_BLOCK_MIN_TX_FEE);
 
-static BlockAssembler AssemblerForTest(const CChainParams& params) {
-    BlockAssembler::Options options;
-
-    options.nBlockMaxSize = g_chainstate_manager.RulesLatest().MaxBlockSize();
-    options.blockMinFeeRate = blockMinFeeRate;
-    return BlockAssembler(params, options);
+static BlockAssembler AssemblerForTest() {
+    // The next block's full size limit, and the default -blockmintxfee (blockMinFeeRate above).
+    ArgsManager args;
+    args.ForceSetArg("-blockmaxsize", std::to_string(g_chainstate_manager.RulesLatest().MaxBlockSize()));
+    const PolicySettings policy(args, TAPYRUS_OP_MODE::PROD);
+    return BlockAssembler(g_chainstate_manager, BlockAssembler::Options(policy, args));
 }
 
 static
@@ -116,7 +116,7 @@ static void CreateBlocks(const CChainParams &chainparams,
                          std::vector<CTransactionRef> &txFirst)
 {
     // Simple block creation, nothing special yet:
-    pblocktemplate = AssemblerForTest(chainparams).CreateNewBlock(scriptPubKey);
+    pblocktemplate = AssemblerForTest().CreateNewBlock(scriptPubKey);
     BOOST_CHECK(pblocktemplate != nullptr);
     // We can't make transactions until we have inputs
     // Therefore, load 100 blocks :)
@@ -162,7 +162,7 @@ static void CreateBlocks(const CChainParams &chainparams,
 
     // Just to make sure we can still make simple blocks
     BOOST_CHECK_EQUAL(pblocktemplate->block.GetHeight(), g_chainstate_manager.ActiveChain().Height());
-    pblocktemplate = AssemblerForTest(chainparams).CreateNewBlock(scriptPubKey);
+    pblocktemplate = AssemblerForTest().CreateNewBlock(scriptPubKey);
     BOOST_CHECK(pblocktemplate != nullptr);
     XFieldAggPubKey aggpubkeyChange;
     g_chainstate_manager.XFieldHistory().GetLatest(TAPYRUS_XFIELDTYPES::AGGPUBKEY, aggpubkeyChange);
@@ -208,7 +208,7 @@ static void TestPackageSelection(const CChainParams& chainparams, const std::vec
     uint256 hashHighFeeTx = tx.GetHashMalFix();
     mempool.addUnchecked(hashHighFeeTx, entry.Fee(50000).Time(GetTime()).SpendsCoinbase(false).FromTx(tx));
 
-    std::unique_ptr<CBlockTemplate> pblocktemplate = AssemblerForTest(chainparams).CreateNewBlock(scriptPubKey);
+    std::unique_ptr<CBlockTemplate> pblocktemplate = AssemblerForTest().CreateNewBlock(scriptPubKey);
     BOOST_CHECK(pblocktemplate->block.vtx[1]->GetHashMalFix() == hashParentTx);
     BOOST_CHECK(pblocktemplate->block.vtx[2]->GetHashMalFix() == hashHighFeeTx);
     BOOST_CHECK(pblocktemplate->block.vtx[3]->GetHashMalFix() == hashMediumFeeTx);
@@ -228,7 +228,7 @@ static void TestPackageSelection(const CChainParams& chainparams, const std::vec
     tx.vout[0].nValue = 5000000000LL - 1000 - 50000 - feeToUse;
     uint256 hashLowFeeTx = tx.GetHashMalFix();
     mempool.addUnchecked(hashLowFeeTx, entry.Fee(feeToUse).FromTx(tx));
-    pblocktemplate = AssemblerForTest(chainparams).CreateNewBlock(scriptPubKey);
+    pblocktemplate = AssemblerForTest().CreateNewBlock(scriptPubKey);
     // Verify that the free tx and the low fee tx didn't get selected
     for (size_t i=0; i<pblocktemplate->block.vtx.size(); ++i) {
         BOOST_CHECK(pblocktemplate->block.vtx[i]->GetHashMalFix() != hashFreeTx);
@@ -242,7 +242,7 @@ static void TestPackageSelection(const CChainParams& chainparams, const std::vec
     tx.vout[0].nValue -= 2; // Now we should be just over the min relay fee
     hashLowFeeTx = tx.GetHashMalFix();
     mempool.addUnchecked(hashLowFeeTx, entry.Fee(feeToUse+2).FromTx(tx));
-    pblocktemplate = AssemblerForTest(chainparams).CreateNewBlock(scriptPubKey);
+    pblocktemplate = AssemblerForTest().CreateNewBlock(scriptPubKey);
     BOOST_CHECK(pblocktemplate->block.vtx[4]->GetHashMalFix() == hashFreeTx);
     BOOST_CHECK(pblocktemplate->block.vtx[5]->GetHashMalFix() == hashLowFeeTx);
 
@@ -263,7 +263,7 @@ static void TestPackageSelection(const CChainParams& chainparams, const std::vec
     tx.vout[0].nValue = 5000000000LL - 100000000 - feeToUse;
     uint256 hashLowFeeTx2 = tx.GetHashMalFix();
     mempool.addUnchecked(hashLowFeeTx2, entry.Fee(feeToUse).SpendsCoinbase(false).FromTx(tx));
-    pblocktemplate = AssemblerForTest(chainparams).CreateNewBlock(scriptPubKey);
+    pblocktemplate = AssemblerForTest().CreateNewBlock(scriptPubKey);
 
     // Verify that this tx isn't selected.
     for (size_t i=0; i<pblocktemplate->block.vtx.size(); ++i) {
@@ -276,7 +276,7 @@ static void TestPackageSelection(const CChainParams& chainparams, const std::vec
     tx.vin[0].prevout.n = 1;
     tx.vout[0].nValue = 100000000 - 10000; // 10k tapyrus fee
     mempool.addUnchecked(tx.GetHashMalFix(), entry.Fee(10000).FromTx(tx));
-    pblocktemplate = AssemblerForTest(chainparams).CreateNewBlock(scriptPubKey);
+    pblocktemplate = AssemblerForTest().CreateNewBlock(scriptPubKey);
 
     BOOST_CHECK(pblocktemplate->block.vtx.size() == 9);
     BOOST_CHECK(pblocktemplate->block.vtx[8]->GetHashMalFix() == hashLowFeeTx2);
@@ -330,7 +330,7 @@ BOOST_AUTO_TEST_CASE(CreateNewBlock_validity)
         tx.vin[0].prevout.hashMalFix = hash;
     }
 
-    BOOST_CHECK_EXCEPTION(AssemblerForTest(Params()).CreateNewBlock(scriptPubKey), std::runtime_error, HasReason("bad-blk-sigops"));
+    BOOST_CHECK_EXCEPTION(AssemblerForTest().CreateNewBlock(scriptPubKey), std::runtime_error, HasReason("bad-blk-sigops"));
     BOOST_CHECK_EQUAL(pblocktemplate->block.GetHeight(), g_chainstate_manager.ActiveChain().Height()+1);
     mempool.clear();
 
@@ -345,7 +345,7 @@ BOOST_AUTO_TEST_CASE(CreateNewBlock_validity)
         mempool.addUnchecked(hash, entry.Fee(LOWFEE).Time(GetTime()).SpendsCoinbase(spendsCoinbase).SigOpsCost(80).FromTx(tx));
         tx.vin[0].prevout.hashMalFix = hash;
     }
-    pblocktemplate = AssemblerForTest(Params()).CreateNewBlock(scriptPubKey);
+    pblocktemplate = AssemblerForTest().CreateNewBlock(scriptPubKey);
     BOOST_CHECK(pblocktemplate != nullptr);
     BOOST_CHECK_EQUAL(pblocktemplate->block.GetHeight(), g_chainstate_manager.ActiveChain().Height()+1);
     mempool.clear();
@@ -367,7 +367,7 @@ BOOST_AUTO_TEST_CASE(CreateNewBlock_validity)
         mempool.addUnchecked(hash, entry.Fee(LOWFEE).Time(GetTime()).SpendsCoinbase(spendsCoinbase).FromTx(tx));
         tx.vin[0].prevout.hashMalFix = hash;
     }
-    pblocktemplate = AssemblerForTest(Params()).CreateNewBlock(scriptPubKey);
+    pblocktemplate = AssemblerForTest().CreateNewBlock(scriptPubKey);
     BOOST_CHECK(pblocktemplate != nullptr);
     BOOST_CHECK_EQUAL(pblocktemplate->block.GetHeight(), g_chainstate_manager.ActiveChain().Height()+1);
     mempool.clear();
@@ -375,7 +375,7 @@ BOOST_AUTO_TEST_CASE(CreateNewBlock_validity)
     // orphan in mempool, template creation fails
     hash = tx.GetHashMalFix();
     mempool.addUnchecked(hash, entry.Fee(LOWFEE).Time(GetTime()).FromTx(tx));
-    BOOST_CHECK_EXCEPTION(AssemblerForTest(Params()).CreateNewBlock(scriptPubKey), std::runtime_error, HasReason("bad-txns-inputs-missingorspent"));
+    BOOST_CHECK_EXCEPTION(AssemblerForTest().CreateNewBlock(scriptPubKey), std::runtime_error, HasReason("bad-txns-inputs-missingorspent"));
     mempool.clear();
 
     // child with higher feerate than parent
@@ -392,7 +392,7 @@ BOOST_AUTO_TEST_CASE(CreateNewBlock_validity)
     tx.vout[0].nValue = tx.vout[0].nValue+BLOCKSUBSIDY-HIGHERFEE; //First txn output + fresh coinbase - new txn fee
     hash = tx.GetHashMalFix();
     mempool.addUnchecked(hash, entry.Fee(HIGHERFEE).Time(GetTime()).SpendsCoinbase(true).FromTx(tx));
-    pblocktemplate = AssemblerForTest(Params()).CreateNewBlock(scriptPubKey);
+    pblocktemplate = AssemblerForTest().CreateNewBlock(scriptPubKey);
     BOOST_CHECK(pblocktemplate != nullptr);
     BOOST_CHECK_EQUAL(pblocktemplate->block.GetHeight(), g_chainstate_manager.ActiveChain().Height()+1);
     mempool.clear();
@@ -406,7 +406,7 @@ BOOST_AUTO_TEST_CASE(CreateNewBlock_validity)
     // give it a fee so it'll get mined
     mempool.addUnchecked(hash, entry.Fee(LOWFEE).Time(GetTime()).SpendsCoinbase(false).FromTx(tx));
     // Should throw bad-cb-multiple
-    BOOST_CHECK_EXCEPTION(AssemblerForTest(Params()).CreateNewBlock(scriptPubKey), std::runtime_error, HasReason("bad-cb-multiple"));
+    BOOST_CHECK_EXCEPTION(AssemblerForTest().CreateNewBlock(scriptPubKey), std::runtime_error, HasReason("bad-cb-multiple"));
     BOOST_CHECK_EQUAL(pblocktemplate->block.GetHeight(), g_chainstate_manager.ActiveChain().Height()+1);
     mempool.clear();
 
@@ -420,7 +420,7 @@ BOOST_AUTO_TEST_CASE(CreateNewBlock_validity)
     tx.vout[0].scriptPubKey = CScript() << OP_2;
     hash = tx.GetHashMalFix();
     mempool.addUnchecked(hash, entry.Fee(HIGHFEE).Time(GetTime()).SpendsCoinbase(true).FromTx(tx));
-    BOOST_CHECK_EXCEPTION(AssemblerForTest(Params()).CreateNewBlock(scriptPubKey), std::runtime_error, HasReason("bad-txns-inputs-missingorspent"));
+    BOOST_CHECK_EXCEPTION(AssemblerForTest().CreateNewBlock(scriptPubKey), std::runtime_error, HasReason("bad-txns-inputs-missingorspent"));
     BOOST_CHECK_EQUAL(pblocktemplate->block.GetHeight(), g_chainstate_manager.ActiveChain().Height()+1);
     mempool.clear();
 
@@ -437,7 +437,7 @@ BOOST_AUTO_TEST_CASE(CreateNewBlock_validity)
         next->BuildSkip();
         g_chainstate_manager.ActiveChain().SetTip(next);
     }
-    pblocktemplate = AssemblerForTest(Params()).CreateNewBlock(scriptPubKey);
+    pblocktemplate = AssemblerForTest().CreateNewBlock(scriptPubKey);
     BOOST_CHECK(pblocktemplate != nullptr);
     BOOST_CHECK_EQUAL(pblocktemplate->block.GetHeight(), g_chainstate_manager.ActiveChain().Height()+1);
 
@@ -452,7 +452,7 @@ BOOST_AUTO_TEST_CASE(CreateNewBlock_validity)
         next->BuildSkip();
         g_chainstate_manager.ActiveChain().SetTip(next);
     }
-    pblocktemplate = AssemblerForTest(Params()).CreateNewBlock(scriptPubKey);
+    pblocktemplate = AssemblerForTest().CreateNewBlock(scriptPubKey);
     BOOST_CHECK(pblocktemplate != nullptr);
     BOOST_CHECK_EQUAL(pblocktemplate->block.GetHeight(), g_chainstate_manager.ActiveChain().Height()+1);
 
@@ -470,7 +470,7 @@ BOOST_AUTO_TEST_CASE(CreateNewBlock_validity)
     tx.vout[0].nValue -= LOWFEE;
     hash = tx.GetHashMalFix();
     mempool.addUnchecked(hash, entry.Fee(LOWFEE).Time(GetTime()).SpendsCoinbase(false).FromTx(tx));
-    BOOST_CHECK_EXCEPTION(AssemblerForTest(Params()).CreateNewBlock(scriptPubKey), std::runtime_error,
+    BOOST_CHECK_EXCEPTION(AssemblerForTest().CreateNewBlock(scriptPubKey), std::runtime_error,
         HasReason("mandatory-script-verify-flag-failed (Script evaluated without error but finished with a false/empty top stack element)"));
     BOOST_CHECK_EQUAL(pblocktemplate->block.GetHeight(), g_chainstate_manager.ActiveChain().Height()+1);
     mempool.clear();
@@ -565,7 +565,7 @@ BOOST_AUTO_TEST_CASE(CreateNewBlock_validity)
     // but relative locked txs will if inconsistently added to mempool.
     // This template is invalid as BIP68 is always active in Tapyrus
 
-    BOOST_CHECK_EXCEPTION(AssemblerForTest(Params()).CreateNewBlock(scriptPubKey), std::runtime_error, HasReason("bad-txns-nonfinal"));
+    BOOST_CHECK_EXCEPTION(AssemblerForTest().CreateNewBlock(scriptPubKey), std::runtime_error, HasReason("bad-txns-nonfinal"));
 
     BOOST_CHECK_EQUAL(pblocktemplate->block.vtx.size(), 1U);
     // However if we advance height by 1 and time by 512, all of them should be mined
@@ -574,7 +574,7 @@ BOOST_AUTO_TEST_CASE(CreateNewBlock_validity)
     g_chainstate_manager.ActiveChain().Tip()->nHeight++;
     SetMockTime(g_chainstate_manager.ActiveChain().Tip()->GetMedianTimePast() + 1);
 
-    pblocktemplate = AssemblerForTest(Params()).CreateNewBlock(scriptPubKey);
+    pblocktemplate = AssemblerForTest().CreateNewBlock(scriptPubKey);
     BOOST_CHECK(pblocktemplate != nullptr);
     BOOST_CHECK_EQUAL(pblocktemplate->block.GetHeight(), g_chainstate_manager.ActiveChain().Height()+2); //+2 because of height increment above
     BOOST_CHECK_EQUAL(pblocktemplate->block.vtx.size(), 5U);
@@ -622,7 +622,7 @@ BOOST_AUTO_TEST_CASE(CreateNewBlock_required_age_in_secs)
         mempool.addUnchecked(hashPastTimeTx,
                              entry.Fee(1000).Time(GetTime() - 60).SpendsCoinbase(true).FromTx(tx));
     }
-    pblocktemplate = AssemblerForTest(Params()).CreateNewBlock(scriptPubKey, 60);
+    pblocktemplate = AssemblerForTest().CreateNewBlock(scriptPubKey, 60);
     BOOST_CHECK(pblocktemplate != nullptr);
     BOOST_CHECK(pblocktemplate->block.vtx.size() == 2); // index 0 is coinbase tx.
     BOOST_CHECK(pblocktemplate->block.vtx[1]->GetHashMalFix() == hashPastTimeTx);

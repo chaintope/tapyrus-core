@@ -37,7 +37,7 @@
 static std::shared_ptr<CBlock> PrepareBlock(const CScript& coinbase_scriptPubKey)
 {
     auto block = std::make_shared<CBlock>(
-        BlockAssembler{Params()}
+        BlockAssembler{g_chainstate_manager, BlockAssembler::Options(*g_policy_settings, gArgs)}
             .CreateNewBlock(coinbase_scriptPubKey)
             ->block);
 
