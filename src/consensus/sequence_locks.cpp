@@ -16,7 +16,7 @@
 #include <consensus/tx_verify.h>
 
 #include <blockindex.h>
-#include <consensus/consensus.h>
+#include <consensusconstants.h>
 #include <primitives/transaction.h>
 
 std::pair<int, int64_t> CalculateSequenceLocks(const CTransaction &tx, int flags, std::vector<int>* prevHeights, const CBlockIndex& block)
@@ -34,7 +34,7 @@ std::pair<int, int64_t> CalculateSequenceLocks(const CTransaction &tx, int flags
     // tx.nFeatures is signed integer so requires cast to unsigned otherwise
     // we would be doing a signed comparison and half the range of nFeatures
     // wouldn't support BIP 68.
-    bool fEnforceBIP68 = flags & LOCKTIME_VERIFY_SEQUENCE;
+    bool fEnforceBIP68 = flags & ConsensusConstants::LOCKTIME_VERIFY_SEQUENCE;
 
     // Do not enforce sequence numbers as a relative lock time
     // unless we have been instructed to
@@ -48,7 +48,7 @@ std::pair<int, int64_t> CalculateSequenceLocks(const CTransaction &tx, int flags
         // Sequence numbers with the most significant bit set are not
         // treated as relative lock-times, nor are they given any
         // consensus-enforced meaning at this point.
-        if (txin.nSequence & CTxIn::SEQUENCE_LOCKTIME_DISABLE_FLAG) {
+        if (txin.nSequence & ConsensusConstants::SEQUENCE_LOCKTIME_DISABLE_FLAG) {
             // The height of this input is not relevant for sequence locks
             (*prevHeights)[txinIndex] = 0;
             continue;
@@ -56,7 +56,7 @@ std::pair<int, int64_t> CalculateSequenceLocks(const CTransaction &tx, int flags
 
         int nCoinHeight = (*prevHeights)[txinIndex];
 
-        if (txin.nSequence & CTxIn::SEQUENCE_LOCKTIME_TYPE_FLAG) {
+        if (txin.nSequence & ConsensusConstants::SEQUENCE_LOCKTIME_TYPE_FLAG) {
             int64_t nCoinTime = block.GetAncestor(std::max(nCoinHeight-1, 0))->GetMedianTimePast();
             // NOTE: Subtract 1 to maintain nLockTime semantics
             // BIP 68 relative lock times have the semantics of calculating
@@ -71,9 +71,9 @@ std::pair<int, int64_t> CalculateSequenceLocks(const CTransaction &tx, int flags
             // smallest allowed timestamp of the block containing the
             // txout being spent, which is the median time past of the
             // block prior.
-            nMinTime = std::max(nMinTime, nCoinTime + (int64_t)((txin.nSequence & CTxIn::SEQUENCE_LOCKTIME_MASK) << CTxIn::SEQUENCE_LOCKTIME_GRANULARITY) - 1);
+            nMinTime = std::max(nMinTime, nCoinTime + (int64_t)((txin.nSequence & ConsensusConstants::SEQUENCE_LOCKTIME_MASK) << ConsensusConstants::SEQUENCE_LOCKTIME_GRANULARITY) - 1);
         } else {
-            nMinHeight = std::max(nMinHeight, nCoinHeight + (int)(txin.nSequence & CTxIn::SEQUENCE_LOCKTIME_MASK) - 1);
+            nMinHeight = std::max(nMinHeight, nCoinHeight + (int)(txin.nSequence & ConsensusConstants::SEQUENCE_LOCKTIME_MASK) - 1);
         }
     }
 

@@ -174,7 +174,7 @@ static PartiallySignedTapyrusTransaction MakeUnsignedSpendPstt(const CTransactio
 
 BOOST_FIXTURE_TEST_CASE(pstt_rpc_walletupdatepstt_fills_utxo, PsttWalletTestingSetup)
 {
-    CTransactionRef fundingTx = FundWalletWithP2PKHCoin(*this, 1 * COIN);
+    CTransactionRef fundingTx = FundWalletWithP2PKHCoin(*this, 1 * ConsensusConstants::COIN);
     PartiallySignedTapyrusTransaction pstt = MakeUnsignedSpendPstt(fundingTx);
 
     UniValue params(UniValue::VARR);
@@ -194,7 +194,7 @@ BOOST_FIXTURE_TEST_CASE(pstt_rpc_walletupdatepstt_fills_utxo, PsttWalletTestingS
 
 BOOST_FIXTURE_TEST_CASE(pstt_rpc_walletsignpstt_completes_after_update, PsttWalletTestingSetup)
 {
-    CTransactionRef fundingTx = FundWalletWithP2PKHCoin(*this, 1 * COIN);
+    CTransactionRef fundingTx = FundWalletWithP2PKHCoin(*this, 1 * ConsensusConstants::COIN);
     PartiallySignedTapyrusTransaction pstt = MakeUnsignedSpendPstt(fundingTx);
 
     UniValue updateParams(UniValue::VARR);
@@ -223,7 +223,7 @@ BOOST_FIXTURE_TEST_CASE(pstt_rpc_walletprocesspstt_updates_and_signs_in_one_call
 {
     // No prior walletupdatepstt call -- walletprocesspstt must perform both
     // the Updater and Signer roles itself in a single pass.
-    CTransactionRef fundingTx = FundWalletWithP2PKHCoin(*this, 1 * COIN);
+    CTransactionRef fundingTx = FundWalletWithP2PKHCoin(*this, 1 * ConsensusConstants::COIN);
     PartiallySignedTapyrusTransaction pstt = MakeUnsignedSpendPstt(fundingTx);
 
     UniValue params(UniValue::VARR);
@@ -242,7 +242,7 @@ BOOST_FIXTURE_TEST_CASE(pstt_rpc_walletprocesspstt_sign_false_only_updates, Pstt
 {
     // sign=false must behave like walletupdatepstt: fill in the UTXO, but
     // leave the input unsigned.
-    CTransactionRef fundingTx = FundWalletWithP2PKHCoin(*this, 1 * COIN);
+    CTransactionRef fundingTx = FundWalletWithP2PKHCoin(*this, 1 * ConsensusConstants::COIN);
     PartiallySignedTapyrusTransaction pstt = MakeUnsignedSpendPstt(fundingTx);
 
     UniValue params(UniValue::VARR);
@@ -265,7 +265,7 @@ BOOST_FIXTURE_TEST_CASE(pstt_rpc_walletprocesspstt_sign_false_only_updates, Pstt
 // non-wallet TestingSetup fixture never registers.
 BOOST_FIXTURE_TEST_CASE(pstt_wallet_rpc_cli_param_conversion, PsttWalletTestingSetup)
 {
-    FundWalletWithP2PKHCoin(*this, 1 * COIN);
+    FundWalletWithP2PKHCoin(*this, 1 * ConsensusConstants::COIN);
     CKey destKey;
     destKey.MakeNewKey(true);
     std::string destAddr = EncodeDestination(destKey.GetPubKey().GetID());
@@ -328,7 +328,7 @@ BOOST_FIXTURE_TEST_CASE(pstt_rpc_walletfundpsttfee_interactive_refuses_standalon
 {
     sharedWallet->m_pay_tx_fee = CFeeRate(1);
 
-    CTransactionRef fundingTx = FundWalletWithP2PKHCoin(*this, 1 * COIN);
+    CTransactionRef fundingTx = FundWalletWithP2PKHCoin(*this, 1 * ConsensusConstants::COIN);
     UniValue params(UniValue::VARR);
     params.push_back(EncodePSTT(MakeSingleOutputPstt(fundingTx->vout[0].nValue - DUST_FOLD_MARGIN, // leftover change is dust -- folded into fee, no change output
         PSTT_TXMOD_INPUTS_MODIFIABLE | PSTT_TXMOD_OUTPUTS_MODIFIABLE | PSTT_TXMOD_HAS_SIGHASH_SINGLE)));
@@ -350,7 +350,7 @@ BOOST_FIXTURE_TEST_CASE(pstt_rpc_walletfundpsttfee_interactive_allows_exact_matc
 {
     sharedWallet->m_pay_tx_fee = CFeeRate(1);
 
-    CTransactionRef fundingTx = FundWalletWithP2PKHCoin(*this, 2 * COIN);
+    CTransactionRef fundingTx = FundWalletWithP2PKHCoin(*this, 2 * ConsensusConstants::COIN);
     UniValue params(UniValue::VARR);
     params.push_back(EncodePSTT(MakeSingleOutputPstt(fundingTx->vout[0].nValue - DUST_FOLD_MARGIN,
         PSTT_TXMOD_INPUTS_MODIFIABLE | PSTT_TXMOD_OUTPUTS_MODIFIABLE)));

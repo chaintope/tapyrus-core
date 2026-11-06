@@ -10,7 +10,8 @@
 #include <consensus/merkle.h>
 #include <consensus/validation.h>
 #include <crypto/sha256.h>
-#include <dynamicparams.h>
+#include <consensussettings.h>
+#include <genesisfile.h>
 #include <genesisblock.h>
 #include <issuedcolorids.h>
 #include <validation.h>
@@ -27,8 +28,6 @@
 #include <thread>
 #include <fstream>
 #include <stdexcept>
-
-constexpr unsigned int CPubKey::SCHNORR_SIGNATURE_SIZE;
 
 void CConnmanTest::AddNode(CConnman& connman, CNode& node)
 {
@@ -87,9 +86,9 @@ BasicTestingSetup::BasicTestingSetup(const std::string& chainName)
         SetDataDir("tempdir");
         writeTestGenesisBlockToFile(GetDataDir());
         SelectFederationParams(TAPYRUS_OP_MODE::PROD);
-        SelectDynamicParams(ReadGenesisBlock());
+        g_consensus_settings = std::make_unique<const ConsensusSettings>(ReadGenesisBlock(), TAPYRUS_OP_MODE::PROD, FederationParams().NetworkId());
         noui_connect();
-        g_chainstate_manager.InitXFieldHistory(DynamicParams().GenesisBlock());
+        g_chainstate_manager.InitXFieldHistory(g_consensus_settings->GenesisBlock());
         pxFieldHistory = &g_chainstate_manager.XFieldHistory();
         g_colorid_state.reset(new CIssuedColorIds());
     } catch (...) {

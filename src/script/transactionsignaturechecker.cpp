@@ -54,8 +54,8 @@ bool GenericTransactionSignatureChecker<T>::CheckLockTime(const CScriptNum& nLoc
     // unless the type of nLockTime being tested is the same as
     // the nLockTime in the transaction.
     if (!(
-        (txTo->nLockTime <  LOCKTIME_THRESHOLD && nLockTime <  LOCKTIME_THRESHOLD) ||
-        (txTo->nLockTime >= LOCKTIME_THRESHOLD && nLockTime >= LOCKTIME_THRESHOLD)
+        (txTo->nLockTime <  ConsensusConstants::LOCKTIME_THRESHOLD && nLockTime <  ConsensusConstants::LOCKTIME_THRESHOLD) ||
+        (txTo->nLockTime >= ConsensusConstants::LOCKTIME_THRESHOLD && nLockTime >= ConsensusConstants::LOCKTIME_THRESHOLD)
     ))
         return false;
 
@@ -74,7 +74,7 @@ bool GenericTransactionSignatureChecker<T>::CheckLockTime(const CScriptNum& nLoc
     // prevent this condition. Alternatively we could test all
     // inputs, but testing just this input minimizes the data
     // required to prove correct CHECKLOCKTIMEVERIFY execution.
-    if (CTxIn::SEQUENCE_FINAL == txTo->vin[nIn].nSequence)
+    if (ConsensusConstants::SEQUENCE_FINAL == txTo->vin[nIn].nSequence)
         return false;
 
     return true;
@@ -92,12 +92,12 @@ bool GenericTransactionSignatureChecker<T>::CheckSequence(const CScriptNum& nSeq
     // consensus constrained. Testing that the transaction's sequence
     // number do not have this bit set prevents using this property
     // to get around a CHECKSEQUENCEVERIFY check.
-    if (txToSequence & CTxIn::SEQUENCE_LOCKTIME_DISABLE_FLAG)
+    if (txToSequence & ConsensusConstants::SEQUENCE_LOCKTIME_DISABLE_FLAG)
         return false;
 
     // Mask off any bits that do not have consensus-enforced meaning
     // before doing the integer comparisons
-    const uint32_t nLockTimeMask = CTxIn::SEQUENCE_LOCKTIME_TYPE_FLAG | CTxIn::SEQUENCE_LOCKTIME_MASK;
+    const uint32_t nLockTimeMask = ConsensusConstants::SEQUENCE_LOCKTIME_TYPE_FLAG | ConsensusConstants::SEQUENCE_LOCKTIME_MASK;
     const int64_t txToSequenceMasked = txToSequence & nLockTimeMask;
     const CScriptNum nSequenceMasked = nSequence & nLockTimeMask;
 
@@ -109,8 +109,8 @@ bool GenericTransactionSignatureChecker<T>::CheckSequence(const CScriptNum& nSeq
     // unless the type of nSequenceMasked being tested is the same as
     // the nSequenceMasked in the transaction.
     if (!(
-        (txToSequenceMasked <  CTxIn::SEQUENCE_LOCKTIME_TYPE_FLAG && nSequenceMasked <  CTxIn::SEQUENCE_LOCKTIME_TYPE_FLAG) ||
-        (txToSequenceMasked >= CTxIn::SEQUENCE_LOCKTIME_TYPE_FLAG && nSequenceMasked >= CTxIn::SEQUENCE_LOCKTIME_TYPE_FLAG)
+        (txToSequenceMasked <  ConsensusConstants::SEQUENCE_LOCKTIME_TYPE_FLAG && nSequenceMasked <  ConsensusConstants::SEQUENCE_LOCKTIME_TYPE_FLAG) ||
+        (txToSequenceMasked >= ConsensusConstants::SEQUENCE_LOCKTIME_TYPE_FLAG && nSequenceMasked >= ConsensusConstants::SEQUENCE_LOCKTIME_TYPE_FLAG)
     )) {
         return false;
     }

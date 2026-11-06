@@ -2,7 +2,7 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#include <dynamicparams.h>
+#include <consensussettings.h>
 #include <chainstatemanager.h>
 #include <index/txindex.h>
 #include <policy/policy.h>
@@ -276,7 +276,7 @@ bool LoadExternalBlockFile(FILE* fileIn, CDiskBlockPos *dbp, CXFieldHistoryMap* 
                 {
                     LOCK(cs_main);
                     // detect out of order blocks, and store them for later
-                    if (hash != DynamicParams().GenesisBlock().GetHash() && !LookupBlockIndex(block.hashPrevBlock)) {
+                    if (hash != g_consensus_settings->GenesisBlock().GetHash() && !LookupBlockIndex(block.hashPrevBlock)) {
                         LogPrint(BCLog::REINDEX, "%s: Out of order block %s, parent %s not known\n", __func__, hash.ToString(),
                                 block.hashPrevBlock.ToString());
                         if (dbp)
@@ -294,13 +294,13 @@ bool LoadExternalBlockFile(FILE* fileIn, CDiskBlockPos *dbp, CXFieldHistoryMap* 
                         if (state.IsError()) {
                           break;
                       }
-                    } else if (hash != DynamicParams().GenesisBlock().GetHash() && pindex->nHeight % 1000 == 0) {
+                    } else if (hash != g_consensus_settings->GenesisBlock().GetHash() && pindex->nHeight % 1000 == 0) {
                       LogPrint(BCLog::REINDEX, "%s Block Import: already had block %s at height %d\n", __func__, hash.ToString(), pindex->nHeight);
                     }
                 }
 
                 // Activate the genesis block so normal node progress can continue
-                if (hash == DynamicParams().GenesisBlock().GetHash()) {
+                if (hash == g_consensus_settings->GenesisBlock().GetHash()) {
                     CValidationState state;
                     if (!ActivateBestChain(state)) {
                         break;

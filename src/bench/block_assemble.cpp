@@ -9,7 +9,8 @@
 #include <coinsviewcache.h>
 #include <consensus/merkle.h>
 #include <consensus/validation.h>
-#include <dynamicparams.h>
+#include <consensussettings.h>
+#include <genesisfile.h>
 #include <miner.h>
 #include <policy/policy.h>
 #include <scheduler.h>
@@ -76,8 +77,8 @@ static void AssembleBlock(benchmark::State& state)
     writeTestGenesisBlockToFile(GetDataDir(false));
     SelectParams(TAPYRUS_OP_MODE::DEV);
     SelectFederationParams(TAPYRUS_OP_MODE::DEV);
-    SelectDynamicParams(ReadGenesisBlock());
-    g_chainstate_manager.InitXFieldHistory(DynamicParams().GenesisBlock());
+    g_consensus_settings = std::make_unique<const ConsensusSettings>(ReadGenesisBlock(), TAPYRUS_OP_MODE::DEV, FederationParams().NetworkId());
+    g_chainstate_manager.InitXFieldHistory(g_consensus_settings->GenesisBlock());
 
     const CKey privKey(DecodeSecret(SIGN_BLOCK_PRIVKEY));
     const CPubKey pubkey(privKey.GetPubKey());

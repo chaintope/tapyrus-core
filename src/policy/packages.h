@@ -6,7 +6,7 @@
 #ifndef TAPYRUS_POLICY_PACKAGES_H
 #define TAPYRUS_POLICY_PACKAGES_H
 
-#include <consensus/consensus.h>
+#include <consensusconstants.h>
 #include <consensus/validation.h>
 #include <policy/policy.h>
 #include <primitives/transaction.h>

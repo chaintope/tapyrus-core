@@ -8,6 +8,7 @@
 #include <coinsviewcache.h>
 #include <coloridentifier.h>
 #include <consensus/validation.h>
+#include <consensusconstants.h>
 #include <cs_main.h>
 #include <hash.h>
 #include <issuedcolorids.h>
@@ -267,7 +268,7 @@ CScript ColoredScript(const ColorIdentifier& colorId)
 // A coin of value -1 counts as spent, so only outputs may draw it.
 CAmount RandomValue(bool allowNegative)
 {
-    static const std::vector<CAmount> values{CAmount{0}, CAmount{1}, CAmount{2}, CAmount{1000}, CAmount{50000}, MAX_MONEY, CAmount{-1}};
+    static const std::vector<CAmount> values{CAmount{0}, CAmount{1}, CAmount{2}, CAmount{1000}, CAmount{50000}, ConsensusConstants::MAX_MONEY, CAmount{-1}};
     return values.at(InsecureRandRange(values.size() - (allowNegative ? 0 : 1)));
 }
 
