@@ -96,8 +96,6 @@ static const unsigned int DEFAULT_MAX_PACKAGE_COUNT = 25;
 // descendant limits. Ensure that, at their defaults, those limits admit a full-size chain package.
 static_assert(DEFAULT_DESCENDANT_LIMIT >= DEFAULT_MAX_PACKAGE_COUNT);
 static_assert(DEFAULT_ANCESTOR_LIMIT >= DEFAULT_MAX_PACKAGE_COUNT);
-/** Default for -expectedblocktime, expected spacing between blocks in seconds; used only for estimates and timeouts */
-static const int64_t DEFAULT_EXPECTED_BLOCK_TIME = 15;
 
 /**
  * What this node relays, keeps in its mempool and mines: read once from
@@ -163,9 +161,6 @@ struct PolicySettings : PolicyConstants
     const uint32_t blockMaxSize;
     /** nFeatures of the blocks this node creates in dev mode. */
     const int32_t blockFeatures;
-
-    /** Expected spacing between blocks, in seconds. */
-    const int64_t expectedBlockTime;
 
     /** The largest transaction we relay and mine: -maxstandardtxsize, capped at the latest block size limit. */
     uint32_t MaxStandardTxSize() const;

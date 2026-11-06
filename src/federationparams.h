@@ -34,6 +34,8 @@ public:
     const std::string& getDataDir() const { return dataDir; }
     /** Return the list of hostnames to look up for DNS seeds */
     const std::vector<std::string>& DNSSeeds() const { return vSeeds; }
+    /** Expected spacing between blocks in seconds, set by the federation's signers; used only for estimates and timeouts. */
+    static constexpr int64_t EXPECTED_BLOCK_TIME = 15;
 
     CFederationParams();
     CFederationParams(const uint32_t networkId, const std::string dataDirName);
@@ -45,6 +47,9 @@ private:
     std::string dataDir;
     std::vector<std::string> vSeeds;
 };
+
+// A pruned node keeps the last 288 blocks for relay, which must span at least an hour: ceil(3600 / 288) = 13.
+static_assert(CFederationParams::EXPECTED_BLOCK_TIME >= 13, "a pruned node must keep an hour of blocks");
 
 /**
  * Creates and returns a std::unique_ptr<CFederationParams> of the chosen chain.

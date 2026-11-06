@@ -10,6 +10,7 @@
 #include <chainparams.h>
 #include <chainstatemanager.h>
 #include <consensussettings.h>
+#include <federationparams.h>
 #include <init.h>
 #include <interfaces/handler.h>
 #include <interfaces/wallet.h>
@@ -211,7 +212,7 @@ public:
         return result;
     }
     CFeeRate getDustRelayFee() override { return m_context.policy->dustRelayFee; }
-    int64_t getExpectedBlockTime() override { return m_context.policy->expectedBlockTime; }
+    int64_t getExpectedBlockTime() override { return CFederationParams::EXPECTED_BLOCK_TIME; }
     UniValue executeRpc(const std::string& command, const UniValue& params, const std::string& uri) override
     {
         JSONRPCRequest req(m_context);
