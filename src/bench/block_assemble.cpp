@@ -5,6 +5,7 @@
 
 #include <bench/bench.h>
 #include <chainparams.h>
+#include <cachesettings.h>
 #include <chainstatemanager.h>
 #include <coinsviewcache.h>
 #include <consensus/merkle.h>
@@ -26,7 +27,6 @@
 #include <script/sign.h>
 #include <script/signaturecreator.h>
 #include <script/signaturedata.h>
-#include <script/sigcache.h>
 #include <xfieldhistory.h>
 
 #include <list>
@@ -97,8 +97,10 @@ static void AssembleBlock(benchmark::State& state)
     CBasicKeyStore tempKeystore;
     tempKeystore.AddKey(privKey);
 
-    InitSignatureCache();
-    InitScriptExecutionCache();
+    {
+        LOCK(cs_main);
+        g_chainstate_manager.ValidationCaches().Resize(CacheSettings(gArgs).nValidationCacheBytes);
+    }
 
     CScheduler scheduler;
     std::thread thread(std::bind(&CScheduler::serviceQueue, &scheduler));

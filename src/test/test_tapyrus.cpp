@@ -25,6 +25,7 @@
 #include <script/sigcache.h>
 #include <xfieldhistory.h>
 #include <util.h>
+#include <cachesettings.h>
 
 #include <thread>
 #include <fstream>
@@ -80,8 +81,11 @@ BasicTestingSetup::BasicTestingSetup(const std::string& chainName)
     try {
         SetupEnvironment();
         SetupNetworking();
-        InitSignatureCache();
-        InitScriptExecutionCache();
+        m_node.cache = std::make_unique<const CacheSettings>(gArgs);
+        {
+            LOCK(cs_main);
+            g_chainstate_manager.ValidationCaches().Resize(m_node.cache->nValidationCacheBytes);
+        }
         // No subscribers: a fatal error in a test is recorded, not shown or shut down on.
         g_chainstate_manager.SetNotifications(&m_node.notifications);
         SelectParams(TAPYRUS_OP_MODE::PROD);

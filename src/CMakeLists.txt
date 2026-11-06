@@ -369,6 +369,7 @@ add_library(tapyrus_chainstate STATIC EXCLUDE_FROM_ALL
   txmempool.cpp
   utxo_snapshot.cpp
   validation.cpp
+  validationcache.cpp
   validationinterface.cpp
   verificationprogress.cpp
   verifydb.cpp
