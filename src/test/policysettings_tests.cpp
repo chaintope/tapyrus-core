@@ -71,6 +71,7 @@ BOOST_AUTO_TEST_CASE(new_option_defaults)
     BOOST_CHECK_EQUAL(settings.maxP2shSigOps, 15U);
     BOOST_CHECK_EQUAL(settings.maxReplacementCandidates, 100U);
     BOOST_CHECK_EQUAL(settings.orphanExpiry, 20 * 60);
+    BOOST_CHECK_EQUAL(settings.maxTxFee, DEFAULT_TRANSACTION_MAXFEE);
     BOOST_CHECK_EQUAL(settings.maxPackageCount, 25U);
 }
 
@@ -84,6 +85,10 @@ BOOST_AUTO_TEST_CASE(new_option_ranges)
     BOOST_CHECK_EQUAL(StartupError({{"-maxstandardtxsize", "4000000"}}), "");
     BOOST_CHECK_EQUAL(StartupError({{"-maxstandardtxsize", "1000"}, {"-minstandardtxsize", "1001"}}), "-minstandardtxsize value 1001 is out of range [0, 1000]");
     BOOST_CHECK_EQUAL(StartupError({{"-maxpackagecount", "0"}}), "-maxpackagecount value 0 is out of range [1, 4294967295]");
+    BOOST_CHECK_EQUAL(StartupError({{"-maxtxfee", "abc"}}), "Invalid amount for -maxtxfee=<amount>: 'abc'");
+    // Below the relay fee of 0.00001 TPC/kB a transaction could never pay enough to be relayed.
+    BOOST_CHECK(StartupError({{"-maxtxfee", "0.000001"}}).find("must be at least the minrelay fee") != std::string::npos);
+    BOOST_CHECK_EQUAL(StartupError({{"-maxtxfee", "0.5"}}), "");
     BOOST_CHECK_EQUAL(StartupError({{"-orphanexpiry", "299"}}), "-orphanexpiry value 299 is out of range [300, 4294967295]");
     BOOST_CHECK_EQUAL(StartupError({{"-orphanexpiry", "300"}}), "");
     BOOST_CHECK_EQUAL(StartupError({{"-maxp2shsigops", "-1"}}), "-maxp2shsigops value -1 is out of range [0, 4294967295]");

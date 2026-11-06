@@ -213,6 +213,7 @@ public:
     }
     CFeeRate getDustRelayFee() override { return m_context.policy->dustRelayFee; }
     int64_t getExpectedBlockTime() override { return CFederationParams::EXPECTED_BLOCK_TIME; }
+    CAmount getMaxTxFee() override { return m_context.policy->maxTxFee; }
     UniValue executeRpc(const std::string& command, const UniValue& params, const std::string& uri) override
     {
         JSONRPCRequest req(m_context);

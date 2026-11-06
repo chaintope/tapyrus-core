@@ -86,6 +86,8 @@ static const unsigned int DEFAULT_MAX_BAREMULTISIG_KEYS = 3;
 static const unsigned int DEFAULT_MAX_P2SH_SIGOPS = 15;
 /** Default for -maxreplacementcandidates, the most mempool transactions one replacement may evict */
 static const unsigned int DEFAULT_MAX_REPLACEMENT_CANDIDATES = 100;
+/** Default for -maxtxfee, the most fees a single transaction may pay */
+static const CAmount DEFAULT_TRANSACTION_MAXFEE = 0.1 * ConsensusConstants::COIN;
 /** Default for -orphanexpiry, expiration time for orphan transactions in seconds */
 static const int64_t DEFAULT_ORPHAN_TX_EXPIRE_TIME = 20 * 60;
 /** Seconds between sweeps of expired orphans, so also the shortest -orphanexpiry that can be honoured */
@@ -117,6 +119,8 @@ struct PolicySettings : PolicyConstants
     const CFeeRate dustRelayFee;
     /** The lowest feerate of a transaction in blocks this node creates. */
     const CFeeRate blockMinTxFee;
+    /** The most fees a single transaction may pay: the wallet's own, and the raw-transaction RPCs' unless allowhighfees is set. */
+    const CAmount maxTxFee;
     /** Equivalent bytes per sigop in transactions for relay and mining. */
     const uint32_t bytesPerSigOp;
     const bool acceptDatacarrier;
@@ -169,6 +173,7 @@ private:
     /** The fee rate of a -<name>=<amt> option, or its default when it is not set. */
     static CFeeRate ParseFeeRate(const ArgsManager& args, const std::string& name, CAmount defaultFee);
     static CFeeRate ParseMinRelayTxFee(const ArgsManager& args, const CFeeRate& incrementalRelayFee);
+    static CAmount ParseMaxTxFee(const ArgsManager& args, const CFeeRate& minRelayTxFee);
     static uint32_t ParseBytesPerSigOp(const ArgsManager& args);
     static uint32_t ParseMaxDatacarrierBytes(const ArgsManager& args);
     static bool ParseAcceptNonStdTxn(const ArgsManager& args, TAPYRUS_OP_MODE mode);

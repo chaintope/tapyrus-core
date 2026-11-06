@@ -1804,7 +1804,7 @@ void CWallet::ReacceptWalletTransactions()
     for (std::pair<const int64_t, CWalletTx*>& item : mapSorted) {
         CWalletTx& wtx = *(item.second);
         CValidationState state;
-        wtx.AcceptToMemoryPool(m_default_max_tx_fee, state);
+        wtx.AcceptToMemoryPool(g_policy_settings->maxTxFee, state);
     }
 }
 
@@ -1815,7 +1815,7 @@ bool CWalletTx::RelayWalletTransaction(CConnman* connman)
     {
         CValidationState state;
         /* GetDepthInMainChain already catches known conflicts. */
-        if (InMempool() || AcceptToMemoryPool(pwallet->m_default_max_tx_fee, state)) {
+        if (InMempool() || AcceptToMemoryPool(g_policy_settings->maxTxFee, state)) {
             pwallet->WalletLogPrintf("Relaying wtx %s\n", GetHash().ToString());
             if (connman) {
                 CInv inv(MSG_TX, GetHash());
@@ -3173,7 +3173,7 @@ bool CWallet::CommitTransaction(CTransactionRef tx, mapValue_t mapValue, std::ve
         if (fBroadcastTransactions)
         {
             // Broadcast
-            if (!wtx.AcceptToMemoryPool(m_default_max_tx_fee, state)) {
+            if (!wtx.AcceptToMemoryPool(g_policy_settings->maxTxFee, state)) {
                 WalletLogPrintf("CommitTransaction(): Transaction cannot be broadcast immediately, %s\n", FormatStateMessage(state));
                 // TODO: if we expect the failure to be long term or permanent, instead delete wtx from the wallet and return failure.
             } else {
@@ -4305,22 +4305,6 @@ std::shared_ptr<CWallet> CWallet::CreateWalletFromFile(const std::string& name, 
                 gArgs.GetArg("-paytxfee", ""), g_policy_settings->minRelayTxFee.ToString()));
             return nullptr;
         }
-    }
-    if (gArgs.IsArgSet("-maxtxfee")) {
-        CAmount nMaxFee = 0;
-        if (!ParseMoney(gArgs.GetArg("-maxtxfee", ""), nMaxFee)) {
-            InitError(AmountErrMsg("maxtxfee", gArgs.GetArg("-maxtxfee", "")));
-            return nullptr;
-        }
-        if (nMaxFee > HIGH_MAX_TX_FEE) {
-            InitWarning(_("-maxtxfee is set very high! Fees this large could be paid on a single transaction."));
-        }
-        if (CFeeRate(nMaxFee, 1000) < g_policy_settings->minRelayTxFee) {
-            InitError(strprintf(_("Invalid amount for -maxtxfee=<amount>: '%s' (must be at least the minrelay fee of %s to prevent stuck transactions)"),
-                gArgs.GetArg("-maxtxfee", ""), g_policy_settings->minRelayTxFee.ToString()));
-            return nullptr;
-        }
-        walletInstance->m_default_max_tx_fee = nMaxFee;
     }
     walletInstance->m_confirm_target = gArgs.GetArg("-txconfirmtarget", DEFAULT_TX_CONFIRM_TARGET);
     walletInstance->m_spend_zero_conf_change = gArgs.GetBoolArg("-spendzeroconfchange", DEFAULT_SPEND_ZEROCONF_CHANGE);

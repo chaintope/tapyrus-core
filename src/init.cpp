@@ -111,7 +111,7 @@ public:
 void DummyWalletInit::AddWalletOptions() const
 {
     std::vector<std::string> opts = {"-addresstype", "-changetype", "-disablewallet", "-discardfee=<amt>", "-fallbackfee=<amt>",
-        "-keypool=<n>", "-maxtxfee=<amt>", "-mintxfee=<amt>", "-paytxfee=<amt>", "-rescan", "-salvagewallet", "-spendzeroconfchange",  "-txconfirmtarget=<n>",
+        "-keypool=<n>", "-mintxfee=<amt>", "-paytxfee=<amt>", "-rescan", "-salvagewallet", "-spendzeroconfchange",  "-txconfirmtarget=<n>",
         "-upgradewallet", "-wallet=<path>", "-walletbroadcast", "-walletdir=<dir>", "-walletnotify=<cmd>", "-walletrbf", "-zapwallettxes=<mode>",
         "-dblogsize=<n>", "-flushwallet", "-privdb", "-walletrejectlongchains"};
     gArgs.AddHiddenArgs(opts);
@@ -511,6 +511,8 @@ void SetupServerArgs()
     gArgs.AddArg("-maxbaremultisigkeys=<n>", strprintf("Maximum number of keys in a bare multisig output we relay and mine (1 to %d, default: %u)", ConsensusConstants::MAX_PUBKEYS_PER_MULTISIG, DEFAULT_MAX_BAREMULTISIG_KEYS), false, OptionsCategory::NODE_RELAY);
     gArgs.AddArg("-maxp2shsigops=<n>", strprintf("Maximum number of signature operations in a P2SH redeem script we relay and mine (default: %u)", DEFAULT_MAX_P2SH_SIGOPS), false, OptionsCategory::NODE_RELAY);
     gArgs.AddArg("-maxpackagecount=<n>", strprintf("Maximum number of transactions in a package (default: %u)", DEFAULT_MAX_PACKAGE_COUNT), false, OptionsCategory::NODE_RELAY);
+    gArgs.AddArg("-maxtxfee=<amt>", strprintf("Maximum total fees (in %s) of a single transaction: those the wallet creates, and those sendrawtransaction, testmempoolaccept and submitpackage accept unless allowhighfees is set (default: %s)",
+        CURRENCY_UNIT, FormatMoney(DEFAULT_TRANSACTION_MAXFEE)), false, OptionsCategory::DEBUG_TEST);
     gArgs.AddArg("-minrelaytxfee=<amt>", strprintf("Fees (in %s/kB) smaller than this are considered zero fee for relaying, mining and transaction creation (default: %s)",
         CURRENCY_UNIT, FormatMoney(DEFAULT_MIN_RELAY_TX_FEE)), false, OptionsCategory::NODE_RELAY);
     gArgs.AddArg("-whitelistforcerelay", strprintf("Force relay of transactions from whitelisted peers even if they violate local relay policy (default: %d)", DEFAULT_WHITELISTFORCERELAY), false, OptionsCategory::NODE_RELAY);

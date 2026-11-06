@@ -54,8 +54,6 @@ struct LockPoints;
 #define MICRO 0.000001
 #define MILLI 0.001
 
-//! Default maximum fee of sendrawtransaction, testmempoolaccept and submitpackage
-static const CAmount DEFAULT_MAX_RAW_TX_FEE = 0.1 * ConsensusConstants::COIN;
 //! Discourage users to set fees higher than this amount (in tapyrus) per kB
 static const CAmount HIGH_TX_FEE_PER_KB = 0.01 * ConsensusConstants::COIN;
 //! -maxtxfee will warn if called with a higher fee than this amount (in tapyrus)
