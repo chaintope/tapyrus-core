@@ -15,6 +15,7 @@
 #include <vector>
 
 class CTxMemPool;
+class HeightDerivedConsensusRules;
 
 class PartiallyDownloadedBlock {
 protected:
@@ -28,7 +29,7 @@ public:
     // extra_txn is a list of extra transactions to look at, in <hash, reference> form
     ReadStatus InitData(const CBlockHeaderAndShortTxIDs& cmpctblock, const std::vector<std::pair<uint256, CTransactionRef>>& extra_txn);
     bool IsTxAvailable(size_t index) const;
-    ReadStatus FillBlock(CBlock& block, const std::vector<CTransactionRef>& vtx_missing, int nHeight = -1);
+    ReadStatus FillBlock(CBlock& block, const std::vector<CTransactionRef>& vtx_missing, const HeightDerivedConsensusRules& consensusAtHeight);
 };
 
 #endif // TAPYRUS_PARTIALLYDOWNLOADEDBLOCK_H

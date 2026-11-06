@@ -88,9 +88,9 @@ static UniValue testmempoolaccept(const JSONRPCRequest& request)
 
     RPCTypeCheck(request.params, {UniValue::VARR, UniValue::VBOOL});
     const UniValue raw_transactions = request.params[0].get_array();
-    if (raw_transactions.size() < 1 || raw_transactions.size() > MAX_PACKAGE_COUNT) {
+    if (raw_transactions.size() < 1 || raw_transactions.size() > g_policy_settings->maxPackageCount) {
         throw JSONRPCError(RPC_INVALID_PARAMETER,
-                            strprintf("Too many transactions in package (maximum %u).", MAX_PACKAGE_COUNT));
+                            strprintf("Too many transactions in package (maximum %u).", g_policy_settings->maxPackageCount));
     }
 
     std::vector<CTransaction> transactions;
@@ -103,7 +103,7 @@ static UniValue testmempoolaccept(const JSONRPCRequest& request)
         transactions.push_back(std::move(mtx));
     }
 
-    CAmount max_raw_tx_fee = ::maxTxFee;
+    CAmount max_raw_tx_fee = g_policy_settings->maxTxFee;
     if (!request.params[1].isNull() && request.params[1].get_bool()) {
         max_raw_tx_fee = 0;
     }
@@ -159,9 +159,9 @@ static UniValue submitpackage(const JSONRPCRequest& request)
     RPCTypeCheck(request.params, {UniValue::VARR, UniValue::VBOOL});
 
     const UniValue raw_transactions = request.params[0].get_array();
-    if (raw_transactions.size() < 1 || raw_transactions.size() > MAX_PACKAGE_COUNT) {
+    if (raw_transactions.size() < 1 || raw_transactions.size() > g_policy_settings->maxPackageCount) {
         throw JSONRPCError(RPC_INVALID_PARAMETER,
-                            strprintf("Too many transactions in package (maximum %u)", MAX_PACKAGE_COUNT));
+                            strprintf("Too many transactions in package (maximum %u)", g_policy_settings->maxPackageCount));
     }
 
     std::vector<CTransaction> transactions;
@@ -174,7 +174,7 @@ static UniValue submitpackage(const JSONRPCRequest& request)
         transactions.push_back(std::move(mtx));
     }
 
-    CAmount max_raw_tx_fee = ::maxTxFee;
+    CAmount max_raw_tx_fee = g_policy_settings->maxTxFee;
     if (!request.params[1].isNull() && request.params[1].get_bool()) {
         max_raw_tx_fee = 0;
     }
@@ -503,10 +503,10 @@ UniValue mempoolInfoToJSON()
     ret.pushKV("size", (int64_t) mempool.size());
     ret.pushKV("bytes", (int64_t) mempool.GetTotalTxSize());
     ret.pushKV("usage", (int64_t) mempool.DynamicMemoryUsage());
-    size_t maxmempool = gArgs.GetArg("-maxmempool", DEFAULT_MAX_MEMPOOL_SIZE) * 1000000;
+    size_t maxmempool = g_policy_settings->maxMempool;
     ret.pushKV("maxmempool", (int64_t) maxmempool);
-    ret.pushKV("mempoolminfee", ValueFromAmount(std::max(mempool.GetMinFee(maxmempool), ::minRelayTxFee).GetFeePerK()));
-    ret.pushKV("minrelaytxfee", ValueFromAmount(::minRelayTxFee.GetFeePerK()));
+    ret.pushKV("mempoolminfee", ValueFromAmount(std::max(mempool.GetMinFee(maxmempool), g_policy_settings->minRelayTxFee).GetFeePerK()));
+    ret.pushKV("minrelaytxfee", ValueFromAmount(g_policy_settings->minRelayTxFee.GetFeePerK()));
 
     return ret;
 }

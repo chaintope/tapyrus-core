@@ -4398,7 +4398,7 @@ UniValue walletfundpsttfee(const JSONRPCRequest& request)
         // no-wallet-required Signer path.
         CTransactionRef feeTx;
         uint256 hashBlock;
-        if (!GetTransaction(txid, feeTx, Params().GetConsensus(), hashBlock, true)) {
+        if (!GetTransaction(txid, feeTx, hashBlock, true)) {
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "fee_input's txid not found");
         }
         if ((unsigned int)nOutput >= feeTx->vout.size()) {

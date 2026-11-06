@@ -13,6 +13,7 @@
 #include <key_io.h>
 #include <nodecontext.h>
 #include <policy/policy.h>
+#include <policy/policyconstants.h>
 #include <random.h>
 #include <rpc/jsonrpcrequest.h>
 #include <rpc/rpctable.h>
@@ -1066,7 +1067,7 @@ BOOST_FIXTURE_TEST_CASE(pstt_mixed_scheme_rejected_construction_and_execution_ag
     mtx.vout.emplace_back(multisigUtxo->vout[0].nValue - CENT, P2PKHScriptFor(destKey));
 
     ScriptError serror;
-    bool ok = VerifyScript(mtx.vin[0].scriptSig, scriptPubKey, STANDARD_SCRIPT_VERIFY_FLAGS,
+    bool ok = VerifyScript(mtx.vin[0].scriptSig, scriptPubKey, PolicyConstants::STANDARD_SCRIPT_VERIFY_FLAGS,
                             MutableTransactionSignatureChecker(&mtx, 0, multisigUtxo->vout[0].nValue), &serror);
     BOOST_CHECK(!ok);
 }

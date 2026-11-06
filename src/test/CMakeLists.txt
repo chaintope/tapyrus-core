@@ -89,6 +89,7 @@ add_executable(test_tapyrus
         coins_tests.cpp
         coloridentifier_tests.cpp
         compress_tests.cpp
+        consensus_rules_tests.cpp
         crypto_tests.cpp
         cuckoocache_tests.cpp
         dbwrapper_tests.cpp
@@ -113,6 +114,7 @@ add_executable(test_tapyrus
         netbase_tests.cpp
         pmt_tests.cpp
         policyestimator_tests.cpp
+        policysettings_tests.cpp
         prevector_tests.cpp
         pstt_tests.cpp
         raii_event_tests.cpp

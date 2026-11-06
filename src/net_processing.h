@@ -12,14 +12,9 @@
 #include <netnode.h>
 #include <neteventsinterface.h>
 #include <validationinterface.h>
-#include <consensus/params.h>
 #include <cs_main.h>
 #include <sync.h>
 
-/** Default for -maxorphantx, maximum number of orphan transactions kept in memory */
-static const unsigned int DEFAULT_MAX_ORPHAN_TRANSACTIONS = 100;
-/** Default number of orphan+recently-replaced txn to keep around for block reconstruction */
-static const unsigned int DEFAULT_BLOCK_RECONSTRUCTION_EXTRA_TXN = 100;
 /** Maximum number of outstanding CMPCTBLOCK requests for the same block. */
 static const unsigned int MAX_CMPCTBLOCKS_INFLIGHT_PER_BLOCK = 3;
 
@@ -82,7 +77,7 @@ public:
     /** Consider evicting an outbound peer based on the amount of time they've been behind our tip */
     void ConsiderEviction(CNode *pto, int64_t time_in_seconds);
     /** Evict extra outbound peers. If we think our tip may be stale, connect to an extra outbound */
-    void CheckForStaleTipAndEvictPeers(const Consensus::Params &consensusParams);
+    void CheckForStaleTipAndEvictPeers();
     /** If we have extra outbound peers, try to disconnect the one with the oldest block announcement */
     void EvictExtraOutboundPeers(int64_t time_in_seconds);
 

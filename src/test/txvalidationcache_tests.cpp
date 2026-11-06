@@ -5,6 +5,7 @@
 
 #include <consensus/validation.h>
 #include <key.h>
+#include <policy/policyconstants.h>
 #include <script/transactionsignatureserializer.h>
 #include <validation.h>
 #include <miner.h>
@@ -217,8 +218,8 @@ BOOST_FIXTURE_TEST_CASE(checkinputs_test, TestChainSetup)
             CValidationState state;
 
             BOOST_CHECK(!CheckInputs(spend_tx, state, pcoinsTip.get(), true, 0, true, true, nullptr));
-            BOOST_CHECK(!CheckInputs(spend_tx, state, pcoinsTip.get(), true, STANDARD_NOT_MANDATORY_VERIFY_FLAGS, true, true, nullptr));
-            BOOST_CHECK(!CheckInputs(spend_tx, state, pcoinsTip.get(), true, STANDARD_SCRIPT_VERIFY_FLAGS, true, true, nullptr));
+            BOOST_CHECK(!CheckInputs(spend_tx, state, pcoinsTip.get(), true, PolicyConstants::STANDARD_NOT_MANDATORY_VERIFY_FLAGS, true, true, nullptr));
+            BOOST_CHECK(!CheckInputs(spend_tx, state, pcoinsTip.get(), true, PolicyConstants::STANDARD_SCRIPT_VERIFY_FLAGS, true, true, nullptr));
 
             // Sign, with a DER signature
             {
@@ -245,16 +246,16 @@ BOOST_FIXTURE_TEST_CASE(checkinputs_test, TestChainSetup)
             std::vector<CScriptCheck> scriptchecks;
             BOOST_CHECK(CheckInputs(spend_tx, state, pcoinsTip.get(), true, 0, true, true, &scriptchecks));
             BOOST_CHECK_EQUAL(scriptchecks.size(), 1U);
-            BOOST_CHECK(CheckInputs(spend_tx, state, pcoinsTip.get(), true, STANDARD_NOT_MANDATORY_VERIFY_FLAGS, true, true, &scriptchecks));
+            BOOST_CHECK(CheckInputs(spend_tx, state, pcoinsTip.get(), true, PolicyConstants::STANDARD_NOT_MANDATORY_VERIFY_FLAGS, true, true, &scriptchecks));
             BOOST_CHECK_EQUAL(scriptchecks.size(), 2U);
-            BOOST_CHECK(CheckInputs(spend_tx, state, pcoinsTip.get(), true, STANDARD_SCRIPT_VERIFY_FLAGS, true, true, &scriptchecks));
+            BOOST_CHECK(CheckInputs(spend_tx, state, pcoinsTip.get(), true, PolicyConstants::STANDARD_SCRIPT_VERIFY_FLAGS, true, true, &scriptchecks));
             BOOST_CHECK_EQUAL(scriptchecks.size(), 3U);
 
             // Test that CheckInputs returns true iff DERSIG-enforcing flags are
             // not present.  Don't add these checks to the cache, so that we can
             // test later that block validation works fine in the absence of cached
             // successes.
-            ValidateCheckInputsForAllFlags(spend_tx, STANDARD_SCRIPT_VERIFY_FLAGS, false);
+            ValidateCheckInputsForAllFlags(spend_tx, PolicyConstants::STANDARD_SCRIPT_VERIFY_FLAGS, false);
         }
 
         // And if we produce a block with this tx, it should be valid (DERSIG not
@@ -284,8 +285,8 @@ BOOST_FIXTURE_TEST_CASE(checkinputs_test, TestChainSetup)
 
             CValidationState state;
             BOOST_CHECK(!CheckInputs(invalid_under_p2sh_tx, state, pcoinsTip.get(), true, 0, true, true, nullptr));
-            BOOST_CHECK(!CheckInputs(invalid_under_p2sh_tx, state, pcoinsTip.get(), true, STANDARD_NOT_MANDATORY_VERIFY_FLAGS, true, true, nullptr));
-            BOOST_CHECK(!CheckInputs(invalid_under_p2sh_tx, state, pcoinsTip.get(), true, STANDARD_SCRIPT_VERIFY_FLAGS, true, true, nullptr));
+            BOOST_CHECK(!CheckInputs(invalid_under_p2sh_tx, state, pcoinsTip.get(), true, PolicyConstants::STANDARD_NOT_MANDATORY_VERIFY_FLAGS, true, true, nullptr));
+            BOOST_CHECK(!CheckInputs(invalid_under_p2sh_tx, state, pcoinsTip.get(), true, PolicyConstants::STANDARD_SCRIPT_VERIFY_FLAGS, true, true, nullptr));
         }
 
         // Test CHECKLOCKTIMEVERIFY
@@ -320,14 +321,14 @@ BOOST_FIXTURE_TEST_CASE(checkinputs_test, TestChainSetup)
 
             CValidationState state;
             BOOST_CHECK(!CheckInputs(invalid_with_cltv_tx, state, pcoinsTip.get(), true, 0, true, true, nullptr));
-            BOOST_CHECK(!CheckInputs(invalid_with_cltv_tx, state, pcoinsTip.get(), true, STANDARD_NOT_MANDATORY_VERIFY_FLAGS, true, true, nullptr));
-            BOOST_CHECK(!CheckInputs(invalid_with_cltv_tx, state, pcoinsTip.get(), true, STANDARD_SCRIPT_VERIFY_FLAGS, true, true, nullptr));
+            BOOST_CHECK(!CheckInputs(invalid_with_cltv_tx, state, pcoinsTip.get(), true, PolicyConstants::STANDARD_NOT_MANDATORY_VERIFY_FLAGS, true, true, nullptr));
+            BOOST_CHECK(!CheckInputs(invalid_with_cltv_tx, state, pcoinsTip.get(), true, PolicyConstants::STANDARD_SCRIPT_VERIFY_FLAGS, true, true, nullptr));
 
             // Make it valid, and check again
             invalid_with_cltv_tx.vin[0].scriptSig = CScript() << vchSig << 100;
             BOOST_CHECK(CheckInputs(invalid_with_cltv_tx, state, pcoinsTip.get(), true, 0, true, true, nullptr));
-            BOOST_CHECK(CheckInputs(invalid_with_cltv_tx, state, pcoinsTip.get(), true, STANDARD_NOT_MANDATORY_VERIFY_FLAGS, true, true, nullptr));
-            BOOST_CHECK(CheckInputs(invalid_with_cltv_tx, state, pcoinsTip.get(), true, STANDARD_SCRIPT_VERIFY_FLAGS, true, true, nullptr));
+            BOOST_CHECK(CheckInputs(invalid_with_cltv_tx, state, pcoinsTip.get(), true, PolicyConstants::STANDARD_NOT_MANDATORY_VERIFY_FLAGS, true, true, nullptr));
+            BOOST_CHECK(CheckInputs(invalid_with_cltv_tx, state, pcoinsTip.get(), true, PolicyConstants::STANDARD_SCRIPT_VERIFY_FLAGS, true, true, nullptr));
         }
 
         // TEST CHECKSEQUENCEVERIFY
@@ -362,14 +363,14 @@ BOOST_FIXTURE_TEST_CASE(checkinputs_test, TestChainSetup)
             CValidationState state;
 
             BOOST_CHECK(!CheckInputs(invalid_with_csv_tx, state, pcoinsTip.get(), true, 0, true, true, nullptr));
-            BOOST_CHECK(!CheckInputs(invalid_with_csv_tx, state, pcoinsTip.get(), true, STANDARD_NOT_MANDATORY_VERIFY_FLAGS, true, true, nullptr));
-            BOOST_CHECK(!CheckInputs(invalid_with_csv_tx, state, pcoinsTip.get(), true, STANDARD_SCRIPT_VERIFY_FLAGS, true, true, nullptr));
+            BOOST_CHECK(!CheckInputs(invalid_with_csv_tx, state, pcoinsTip.get(), true, PolicyConstants::STANDARD_NOT_MANDATORY_VERIFY_FLAGS, true, true, nullptr));
+            BOOST_CHECK(!CheckInputs(invalid_with_csv_tx, state, pcoinsTip.get(), true, PolicyConstants::STANDARD_SCRIPT_VERIFY_FLAGS, true, true, nullptr));
 
             // Make it valid, and check again
             invalid_with_csv_tx.vin[0].scriptSig = CScript() << vchSig << 100;
             BOOST_CHECK(CheckInputs(invalid_with_csv_tx, state, pcoinsTip.get(), true, 0, true, true, nullptr));
-            BOOST_CHECK(CheckInputs(invalid_with_csv_tx, state, pcoinsTip.get(), true, STANDARD_NOT_MANDATORY_VERIFY_FLAGS, true, true, nullptr));
-            BOOST_CHECK(CheckInputs(invalid_with_csv_tx, state, pcoinsTip.get(), true, STANDARD_SCRIPT_VERIFY_FLAGS, true, true, nullptr));
+            BOOST_CHECK(CheckInputs(invalid_with_csv_tx, state, pcoinsTip.get(), true, PolicyConstants::STANDARD_NOT_MANDATORY_VERIFY_FLAGS, true, true, nullptr));
+            BOOST_CHECK(CheckInputs(invalid_with_csv_tx, state, pcoinsTip.get(), true, PolicyConstants::STANDARD_SCRIPT_VERIFY_FLAGS, true, true, nullptr));
         }
     }
 }
