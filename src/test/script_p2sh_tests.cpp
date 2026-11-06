@@ -115,7 +115,7 @@ BOOST_AUTO_TEST_CASE(sign)
         {
             CScript sigSave = txTo[i].vin[0].scriptSig;
             txTo[i].vin[0].scriptSig = txTo[j].vin[0].scriptSig;
-            bool sigOK = !CScriptCheck(txFrom.vout[txTo[i].vin[0].prevout.n], txTo[i], 0, 0, false)().has_value();
+            bool sigOK = !CScriptCheck(txFrom.vout[txTo[i].vin[0].prevout.n], txTo[i], 0, 0, false, g_chainstate_manager.ValidationCaches().Signatures())().has_value();
             if (i == j)
                 BOOST_CHECK_MESSAGE(sigOK, strprintf("VerifySignature %d %d", i, j));
             else

@@ -10,6 +10,7 @@
 #include <checkblock.h>
 #include <consensus/tx_check.h>
 #include <validation.h>
+#include <validationcache.h>
 #include <cs_main.h>
 #include <issuedcolorids.h>
 #include <chainstatemanager.h>
@@ -17,7 +18,6 @@
 #include <checkqueue.h>
 #include <consensus/merkle.h>
 #include <consensus/validation.h>
-#include <cuckoocache.h>
 #include <federationparams.h>
 #include <hash.h>
 #include <index/txindex.h>
@@ -270,7 +270,7 @@ static bool CheckInputsFromMempoolAndCache(ValidationContext context, const CTra
         }
     }
 
-    return CheckInputs(tx, state, view, true, flags, cacheSigStore, true);
+    return CheckInputs(tx, state, view, true, flags, cacheSigStore, true, g_chainstate_manager.ValidationCaches());
 }
 
 static bool CheckConflictsInMempool(const CTransaction& tx, std::set<uint256>& setConflicts, CValidationState& state)
@@ -632,7 +632,7 @@ static bool AcceptToMemoryPoolWorker(const CTransactionRef &ptx, CTxMempoolAccep
         // Pass tipScriptFlags as mandatoryFlags so that softfork flags active at
         // nextBlockHeight are treated as mandatory even when they also appear in
         // PolicyConstants::STANDARD_SCRIPT_VERIFY_FLAGS (e.g. SCRIPT_VERIFY_CP2SH_COLORED).
-        if (!CheckInputs(tx, state, view, true, mempoolScriptFlags, true, false, nullptr, tipScriptFlags)) {
+        if (!CheckInputs(tx, state, view, true, mempoolScriptFlags, true, false, g_chainstate_manager.ValidationCaches(), nullptr, tipScriptFlags)) {
             return false; // state filled in by CheckInputs
         }
 
@@ -817,7 +817,7 @@ std::optional<ScriptError> CScriptCheck::operator()() {
     const CScript &scriptSig = ptxTo->vin[nIn].scriptSig;
     ScriptError error{SCRIPT_ERR_UNKNOWN_ERROR};
     if (VerifyScript(scriptSig, m_tx_out.scriptPubKey, nFlags,
-                     CachingTransactionSignatureChecker(ptxTo, nIn, m_tx_out.nValue, cacheStore),
+                     CachingTransactionSignatureChecker(ptxTo, nIn, m_tx_out.nValue, cacheStore, *m_signature_cache),
                      &error))
         return std::nullopt;
     return error;
@@ -831,19 +831,7 @@ int GetSpendHeight(const CCoinsViewCache& inputs)
     return pindexPrev->nHeight + 1;
 }
 
-static CuckooCache::cache<uint256, SignatureCacheHasher> scriptExecutionCache;
-static uint256 scriptExecutionCacheNonce(GetRandHash());
-
-void InitScriptExecutionCache() {
-    // nMaxCacheSize is unsigned. If -maxsigcachesize is set to zero,
-    // setup_bytes creates the minimum possible cache (2 elements).
-    size_t nMaxCacheSize = std::min(std::max((int64_t)0, gArgs.GetArg("-maxsigcachesize", DEFAULT_MAX_SIG_CACHE_SIZE) / 2), MAX_MAX_SIG_CACHE_SIZE) * ((size_t) 1 << 20);
-    size_t nElems = scriptExecutionCache.setup_bytes(nMaxCacheSize);
-    LogPrintf("Using %zu MiB out of %zu/2 requested for script execution cache, able to store %zu elements\n",
-            (nElems*sizeof(uint256)) >>20, (nMaxCacheSize*2)>>20, nElems);
-}
-
-bool CheckInputs(const CTransaction& tx, CValidationState &state, const CCoinsViewCache &inputs, bool fScriptChecks, unsigned int flags, bool cacheSigStore, bool cacheFullScriptStore, std::vector<CScriptCheck> *pvChecks, unsigned int mandatoryFlags)
+bool CheckInputs(const CTransaction& tx, CValidationState &state, const CCoinsViewCache &inputs, bool fScriptChecks, unsigned int flags, bool cacheSigStore, bool cacheFullScriptStore, ValidationCache& validation_cache, std::vector<CScriptCheck> *pvChecks, unsigned int mandatoryFlags)
 {
     if (!tx.IsCoinBase())
     {
@@ -865,13 +853,9 @@ bool CheckInputs(const CTransaction& tx, CValidationState &state, const CCoinsVi
             // correct (ie that the transaction hash which is in tx's prevouts
             // properly commits to the scriptPubKey in the inputs view of that
             // transaction).
-            uint256 hashCacheEntry;
-            // We only use the first 19 bytes of nonce to avoid a second SHA
-            // round - giving us 19 + 32 + 4 = 55 bytes (+ 8 + 1 = 64)
-            static_assert(55 - sizeof(flags) - 32 >= 128/8, "Want at least 128 bits of nonce for script execution cache");
-            CSHA256().Write(scriptExecutionCacheNonce.begin(), 55 - sizeof(flags) - 32).Write(tx.GetHash().begin(), 32).Write((unsigned char*)&flags, sizeof(flags)).Finalize(hashCacheEntry.begin());
+            const uint256 hashCacheEntry = validation_cache.ScriptExecutionEntry(tx.GetHash(), flags);
             AssertLockHeld(cs_main); //TODO: Remove this requirement by making CuckooCache not require external locks
-            if (scriptExecutionCache.contains(hashCacheEntry, !cacheFullScriptStore)) {
+            if (validation_cache.HasScriptExecution(hashCacheEntry, !cacheFullScriptStore)) {
                 return true;
             }
 
@@ -887,7 +871,7 @@ bool CheckInputs(const CTransaction& tx, CValidationState &state, const CCoinsVi
                 // spent being checked as a part of CScriptCheck.
 
                 // Verify signature
-                CScriptCheck check(coin.out, tx, i, flags, cacheSigStore);
+                CScriptCheck check(coin.out, tx, i, flags, cacheSigStore, validation_cache.Signatures());
                 if (pvChecks) {
                     pvChecks->emplace_back(std::move(check));
                 } else if (const auto err = check()) {
@@ -903,7 +887,7 @@ bool CheckInputs(const CTransaction& tx, CValidationState &state, const CCoinsVi
                         // → mempool rejects as non-standard without DoS.
                         // If check2 also fails, fall through to DoS.
                         CScriptCheck check2(coin.out, tx, i,
-                                flags & ~nonMandatory, cacheSigStore);
+                                flags & ~nonMandatory, cacheSigStore, validation_cache.Signatures());
                         if (!check2().has_value()) {
                             LogPrint(BCLog::MEMPOOLREJ, "%s: tx %s input %u flags=0x%08x non-mandatory script failure: %s\n",
                                 __func__, tx.GetHashMalFix().ToString(), i, flags, ScriptErrorString(*err));
@@ -921,7 +905,7 @@ bool CheckInputs(const CTransaction& tx, CValidationState &state, const CCoinsVi
             if (cacheFullScriptStore && !pvChecks) {
                 // We executed all of the provided scripts, and were told to
                 // cache the result. Do so now.
-                scriptExecutionCache.insert(hashCacheEntry);
+                validation_cache.AddScriptExecution(hashCacheEntry);
             }
         }
     }

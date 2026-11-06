@@ -1174,8 +1174,10 @@ bool AppInitMain(NodeContext& node)
         g_chainstate_manager.Progress().Set({nNow, nTxCount, dTxRate});
     }
 
-    InitSignatureCache();
-    InitScriptExecutionCache();
+    {
+        LOCK(cs_main);
+        g_chainstate_manager.ValidationCaches().Resize(node.cache->nValidationCacheBytes);
+    }
 
     const int nScriptCheckThreads = g_chainstate_manager.GetOptions().nScriptCheckThreads;
     LogPrintf("Using %u threads for script verification\n", nScriptCheckThreads);
