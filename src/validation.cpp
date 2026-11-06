@@ -75,7 +75,6 @@ int64_t nMaxTipAge = DEFAULT_MAX_TIP_AGE;
 
 uint256 hashAssumeValid;
 
-
 CBlockPolicyEstimator feeEstimator;
 CTxMemPool mempool(&feeEstimator);
 std::atomic_bool g_is_mempool_loaded{false};
@@ -743,7 +742,6 @@ static bool AcceptToMemoryPoolWorker(const CTransactionRef &ptx, CTxMempoolAccep
         if (!colorChecker.CheckTokenBalances(opt.state, g_policy_settings->minRelayTxFee.GetFee(nSize)))
             return false;
 
-
         if (opt.flags == MempoolAcceptanceFlags::TEST_ONLY) {
             // Tx was accepted, but not added
             return true;
@@ -858,7 +856,6 @@ bool GetTransaction(const uint256& hash, CTransactionRef& txOut, uint256& hashBl
 
     return false;
 }
-
 
 //////////////////////////////////////////////////////////////////////////////
 //
@@ -1072,7 +1069,6 @@ bool PreciousBlock(CValidationState& state, CBlockIndex *pindex) {
 bool InvalidateBlock(CValidationState& state, CBlockIndex *pindex) {
     return g_chainstate.InvalidateBlock(state, pindex);
 }
-
 
 void ResetBlockFailureFlags(CBlockIndex *pindex) {
     return g_chainstate.ResetBlockFailureFlags(pindex);

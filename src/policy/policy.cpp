@@ -13,7 +13,6 @@
 #include <util.h>
 #include <utilstrencodings.h>
 
-
 CAmount GetDustThreshold(const CTxOut& txout, const CFeeRate& dustRelayFeeIn)
 {
     // "Dust" is defined in terms of dustRelayFee,
@@ -166,7 +165,6 @@ bool AreInputsStandard(const CTransaction& tx, const CCoinsViewCache& mapInputs)
 
     return true;
 }
-
 
 int64_t GetTransactionSize(int64_t nSize, int64_t nSigOpCost)
 {

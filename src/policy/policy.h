@@ -18,9 +18,6 @@
 class CCoinsViewCache;
 class CTxOut;
 
-
-
-
 CAmount GetDustThreshold(const CTxOut& txout, const CFeeRate& dustRelayFee);
 
 bool IsDust(const CTxOut& txout, const CFeeRate& dustRelayFee);
