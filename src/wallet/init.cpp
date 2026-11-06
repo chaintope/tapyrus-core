@@ -8,6 +8,7 @@
 #include <net.h>
 #include <scheduler.h>
 #include <outputtype.h>
+#include <policy/policysettings.h>
 #include <util.h>
 #include <utilmoneystr.h>
 #include <validation.h>
@@ -116,6 +117,12 @@ bool WalletInit::Verify() const
 {
     if (gArgs.GetBoolArg("-disablewallet", DEFAULT_DISABLE_WALLET)) {
         return true;
+    }
+
+    // A node setting, so warned about once here rather than for each wallet.
+    if (g_policy_settings->minRelayTxFee.GetFeePerK() > HIGH_TX_FEE_PER_KB) {
+        InitWarning(AmountHighWarn("-minrelaytxfee") + " " +
+                    _("The wallet will avoid paying less than the minimum relay fee."));
     }
 
     if (gArgs.IsArgSet("-walletdir")) {

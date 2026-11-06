@@ -73,7 +73,7 @@ bool IsStandardTx(const CTransaction& tx, std::string& reason)
     // computing signature hashes is O(ninputs*txsize). Limiting transactions
     // to -maxstandardtxsize mitigates CPU exhaustion attacks.
     unsigned int sz = GetSerializeSize(tx, SER_NETWORK, PROTOCOL_VERSION);
-    if (sz > g_policy_settings->maxStandardTxSize) {
+    if (sz > g_policy_settings->MaxStandardTxSize()) {
         reason = "tx-size";
         return false;
     }
