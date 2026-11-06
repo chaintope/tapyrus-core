@@ -44,8 +44,6 @@
 # error "Tapyrus cannot be compiled without assertions."
 #endif
 
-/** Minimum time between orphan transactions expire time checks in seconds */
-static constexpr int64_t ORPHAN_TX_EXPIRE_INTERVAL = 5 * 60;
 /** How long a transaction has to be in the mempool before it can unconditionally be relayed (even when not in mapRelay). */
 static constexpr std::chrono::seconds UNCONDITIONAL_RELAY_DELAY = std::chrono::minutes{2};
 /** Maximum number of entries in mapRelay. Oldest entries are evicted when this is reached. */
@@ -771,7 +769,7 @@ bool AddOrphanTx(const CTransactionRef& tx, NodeId peer) EXCLUSIVE_LOCKS_REQUIRE
     // 100 orphans, each of which is at most 100,000 bytes big is
     // at most 10 megabytes of orphans and somewhat more byprev index (in the worst case):
     unsigned int sz = GetSerializeSize(*tx, SER_NETWORK, PROTOCOL_VERSION);
-    if (sz > g_policy_settings->maxStandardTxSize)
+    if (sz > g_policy_settings->MaxStandardTxSize())
     {
         LogPrint(BCLog::MEMPOOL, "ignoring large orphan tx (size: %u, hash: %s)\n", sz, hash.ToString());
         return false;

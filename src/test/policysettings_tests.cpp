@@ -80,16 +80,27 @@ BOOST_AUTO_TEST_CASE(new_option_ranges)
     BOOST_CHECK_EQUAL(StartupError({}), "");
     BOOST_CHECK_EQUAL(StartupError({{"-maxbaremultisigkeys", "0"}}), "-maxbaremultisigkeys value 0 is out of range [1, 20]");
     BOOST_CHECK_EQUAL(StartupError({{"-maxbaremultisigkeys", "21"}}), "-maxbaremultisigkeys value 21 is out of range [1, 20]");
-    BOOST_CHECK_EQUAL(StartupError({{"-maxstandardtxsize", "0"}}), "-maxstandardtxsize value 0 is out of range [1, 1000000]");
-    BOOST_CHECK_EQUAL(StartupError({{"-maxstandardtxsize", "1000000"}}), "");
-    BOOST_CHECK_EQUAL(StartupError({{"-maxstandardtxsize", "1000001"}}), "-maxstandardtxsize value 1000001 is out of range [1, 1000000]");
+    BOOST_CHECK_EQUAL(StartupError({{"-maxstandardtxsize", "0"}}), "-maxstandardtxsize value 0 is out of range [1, 4294967295]");
+    // Above the block size limit is accepted; MaxStandardTxSize() caps it at use.
+    BOOST_CHECK_EQUAL(StartupError({{"-maxstandardtxsize", "4000000"}}), "");
     BOOST_CHECK_EQUAL(StartupError({{"-maxstandardtxsize", "1000"}, {"-minstandardtxsize", "1001"}}), "-minstandardtxsize value 1001 is out of range [0, 1000]");
     BOOST_CHECK_EQUAL(StartupError({{"-maxpackagecount", "0"}}), "-maxpackagecount value 0 is out of range [1, 4294967295]");
-    BOOST_CHECK_EQUAL(StartupError({{"-orphanexpiry", "0"}}), "-orphanexpiry value 0 is out of range [1, 4294967295]");
+    BOOST_CHECK_EQUAL(StartupError({{"-orphanexpiry", "299"}}), "-orphanexpiry value 299 is out of range [300, 4294967295]");
+    BOOST_CHECK_EQUAL(StartupError({{"-orphanexpiry", "300"}}), "");
     BOOST_CHECK_EQUAL(StartupError({{"-expectedblocktime", "0"}}), "-expectedblocktime value 0 is out of range [1, 4294967295]");
     BOOST_CHECK_EQUAL(StartupError({{"-maxp2shsigops", "-1"}}), "-maxp2shsigops value -1 is out of range [0, 4294967295]");
     // The package count may exceed the chain limits; CheckPackage bounds chains inside a package.
     BOOST_CHECK_EQUAL(StartupError({{"-maxpackagecount", "30"}, {"-limitancestorcount", "10"}}), "");
+}
+
+BOOST_AUTO_TEST_CASE(max_standard_tx_size_capped_at_block_size)
+{
+    // The fixture's history has the genesis block size limit, 1,000,000 bytes.
+    ArgsManager args;
+    args.ForceSetArg("-maxstandardtxsize", "4000000");
+    BOOST_CHECK_EQUAL(PolicySettings(args, TAPYRUS_OP_MODE::PROD).MaxStandardTxSize(), ConsensusConstants::MAX_BLOCK_SIZE);
+    args.ForceSetArg("-maxstandardtxsize", "500000");
+    BOOST_CHECK_EQUAL(PolicySettings(args, TAPYRUS_OP_MODE::PROD).MaxStandardTxSize(), 500000U);
 }
 
 BOOST_AUTO_TEST_CASE(bare_multisig_options)

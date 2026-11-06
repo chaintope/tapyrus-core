@@ -388,7 +388,7 @@ void SetupServerArgs()
     gArgs.AddArg("-maxmempool=<n>", strprintf("Keep the transaction memory pool below <n> megabytes (default: %u)", DEFAULT_MAX_MEMPOOL_SIZE), false, OptionsCategory::OPTIONS);
     gArgs.AddArg("-maxorphantx=<n>", strprintf("Keep at most <n> unconnectable transactions in memory (default: %u)", DEFAULT_MAX_ORPHAN_TRANSACTIONS), false, OptionsCategory::OPTIONS);
     gArgs.AddArg("-mempoolexpiry=<n>", strprintf("Do not keep transactions in the mempool longer than <n> hours (default: %u)", DEFAULT_MEMPOOL_EXPIRY), false, OptionsCategory::OPTIONS);
-    gArgs.AddArg("-orphanexpiry=<n>", strprintf("Do not keep unconnectable transactions in memory longer than <n> seconds (default: %u)", DEFAULT_ORPHAN_TX_EXPIRE_TIME), false, OptionsCategory::OPTIONS);
+    gArgs.AddArg("-orphanexpiry=<n>", strprintf("Do not keep unconnectable transactions in memory longer than <n> seconds; expired ones are removed in sweeps up to %u seconds apart (at least %u, default: %u)", ORPHAN_TX_EXPIRE_INTERVAL, ORPHAN_TX_EXPIRE_INTERVAL, DEFAULT_ORPHAN_TX_EXPIRE_TIME), false, OptionsCategory::OPTIONS);
     gArgs.AddArg("-par=<n>", strprintf("Set the number of script verification threads (%u to %d, 0 = auto, <0 = leave that many cores free, default: %d)",
         -GetNumCores(), MAX_SCRIPTCHECK_THREADS, DEFAULT_SCRIPTCHECK_THREADS), false, OptionsCategory::OPTIONS);
     gArgs.AddArg("-persistmempool", strprintf("Whether to save the mempool on shutdown and load on restart (default: %u)", DEFAULT_PERSIST_MEMPOOL), false, OptionsCategory::OPTIONS);
@@ -505,7 +505,7 @@ void SetupServerArgs()
     gArgs.AddArg("-datacarriermultiple", strprintf("Allow more than one OP_RETURN and data in a data carrier transactions. (default: false)"), false, OptionsCategory::NODE_RELAY);
     gArgs.AddArg("-mempoolreplacement", strprintf("Enable transaction replacement in the memory pool (default: %u)", DEFAULT_ENABLE_REPLACEMENT), false, OptionsCategory::NODE_RELAY);
     gArgs.AddArg("-maxreplacementcandidates=<n>", strprintf("Do not accept a replacement that would evict more than <n> mempool transactions (default: %u)", DEFAULT_MAX_REPLACEMENT_CANDIDATES), false, OptionsCategory::NODE_RELAY);
-    gArgs.AddArg("-maxstandardtxsize=<n>", strprintf("Maximum size in bytes of transactions we relay and mine; also the largest orphan kept (1 to %u, default: %u)", ConsensusConstants::MAX_BLOCK_SIZE, DEFAULT_MAX_STANDARD_TX_SIZE), false, OptionsCategory::NODE_RELAY);
+    gArgs.AddArg("-maxstandardtxsize=<n>", strprintf("Maximum size in bytes of transactions we relay and mine, capped at the block size limit; also the largest orphan kept (default: %u)", DEFAULT_MAX_STANDARD_TX_SIZE), false, OptionsCategory::NODE_RELAY);
     gArgs.AddArg("-minstandardtxsize=<n>", strprintf("Minimum size in bytes of transactions we relay and mine (default: %u)", DEFAULT_MIN_STANDARD_TX_SIZE), false, OptionsCategory::NODE_RELAY);
     gArgs.AddArg("-maxscriptsigsize=<n>", strprintf("Maximum size in bytes of a scriptSig in transactions we relay and mine (default: %u)", DEFAULT_MAX_SCRIPTSIG_SIZE), false, OptionsCategory::NODE_RELAY);
     gArgs.AddArg("-maxbaremultisigkeys=<n>", strprintf("Maximum number of keys in a bare multisig output we relay and mine (1 to %d, default: %u)", ConsensusConstants::MAX_PUBKEYS_PER_MULTISIG, DEFAULT_MAX_BAREMULTISIG_KEYS), false, OptionsCategory::NODE_RELAY);

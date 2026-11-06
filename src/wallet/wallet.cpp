@@ -3099,7 +3099,7 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
         tx = MakeTransactionRef(std::move(txNew));
 
         // Limit size
-        if (GetSerializeSize(tx, SER_NETWORK, PROTOCOL_VERSION) > g_policy_settings->maxStandardTxSize)
+        if (GetSerializeSize(tx, SER_NETWORK, PROTOCOL_VERSION) > g_policy_settings->MaxStandardTxSize())
         {
             strFailReason = _("Transaction too large");
             return false;
@@ -4305,10 +4305,6 @@ std::shared_ptr<CWallet> CWallet::CreateWalletFromFile(const std::string& name, 
                 gArgs.GetArg("-paytxfee", ""), g_policy_settings->minRelayTxFee.ToString()));
             return nullptr;
         }
-    }
-    if (g_policy_settings->minRelayTxFee.GetFeePerK() > HIGH_TX_FEE_PER_KB) {
-        InitWarning(AmountHighWarn("-minrelaytxfee") + " " +
-                    _("The wallet will avoid paying less than the minimum relay fee."));
     }
     if (gArgs.IsArgSet("-maxtxfee")) {
         CAmount nMaxFee = 0;

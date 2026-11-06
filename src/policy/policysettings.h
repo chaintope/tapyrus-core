@@ -67,7 +67,7 @@ static const bool DEFAULT_FEEFILTER = true;
 static const bool DEFAULT_WHITELISTRELAY = true;
 /** Default for -whitelistforcerelay. */
 static const bool DEFAULT_WHITELISTFORCERELAY = true;
-/** Default for -maxstandardtxsize, the largest transaction we relay and mine; also caps orphan size */
+/** Default for -maxstandardtxsize, the largest transaction we relay and mine, capped at the block size limit; also caps orphan size */
 static const unsigned int DEFAULT_MAX_STANDARD_TX_SIZE = 100000;
 /** Default for -minstandardtxsize, the smallest transaction we relay and mine */
 static const unsigned int DEFAULT_MIN_STANDARD_TX_SIZE = 82;
@@ -88,6 +88,8 @@ static const unsigned int DEFAULT_MAX_P2SH_SIGOPS = 15;
 static const unsigned int DEFAULT_MAX_REPLACEMENT_CANDIDATES = 100;
 /** Default for -orphanexpiry, expiration time for orphan transactions in seconds */
 static const int64_t DEFAULT_ORPHAN_TX_EXPIRE_TIME = 20 * 60;
+/** Seconds between sweeps of expired orphans, so also the shortest -orphanexpiry that can be honoured */
+static constexpr int64_t ORPHAN_TX_EXPIRE_INTERVAL = 5 * 60;
 /** Default for -maxpackagecount, the most transactions in a package */
 static const unsigned int DEFAULT_MAX_PACKAGE_COUNT = 25;
 // A package's transactions may form a single chain, which must fit the mempool's ancestor and
@@ -145,6 +147,7 @@ struct PolicySettings : PolicyConstants
     const bool whitelistRelay;
     const bool whitelistForceRelay;
 
+    /** The -maxstandardtxsize option; use MaxStandardTxSize(), which caps it at the block size limit. */
     const uint32_t maxStandardTxSize;
     const uint32_t minStandardTxSize;
     const uint32_t maxScriptSigSize;
@@ -163,6 +166,9 @@ struct PolicySettings : PolicyConstants
 
     /** Expected spacing between blocks, in seconds. */
     const int64_t expectedBlockTime;
+
+    /** The largest transaction we relay and mine: -maxstandardtxsize, capped at the latest block size limit. */
+    uint32_t MaxStandardTxSize() const;
 
 private:
     /** The fee rate of a -<name>=<amt> option, or its default when it is not set. */
