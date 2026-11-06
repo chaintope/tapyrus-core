@@ -151,8 +151,7 @@ PolicySettings::PolicySettings(const ArgsManager& args, TAPYRUS_OP_MODE mode)
       maxPackageCount(static_cast<uint32_t>(ParseInRange(args, "maxpackagecount", DEFAULT_MAX_PACKAGE_COUNT, 1, std::numeric_limits<uint32_t>::max()))),
       blockMaxSize((uint32_t)args.GetArg("-blockmaxsize", DEFAULT_BLOCK_MAX_SIZE)),
       // -dev only: lets tests mine blocks with other features to test forking scenarios
-      blockFeatures(mode == TAPYRUS_OP_MODE::DEV ? (int32_t)args.GetArg("-blockfeatures", ConsensusConstants::TAPYRUS_BLOCK_FEATURES) : ConsensusConstants::TAPYRUS_BLOCK_FEATURES),
-      expectedBlockTime(ParseInRange(args, "expectedblocktime", DEFAULT_EXPECTED_BLOCK_TIME, 1, std::numeric_limits<uint32_t>::max()))
+      blockFeatures(mode == TAPYRUS_OP_MODE::DEV ? (int32_t)args.GetArg("-blockfeatures", ConsensusConstants::TAPYRUS_BLOCK_FEATURES) : ConsensusConstants::TAPYRUS_BLOCK_FEATURES)
 {
 }
 
