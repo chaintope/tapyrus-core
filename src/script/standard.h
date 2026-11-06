@@ -15,7 +15,6 @@
 
 #include <stdint.h>
 
-
 class CKeyID;
 
 class CColorScriptID : public uint160
@@ -114,6 +113,5 @@ CScript GetScriptForRawPubKey(const CPubKey& pubkey);
 
 /** Generate a multisig script. */
 CScript GetScriptForMultisig(int nRequired, const std::vector<CPubKey>& keys);
-
 
 #endif // BITCOIN_SCRIPT_STANDARD_H
