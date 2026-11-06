@@ -23,8 +23,8 @@ CAmount GetMinimumFee(const CWallet& wallet, unsigned int nTxBytes, const CCoinC
 {
     CAmount fee_needed = GetMinimumFeeRate(wallet, coin_control, pool, estimator, feeCalc).GetFee(nTxBytes);
     // Always obey the maximum
-    if (fee_needed > wallet.m_default_max_tx_fee) {
-        fee_needed = wallet.m_default_max_tx_fee;
+    if (fee_needed > g_policy_settings->maxTxFee) {
+        fee_needed = g_policy_settings->maxTxFee;
         if (feeCalc) feeCalc->reason = FeeReason::MAXTXFEE;
     }
     return fee_needed;

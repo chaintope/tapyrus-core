@@ -161,6 +161,9 @@ public:
     //! Get the expected spacing between blocks, in seconds.
     virtual int64_t getExpectedBlockTime() = 0;
 
+    //! Get the most fees a single transaction may pay (-maxtxfee).
+    virtual CAmount getMaxTxFee() = 0;
+
     //! Execute rpc command.
     virtual UniValue executeRpc(const std::string& command, const UniValue& params, const std::string& uri) = 0;
 

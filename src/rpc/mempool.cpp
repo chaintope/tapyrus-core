@@ -103,7 +103,7 @@ static UniValue testmempoolaccept(const JSONRPCRequest& request)
         transactions.push_back(std::move(mtx));
     }
 
-    CAmount max_raw_tx_fee = DEFAULT_MAX_RAW_TX_FEE;
+    CAmount max_raw_tx_fee = g_policy_settings->maxTxFee;
     if (!request.params[1].isNull() && request.params[1].get_bool()) {
         max_raw_tx_fee = 0;
     }
@@ -174,7 +174,7 @@ static UniValue submitpackage(const JSONRPCRequest& request)
         transactions.push_back(std::move(mtx));
     }
 
-    CAmount max_raw_tx_fee = DEFAULT_MAX_RAW_TX_FEE;
+    CAmount max_raw_tx_fee = g_policy_settings->maxTxFee;
     if (!request.params[1].isNull() && request.params[1].get_bool()) {
         max_raw_tx_fee = 0;
     }

@@ -49,6 +49,19 @@ CFeeRate PolicySettings::ParseMinRelayTxFee(const ArgsManager& args, const CFeeR
     return minRelayTxFee;
 }
 
+CAmount PolicySettings::ParseMaxTxFee(const ArgsManager& args, const CFeeRate& minRelayTxFee)
+{
+    if (!args.IsArgSet("-maxtxfee")) return DEFAULT_TRANSACTION_MAXFEE;
+    CAmount maxTxFee = 0;
+    if (!ParseMoney(args.GetArg("-maxtxfee", ""), maxTxFee))
+        throw std::runtime_error(AmountErrMsg("maxtxfee", args.GetArg("-maxtxfee", "")));
+    // A lower limit would leave transactions stuck below the relay fee.
+    if (CFeeRate(maxTxFee, 1000) < minRelayTxFee)
+        throw std::runtime_error(strprintf(_("Invalid amount for -maxtxfee=<amount>: '%s' (must be at least the minrelay fee of %s to prevent stuck transactions)"),
+                                           args.GetArg("-maxtxfee", ""), minRelayTxFee.ToString()));
+    return maxTxFee;
+}
+
 uint32_t PolicySettings::ParseBytesPerSigOp(const ArgsManager& args)
 {
     const int64_t bytesPerSigOp = args.GetArg("-bytespersigop", DEFAULT_BYTES_PER_SIGOP);
@@ -123,6 +136,7 @@ PolicySettings::PolicySettings(const ArgsManager& args, TAPYRUS_OP_MODE mode)
       // implementations may inadvertently create non-standard transactions
       dustRelayFee(ParseFeeRate(args, "dustrelayfee", DUST_RELAY_TX_FEE)),
       blockMinTxFee(ParseFeeRate(args, "blockmintxfee", DEFAULT_BLOCK_MIN_TX_FEE)),
+      maxTxFee(ParseMaxTxFee(args, minRelayTxFee)),
       bytesPerSigOp(ParseBytesPerSigOp(args)),
       acceptDatacarrier(args.GetBoolArg("-datacarrier", DEFAULT_ACCEPT_DATACARRIER)),
       maxDatacarrierBytes(ParseMaxDatacarrierBytes(args)),
