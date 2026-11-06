@@ -13,10 +13,7 @@
 #include <utilstrencodings.h>
 #include <coloridentifier.h>
 
-
 typedef std::vector<unsigned char> valtype;
-
-
 
 const char* GetTxnOutputType(txnouttype t)
 {
