@@ -65,7 +65,7 @@ jobs:
       matrix:
         config:
           # The runner image decides the architecture: ubuntu-24.04 and
-          # macos-15-intel are x86_64, ubuntu-24.04-arm and macos-14 are ARM64.
+          # macos-15-intel are x86_64, ubuntu-24.04-arm and macos-15 are ARM64.
           # Only this entry builds tracing, so a break is caught on its PR.
           - name: Linux x86_64
             os: ubuntu-24.04
@@ -81,7 +81,7 @@ jobs:
             compiler: clang
             platform: macos
           - name: macOS ARM64
-            os: macos-14
+            os: macos-15
             compiler: clang
             platform: macos
           - name: Windows x86_64 (cross)
