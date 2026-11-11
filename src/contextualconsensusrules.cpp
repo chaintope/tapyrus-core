@@ -122,9 +122,6 @@ std::pair<int, int64_t> ContextualConsensusRules::CalculateSequenceLocks(const C
     int nMinHeight = -1;
     int64_t nMinTime = -1;
 
-    // tx.nFeatures is signed integer so requires cast to unsigned otherwise
-    // we would be doing a signed comparison and half the range of nFeatures
-    // wouldn't support BIP 68.
     bool fEnforceBIP68 = flags & ConsensusConstants::LOCKTIME_VERIFY_SEQUENCE;
 
     // Do not enforce sequence numbers as a relative lock time

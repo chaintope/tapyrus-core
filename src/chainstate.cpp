@@ -1467,6 +1467,7 @@ bool CChainState::AcceptBlock(const std::shared_ptr<const CBlock>& pblock, CVali
     CBlockIndex *&pindex = ppindex ? *ppindex : pindexDummy;
 
     // Before AcceptBlockHeader, so a block with a wrong height leaves no index entry.
+    // ContextualCheckBlock below repeats this check, which then always passes.
     const BlockMap::const_iterator prev = mapBlockIndex.find(block.hashPrevBlock);
     if (prev != mapBlockIndex.end() && !ContextualConsensusRules::CheckCoinbaseHeight(block, state, prev->second))
         return false;
