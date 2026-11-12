@@ -69,6 +69,7 @@ enum BindFlags {
     BF_EXPLICIT     = (1U << 0),
     BF_REPORT_ERROR = (1U << 1),
     BF_WHITELIST    = (1U << 2),
+    BF_ONION        = (1U << 3), //!< Tor inbound; never advertised as a local address
 };
 
 static const uint64_t RANDOMIZER_ID_NETGROUP = 0x6c0edd8036ef4036ULL; // SHA256("netgroup")[0:8]
@@ -466,6 +467,13 @@ void CConnman::SetBannedSetDirty(bool dirty)
 }
 
 
+const CSubNet* CConnman::Options::FindWhitelistedRange(const CNetAddr& addr) const {
+    for (const CSubNet& subnet : vWhitelistedRange) {
+        if (subnet.Match(addr)) return &subnet;
+    }
+    return nullptr;
+}
+
 bool CConnman::IsWhitelistedRange(const CNetAddr &addr) {
     for (const CSubNet& subnet : vWhitelistedRange) {
         if (subnet.Match(addr))
@@ -689,7 +697,8 @@ void CConnman::AcceptConnection(const ListenSocket& hListenSocket) {
         }
     }
 
-    bool whitelisted = hListenSocket.whitelisted || IsWhitelistedRange(addr);
+    // A Tor inbound peer's address is the Tor daemon's, not its own, so -whitelist ranges don't apply.
+    bool whitelisted = hListenSocket.whitelisted || (!hListenSocket.onion && IsWhitelistedRange(addr));
     {
         LOCK(cs_vNodes);
         for (const CNode* pnode : vNodes) {
@@ -1565,7 +1574,7 @@ void CConnman::ThreadMessageHandler()
 
 
 
-bool CConnman::BindListenPort(const CService &addrBind, std::string& strError, bool fWhitelisted)
+bool CConnman::BindListenPort(const CService &addrBind, std::string& strError, bool fWhitelisted, bool fOnion)
 {
     strError = "";
     int nOne = 1;
@@ -1626,9 +1635,9 @@ bool CConnman::BindListenPort(const CService &addrBind, std::string& strError, b
         return false;
     }
 
-    vhListenSocket.push_back(ListenSocket(hListenSocket, fWhitelisted));
+    vhListenSocket.push_back(ListenSocket(hListenSocket, fWhitelisted, fOnion));
 
-    if (addrBind.IsRoutable() && fDiscover && !fWhitelisted)
+    if (addrBind.IsRoutable() && fDiscover && !fWhitelisted && !fOnion)
         AddLocal(addrBind, LOCAL_BIND);
 
     return true;
@@ -1672,7 +1681,7 @@ bool CConnman::Bind(const CService &addr, unsigned int flags) {
     if (!(flags & BF_EXPLICIT) && IsLimited(addr))
         return false;
     std::string strError;
-    if (!BindListenPort(addr, strError, (flags & BF_WHITELIST) != 0)) {
+    if (!BindListenPort(addr, strError, (flags & BF_WHITELIST) != 0, (flags & BF_ONION) != 0)) {
         if ((flags & BF_REPORT_ERROR) && clientInterface) {
             clientInterface->ThreadSafeMessageBox(strError, "", CClientUIInterface::MSG_ERROR);
         }
@@ -1681,15 +1690,18 @@ bool CConnman::Bind(const CService &addr, unsigned int flags) {
     return true;
 }
 
-bool CConnman::InitBinds(const std::vector<CService>& binds, const std::vector<CService>& whiteBinds) {
+bool CConnman::InitBinds(const Options& options) {
     bool fBound = false;
-    for (const auto& addrBind : binds) {
+    for (const auto& addrBind : options.vBinds) {
         fBound |= Bind(addrBind, (BF_EXPLICIT | BF_REPORT_ERROR));
     }
-    for (const auto& addrBind : whiteBinds) {
+    for (const auto& addrBind : options.vWhiteBinds) {
         fBound |= Bind(addrBind, (BF_EXPLICIT | BF_REPORT_ERROR | BF_WHITELIST));
     }
-    if (binds.empty() && whiteBinds.empty()) {
+    for (const auto& addrBind : options.onion_binds) {
+        fBound |= Bind(addrBind, (BF_EXPLICIT | BF_REPORT_ERROR | BF_ONION));
+    }
+    if (options.bind_on_any) {
         struct in_addr inaddr_any;
         inaddr_any.s_addr = INADDR_ANY;
         struct in6_addr inaddr6_any = IN6ADDR_ANY_INIT;
@@ -1720,7 +1732,7 @@ bool CConnman::Start(CScheduler& scheduler, const Options& connOptions)
         nMaxOutboundCycleStartTime = 0;
     }
 
-    if (fListen && !InitBinds(connOptions.vBinds, connOptions.vWhiteBinds)) {
+    if (fListen && !InitBinds(connOptions)) {
         if (clientInterface) {
             clientInterface->ThreadSafeMessageBox(
                 _("Failed to listen on any port. Use -listen=0 if you want this."),

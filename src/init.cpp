@@ -359,6 +359,7 @@ void SetupServerArgs()
 {
     //make sure ParseSignedBlockParameters was called before this call
     const auto defaultChainParams = CreateChainParams(TAPYRUS_OP_MODE::PROD);
+    const auto devChainParams = CreateChainParams(TAPYRUS_OP_MODE::DEV);
 
     // Hidden Options
     std::vector<std::string> hidden_args = {"-rpcssl", "-benchmark", "-h", "-help", "-socks", "-tor", "-debugnet", "-whitelistalwaysrelay", "-promiscuousmempoolflags", "-blockminsize", "-dbcrashratio", "-forcecompactdb", "-usehd",
@@ -411,7 +412,7 @@ void SetupServerArgs()
     gArgs.AddArg("-addnode=<ip[:port]>", "Add a node to connect to and attempt to keep the connection open (see the `addnode` RPC command help for more info). Use [host]:port notation for IPv6 (e.g. [2001:db8::1]:8383). This option can be specified multiple times to add multiple nodes.", false, OptionsCategory::CONNECTION);
     gArgs.AddArg("-banscore=<n>", strprintf("Threshold for disconnecting and discouraging misbehaving peers (default: %u)", DEFAULT_BANSCORE_THRESHOLD), false, OptionsCategory::CONNECTION);
     gArgs.AddArg("-bantime=<n>", strprintf("Default duration (in seconds) of manually configured bans (default: %u)", DEFAULT_BANTIME), false, OptionsCategory::CONNECTION);
-    gArgs.AddArg("-bind=<addr>", "Bind to given address and always listen on it. Use [host]:port notation for IPv6", false, OptionsCategory::CONNECTION);
+    gArgs.AddArg("-bind=<addr>[:<port>][=onion]", strprintf("Bind to given address and always listen on it (default: 0.0.0.0). Use [host]:port notation for IPv6. Append =onion to tag any incoming connections to that address and port as incoming Tor connections, which are never whitelisted by -whitelist (default: 127.0.0.1:%u=onion, dev: 127.0.0.1:%u=onion)", defaultChainParams->GetDefaultPort() + 1, devChainParams->GetDefaultPort() + 1), false, OptionsCategory::CONNECTION);
     gArgs.AddArg("-connect=<ip[:port]>", "Connect only to the specified node; -noconnect disables automatic connections (the rules for this peer are the same as for -addnode). Use [host]:port notation for IPv6 (e.g. [2001:db8::1]:8383). This option can be specified multiple times to connect to multiple nodes.", false, OptionsCategory::CONNECTION);
     gArgs.AddArg("-discover", "Discover own IP addresses (default: 1 when listening and no -externalip or -proxy)", false, OptionsCategory::CONNECTION);
     gArgs.AddArg("-dns", strprintf("Allow DNS lookups for -addnode, -seednode and -connect (default: %u)", DEFAULT_NAME_LOOKUP), false, OptionsCategory::CONNECTION);
@@ -442,7 +443,8 @@ void SetupServerArgs()
 #endif
     gArgs.AddArg("-whitebind=<addr>", "Bind to given address and whitelist peers connecting to it. Use [host]:port notation for IPv6", false, OptionsCategory::CONNECTION);
     gArgs.AddArg("-whitelist=<IP address or network>", "Whitelist peers connecting from the given IP address (e.g. 1.2.3.4 or 2001:db8::1) or CIDR notated network (e.g. 1.2.3.0/24 or 2001:db8::/32). Can be specified multiple times."
-        " Whitelisted peers cannot be DoS banned and their transactions are always relayed, even if they are already in the mempool, useful e.g. for a gateway", false, OptionsCategory::CONNECTION);
+        " Whitelisted peers cannot be DoS banned and their transactions are always relayed, even if they are already in the mempool, useful e.g. for a gateway."
+        " Peers connecting to an onion bind (-bind=...=onion) are never whitelisted by this option, as their address is the Tor daemon's.", false, OptionsCategory::CONNECTION);
 
     g_wallet_init_interface.AddWalletOptions();
 
@@ -1778,9 +1780,6 @@ bool AppInitMain(NodeContext& node)
     }
     LogPrintf("nBestHeight = %d\n", chain_active_height);
 
-    if (gArgs.GetBoolArg("-listenonion", DEFAULT_LISTEN_ONION))
-        StartTorControl();
-
     Discover();
 
     // Map ports with UPnP
@@ -1804,12 +1803,23 @@ bool AppInitMain(NodeContext& node)
     connOptions.nMaxOutboundTimeframe = nMaxOutboundTimeframe;
     connOptions.nMaxOutboundLimit = nMaxOutboundLimit;
 
+    const uint16_t default_onion_port = GetListenPort() + 1;
     for (const std::string& strBind : gArgs.GetArgs("-bind")) {
         CService addrBind;
-        if (!Lookup(strBind.c_str(), addrBind, GetListenPort(), false)) {
+        const size_t suffix_pos = strBind.rfind('=');
+        if (suffix_pos == std::string::npos) {
+            if (!Lookup(strBind.c_str(), addrBind, GetListenPort(), false)) {
+                return InitError(ResolveErrMsg("bind", strBind));
+            }
+            connOptions.vBinds.push_back(addrBind);
+        } else if (strBind.substr(suffix_pos + 1) == "onion") {
+            if (!Lookup(strBind.substr(0, suffix_pos).c_str(), addrBind, default_onion_port, false)) {
+                return InitError(ResolveErrMsg("bind", strBind));
+            }
+            connOptions.onion_binds.push_back(addrBind);
+        } else {
             return InitError(ResolveErrMsg("bind", strBind));
         }
-        connOptions.vBinds.push_back(addrBind);
     }
     for (const std::string& strBind : gArgs.GetArgs("-whitebind")) {
         CService addrBind;
@@ -1821,6 +1831,21 @@ bool AppInitMain(NodeContext& node)
         }
         connOptions.vWhiteBinds.push_back(addrBind);
     }
+    connOptions.bind_on_any = gArgs.GetArgs("-bind").empty() && gArgs.GetArgs("-whitebind").empty();
+
+    // Tor forwards the onion service to the first onion bind. With no onion bind and no -bind, listen
+    // for Tor on loopback at the P2P port + 1, so Tor inbound peers never share a port with clearnet ones.
+    CService onion_service_target;
+    if (!connOptions.onion_binds.empty()) {
+        onion_service_target = connOptions.onion_binds.front();
+    } else if (!connOptions.vBinds.empty()) {
+        onion_service_target = connOptions.vBinds.front();
+    } else {
+        struct in_addr loopback;
+        loopback.s_addr = htonl(INADDR_LOOPBACK);
+        onion_service_target = CService(loopback, default_onion_port);
+        connOptions.onion_binds.push_back(onion_service_target);
+    }
 
     for (const auto& net : gArgs.GetArgs("-whitelist")) {
         CSubNet subnet;
@@ -1828,6 +1853,35 @@ bool AppInitMain(NodeContext& node)
         if (!subnet.IsValid())
             return InitError(strprintf(_("Invalid netmask specified in -whitelist: '%s'"), net));
         connOptions.vWhitelistedRange.push_back(subnet);
+    }
+
+    // Tor connects to the node from its own address. A Tor service set up by hand can still forward
+    // to a clearnet port, where a -whitelist range covering that address would whitelist every Tor peer.
+    if (fListen) {
+        std::vector<CNetAddr> tor_addrs;
+        proxyType proxy;
+        if (GetProxy(NET_IPV4, proxy)) tor_addrs.push_back(proxy.proxy);
+        if (GetProxy(NET_ONION, proxy)) tor_addrs.push_back(proxy.proxy);
+        if (gArgs.GetBoolArg("-listenonion", DEFAULT_LISTEN_ONION)) {
+            tor_addrs.push_back(LookupNumeric("127.0.0.1"));
+            tor_addrs.push_back(LookupNumeric("::1"));
+            CService tor_control;
+            if (Lookup(gArgs.GetArg("-torcontrol", DEFAULT_TOR_CONTROL).c_str(), tor_control, 9051, fNameLookup)) {
+                tor_addrs.push_back(tor_control);
+            }
+        }
+        for (const CNetAddr& tor_addr : tor_addrs) {
+            if (const CSubNet* range = connOptions.FindWhitelistedRange(tor_addr)) {
+                return InitError(strprintf(_("-whitelist=%s covers %s, an address Tor inbound peers can connect from, so they would be whitelisted. Narrow the range, or use -whitebind for trusted peers."), range->ToString(), tor_addr.ToString()));
+            }
+        }
+    }
+
+    if (gArgs.GetBoolArg("-listenonion", DEFAULT_LISTEN_ONION)) {
+        if (connOptions.onion_binds.size() > 1) {
+            InitWarning(strprintf(_("More than one onion bind address is provided. Using %s for the automatically created Tor onion service."), onion_service_target.ToStringIPPort()));
+        }
+        StartTorControl(onion_service_target);
     }
 
     connOptions.vSeedNodes = gArgs.GetArgs("-seednode");
