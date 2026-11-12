@@ -34,9 +34,9 @@ bool ContextualConsensusRules::ContextualCheckBlockHeader(const CBlockHeader& he
     return true;
 }
 
-bool ContextualConsensusRules::CheckCoinbaseHeight(const CBlock& block, CValidationState& state, const CBlockIndex* prev)
+bool ContextualConsensusRules::CheckCoinbaseHeight(const CBlock& block, CValidationState& state, const CBlockIndex& prev)
 {
-    const int nHeight = prev == nullptr ? 0 : prev->nHeight + 1;
+    const int nHeight = prev.nHeight + 1;
 
     // A Tapyrus coinbase records its block's height in prevout.n.
     if (block.GetHeight() != static_cast<uint32_t>(nHeight))
@@ -45,14 +45,14 @@ bool ContextualConsensusRules::CheckCoinbaseHeight(const CBlock& block, CValidat
     return true;
 }
 
-bool ContextualConsensusRules::ContextualCheckBlock(const CBlock& block, CValidationState& state, const CBlockIndex* prev)
+bool ContextualConsensusRules::ContextualCheckBlock(const CBlock& block, CValidationState& state, const CBlockIndex& prev)
 {
-    const int nHeight = prev == nullptr ? 0 : prev->nHeight + 1;
+    const int nHeight = prev.nHeight + 1;
 
     if (!CheckCoinbaseHeight(block, state, prev))
         return false;
 
-    int64_t nLockTimeCutoff = prev->GetMedianTimePast();
+    int64_t nLockTimeCutoff = prev.GetMedianTimePast();
 
     // Check that all transactions are finalized
     for (const auto& tx : block.vtx) {

@@ -1160,7 +1160,7 @@ bool TestBlockValidity(CValidationState& state, const CBlock& block, CBlockIndex
         return error("%s: Consensus::ContextualCheckBlockHeader: %s", __func__, FormatStateMessage(state));
     if (!CheckBlock(block, state, g_chainstate_manager.RulesAfter(*pindexPrev), fCheckPOW, fCheckMerkleRoot))
         return error("%s: Consensus::CheckBlock: %s", __func__, FormatStateMessage(state));
-    if (!ContextualConsensusRules::ContextualCheckBlock(block, state, pindexPrev))
+    if (!ContextualConsensusRules::ContextualCheckBlock(block, state, *pindexPrev))
         return error("%s: Consensus::ContextualCheckBlock: %s", __func__, FormatStateMessage(state));
     if (!g_chainstate.ConnectBlock(block, state, &indexDummy, viewNew, true))
         return false;

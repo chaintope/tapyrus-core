@@ -1469,7 +1469,7 @@ bool CChainState::AcceptBlock(const std::shared_ptr<const CBlock>& pblock, CVali
     // Before AcceptBlockHeader, so a block with a wrong height leaves no index entry.
     // ContextualCheckBlock below repeats this check, which then always passes.
     const BlockMap::const_iterator prev = mapBlockIndex.find(block.hashPrevBlock);
-    if (prev != mapBlockIndex.end() && !ContextualConsensusRules::CheckCoinbaseHeight(block, state, prev->second))
+    if (prev != mapBlockIndex.end() && !ContextualConsensusRules::CheckCoinbaseHeight(block, state, *prev->second))
         return false;
 
     if (!AcceptBlockHeader(block, state, &pindex, pxfieldHistory))
@@ -1503,7 +1503,7 @@ bool CChainState::AcceptBlock(const std::shared_ptr<const CBlock>& pblock, CVali
 
     const CXFieldHistoryMap& history = pxfieldHistory ? *pxfieldHistory : g_chainstate_manager.XFieldHistory();
     if (!CheckBlock(block, state, g_chainstate_manager.RulesAt(*pindex, history), false, true) ||
-        !ContextualConsensusRules::ContextualCheckBlock(block, state, pindex->pprev)) {
+        !ContextualConsensusRules::ContextualCheckBlock(block, state, *pindex->pprev)) {
         if (state.IsInvalid() && !state.CorruptionPossible()) {
             pindex->nStatus |= BLOCK_FAILED_VALID;
             setDirtyBlockIndex.insert(pindex);

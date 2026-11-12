@@ -37,12 +37,12 @@ public:
      */
     static bool ContextualCheckBlockHeader(const CBlockHeader& header, CValidationState& state, const CBlockIndex& prev, int64_t nAdjustedTime, const CBlockIndex* lastCheckpoint);
     /** A coinbase records its block's height: the previous block's plus one. */
-    static bool CheckCoinbaseHeight(const CBlock& block, CValidationState& state, const CBlockIndex* prev);
+    static bool CheckCoinbaseHeight(const CBlock& block, CValidationState& state, const CBlockIndex& prev);
     /**
      * Block checks against the previous block: the coinbase height and that every
      * transaction is final. Not invoked by ConnectBlock(), and skipped by -reindex-chainstate.
      */
-    static bool ContextualCheckBlock(const CBlock& block, CValidationState& state, const CBlockIndex* prev);
+    static bool ContextualCheckBlock(const CBlock& block, CValidationState& state, const CBlockIndex& prev);
 
     /**
      * Check whether all inputs of this transaction are valid (no double spends and amounts)

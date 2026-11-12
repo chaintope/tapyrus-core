@@ -296,19 +296,19 @@ BOOST_AUTO_TEST_CASE(contextual_check_block_rejects)
     const TestChain chain(20);
     const CBlockIndex& prev = chain.Tip();
     CValidationState state;
-    BOOST_CHECK(ContextualConsensusRules::ContextualCheckBlock(SignedBlock({Coinbase(20)}), state, &prev));
+    BOOST_CHECK(ContextualConsensusRules::ContextualCheckBlock(SignedBlock({Coinbase(20)}), state, prev));
 
     // The coinbase height must be the parent's plus one, whichever block the parent is.
-    BOOST_CHECK(!ContextualConsensusRules::ContextualCheckBlock(SignedBlock({Coinbase(21)}), (state = CValidationState()), &prev));
+    BOOST_CHECK(!ContextualConsensusRules::ContextualCheckBlock(SignedBlock({Coinbase(21)}), (state = CValidationState()), prev));
     BOOST_CHECK_EQUAL(Reason(state), "bad-cb-invalid");
-    BOOST_CHECK(!ContextualConsensusRules::ContextualCheckBlock(SignedBlock({Coinbase(20)}), (state = CValidationState()), &chain.At(5)));
+    BOOST_CHECK(!ContextualConsensusRules::ContextualCheckBlock(SignedBlock({Coinbase(20)}), (state = CValidationState()), chain.At(5)));
     BOOST_CHECK_EQUAL(Reason(state), "bad-cb-invalid");
-    BOOST_CHECK(ContextualConsensusRules::ContextualCheckBlock(SignedBlock({Coinbase(6)}), (state = CValidationState()), &chain.At(5)));
+    BOOST_CHECK(ContextualConsensusRules::ContextualCheckBlock(SignedBlock({Coinbase(6)}), (state = CValidationState()), chain.At(5)));
 
     CMutableTransaction locked = Spend(COutPoint(uint256S("01"), 0), 1);
     locked.vin[0].nSequence = 0;
     locked.nLockTime = 20;
-    BOOST_CHECK(!ContextualConsensusRules::ContextualCheckBlock(SignedBlock({Coinbase(20), locked}), (state = CValidationState()), &prev));
+    BOOST_CHECK(!ContextualConsensusRules::ContextualCheckBlock(SignedBlock({Coinbase(20), locked}), (state = CValidationState()), prev));
     BOOST_CHECK_EQUAL(Reason(state), "bad-txns-nonfinal");
 }
 
