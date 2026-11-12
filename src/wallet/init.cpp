@@ -117,13 +117,10 @@ bool WalletInit::Verify() const
         return true;
     }
 
-    // Node settings, so warned about once here rather than for each wallet.
+    // A node setting, so warned about once here rather than for each wallet.
     if (g_policy_settings->minRelayTxFee.GetFeePerK() > HIGH_TX_FEE_PER_KB) {
         InitWarning(AmountHighWarn("-minrelaytxfee") + " " +
                     _("The wallet will avoid paying less than the minimum relay fee."));
-    }
-    if (g_policy_settings->maxTxFee > HIGH_MAX_TX_FEE) {
-        InitWarning(_("-maxtxfee is set very high! Fees this large could be paid on a single transaction."));
     }
 
     if (gArgs.IsArgSet("-walletdir")) {

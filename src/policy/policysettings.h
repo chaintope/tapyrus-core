@@ -59,6 +59,8 @@ static const unsigned int DEFAULT_DESCENDANT_LIMIT = 25;
 static const unsigned int DEFAULT_DESCENDANT_SIZE_LIMIT = 101;
 /** Default for -maxorphantx, maximum number of orphan transactions kept in memory */
 static const unsigned int DEFAULT_MAX_ORPHAN_TRANSACTIONS = 100;
+/** Default for -maxorphantxsize, the largest orphan transaction kept in memory */
+static const uint32_t DEFAULT_MAX_ORPHAN_TX_SIZE = 100000;
 /** Default number of orphan+recently-replaced txn to keep around for block reconstruction */
 static const unsigned int DEFAULT_BLOCK_RECONSTRUCTION_EXTRA_TXN = 100;
 /** Default for using fee filter */
@@ -67,7 +69,7 @@ static const bool DEFAULT_FEEFILTER = true;
 static const bool DEFAULT_WHITELISTRELAY = true;
 /** Default for -whitelistforcerelay. */
 static const bool DEFAULT_WHITELISTFORCERELAY = true;
-/** Default for -maxstandardtxsize, the largest transaction we relay and mine, capped at the block size limit; also caps orphan size */
+/** Default for -maxstandardtxsize, the largest transaction we relay and mine, capped at the block size limit */
 static const unsigned int DEFAULT_MAX_STANDARD_TX_SIZE = 100000;
 /** Default for -minstandardtxsize, the smallest transaction we relay and mine */
 static const unsigned int DEFAULT_MIN_STANDARD_TX_SIZE = 82;
@@ -144,6 +146,8 @@ struct PolicySettings : PolicyConstants
     const int64_t descendantSizeLimit;
 
     const uint32_t maxOrphanTx;
+    /** The -maxorphantxsize option; use MaxOrphanTxSize(), which caps it at MaxStandardTxSize(). */
+    const uint32_t maxOrphanTxSize;
     const int64_t blockReconstructionExtraTxn;
     const bool feeFilter;
     const bool whitelistRelay;
@@ -151,6 +155,7 @@ struct PolicySettings : PolicyConstants
 
     /** The -maxstandardtxsize option; use MaxStandardTxSize(), which caps it at the block size limit. */
     const uint32_t maxStandardTxSize;
+    /** The -minstandardtxsize option; use MinStandardTxSize(), which caps it at MaxStandardTxSize(). */
     const uint32_t minStandardTxSize;
     const uint32_t maxScriptSigSize;
     const uint32_t maxBareMultisigKeys;
@@ -168,6 +173,15 @@ struct PolicySettings : PolicyConstants
 
     /** The largest transaction we relay and mine: -maxstandardtxsize, capped at the latest block size limit. */
     uint32_t MaxStandardTxSize() const;
+    /** The smallest transaction we relay and mine: -minstandardtxsize, capped at MaxStandardTxSize(). */
+    uint32_t MinStandardTxSize() const;
+    /** The largest orphan transaction kept: -maxorphantxsize, capped at MaxStandardTxSize(). */
+    uint32_t MaxOrphanTxSize() const;
+    /**
+     * The start-up error when -minstandardtxsize exceeds MaxStandardTxSize(), or "".
+     * Checked once the chainstate has loaded, as the block size limit comes from it.
+     */
+    std::string CheckMinStandardTxSize() const;
 
 private:
     /** The fee rate of a -<name>=<amt> option, or its default when it is not set. */

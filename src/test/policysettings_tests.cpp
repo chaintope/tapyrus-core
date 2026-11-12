@@ -73,6 +73,7 @@ BOOST_AUTO_TEST_CASE(new_option_defaults)
     BOOST_CHECK_EQUAL(settings.orphanExpiry, 20 * 60);
     BOOST_CHECK_EQUAL(settings.maxTxFee, DEFAULT_TRANSACTION_MAXFEE);
     BOOST_CHECK_EQUAL(settings.maxPackageCount, 25U);
+    BOOST_CHECK_EQUAL(settings.maxOrphanTxSize, 100000U);
 }
 
 BOOST_AUTO_TEST_CASE(new_option_ranges)
@@ -92,6 +93,8 @@ BOOST_AUTO_TEST_CASE(new_option_ranges)
     BOOST_CHECK_EQUAL(StartupError({{"-orphanexpiry", "299"}}), "-orphanexpiry value 299 is out of range [300, 4294967295]");
     BOOST_CHECK_EQUAL(StartupError({{"-orphanexpiry", "300"}}), "");
     BOOST_CHECK_EQUAL(StartupError({{"-maxp2shsigops", "-1"}}), "-maxp2shsigops value -1 is out of range [0, 4294967295]");
+    BOOST_CHECK_EQUAL(StartupError({{"-maxorphantxsize", "-1"}}), "-maxorphantxsize value -1 is out of range [0, 4294967295]");
+    BOOST_CHECK_EQUAL(StartupError({{"-maxorphantxsize", "0"}}), "");
     // The package count may exceed the chain limits; CheckPackage bounds chains inside a package.
     BOOST_CHECK_EQUAL(StartupError({{"-maxpackagecount", "30"}, {"-limitancestorcount", "10"}}), "");
 }
@@ -104,6 +107,34 @@ BOOST_AUTO_TEST_CASE(max_standard_tx_size_capped_at_block_size)
     BOOST_CHECK_EQUAL(PolicySettings(args, TAPYRUS_OP_MODE::PROD).MaxStandardTxSize(), ConsensusConstants::MAX_BLOCK_SIZE);
     args.ForceSetArg("-maxstandardtxsize", "500000");
     BOOST_CHECK_EQUAL(PolicySettings(args, TAPYRUS_OP_MODE::PROD).MaxStandardTxSize(), 500000U);
+}
+
+BOOST_AUTO_TEST_CASE(min_standard_tx_size_checked_against_capped_max)
+{
+    // Within the uncapped -maxstandardtxsize, so accepted at start; above the 1,000,000-byte block size limit.
+    ArgsManager args;
+    args.ForceSetArg("-maxstandardtxsize", "4000000");
+    args.ForceSetArg("-minstandardtxsize", "2000000");
+    const PolicySettings tooLarge(args, TAPYRUS_OP_MODE::PROD);
+    BOOST_CHECK_EQUAL(tooLarge.CheckMinStandardTxSize(), "-minstandardtxsize value 2000000 is above the largest standard transaction size 1000000 (-maxstandardtxsize, capped at the block size limit)");
+    BOOST_CHECK_EQUAL(tooLarge.MinStandardTxSize(), ConsensusConstants::MAX_BLOCK_SIZE);
+
+    args.ForceSetArg("-minstandardtxsize", "1000000");
+    const PolicySettings atLimit(args, TAPYRUS_OP_MODE::PROD);
+    BOOST_CHECK_EQUAL(atLimit.CheckMinStandardTxSize(), "");
+    BOOST_CHECK_EQUAL(atLimit.MinStandardTxSize(), 1000000U);
+}
+
+BOOST_AUTO_TEST_CASE(max_orphan_tx_size_capped_at_max_standard_tx_size)
+{
+    ArgsManager args;
+    args.ForceSetArg("-maxorphantxsize", "200000");
+    BOOST_CHECK_EQUAL(PolicySettings(args, TAPYRUS_OP_MODE::PROD).MaxOrphanTxSize(), DEFAULT_MAX_STANDARD_TX_SIZE);
+    args.ForceSetArg("-maxorphantxsize", "50000");
+    BOOST_CHECK_EQUAL(PolicySettings(args, TAPYRUS_OP_MODE::PROD).MaxOrphanTxSize(), 50000U);
+    // Independent of -maxstandardtxsize below it.
+    args.ForceSetArg("-maxstandardtxsize", "1000000");
+    BOOST_CHECK_EQUAL(PolicySettings(args, TAPYRUS_OP_MODE::PROD).MaxOrphanTxSize(), 50000U);
 }
 
 BOOST_AUTO_TEST_CASE(bare_multisig_options)
