@@ -463,7 +463,7 @@ static bool AcceptToMemoryPoolWorker(const CTransactionRef &ptx, CTxMempoolAccep
         return state.DoS(0, false, REJECT_NONSTANDARD, reason);
     // Do not work on transactions that are too small.
     // Transactions smaller than this are not relayed to reduce unnecessary malloc overhead.
-    if (::GetSerializeSize(tx, SER_NETWORK, PROTOCOL_VERSION) < g_policy_settings->minStandardTxSize)
+    if (::GetSerializeSize(tx, SER_NETWORK, PROTOCOL_VERSION) < g_policy_settings->MinStandardTxSize())
         return state.DoS(0, false, REJECT_NONSTANDARD, "tx-size-small");
 
     // Only accept nLockTime-using transactions that can be mined in the next

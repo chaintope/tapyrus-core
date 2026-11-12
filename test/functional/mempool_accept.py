@@ -346,7 +346,7 @@ class MempoolAcceptanceTest(BitcoinTestFramework):
             rawtxs=[raw],
         )
         assert_raises_rpc_error(-26, 'absurdly-high-fee', node.sendrawtransaction, raw)
-        self.restart_node(0, ['-maxtxfee=0.5'])
+        self.restart_node(0, self.extra_args[0] + ['-maxtxfee=0.5'])
         self.check_mempool_result(
             result_expected={txid: {'allowed': True}},
             rawtxs=[raw],

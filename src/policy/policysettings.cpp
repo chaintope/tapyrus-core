@@ -151,6 +151,7 @@ PolicySettings::PolicySettings(const ArgsManager& args, TAPYRUS_OP_MODE mode)
       descendantLimit(args.GetArg("-limitdescendantcount", DEFAULT_DESCENDANT_LIMIT)),
       descendantSizeLimit(args.GetArg("-limitdescendantsize", DEFAULT_DESCENDANT_SIZE_LIMIT) * 1000),
       maxOrphanTx((uint32_t)std::max((int64_t)0, args.GetArg("-maxorphantx", DEFAULT_MAX_ORPHAN_TRANSACTIONS))),
+      maxOrphanTxSize(static_cast<uint32_t>(ParseInRange(args, "maxorphantxsize", DEFAULT_MAX_ORPHAN_TX_SIZE, 0, std::numeric_limits<uint32_t>::max()))),
       blockReconstructionExtraTxn(args.GetArg("-blockreconstructionextratxn", DEFAULT_BLOCK_RECONSTRUCTION_EXTRA_TXN)),
       feeFilter(args.GetBoolArg("-feefilter", DEFAULT_FEEFILTER)),
       whitelistRelay(args.GetBoolArg("-whitelistrelay", DEFAULT_WHITELISTRELAY)),
@@ -172,4 +173,23 @@ PolicySettings::PolicySettings(const ArgsManager& args, TAPYRUS_OP_MODE mode)
 uint32_t PolicySettings::MaxStandardTxSize() const
 {
     return std::min(maxStandardTxSize, g_chainstate_manager.RulesLatest().MaxBlockSize());
+}
+
+uint32_t PolicySettings::MinStandardTxSize() const
+{
+    return std::min(minStandardTxSize, MaxStandardTxSize());
+}
+
+uint32_t PolicySettings::MaxOrphanTxSize() const
+{
+    return std::min(maxOrphanTxSize, MaxStandardTxSize());
+}
+
+std::string PolicySettings::CheckMinStandardTxSize() const
+{
+    const uint32_t maxSize = MaxStandardTxSize();
+    if (minStandardTxSize > maxSize) {
+        return strprintf("-minstandardtxsize value %u is above the largest standard transaction size %u (-maxstandardtxsize, capped at the block size limit)", minStandardTxSize, maxSize);
+    }
+    return "";
 }

@@ -767,10 +767,10 @@ bool AddOrphanTx(const CTransactionRef& tx, NodeId peer) EXCLUSIVE_LOCKS_REQUIRE
     // large transaction with a missing parent then we assume
     // it will rebroadcast it later, after the parent transaction(s)
     // have been mined or received.
-    // 100 orphans, each of which is at most 100,000 bytes big is
-    // at most 10 megabytes of orphans and somewhat more byprev index (in the worst case):
+    // -maxorphantx orphans of at most -maxorphantxsize bytes each, by default
+    // 100 x 100,000 bytes = 10 megabytes, plus the byprev index:
     unsigned int sz = GetSerializeSize(*tx, SER_NETWORK, PROTOCOL_VERSION);
-    if (sz > g_policy_settings->MaxStandardTxSize())
+    if (sz > g_policy_settings->MaxOrphanTxSize())
     {
         LogPrint(BCLog::MEMPOOL, "ignoring large orphan tx (size: %u, hash: %s)\n", sz, hash.ToString());
         return false;

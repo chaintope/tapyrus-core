@@ -13,6 +13,31 @@ Block validation
   change lowered the limit, a node could reject an earlier block that was
   valid when it was accepted, for example while reindexing.
 
+Configuration options
+---------------------
+
+- `-maxtxfee` now also sets the most fees that `sendrawtransaction`,
+  `testmempoolaccept` and `submitpackage` accept unless `allowhighfees` is
+  set, so it is a node option rather than a wallet one. An invalid value now
+  stops the node at start-up even with `-disablewallet` or in a build without
+  the wallet; it used to be checked only while loading a wallet. The warning
+  for a very high value is shown with or without a wallet too.
+
+- New option `-maxorphantxsize` (default: 100000) sets the largest orphan
+  transaction kept in memory, capped at `-maxstandardtxsize`. Together with
+  `-maxorphantx` it bounds the memory orphans use, 10 MB by default, however
+  high `-maxstandardtxsize` is set.
+
+- `-minstandardtxsize` must not exceed `-maxstandardtxsize` capped at the
+  block size limit. The node now refuses to start once the block chain has
+  loaded if it does, rather than starting and treating every transaction as
+  non-standard. If a later MAXBLOCKSIZE xfield change lowers the limit below
+  `-minstandardtxsize`, the minimum is capped at the new limit.
+
+- `-expectedblocktime`, added during development of this release, has been
+  removed again. The expected block time is a fixed 15 seconds on every
+  network and is used only for estimates and timeouts.
+
 Updated RPCs
 ------------
 
