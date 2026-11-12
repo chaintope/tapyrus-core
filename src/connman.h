@@ -67,6 +67,13 @@ public:
         std::vector<std::string> vSeedNodes;
         std::vector<CSubNet> vWhitelistedRange;
         std::vector<CService> vBinds, vWhiteBinds;
+        //! Inbound connections on these addresses come through Tor.
+        std::vector<CService> onion_binds;
+        //! No -bind or -whitebind was given, so listen on the wildcard addresses.
+        bool bind_on_any = true;
+
+        //! The first -whitelist range that contains addr, or nullptr.
+        const CSubNet* FindWhitelistedRange(const CNetAddr& addr) const;
         bool m_use_addrman_outgoing = true;
         std::vector<std::string> m_specified_outgoing;
         std::vector<std::string> m_added_nodes;
@@ -249,13 +256,15 @@ private:
     struct ListenSocket {
         SOCKET socket;
         bool whitelisted;
+        //! Connections accepted here come through Tor, so their address is the Tor daemon's.
+        bool onion;
 
-        ListenSocket(SOCKET socket_, bool whitelisted_) : socket(socket_), whitelisted(whitelisted_) {}
+        ListenSocket(SOCKET socket_, bool whitelisted_, bool onion_) : socket(socket_), whitelisted(whitelisted_), onion(onion_) {}
     };
 
-    bool BindListenPort(const CService &bindAddr, std::string& strError, bool fWhitelisted = false);
+    bool BindListenPort(const CService &bindAddr, std::string& strError, bool fWhitelisted = false, bool fOnion = false);
     bool Bind(const CService &addr, unsigned int flags);
-    bool InitBinds(const std::vector<CService>& binds, const std::vector<CService>& whiteBinds);
+    bool InitBinds(const Options& options);
     void ThreadOpenAddedConnections();
     void AddOneShot(const std::string& strDest);
     void ProcessOneShot();
@@ -311,7 +320,8 @@ private:
     uint64_t nMaxOutboundTimeframe GUARDED_BY(cs_totalBytesSent);
 
     // Whitelisted ranges. Any node connecting from these is automatically
-    // whitelisted (as well as those connecting to whitelisted binds).
+    // whitelisted (as well as those connecting to whitelisted binds), unless
+    // it connects to an onion bind.
     std::vector<CSubNet> vWhitelistedRange;
 
     unsigned int nSendBufferMaxSize;

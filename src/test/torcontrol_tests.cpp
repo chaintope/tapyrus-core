@@ -3,6 +3,7 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 //
+#include <netbase.h>
 #include <test/test_tapyrus.h>
 #include <torcontrol.h>
 
@@ -203,6 +204,15 @@ BOOST_AUTO_TEST_CASE(util_ParseTorReplyMapping)
     CheckParseTorReplyMapping("MORE  ARGS", {});
     CheckParseTorReplyMapping("EVEN more=ARGS", {});
     CheckParseTorReplyMapping("EVEN+more ARGS", {});
+}
+
+BOOST_AUTO_TEST_CASE(add_onion_command_targets_onion_bind)
+{
+    const uint16_t virtual_port = 2357;
+    BOOST_CHECK_EQUAL(TorAddOnionCommand::Build("NEW:RSA1024", virtual_port, LookupNumeric("127.0.0.1", 2358)),
+                      "ADD_ONION NEW:RSA1024 Port=2357,127.0.0.1:2358");
+    BOOST_CHECK_EQUAL(TorAddOnionCommand::Build("RSA1024:KEY", virtual_port, LookupNumeric("::1", 12384)),
+                      "ADD_ONION RSA1024:KEY Port=2357,[::1]:12384");
 }
 
 BOOST_AUTO_TEST_SUITE_END()
