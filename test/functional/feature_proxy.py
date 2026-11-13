@@ -40,10 +40,11 @@ from test_framework.util import (
 from test_framework.netutil import test_ipv6_local
 
 RANGE_BEGIN = PORT_MIN + 2 * PORT_RANGE  # Start after p2p and rpc ports
+ONION_V3 = "pg6mmjiyjmcrsslvykfwnntlaru7p5svn6y2ymmju6nubxndf4pscryd.onion"
 
 class ProxyTest(BitcoinTestFramework):
     def set_test_params(self):
-        self.num_nodes = 4
+        self.num_nodes = 5
 
     def setup_nodes(self):
         self.have_ipv6 = test_ipv6_local()
@@ -82,7 +83,8 @@ class ProxyTest(BitcoinTestFramework):
             ['-listen', '-proxy=%s:%i' % (self.conf1.addr),'-proxyrandomize=1'],
             ['-listen', '-proxy=%s:%i' % (self.conf1.addr),'-onion=%s:%i' % (self.conf2.addr),'-proxyrandomize=0'],
             ['-listen', '-proxy=%s:%i' % (self.conf2.addr),'-proxyrandomize=1'],
-            []
+            [],
+            ['-listen', '-onion=%s:%i' % (self.conf2.addr), '-proxyrandomize=0'],
             ]
         if self.have_ipv6:
             args[3] = ['-listen', '-proxy=[%s]:%i' % (self.conf3.addr),'-proxyrandomize=0', '-noonion']
@@ -131,6 +133,18 @@ class ProxyTest(BitcoinTestFramework):
                 assert_equal(cmd.password, None)
             rv.append(cmd)
 
+            # Test: outgoing v3 onion connection, by name, through the onion proxy
+            node.addnode(ONION_V3 + ":8333", "onetry")
+            cmd = proxies[2].queue.get()
+            assert(isinstance(cmd, Socks5Command))
+            assert_equal(cmd.atyp, AddressType.DOMAINNAME)
+            assert_equal(cmd.addr, ONION_V3.encode())
+            assert_equal(cmd.port, 8333)
+            rv.append(cmd)
+        else:
+            # With -noonion a v3 onion name must not reach any proxy; the next test would read it.
+            node.addnode(ONION_V3 + ":8333", "onetry")
+
         # Test: outgoing DNS name connection through node
         node.addnode("node.noumenon:8333", "onetry")
         cmd = proxies[3].queue.get()
@@ -161,6 +175,13 @@ class ProxyTest(BitcoinTestFramework):
         if self.have_ipv6:
             # proxy on IPv6 localhost
             self.node_test(self.nodes[3], [self.serv3, self.serv3, self.serv3, self.serv3], False, False)
+
+        # -onion without -proxy: a v3 onion name still goes through the onion proxy
+        self.nodes[4].addnode(ONION_V3 + ":8333", "onetry")
+        cmd = self.serv2.queue.get()
+        assert_equal(cmd.atyp, AddressType.DOMAINNAME)
+        assert_equal(cmd.addr, ONION_V3.encode())
+        assert_equal(cmd.port, 8333)
 
         def networks_dict(d):
             r = {}
