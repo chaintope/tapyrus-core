@@ -21,7 +21,11 @@ static const bool DEFAULT_LISTEN_ONION = true;
 class TorAddOnionCommand
 {
 public:
+    //! Asks Tor for a new v3 onion service key; Tor 0.4.6 and later reject the old RSA1024 (v2) type.
+    static constexpr const char* NEW_KEY = "NEW:ED25519-V3";
+
     //! Tor forwards connections on virtual_port of the onion service to target.
+    //! An empty private_key requests a new key.
     static std::string Build(const std::string& private_key, uint16_t virtual_port, const CService& target);
 };
 

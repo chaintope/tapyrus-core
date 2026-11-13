@@ -1803,7 +1803,9 @@ bool AppInitMain(NodeContext& node)
     connOptions.nMaxOutboundTimeframe = nMaxOutboundTimeframe;
     connOptions.nMaxOutboundLimit = nMaxOutboundLimit;
 
-    const uint16_t default_onion_port = GetListenPort() + 1;
+    // An int64_t sum, so -port=65535 leaves no default onion port rather than wrapping to 0.
+    const int64_t default_onion_port = int64_t{GetListenPort()} + 1;
+    const std::string no_default_onion_port = strprintf(_("-port=%u leaves no port for an onion bind at the P2P port + 1. Give the onion bind its own port with -bind=<addr>:<port>=onion."), GetListenPort());
     for (const std::string& strBind : gArgs.GetArgs("-bind")) {
         CService addrBind;
         const size_t suffix_pos = strBind.rfind('=');
@@ -1813,8 +1815,12 @@ bool AppInitMain(NodeContext& node)
             }
             connOptions.vBinds.push_back(addrBind);
         } else if (strBind.substr(suffix_pos + 1) == "onion") {
-            if (!Lookup(strBind.substr(0, suffix_pos).c_str(), addrBind, default_onion_port, false)) {
+            if (!Lookup(strBind.substr(0, suffix_pos).c_str(), addrBind, 0, false)) {
                 return InitError(ResolveErrMsg("bind", strBind));
+            }
+            if (addrBind.GetPort() == 0) {
+                if (fListen && default_onion_port > 65535) return InitError(no_default_onion_port);
+                addrBind = CService(addrBind, static_cast<uint16_t>(default_onion_port));
             }
             connOptions.onion_binds.push_back(addrBind);
         } else {
@@ -1835,16 +1841,34 @@ bool AppInitMain(NodeContext& node)
 
     // Tor forwards the onion service to the first onion bind. With no onion bind and no -bind, listen
     // for Tor on loopback at the P2P port + 1, so Tor inbound peers never share a port with clearnet ones.
+    const bool listen_onion = gArgs.GetBoolArg("-listenonion", DEFAULT_LISTEN_ONION);
     CService onion_service_target;
     if (!connOptions.onion_binds.empty()) {
         onion_service_target = connOptions.onion_binds.front();
     } else if (!connOptions.vBinds.empty()) {
         onion_service_target = connOptions.vBinds.front();
+        if (listen_onion) {
+            InitWarning(strprintf(_("No onion bind is given, so the Tor onion service forwards to the clearnet listener %s and its peers are not tagged as Tor. Add -bind=<addr>=onion to listen for them separately."), onion_service_target.ToStringIPPort()));
+        }
     } else {
+        if (fListen && default_onion_port > 65535) return InitError(no_default_onion_port);
         struct in_addr loopback;
         loopback.s_addr = htonl(INADDR_LOOPBACK);
-        onion_service_target = CService(loopback, default_onion_port);
+        onion_service_target = CService(loopback, static_cast<uint16_t>(default_onion_port));
         connOptions.onion_binds.push_back(onion_service_target);
+    }
+    if (listen_onion) connOptions.onion_service_target = onion_service_target;
+
+    if (fListen) {
+        if (connOptions.vBinds.empty() && !connOptions.bind_on_any) {
+            InitWarning(_("Every -bind is an onion bind, so clearnet peers can connect only to a -whitebind. Add -bind=<addr> to listen for them."));
+        }
+        // On some platforms both binds succeed, and clearnet peers on the shared port are then tagged as Tor.
+        for (const CService& onion_bind : connOptions.onion_binds) {
+            if (const CService* clearnet_bind = connOptions.FindClearnetBindOnPort(onion_bind)) {
+                return InitError(strprintf(_("The onion bind %s shares its port with the clearnet bind %s. Give the onion bind its own port."), onion_bind.ToStringIPPort(), clearnet_bind->ToStringIPPort()));
+            }
+        }
     }
 
     for (const auto& net : gArgs.GetArgs("-whitelist")) {
@@ -1862,7 +1886,7 @@ bool AppInitMain(NodeContext& node)
         proxyType proxy;
         if (GetProxy(NET_IPV4, proxy)) tor_addrs.push_back(proxy.proxy);
         if (GetProxy(NET_ONION, proxy)) tor_addrs.push_back(proxy.proxy);
-        if (gArgs.GetBoolArg("-listenonion", DEFAULT_LISTEN_ONION)) {
+        if (listen_onion) {
             tor_addrs.push_back(LookupNumeric("127.0.0.1"));
             tor_addrs.push_back(LookupNumeric("::1"));
             CService tor_control;
@@ -1877,7 +1901,7 @@ bool AppInitMain(NodeContext& node)
         }
     }
 
-    if (gArgs.GetBoolArg("-listenonion", DEFAULT_LISTEN_ONION)) {
+    if (listen_onion) {
         if (connOptions.onion_binds.size() > 1) {
             InitWarning(strprintf(_("More than one onion bind address is provided. Using %s for the automatically created Tor onion service."), onion_service_target.ToStringIPPort()));
         }
