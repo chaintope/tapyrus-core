@@ -183,7 +183,9 @@ class TestNode():
     def _has_explicit_bind(self, extra_args):
         if any(e.startswith("-bind=") for e in extra_args):
             return True
-        conf_path = os.path.join(self.datadir, "tapyrus.conf")
+        # tapyrusd reads the last -conf, relative to the datadir, else the datadir's tapyrus.conf.
+        conf_args = [e[len("-conf="):] for e in extra_args if e.startswith("-conf=")]
+        conf_path = os.path.join(self.datadir, conf_args[-1] if conf_args else "tapyrus.conf")
         if not os.path.exists(conf_path):
             return False
         with open(conf_path, encoding="utf8") as conf:
