@@ -30,8 +30,8 @@ B31 -- Create block with previous block hash = B30 - sign with aggpubkey3 -- suc
 
 Simulate Blockchain Reorg - Before the last federation block"
 B24 -- Create block with previous block hash = B23 - sign with aggpubkey2 -- failure - block is in invalid chain
-B25 -- Create block with previous block hash = B24 - sign with aggpubkey2 -- success - block is in invalid chain
-there are 3 tips in the current blockchain
+B25 -- Create block with previous block hash = B24 - sign with aggpubkey2 -- failure - proof verification failed, aggpubkey3 is in force from B25
+there are 5 tips in the current blockchain: the active chain, the B27-B30 fork, the invalidated B23 and the two blocks with an invalid transaction
 
 B32 -- Create block with aggpubkey4 - sign with aggpubkey3 -- success - aggpubkey4 is added to the list
 B -- Create block - sign with aggpubkey2 -- failure - proof verification failed
@@ -98,6 +98,7 @@ class FederationManagementTest(BitcoinTestFramework):
 
 
         self.blocks = []
+        self.invalidated_b23 = None
 
         self.coinbase_key = CECKey()
         self.coinbase_key.set_secretbytes(bytes.fromhex("12b004fff7f4b69ef8650e767f18f11ede158148b425660723b9f9a66e61f747"))
@@ -204,6 +205,7 @@ class FederationManagementTest(BitcoinTestFramework):
 
         #call invalidate block rpc on B23 -- success - B23 is removed from the blockchain. tip is B22
         node.invalidateblock(self.tip)
+        self.invalidated_b23 = self.tip
         self.tip = self.blocks[22]
         assert_equal(self.tip, node.getbestblockhash())
 
@@ -215,7 +217,7 @@ class FederationManagementTest(BitcoinTestFramework):
         blocknew.hashMerkleRoot = blocknew.calc_merkle_root()
         blocknew.hashImMerkleRoot = blocknew.calc_immutable_merkle_root()
         blocknew.solve(self.aggprivkey[1])
-        self.blocks[22] = blocknew.hash
+        self.blocks[23] = blocknew.hash
         self.tip = blocknew.hash
         node.submitblock(bytes_to_hex_str(blocknew.serialize()))
         assert_equal(self.tip, node.getbestblockhash())
@@ -223,23 +225,23 @@ class FederationManagementTest(BitcoinTestFramework):
 
         #B -- - Create block with 1 invalid transaction - sign with aggpubkey2 -- failure
         block_time += 1
-        blocknew = create_block(int(self.tip, 16), create_coinbase(23), block_time)
+        blocknew = create_block(int(self.tip, 16), create_coinbase(24), block_time)
         spendHash = node.getblock(self.blocks[3])['tx'][0]
         blocknew.vtx  += [create_transaction(node, spendHash, self.address, amount=100.0)] #invalid
         blocknew.hashMerkleRoot = blocknew.calc_merkle_root()
         blocknew.hashImMerkleRoot = blocknew.calc_immutable_merkle_root()
         blocknew.solve(self.aggprivkey[1])
-        assert_equal(node.submitblock(bytes_to_hex_str(blocknew.serialize())), "invalid")
+        assert_equal(node.submitblock(bytes_to_hex_str(blocknew.serialize())), "bad-txns-in-belowout")
         assert_equal(self.tip, node.getbestblockhash())
 
         #B -- - Create block with 1 invalid transaction and aggpubkey3 - sign with aggpubkey2 -- failure and aggpubkey3 is not added to the list
-        blocknew = create_block(int(self.tip, 16), create_coinbase(23), block_time, self.aggpubkeys[2])
+        blocknew = create_block(int(self.tip, 16), create_coinbase(24), block_time, self.aggpubkeys[2])
         spendHash = node.getblock(self.blocks[4])['tx'][0]
         blocknew.vtx  += [create_transaction(node, spendHash, self.address, amount=100.0)] #invalid
         blocknew.hashMerkleRoot = blocknew.calc_merkle_root()
         blocknew.hashImMerkleRoot = blocknew.calc_immutable_merkle_root()
         blocknew.solve(self.aggprivkey[1])
-        assert_equal(node.submitblock(bytes_to_hex_str(blocknew.serialize())), "invalid")
+        assert_equal(node.submitblock(bytes_to_hex_str(blocknew.serialize())), "bad-txns-in-belowout")
         assert_equal(self.tip, node.getbestblockhash())
 
         # verify aggpubkey3 is not added to the list : verify that block signed using aggprivkey3 is rejected
@@ -366,13 +368,13 @@ class FederationManagementTest(BitcoinTestFramework):
         self.log.info("Simulate Blockchain Reorg  - Before the last federation block")
         #B24 -- Create block with previous block hash = B23 - sign with aggpubkey2 -- failure - block is in invalid chain
         block_time += 1
-        blocknew = create_block(int(self.blocks[23], 16), create_coinbase(24), block_time)
+        blocknew = create_block(int(self.invalidated_b23, 16), create_coinbase(24), block_time)
         blocknew.solve(self.aggprivkey[1])
         assert_equal(node.submitblock(bytes_to_hex_str(blocknew.serialize())), "invalid")
         assert_equal(self.tip, node.getbestblockhash())
         assert(node.getblock(self.tip))
 
-        #B25 -- Create block with previous block hash = B24 - sign with aggpubkey2 -- success - block is in invalid chain
+        #B25 -- Create block with previous block hash = B24 - sign with aggpubkey2 -- failure - proof verification failed, aggpubkey3 is in force from B25
         block_time += 1
         blocknew = create_block(int(self.blocks[24], 16), create_coinbase(25), block_time)
         blocknew.solve(self.aggprivkey[1])
@@ -380,9 +382,9 @@ class FederationManagementTest(BitcoinTestFramework):
         assert_equal(self.tip, node.getbestblockhash())
         assert(node.getblock(self.tip))
 
-        #there are 3 tips in the current blockchain
+        #there are 5 tips: the active chain, the B27-B30 fork, the invalidated B23 and the two blocks with an invalid transaction
         chaintips = node.getchaintips()
-        assert_equal(len(chaintips), 3)
+        assert_equal(len(chaintips), 5)
 
         assert(node.getblock(self.blocks[12]))
         assert(node.getblock(self.blocks[25]))

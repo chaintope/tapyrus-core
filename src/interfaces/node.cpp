@@ -8,6 +8,7 @@
 #include <amount.h>
 #include <blockindex.h>
 #include <chainparams.h>
+#include <chainstatemanager.h>
 #include <consensussettings.h>
 #include <init.h>
 #include <interfaces/handler.h>
@@ -179,7 +180,7 @@ public:
         if (::chainActive.Tip()) {
             return ::chainActive.Tip()->GetBlockTime();
         }
-        return g_consensus_settings->GenesisBlock().GetBlockTime(); // Genesis block's time of current network
+        return g_chainstate_manager.Settings().GenesisBlock().GetBlockTime(); // Genesis block's time of current network
     }
     double getVerificationProgress() override
     {
