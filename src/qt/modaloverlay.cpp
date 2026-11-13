@@ -8,13 +8,14 @@
 
 #include <qt/guiutil.h>
 
-#include <chainparams.h>
+#include <interfaces/node.h>
 
 #include <QResizeEvent>
 #include <QPropertyAnimation>
 
-ModalOverlay::ModalOverlay(QWidget *parent) :
+ModalOverlay::ModalOverlay(interfaces::Node& node, QWidget *parent) :
 QWidget(parent),
+m_node(node),
 ui(new Ui::ModalOverlay),
 bestHeaderHeight(0),
 bestHeaderDate(QDateTime()),
@@ -128,9 +129,9 @@ void ModalOverlay::tipUpdate(int count, const QDateTime& blockDate, double nVeri
         // not syncing
         return;
 
-    // estimate the number of headers left based on nPowTargetSpacing
+    // estimate the number of headers left based on the expected block time
     // and check if the gui is not aware of the best header (happens rarely)
-    int estimateNumHeadersLeft = bestHeaderDate.secsTo(currentDate) / Params().GetConsensus().nExpectedBlockTime;
+    int estimateNumHeadersLeft = bestHeaderDate.secsTo(currentDate) / m_node.getExpectedBlockTime();
     bool hasBestHeader = bestHeaderHeight >= count;
 
     // show remaining number of blocks

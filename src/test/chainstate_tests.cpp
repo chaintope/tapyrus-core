@@ -18,11 +18,12 @@
  */
 
 #include <chainstate.h>
+#include <contextualconsensusrules.h>
+#include <checkblock.h>
 #include <test/test_tapyrus.h>
 #include <chainstatemanager.h>
 #include <validation.h>
 #include <consensus/validation.h>
-#include <consensus/tx_verify.h>
 #include <coin.h>
 #include <coinsview.h>
 #include <coinsviewcache.h>
@@ -626,7 +627,7 @@ BOOST_AUTO_TEST_CASE(block_sequence_id_edge_cases)
 
     // Read the block back from disk
     CBlock blockFromDisk1;
-    BOOST_REQUIRE(ReadBlockFromDisk(blockFromDisk1, diskPos1));
+    BOOST_REQUIRE(ReadBlockFromDisk(blockFromDisk1, diskPos1, g_chainstate_manager.RulesLatest()));
 
     // Verify the block content is the same
     BOOST_CHECK(blockFromDisk1.GetHash() == hash1);
@@ -657,7 +658,7 @@ BOOST_AUTO_TEST_CASE(block_sequence_id_edge_cases)
 
     // Read block2 back from disk
     CBlock blockFromDisk2;
-    BOOST_REQUIRE(ReadBlockFromDisk(blockFromDisk2, diskPos2));
+    BOOST_REQUIRE(ReadBlockFromDisk(blockFromDisk2, diskPos2, g_chainstate_manager.RulesLatest()));
 
     // Verify the block content is the same
     BOOST_CHECK(blockFromDisk2.GetHash() == hash2);
@@ -678,9 +679,9 @@ BOOST_AUTO_TEST_CASE(block_sequence_id_edge_cases)
 }
 
 /**
- * Regression test: 
- * CheckBlockHeader(nHeight=-1) must look up the
- * *latest* aggpubkey (UINT32_MAX semantics), not the genesis key (height-0).
+ * Regression test:
+ * a header with no known parent is checked against the RulesLatest() of the
+ * history in use, i.e. the *latest* aggpubkey, not the genesis key (height-0).
  * After a key rotation any header signed by the
  * post-rotation key would fail with bad-proof instead of the expected
  * prev-blk-not-found.
@@ -711,11 +712,11 @@ BOOST_AUTO_TEST_CASE(check_block_header_orphan_uses_latest_aggpubkey)
     BOOST_REQUIRE(rotatedKey.Sign_Schnorr(header.GetHashForSign(), sig));
     BOOST_REQUIRE(header.AbsorbBlockProof(sig, rotatedPubKey));
 
-    // CheckBlockHeader with nHeight=-1 must succeed: UINT32_MAX → latest entry
-    // → rotated key → valid Schnorr signature.
+    // The latest rules of the working copy carry the rotated key, so the
+    // signature is valid.
     {
         CValidationState state;
-        BOOST_CHECK(CheckBlockHeader(header, state, tempHistory, -1));
+        BOOST_CHECK(CheckBlockHeader(header, state, g_chainstate_manager.RulesLatest(tempHistory)));
     }
 
     // AcceptBlockHeader must reject for "prev-blk-not-found", not "bad-proof".
@@ -731,15 +732,15 @@ BOOST_AUTO_TEST_CASE(check_block_header_orphan_uses_latest_aggpubkey)
 }
 
 /**
- * Regression test: DisconnectBlock(fDryRun=true) must not erase from g_colorid_state.
+ * Regression test: DisconnectBlock(fDryRun=true) must not erase from the issued colorIds.
  *
  * fDryRun was declared in the signature but never checked in the body, so
- * g_colorid_state->Erase() ran unconditionally.  CVerifyDB calls DisconnectBlock
+ * IssuedColorIds().Erase() ran unconditionally.  CVerifyDB calls DisconnectBlock
  * with fDryRun=true during its level-3 walk; without the fix this corrupted the
  * live colorId set whenever verifychain was run on a chain that contained
  * NON_REISSUABLE or NFT issuances.
  *
- * The test bypasses the CVerifyDB sandbox so it fails without the one-line fix
+ * The test bypasses CVerifyDB's ColorIdsSnapshot so it fails without the one-line fix
  * and passes after it.
  */
 BOOST_AUTO_TEST_CASE(disconnect_block_dry_run_preserves_colorid_state)
@@ -804,14 +805,14 @@ BOOST_AUTO_TEST_CASE(disconnect_block_dry_run_preserves_colorid_state)
     }
     CBlock issueBlock = CreateAndProcessBlock({issueTx}, payTo);
 
-    // ConnectBlock must have recorded the colorId in g_colorid_state.
+    // ConnectBlock must have recorded the colorId in the issued colorIds.
     {
         LOCK(cs_main);
-        BOOST_REQUIRE(g_colorid_state && g_colorid_state->IsIssued(colorid));
+        BOOST_REQUIRE(g_chainstate_manager.IssuedColorIds().IsIssued(colorid));
     }
 
-    // Call DisconnectBlock(fDryRun=true) directly — no CVerifyDB sandbox in place.
-    // Before the fix, this called g_colorid_state->Erase(colorid) unconditionally.
+    // Call DisconnectBlock(fDryRun=true) directly — no ColorIdsSnapshot in place.
+    // Before the fix, this called IssuedColorIds().Erase(colorid) unconditionally.
     {
         LOCK(cs_main);
         CBlockIndex* pindex = chainActive.Tip();
@@ -823,18 +824,18 @@ BOOST_AUTO_TEST_CASE(disconnect_block_dry_run_preserves_colorid_state)
         BOOST_CHECK(res != DISCONNECT_FAILED);
     }
 
-    // g_colorid_state must be unchanged: the colorId survives the dry-run disconnect.
+    // The issued colorIds must be unchanged: the colorId survives the dry-run disconnect.
     {
         LOCK(cs_main);
-        BOOST_CHECK(g_colorid_state->IsIssued(colorid));
+        BOOST_CHECK(g_chainstate_manager.IssuedColorIds().IsIssued(colorid));
     }
 }
 
 /**
  * Regression test: duplicate NON_REISSUABLE issuance is rejected by
- * CheckOutputColorIds via g_colorid_state->IsIssued().
+ * CheckOutputColorIds via IssuedColorIds().IsIssued().
  *
- * Once colorId C is confirmed in g_colorid_state, any further issuance of C
+ * Once colorId C is confirmed in the issued colorIds, any further issuance of C
  * must be blocked even if the defining TPC outpoint appears unspent in the
  * coins view (e.g. after a reorg that restores the UTXO while a
  * DisconnectBlock bug — such as H-2 — leaves C in the confirmed set).
@@ -842,7 +843,7 @@ BOOST_AUTO_TEST_CASE(disconnect_block_dry_run_preserves_colorid_state)
  * Because getting two distinct outpoints to derive the same NON_REISSUABLE
  * colorId requires a SHA-256 collision, we exercise the code path directly:
  * the first issuance goes through the normal block pipeline (populating
- * g_colorid_state), then we construct a synthetic CCoinsViewCache that
+ * the issued colorIds), then we construct a synthetic CCoinsViewCache that
  * presents the defining TPC outpoint as unspent again and call
  * CheckOutputColorIds on a re-issuance transaction.
  */
@@ -906,15 +907,15 @@ BOOST_AUTO_TEST_CASE(duplicate_nonreissuable_issuance_rejected)
     }
     CreateAndProcessBlock({issueTx}, payTo);
 
-    // colorId is now in the confirmed g_colorid_state; definingUtxo is spent.
+    // colorId is now in the confirmed issued colorIds; definingUtxo is spent.
     {
         LOCK(cs_main);
-        BOOST_REQUIRE(g_colorid_state && g_colorid_state->IsIssued(colorid));
+        BOOST_REQUIRE(g_chainstate_manager.IssuedColorIds().IsIssued(colorid));
     }
 
     // Build a synthetic CCoinsViewCache that presents definingUtxo as unspent,
     // simulating a reorg that restored the UTXO while a DisconnectBlock bug
-    // (H-2) left the colorId in g_colorid_state.
+    // (H-2) left the colorId in the issued colorIds.
     // CheckOutputColorIds must reject the re-issuance with
     // "bad-txns-colorid-already-issued".
     {
@@ -939,8 +940,7 @@ BOOST_AUTO_TEST_CASE(duplicate_nonreissuable_issuance_rejected)
 
         CValidationState state;
         PrecomputedColorData colorData(CTransaction(reissueTx), syntheticView, chainActive.Tip()->nHeight);
-        BOOST_REQUIRE(g_colorid_state);
-        colorData.SetIssued(*g_colorid_state);
+        colorData.SetIssued(g_chainstate_manager.IssuedColorIds());
         bool valid = TransactionColorChecker(colorData).CheckOutputColorIds(state);
 
         BOOST_CHECK(!valid);
@@ -950,14 +950,14 @@ BOOST_AUTO_TEST_CASE(duplicate_nonreissuable_issuance_rejected)
 
 /**
  * Regression test: burning an NFT must not erase its colorId from
- * g_colorid_state, so a later re-issuance attempt is still rejected.
+ * the issued colorIds, so a later re-issuance attempt is still rejected.
  *
  * "Burn" means spending the sole live NFT UTXO to an uncolored output —
  * CheckTokenBalances allows colored input value with no matching colored
  * output (the value is simply discarded). This does not touch
- * g_colorid_state: CIssuedColorIds::Erase() is only ever called from
+ * the issued colorIds: CIssuedColorIds::Erase() is only ever called from
  * DisconnectBlock (reorg), never from a normal spend/burn. So after a burn,
- * total live supply of the colorId is zero, but g_colorid_state must still
+ * total live supply of the colorId is zero, but the issued colorIds must still
  * report it as issued forever.
  *
  * As in duplicate_nonreissuable_issuance_rejected, actually re-deriving the
@@ -1033,7 +1033,7 @@ BOOST_AUTO_TEST_CASE(duplicate_nft_issuance_after_burn_rejected)
 
     {
         LOCK(cs_main);
-        BOOST_REQUIRE(g_colorid_state && g_colorid_state->IsIssued(colorid));
+        BOOST_REQUIRE(g_chainstate_manager.IssuedColorIds().IsIssued(colorid));
     }
 
     // Block: burn the NFT — spend issueTx:0 (the only live unit) plus a TPC
@@ -1068,15 +1068,15 @@ BOOST_AUTO_TEST_CASE(duplicate_nft_issuance_after_burn_rejected)
     }
     CreateAndProcessBlock({burnTx}, payTo);
 
-    // The burn destroyed the only live unit of colorid, but g_colorid_state
+    // The burn destroyed the only live unit of colorid, but the issued colorIds
     // must still remember it was issued -- Erase() is reorg-only.
     {
         LOCK(cs_main);
-        BOOST_REQUIRE(g_colorid_state && g_colorid_state->IsIssued(colorid));
+        BOOST_REQUIRE(g_chainstate_manager.IssuedColorIds().IsIssued(colorid));
     }
 
     // Build a synthetic CCoinsViewCache that presents definingUtxo as unspent
-    // again, simulating a reorg that restored the UTXO while g_colorid_state
+    // again, simulating a reorg that restored the UTXO while the issued colorIds
     // retained the record. CheckOutputColorIds must still reject the
     // re-issuance with "bad-txns-colorid-already-issued", even though the
     // colorId's supply is currently zero.
@@ -1102,8 +1102,7 @@ BOOST_AUTO_TEST_CASE(duplicate_nft_issuance_after_burn_rejected)
 
         CValidationState state;
         PrecomputedColorData colorData(CTransaction(reissueTx), syntheticView, chainActive.Tip()->nHeight);
-        BOOST_REQUIRE(g_colorid_state);
-        colorData.SetIssued(*g_colorid_state);
+        colorData.SetIssued(g_chainstate_manager.IssuedColorIds());
         bool valid = TransactionColorChecker(colorData).CheckOutputColorIds(state);
 
         BOOST_CHECK(!valid);
@@ -1349,7 +1348,7 @@ BOOST_AUTO_TEST_CASE(connectblock_premature_coinbase_dos_score_is_zero)
 
     CValidationState state;
     CAmount txfee = 0;
-    bool ok = Consensus::CheckTxInputs(
+    bool ok = ContextualConsensusRules::CheckTxInputs(
         CTransaction(spendTx), state, view, coinbaseHeight, txfee);
 
     // Must be rejected as a premature spend …

@@ -5,12 +5,15 @@
 #include <verifydb.h>
 
 #include <chainstatemanager.h>
+#include <checkblock.h>
 #include <policy/packages.h>
 #include <shutdown.h>
 #include <ui_interface.h>
 #include <file_io.h>
 #include <blockprune.h>
 #include <issuedcolorids.h>
+
+#include <optional>
 
 CVerifyDB::CVerifyDB()
 {
@@ -40,19 +43,20 @@ bool CVerifyDB::VerifyDB(CCoinsView *coinsview, int nCheckLevel, int nCheckDepth
     CValidationState state;
     int reportDone = 0;
 
-    // Sandbox g_colorid_state for Level 3 + 4: DisconnectBlock (Level 3) and
+    // Snapshot the issued colorIds for Level 3 + 4: DisconnectBlock (Level 3) and
     // ConnectBlock (Level 4) must operate on a scratch copy so that the real
     // confirmed set is never mutated during the read-only verification walk.
-    struct ColorIdSandbox {
-        std::unique_ptr<CIssuedColorIds> saved;
-        explicit ColorIdSandbox(bool active) {
-            if (active && g_colorid_state) {
-                saved = std::move(g_colorid_state);
-                g_colorid_state = saved->Clone();
+    struct ColorIdsSnapshot {
+        CIssuedColorIds& chainColorIds;
+        std::optional<CIssuedColorIds> savedColorIds;
+        ColorIdsSnapshot(bool active, CIssuedColorIds& ids) EXCLUSIVE_LOCKS_REQUIRED(cs_main) : chainColorIds(ids) {
+            if (active) {
+                savedColorIds.emplace(std::move(chainColorIds));
+                chainColorIds = std::move(*savedColorIds->Clone());
             }
         }
-        ~ColorIdSandbox() { if (saved) g_colorid_state = std::move(saved); }
-    } colorIdSandbox(nCheckLevel >= 3);
+        ~ColorIdsSnapshot() { if (savedColorIds) chainColorIds = std::move(*savedColorIds); }
+    } colorIdsSnapshot(nCheckLevel >= 3, g_chainstate_manager.IssuedColorIds());
 
     LogPrintf("[0%%]..."); /* Continued */
     for (pindex = chainActive.Tip(); pindex && pindex->pprev; pindex = pindex->pprev) {
@@ -75,7 +79,7 @@ bool CVerifyDB::VerifyDB(CCoinsView *coinsview, int nCheckLevel, int nCheckDepth
         if (!ReadBlockFromDisk(block, pindex))
             return error("VerifyDB(): *** ReadBlockFromDisk failed at %d, hash=%s", pindex->nHeight, pindex->GetBlockHash().ToString());
         // check level 1: verify block validity
-        if (nCheckLevel >= 1 && !CheckBlock(block, state, g_chainstate_manager.XFieldHistory(), true, true, pindex->nHeight))
+        if (nCheckLevel >= 1 && !CheckBlock(block, state, g_chainstate_manager.RulesAt(*pindex), true, true))
             return error("%s: *** found bad block at %d, hash=%s (%s)\n", __func__,
                          pindex->nHeight, pindex->GetBlockHash().ToString(), FormatStateMessage(state));
         // check level 2: verify undo validity
@@ -90,10 +94,10 @@ bool CVerifyDB::VerifyDB(CCoinsView *coinsview, int nCheckLevel, int nCheckDepth
         // check level 3: check for inconsistencies during memory-only disconnect of tip blocks
         if (nCheckLevel >= 3 && (coins.DynamicMemoryUsage() + pcoinsTip->DynamicMemoryUsage()) <= nCoinCacheUsage) {
             assert(coins.GetBestBlock() == pindex->GetBlockHash());
-            // fDryRun=false: the ColorIdSandbox above already swapped in a clone of
-            // g_colorid_state, so DisconnectBlock erases from the clone, not from the
+            // fDryRun=false: the ColorIdsSnapshot above already swapped in a clone of
+            // the issued colorIds, so DisconnectBlock erases from the clone, not from the
             // live confirmed set.  Erasing into the clone is intentional: level 4
-            // reconnects via ConnectBlock starting from this sandbox state, which
+            // reconnects via ConnectBlock starting from this scratch copy, which
             // requires the colorIds to have been removed so ConnectBlock can re-add them.
             DisconnectResult res = g_chainstate.DisconnectBlock(block, pindex, coins, /*fDryRun=*/false);
             if (res == DISCONNECT_FAILED) {

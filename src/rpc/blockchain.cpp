@@ -1290,7 +1290,7 @@ static UniValue getblockstats(const JSONRPCRequest& request)
             for (const CTxIn& in : tx->vin) {
                 CTransactionRef tx_in;
                 uint256 hashBlock;
-                if (!GetTransaction(in.prevout.hashMalFix, tx_in, Params().GetConsensus(), hashBlock, false)) {
+                if (!GetTransaction(in.prevout.hashMalFix, tx_in, hashBlock, false)) {
                     throw JSONRPCError(RPC_INTERNAL_ERROR, std::string("Unexpected internal error (tx index seems corrupt)"));
                 }
 
@@ -1345,7 +1345,7 @@ static UniValue getblockstats(const JSONRPCRequest& request)
     ret_all.pushKV("minfeerate", (minfeerate == ConsensusConstants::MAX_MONEY) ? 0 : minfeerate);
     ret_all.pushKV("mintxsize", mintxsize == g_chainstate_manager.XFieldHistory().GetCurrentMaxBlockSize() ? 0 : mintxsize);
     ret_all.pushKV("outs", outputs);
-    ret_all.pushKV("subsidy", g_consensus_settings->BlockSubsidy(pindex->nHeight));
+    ret_all.pushKV("subsidy", g_chainstate_manager.Settings().BlockSubsidy(pindex->nHeight));
     ret_all.pushKV("time", pindex->GetBlockTime());
     ret_all.pushKV("total_out", total_out);
     ret_all.pushKV("total_size", total_size);
@@ -1440,7 +1440,7 @@ static UniValue getcolor(const JSONRPCRequest& request)
         // Check that the transaction id is valid
         CTransactionRef tx;
         uint256 hashBlock;
-        if (!GetTransaction(txid, tx, Params().GetConsensus(), hashBlock, true)) {
+        if (!GetTransaction(txid, tx, hashBlock, true)) {
             throw JSONRPCError(RPC_INVALID_PARAMETER, std::string("Invalid transaction id :") + request.params[1].get_str());
         }
 

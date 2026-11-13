@@ -16,7 +16,9 @@
 #include <chainstatemanager.h>
 #include <debuglogfile.h>
 #include <checkpoints.h>
+#include <consensusconstants.h>
 #include <consensussettings.h>
+#include <federationparams.h>
 #include <eccverifyhandle.h>
 #include <genesisfile.h>
 #include <consensus/validation.h>
@@ -223,7 +225,7 @@ void Shutdown(NodeContext& node)
 
     // Because these depend on each-other, we make sure that neither can be
     // using the other before destroying them.
-    if (node.peer_logic) UnregisterValidationInterface(node.peer_logic.get());
+    if (node.peerman) UnregisterValidationInterface(node.peerman.get());
     if (node.connman) node.connman->Stop();
     if (g_txindex) g_txindex->Stop();
 
@@ -235,11 +237,11 @@ void Shutdown(NodeContext& node)
 
     // After the threads that potentially access these pointers have been stopped,
     // destruct and reset all to nullptr.
-    node.peer_logic.reset();
+    node.peerman.reset();
     node.connman.reset();
     g_txindex.reset();
 
-    if (g_is_mempool_loaded && gArgs.GetBoolArg("-persistmempool", DEFAULT_PERSIST_MEMPOOL)) {
+    if (g_is_mempool_loaded && node.policy && node.policy->persistMempool) {
         DumpMempool();
     }
 
@@ -278,7 +280,7 @@ void Shutdown(NodeContext& node)
         pcoinsTip.reset();
         pcoinscatcher.reset();
         pcoinsdbview.reset();
-        g_colorid_state.reset();
+        g_chainstate_manager.IssuedColorIds() = CIssuedColorIds();
         pblocktree.reset();
     }
     g_wallet_init_interface.Stop();
@@ -386,7 +388,9 @@ void SetupServerArgs()
     gArgs.AddArg("-loadblock=<file>", "Imports blocks from external blk000??.dat file on startup", false, OptionsCategory::OPTIONS);
     gArgs.AddArg("-maxmempool=<n>", strprintf("Keep the transaction memory pool below <n> megabytes (default: %u)", DEFAULT_MAX_MEMPOOL_SIZE), false, OptionsCategory::OPTIONS);
     gArgs.AddArg("-maxorphantx=<n>", strprintf("Keep at most <n> unconnectable transactions in memory (default: %u)", DEFAULT_MAX_ORPHAN_TRANSACTIONS), false, OptionsCategory::OPTIONS);
+    gArgs.AddArg("-maxorphantxsize=<n>", strprintf("Maximum size in bytes of an unconnectable transaction kept in memory, capped at -maxstandardtxsize; 0 keeps none (default: %u)", DEFAULT_MAX_ORPHAN_TX_SIZE), false, OptionsCategory::OPTIONS);
     gArgs.AddArg("-mempoolexpiry=<n>", strprintf("Do not keep transactions in the mempool longer than <n> hours (default: %u)", DEFAULT_MEMPOOL_EXPIRY), false, OptionsCategory::OPTIONS);
+    gArgs.AddArg("-orphanexpiry=<n>", strprintf("Do not keep unconnectable transactions in memory longer than <n> seconds; expired ones are removed in sweeps up to %u seconds apart (at least %u, default: %u)", ORPHAN_TX_EXPIRE_INTERVAL, ORPHAN_TX_EXPIRE_INTERVAL, DEFAULT_ORPHAN_TX_EXPIRE_TIME), false, OptionsCategory::OPTIONS);
     gArgs.AddArg("-par=<n>", strprintf("Set the number of script verification threads (%u to %d, 0 = auto, <0 = leave that many cores free, default: %d)",
         -GetNumCores(), MAX_SCRIPTCHECK_THREADS, DEFAULT_SCRIPTCHECK_THREADS), false, OptionsCategory::OPTIONS);
     gArgs.AddArg("-persistmempool", strprintf("Whether to save the mempool on shutdown and load on restart (default: %u)", DEFAULT_PERSIST_MEMPOOL), false, OptionsCategory::OPTIONS);
@@ -487,8 +491,6 @@ void SetupServerArgs()
     gArgs.AddArg("-mocktime=<n>", "Replace actual time with <n> seconds since epoch (default: 0)", true, OptionsCategory::DEBUG_TEST);
     gArgs.AddArg("-maxsigcachesize=<n>", strprintf("Limit sum of signature cache and script execution cache sizes to <n> MiB (default: %u)", DEFAULT_MAX_SIG_CACHE_SIZE), true, OptionsCategory::DEBUG_TEST);
     gArgs.AddArg("-maxtipage=<n>", strprintf("Maximum tip age in seconds to consider node in initial block download (default: %u)", DEFAULT_MAX_TIP_AGE), true, OptionsCategory::DEBUG_TEST);
-    gArgs.AddArg("-maxtxfee=<amt>", strprintf("Maximum total fees (in %s) to use in a single wallet transaction or raw transaction; setting this too low may abort large transactions (default: %s)",
-        CURRENCY_UNIT, FormatMoney(DEFAULT_TRANSACTION_MAXFEE)), false, OptionsCategory::DEBUG_TEST);
     gArgs.AddArg("-printpriority", strprintf("Log transaction fee per kB when mining blocks (default: %u)", DEFAULT_PRINTPRIORITY), true, OptionsCategory::DEBUG_TEST);
     gArgs.AddArg("-printtoconsole", "Send trace/debug info to console (default: 1 when no -daemon. To disable logging to file, set -nodebuglogfile)", false, OptionsCategory::DEBUG_TEST);
     gArgs.AddArg("-shrinkdebugfile", "Shrink debug.log file on client startup (default: 1 when no -debug)", false, OptionsCategory::DEBUG_TEST);
@@ -503,6 +505,15 @@ void SetupServerArgs()
     gArgs.AddArg("-datacarriersize", strprintf("Maximum size of data in data carrier transactions we relay and mine (default: %u)", MAX_OP_RETURN_RELAY), false, OptionsCategory::NODE_RELAY);
     gArgs.AddArg("-datacarriermultiple", strprintf("Allow more than one OP_RETURN and data in a data carrier transactions. (default: false)"), false, OptionsCategory::NODE_RELAY);
     gArgs.AddArg("-mempoolreplacement", strprintf("Enable transaction replacement in the memory pool (default: %u)", DEFAULT_ENABLE_REPLACEMENT), false, OptionsCategory::NODE_RELAY);
+    gArgs.AddArg("-maxreplacementcandidates=<n>", strprintf("Do not accept a replacement that would evict more than <n> mempool transactions (default: %u)", DEFAULT_MAX_REPLACEMENT_CANDIDATES), false, OptionsCategory::NODE_RELAY);
+    gArgs.AddArg("-maxstandardtxsize=<n>", strprintf("Maximum size in bytes of transactions we relay and mine, capped at the block size limit (default: %u)", DEFAULT_MAX_STANDARD_TX_SIZE), false, OptionsCategory::NODE_RELAY);
+    gArgs.AddArg("-minstandardtxsize=<n>", strprintf("Minimum size in bytes of transactions we relay and mine; must not exceed -maxstandardtxsize capped at the block size limit (default: %u)", DEFAULT_MIN_STANDARD_TX_SIZE), false, OptionsCategory::NODE_RELAY);
+    gArgs.AddArg("-maxscriptsigsize=<n>", strprintf("Maximum size in bytes of a scriptSig in transactions we relay and mine (default: %u)", DEFAULT_MAX_SCRIPTSIG_SIZE), false, OptionsCategory::NODE_RELAY);
+    gArgs.AddArg("-maxbaremultisigkeys=<n>", strprintf("Maximum number of keys in a bare multisig output we relay and mine (1 to %d, default: %u)", ConsensusConstants::MAX_PUBKEYS_PER_MULTISIG, DEFAULT_MAX_BAREMULTISIG_KEYS), false, OptionsCategory::NODE_RELAY);
+    gArgs.AddArg("-maxp2shsigops=<n>", strprintf("Maximum number of signature operations in a P2SH redeem script we relay and mine (default: %u)", DEFAULT_MAX_P2SH_SIGOPS), false, OptionsCategory::NODE_RELAY);
+    gArgs.AddArg("-maxpackagecount=<n>", strprintf("Maximum number of transactions in a package (default: %u)", DEFAULT_MAX_PACKAGE_COUNT), false, OptionsCategory::NODE_RELAY);
+    gArgs.AddArg("-maxtxfee=<amt>", strprintf("Maximum total fees (in %s) of a single transaction: those the wallet creates, and those sendrawtransaction, testmempoolaccept and submitpackage accept unless allowhighfees is set (default: %s)",
+        CURRENCY_UNIT, FormatMoney(DEFAULT_TRANSACTION_MAXFEE)), false, OptionsCategory::DEBUG_TEST);
     gArgs.AddArg("-minrelaytxfee=<amt>", strprintf("Fees (in %s/kB) smaller than this are considered zero fee for relaying, mining and transaction creation (default: %s)",
         CURRENCY_UNIT, FormatMoney(DEFAULT_MIN_RELAY_TX_FEE)), false, OptionsCategory::NODE_RELAY);
     gArgs.AddArg("-whitelistforcerelay", strprintf("Force relay of transactions from whitelisted peers even if they violate local relay policy (default: %d)", DEFAULT_WHITELISTFORCERELAY), false, OptionsCategory::NODE_RELAY);
@@ -745,7 +756,7 @@ static void ThreadImport(std::vector<fs::path> vImportFiles, bool fReloadxfield)
         return;
     }
     } // End scope of CImportingNow
-    if (gArgs.GetBoolArg("-persistmempool", DEFAULT_PERSIST_MEMPOOL)) {
+    if (g_policy_settings->persistMempool) {
         LoadMempool();
     }
     g_is_mempool_loaded = !ShutdownRequested();
@@ -967,7 +978,7 @@ bool AppInitBasicSetup()
     return true;
 }
 
-bool AppInitParameterInteraction()
+bool AppInitParameterInteraction(NodeContext& node)
 {
     const CChainParams& chainparams = Params();
     // ********************************************************* Step 2: parameter interactions
@@ -1073,21 +1084,6 @@ bool AppInitParameterInteraction()
     else
         LogPrintf("Validating signatures for all blocks.\n");
 
-    // mempool limits
-    int64_t nMempoolSizeMax = gArgs.GetArg("-maxmempool", DEFAULT_MAX_MEMPOOL_SIZE) * 1000000;
-    int64_t nMempoolSizeMin = gArgs.GetArg("-limitdescendantsize", DEFAULT_DESCENDANT_SIZE_LIMIT) * 1000 * 40;
-    if (nMempoolSizeMax < 0 || nMempoolSizeMax < nMempoolSizeMin)
-        return InitError(strprintf(_("-maxmempool must be at least %d MB"), std::ceil(nMempoolSizeMin / 1000000.0)));
-    // incremental relay fee sets the minimum feerate increase necessary for BIP 125 replacement in the mempool
-    // and the amount the mempool min fee increases above the feerate of txs evicted due to mempool limiting.
-    if (gArgs.IsArgSet("-incrementalrelayfee"))
-    {
-        CAmount n = 0;
-        if (!ParseMoney(gArgs.GetArg("-incrementalrelayfee", ""), n))
-            return InitError(AmountErrMsg("incrementalrelayfee", gArgs.GetArg("-incrementalrelayfee", "")));
-        incrementalRelayFee = CFeeRate(n);
-    }
-
     // -par=0 means autodetect, but nScriptCheckThreads==0 means no concurrency
     nScriptCheckThreads = gArgs.GetArg("-par", DEFAULT_SCRIPTCHECK_THREADS);
     if (nScriptCheckThreads <= 0)
@@ -1119,63 +1115,20 @@ bool AppInitParameterInteraction()
     if (nConnectTimeout <= 0)
         nConnectTimeout = DEFAULT_CONNECT_TIMEOUT;
 
-    if (gArgs.IsArgSet("-minrelaytxfee")) {
-        CAmount n = 0;
-        if (!ParseMoney(gArgs.GetArg("-minrelaytxfee", ""), n)) {
-            return InitError(AmountErrMsg("minrelaytxfee", gArgs.GetArg("-minrelaytxfee", "")));
-        }
-        // High fee check is done afterward in WalletParameterInteraction()
-        ::minRelayTxFee = CFeeRate(n);
-    } else if (incrementalRelayFee > ::minRelayTxFee) {
-        // Allow only setting incrementalRelayFee to control both
-        ::minRelayTxFee = incrementalRelayFee;
-        LogPrintf("Increasing minrelaytxfee to %s to match incrementalrelayfee\n",::minRelayTxFee.ToString());
-    }
-
-    // Sanity check argument for min fee for including tx in block
-    // TODO: Harmonize which arguments need sanity checking and where that happens
-    if (gArgs.IsArgSet("-blockmintxfee"))
-    {
-        CAmount n = 0;
-        if (!ParseMoney(gArgs.GetArg("-blockmintxfee", ""), n))
-            return InitError(AmountErrMsg("blockmintxfee", gArgs.GetArg("-blockmintxfee", "")));
-    }
-
-    // Feerate used to define dust.  Shouldn't be changed lightly as old
-    // implementations may inadvertently create non-standard transactions
-    if (gArgs.IsArgSet("-dustrelayfee"))
-    {
-        CAmount n = 0;
-        if (!ParseMoney(gArgs.GetArg("-dustrelayfee", ""), n))
-            return InitError(AmountErrMsg("dustrelayfee", gArgs.GetArg("-dustrelayfee", "")));
-        dustRelayFee = CFeeRate(n);
-    }
-
-#ifdef DEBUG
-    acceptnonstdtxn = gArgs.GetBoolArg("-acceptnonstdtxn", false);
-    if ((gArgs.GetChainMode() == TAPYRUS_OP_MODE::PROD) && acceptnonstdtxn)
-        return InitError(strprintf("acceptnonstdtxn is not supported for %s chain", TAPYRUS_MODES::GetChainName(TAPYRUS_OP_MODE::PROD)));
-#endif
-    {
-        int64_t bytesPerSigOp = gArgs.GetArg("-bytespersigop", (int64_t)nBytesPerSigOp);
-        if (bytesPerSigOp < 1 || bytesPerSigOp > (int64_t)std::numeric_limits<unsigned int>::max()) {
-            return InitError(strprintf("-bytespersigop value %d is out of range [1, %u]", bytesPerSigOp, std::numeric_limits<unsigned int>::max()));
-        }
-        nBytesPerSigOp = (unsigned int)bytesPerSigOp;
-    }
-
+    // The wallet's parameter interaction may soft-set -persistmempool, so the
+    // policy is read after it.
     if (!g_wallet_init_interface.ParameterInteraction()) return false;
 
-    fAcceptDatacarrier = gArgs.GetBoolArg("-datacarrier", DEFAULT_ACCEPT_DATACARRIER);
-    {
-        int64_t nArg = gArgs.GetArg("-datacarriersize", (int64_t)nMaxDatacarrierBytes);
-        if (nArg < 0)
-            return InitError(_("-datacarriersize cannot be configured with a negative value."));
-        if (nArg > std::numeric_limits<unsigned int>::max())
-            return InitError(_("-datacarriersize must be less than 4294967296."));
-        nMaxDatacarrierBytes = (unsigned int)nArg;
+    try {
+        node.policy = std::make_unique<const PolicySettings>(gArgs, gArgs.GetChainMode());
+    } catch (const std::exception& e) {
+        return InitError(e.what());
     }
-    fAcceptMultipleDatacarrier = gArgs.GetBoolArg("-datacarriermultiple", DEFAULT_ACCEPT_MULTIPLE_DATACARRIER);
+    g_policy_settings = node.policy.get();
+    // Also the raw-transaction RPCs' limit, so warned about with or without a wallet.
+    if (node.policy->maxTxFee > HIGH_MAX_TX_FEE) {
+        InitWarning(_("-maxtxfee is set very high! Fees this large could be paid on a single transaction."));
+    }
 
     // Option to startup with mocktime set (used for regression testing):
     SetMockTime(gArgs.GetArg("-mocktime", 0)); // SetMockTime(0) is a no-op
@@ -1184,15 +1137,6 @@ bool AppInitParameterInteraction()
         nLocalServices = ServiceFlags(nLocalServices | NODE_BLOOM);
 
     nMaxTipAge = gArgs.GetArg("-maxtipage", DEFAULT_MAX_TIP_AGE);
-
-    fEnableReplacement = gArgs.GetBoolArg("-mempoolreplacement", DEFAULT_ENABLE_REPLACEMENT);
-    if ((!fEnableReplacement) && gArgs.IsArgSet("-mempoolreplacement")) {
-        // Minimal effort at forwards compatibility
-        std::string strReplacementModeList = gArgs.GetArg("-mempoolreplacement", "");  // default is impossible
-        std::vector<std::string> vstrReplacementModes;
-        boost::split(vstrReplacementModes, strReplacementModeList, boost::is_any_of(","));
-        fEnableReplacement = (std::find(vstrReplacementModes.begin(), vstrReplacementModes.end(), "fee") != vstrReplacementModes.end());
-    }
 
     if (!gArgs.GetBoolArg("-dnsseed", true) && gArgs.IsArgSet("-addseeder")) {
         return InitError("DNS seeding is disabled. But DNS seeders are configured in -addseeder.");
@@ -1287,21 +1231,21 @@ bool AppInitMain(NodeContext& node)
     //Read genesis block from file now - we are sure that data dir exists.
     try {
         SelectFederationParams(gArgs.GetChainMode());
-        g_consensus_settings = std::make_unique<const ConsensusSettings>(ReadGenesisBlock(), gArgs.GetChainMode(), FederationParams().NetworkId());
-        g_chainstate_manager.InitXFieldHistory(g_consensus_settings->GenesisBlock());
+        g_chainstate_manager.InitConsensusSettings(std::make_unique<const ConsensusSettings>(ReadGenesisBlock(), gArgs.GetChainMode(), FederationParams().NetworkId()));
+        g_chainstate_manager.InitXFieldHistory(g_chainstate_manager.Settings().GenesisBlock());
     } catch (const std::exception& e) {
         fprintf(stderr, "Error: %s\n", e.what());
         return false;
     }
-    LogPrintf("Genesis Block [%s] of Tapyrus network [%s] Loaded successfully\n", g_consensus_settings->GenesisBlock().GetHash().ToString(), FederationParams().NetworkIDString());
+    LogPrintf("Genesis Block [%s] of Tapyrus network [%s] Loaded successfully\n", g_chainstate_manager.Settings().GenesisBlock().GetHash().ToString(), FederationParams().NetworkIDString());
 
     // Initialise ChainTxData from the genesis block timestamp so that
     // GuessVerificationProgress produces meaningful values during IBD.
     // nTime is wall-clock time (so nNow - nTime ≈ 0 and fTxTotal ≈ nTxCount),
     // and nTxCount is the expected total transactions from genesis to now.
-    if (!g_consensus_settings->GenesisBlock().vtx.empty()) {
-        const int64_t genesisTime = g_consensus_settings->GenesisBlock().nTime;
-        const double dTxRate = 1.0 / Params().GetConsensus().nExpectedBlockTime;
+    if (!g_chainstate_manager.Settings().GenesisBlock().vtx.empty()) {
+        const int64_t genesisTime = g_chainstate_manager.Settings().GenesisBlock().nTime;
+        const double dTxRate = 1.0 / CFederationParams::EXPECTED_BLOCK_TIME;
         const int64_t nNow = time(nullptr);
         const int64_t nTxCount = std::max(int64_t(1),
             static_cast<int64_t>((nNow - genesisTime) * dTxRate));
@@ -1370,8 +1314,8 @@ bool AppInitMain(NodeContext& node)
     node.connman = std::unique_ptr<CConnman>(new CConnman(GetRand(std::numeric_limits<uint64_t>::max()), GetRand(std::numeric_limits<uint64_t>::max())));
     CConnman& connman = *node.connman;
 
-    node.peer_logic.reset(new PeerLogicValidation(connman, scheduler));
-    RegisterValidationInterface(node.peer_logic.get());
+    node.peerman.reset(new PeerManager(connman, scheduler));
+    RegisterValidationInterface(node.peerman.get());
 
     // sanitize comments per BIP-0014, format user agent and check total size
     std::vector<std::string> uacomments;
@@ -1491,7 +1435,7 @@ bool AppInitMain(NodeContext& node)
     nCoinDBCache = std::min(nCoinDBCache, nMaxCoinsDBCache << 20); // cap total coins db cache
     nTotalCache -= nCoinDBCache;
     nCoinCacheUsage = nTotalCache; // the rest goes to in-memory cache
-    int64_t nMempoolSizeMax = gArgs.GetArg("-maxmempool", DEFAULT_MAX_MEMPOOL_SIZE) * 1000000;
+    int64_t nMempoolSizeMax = node.policy->maxMempool;
     LogPrintf("Cache configuration:\n");
     LogPrintf("* Using %.1fMiB for block index database\n", nBlockTreeDBCache * (1.0 / 1024 / 1024));
     if (gArgs.GetBoolArg("-txindex", DEFAULT_TXINDEX)) {
@@ -1541,7 +1485,7 @@ bool AppInitMain(NodeContext& node)
 
                 // If the loaded chain has a wrong genesis, bail out immediately
                 // (we're likely using a testnet datadir, or the other way around).
-                if (!mapBlockIndex.empty() && !LookupBlockIndex(g_consensus_settings->GenesisBlock().GetHash())) {
+                if (!mapBlockIndex.empty() && !LookupBlockIndex(g_chainstate_manager.Settings().GenesisBlock().GetHash())) {
                     return InitError(_("Incorrect or no genesis block found. Wrong datadir for network?"));
                 }
 
@@ -1562,7 +1506,7 @@ bool AppInitMain(NodeContext& node)
                 } else {
                     // Initialize xfieldHistory here as it is not initialized
                     // when genesis block is loaded from the file during reindex
-                    g_chainstate_manager.InitXFieldHistory(g_consensus_settings->GenesisBlock());
+                    g_chainstate_manager.InitXFieldHistory(g_chainstate_manager.Settings().GenesisBlock());
                 }
 
                 // At this point we're either in reindex or we've loaded a useful
@@ -1571,11 +1515,11 @@ bool AppInitMain(NodeContext& node)
                 pcoinsdbview.reset(new CCoinsViewDB(nCoinDBCache, false, fReset || fReindexChainState));
                 pcoinscatcher.reset(new CCoinsViewErrorCatcher(pcoinsdbview.get()));
 
-                // Create the colorId state before ReplayBlocks so that DisconnectBlock
+                // Reset the issued colorIds before ReplayBlocks so that DisconnectBlock
                 // inside the replay can stage erases that CommitToBatch writes atomically
                 // with the replay's UTXO flush.  cs_main is already held by the outer LOCK.
-                g_colorid_state.reset(new CIssuedColorIds());
-                pcoinsdbview->SetColorIdState(g_colorid_state.get());
+                g_chainstate_manager.IssuedColorIds() = CIssuedColorIds();
+                pcoinsdbview->SetColorIdState(&g_chainstate_manager.IssuedColorIds());
 
                 // If necessary, upgrade from older database format.
                 // This is a no-op if we cleared the coinsviewdb with -reindex or -reindex-chainstate
@@ -1635,7 +1579,7 @@ bool AppInitMain(NodeContext& node)
                         strLoadError = _("Failed to load issued colorId set from chainstate database");
                         break;
                     }
-                    g_colorid_state->SetConfirmed(std::move(colorIds));
+                    g_chainstate_manager.IssuedColorIds().SetConfirmed(std::move(colorIds));
                 }
 
                 if (!is_coinsview_empty) {
@@ -1696,6 +1640,13 @@ bool AppInitMain(NodeContext& node)
     if (ShutdownRequested()) {
         LogPrintf("Shutdown requested. Exiting.\n");
         return false;
+    }
+
+    // The block size limit that caps -maxstandardtxsize is known only now. With -reindex the
+    // xfield history holds only the genesis entries here, so this checks the genesis limit.
+    const std::string standardSizeError = node.policy->CheckMinStandardTxSize();
+    if (!standardSizeError.empty()) {
+        return InitError(standardSizeError);
     }
 
     fs::path est_path = GetDataDir() / FEE_ESTIMATES_FILENAME;
@@ -1796,7 +1747,7 @@ bool AppInitMain(NodeContext& node)
     connOptions.nMaxFeeler = 1;
     connOptions.nBestHeight = chain_active_height;
     connOptions.uiInterface = &uiInterface;
-    connOptions.m_msgproc = node.peer_logic.get();
+    connOptions.m_msgproc = node.peerman.get();
     connOptions.nSendBufferMaxSize = 1000*gArgs.GetArg("-maxsendbuffer", DEFAULT_MAXSENDBUFFER);
     connOptions.nReceiveFloodSize = 1000*gArgs.GetArg("-maxreceivebuffer", DEFAULT_MAXRECEIVEBUFFER);
     connOptions.m_added_nodes = gArgs.GetArgs("-addnode");

@@ -5,6 +5,8 @@
 #ifndef BITCOIN_FILE_IO_H
 #define BITCOIN_FILE_IO_H
 
+class HeightDerivedConsensusRules;
+
 constexpr size_t REINDEX_BUFFER_SIZE = 32 * 1000000;  //  use large 32MB buffer to handle any block size
 enum class FlushStateMode {
     NONE,
@@ -36,7 +38,7 @@ bool FlushStateToDisk(CValidationState &state, FlushStateMode mode, int nManualP
 void  FlushBlockFile(bool fFinalize = false);
 
 /** Functions for disk access for blocks */
-bool ReadBlockFromDisk(CBlock& block, const CDiskBlockPos& pos, CXFieldHistoryMap* pxfieldHistory = nullptr, int nHeight = -1);
+bool ReadBlockFromDisk(CBlock& block, const CDiskBlockPos& pos, const HeightDerivedConsensusRules& consensusAtHeight);
 bool ReadBlockFromDisk(CBlock& block, const CBlockIndex* pindex);
 bool ReadRawBlockFromDisk(std::vector<uint8_t>& block, const CDiskBlockPos& pos, const CMessageHeader::MessageStartChars& message_start);
 bool ReadRawBlockFromDisk(std::vector<uint8_t>& block, const CBlockIndex* pindex, const CMessageHeader::MessageStartChars& message_start);

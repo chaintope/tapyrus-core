@@ -3,6 +3,7 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
+#include <consensus/tx_check.h>
 #include <script/transactionsignaturechecker.h>
 #include <test/data/tx_invalid.json.h>
 #include <test/data/tx_valid.json.h>
@@ -11,7 +12,6 @@
 #include <chainstatemanager.h>
 #include <clientversion.h>
 #include <checkqueue.h>
-#include <consensus/tx_verify.h>
 #include <consensus/validation.h>
 #include <core_io.h>
 #include <key.h>
@@ -28,6 +28,8 @@
 
 #include <boost/algorithm/string/classification.hpp>
 #include <boost/algorithm/string/split.hpp>
+#include <optional>
+
 #include <boost/test/unit_test.hpp>
 
 #include <univalue.h>
@@ -341,8 +343,6 @@ BOOST_AUTO_TEST_CASE(test_Get)
 BOOST_AUTO_TEST_CASE(test_IsStandard)
 {
     LOCK(cs_main);
-    // Explicitly set dustRelayFee for this test, in case it's being reset elsewhere.
-    dustRelayFee = CFeeRate(DUST_RELAY_TX_FEE);
     CBasicKeyStore keystore;
     CCoinsView coinsDummy;
     CCoinsViewCache coins(&coinsDummy);
@@ -363,7 +363,7 @@ BOOST_AUTO_TEST_CASE(test_IsStandard)
     BOOST_CHECK(IsStandardTx(t, reason));
 
     // Check dust with default relay fee:
-    CAmount nDustThreshold = 182 * dustRelayFee.GetFeePerK()/1000;
+    CAmount nDustThreshold = 182 * g_policy_settings->dustRelayFee.GetFeePerK()/1000;
     BOOST_CHECK_EQUAL(nDustThreshold, 546);
     // dust:
     t.vout[0].nValue = nDustThreshold - 1;
@@ -374,14 +374,15 @@ BOOST_AUTO_TEST_CASE(test_IsStandard)
 
     // Check dust with odd relay fee to verify rounding:
     // nDustThreshold = 182 * 3702 / 1000
-    dustRelayFee = CFeeRate(3702);
-    // dust:
-    t.vout[0].nValue = 673 - 1;
-    BOOST_CHECK(!IsStandardTx(t, reason));
-    // not dust:
-    t.vout[0].nValue = 673;
-    BOOST_CHECK(IsStandardTx(t, reason));
-    dustRelayFee = CFeeRate(DUST_RELAY_TX_FEE);
+    {
+        PolicySettingsOverride oddDustRelayFee({{"-dustrelayfee", "0.00003702"}});
+        // dust:
+        t.vout[0].nValue = 673 - 1;
+        BOOST_CHECK(!IsStandardTx(t, reason));
+        // not dust:
+        t.vout[0].nValue = 673;
+        BOOST_CHECK(IsStandardTx(t, reason));
+    }
 
     t.vout[0].scriptPubKey = CScript() << OP_1;
     BOOST_CHECK(IsStandardTx(t, reason));
@@ -397,7 +398,8 @@ BOOST_AUTO_TEST_CASE(test_IsStandard)
     BOOST_CHECK(!IsStandardTx(t, reason));
 
     // MAX_OP_RETURN_RELAY-byte multiple TX_NULL_DATA in script
-    fAcceptMultipleDatacarrier = true;
+    std::optional<PolicySettingsOverride> multipleDatacarrier;
+    multipleDatacarrier.emplace(std::vector<std::pair<std::string, std::string>>{{"-datacarriermultiple", "1"}});
     t.vout[0].scriptPubKey = CScript() << OP_RETURN << ParseHex("04678afdb0fe5548271967f1a67130b7105cd6a828e03909a67962e0ea1f61deb649f6bc3f4cef3804678afdb0fe5548271967f1a67130b7105cd6a828e03909a67962e0ea1f61deb649f6bc3f4cef38") << OP_RETURN << ParseHex("04678afdb0fe5548271967f1a67130b7105cd6a828e03909a67962e0ea1f61deb649f6bc3f4cef3804678afdb0fe5548271967f1a67130b7105cd6a828e03909a67962e0ea1f61deb649f6bc3f4cef38");
     BOOST_CHECK_EQUAL(MAX_OP_RETURN_RELAY * 2, t.vout[0].scriptPubKey.size());
     BOOST_CHECK(!IsStandardTx(t, reason));
@@ -414,7 +416,7 @@ BOOST_AUTO_TEST_CASE(test_IsStandard)
     BOOST_CHECK(IsStandardTx(t, reason));
 
     // second OP_RETURN is considered as data
-    fAcceptMultipleDatacarrier = false;
+    multipleDatacarrier.reset();
     t.vout[0].scriptPubKey = CScript() << OP_RETURN << OP_RETURN;
     BOOST_CHECK(!IsStandardTx(t, reason));
 
@@ -437,14 +439,14 @@ BOOST_AUTO_TEST_CASE(test_IsStandard)
     t.vout[1].scriptPubKey = CScript() << OP_RETURN;
     BOOST_CHECK(!IsStandardTx(t, reason));
 
-    // multiple TX_NULL_DATA w/o fAcceptMultipleDatacarrier
+    // multiple TX_NULL_DATA w/o -datacarriermultiple
     t.vout.resize(2);
     t.vout[0].scriptPubKey = CScript() << OP_RETURN << ParseHex("04678afdb0fe5548271967f1a67130b7105cd6a828e03909a67962e0ea1f61deb649f6bc3f4cef38");
     t.vout[1].scriptPubKey = CScript() << OP_RETURN << ParseHex("04678afdb0fe5548271967f1a67130b7105cd6a828e03909a67962e0ea1f61deb649f6bc3f4cef38");
     BOOST_CHECK(!IsStandardTx(t, reason));
 
-    // multiple TX_NULL_DATA with fAcceptMultipleDatacarrier
-    fAcceptMultipleDatacarrier = true;
+    // multiple TX_NULL_DATA with -datacarriermultiple
+    multipleDatacarrier.emplace(std::vector<std::pair<std::string, std::string>>{{"-datacarriermultiple", "1"}});
     t.vout.resize(2);
     t.vout[0].scriptPubKey = CScript() << OP_RETURN << ParseHex("04678afdb0fe5548271967f1a67130b7105cd6a828e03909a67962e0ea1f61deb649f6bc3f4cef38");
     t.vout[1].scriptPubKey = CScript() << OP_RETURN << ParseHex("04678afdb0fe5548271967f1a67130b7105cd6a828e03909a67962e0ea1f61deb649f6bc3f4cef38");

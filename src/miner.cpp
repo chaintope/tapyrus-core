@@ -5,16 +5,17 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <consensussettings.h>
+#include <consensus/tx_check.h>
 #include <miner.h>
 
 #include <amount.h>
 #include <blockindex.h>
 #include <chainparams.h>
 #include <chainstatemanager.h>
-#include <consensus/tx_verify.h>
 #include <consensus/merkle.h>
 #include <consensus/validation.h>
 #include <hash.h>
+#include <heightderivedconsensusrules.h>
 #include <policy/feerate.h>
 #include <policy/policy.h>
 #include <primitives/transaction.h>
@@ -22,7 +23,6 @@
 #include <util.h>
 #include <utilmoneystr.h>
 #include <validationinterface.h>
-#include <xfieldhistory.h>
 
 #include <algorithm>
 #include <queue>
@@ -37,7 +37,7 @@
 uint64_t nLastBlockTx = 0;
 uint64_t nLastBlockSize = 0;
 
-int64_t UpdateTime(CBlockHeader* pblock, const Consensus::Params& consensusParams, const CBlockIndex* pindexPrev)
+int64_t UpdateTime(CBlockHeader* pblock, const CBlockIndex* pindexPrev)
 {
     int64_t nOldTime = pblock->nTime;
     int64_t nNewTime = std::max(pindexPrev->GetMedianTimePast()+1, GetAdjustedTime());
@@ -53,28 +53,18 @@ BlockAssembler::Options::Options() {
     nBlockMaxSize = DEFAULT_BLOCK_MAX_SIZE;
 }
 
-BlockAssembler::BlockAssembler(const CChainParams& params, const Options& options) : chainparams(params)
+BlockAssembler::BlockAssembler(const CChainParams& params, const Options& options)
+    : m_requested_block_max_size(options.nBlockMaxSize), chainparams(params)
 {
     blockMinFeeRate = options.blockMinFeeRate;
-    nBlockMaxSize = DEFAULT_BLOCK_MAX_SIZE;
-    if (gArgs.IsArgSet("-blockmaxsize")) {
-        nBlockMaxSize = gArgs.GetArg("-blockmaxsize", DEFAULT_BLOCK_MAX_SIZE);
-    }
-    // Limit size to between 1K and GetCurrentMaxBlockSize-1K for sanity:
-    nBlockMaxSize = std::max((unsigned int)1000, std::min((unsigned int)(g_chainstate_manager.XFieldHistory().GetCurrentMaxBlockSize()-1000), nBlockMaxSize));
 }
 
 static BlockAssembler::Options DefaultOptions()
 {
     // Block resource limits
     BlockAssembler::Options options;
-    if (gArgs.IsArgSet("-blockmintxfee")) {
-        CAmount n = 0;
-        ParseMoney(gArgs.GetArg("-blockmintxfee", ""), n);
-        options.blockMinFeeRate = CFeeRate(n);
-    } else {
-        options.blockMinFeeRate = CFeeRate(DEFAULT_BLOCK_MIN_TX_FEE);
-    }
+    options.blockMinFeeRate = g_policy_settings->blockMinTxFee;
+    options.nBlockMaxSize = g_policy_settings->blockMaxSize;
     return options;
 }
 
@@ -115,11 +105,16 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     assert(pindexPrev != nullptr);
     nHeight = pindexPrev->nHeight + 1;
 
+    const HeightDerivedConsensusRules consensusAtHeight = g_chainstate_manager.RulesAfter(*pindexPrev);
+    // Limit size to between 1K and the block size limit less 1K for sanity
+    nBlockMaxSize = static_cast<unsigned int>(std::max(size_t{1000}, std::min(size_t{consensusAtHeight.MaxBlockSize()} - size_t{1000}, m_requested_block_max_size)));
+    m_max_block_sigops = consensusAtHeight.MaxBlockSigops();
+
     pblock->nFeatures = ConsensusConstants::TAPYRUS_BLOCK_FEATURES;
     // -dev only: allow overriding block.nFeatures with
     // -blockversion=N to test forking scenarios
     if (chainparams.MineBlocksOnDemand())
-        pblock->nFeatures = gArgs.GetArg("-blockfeatures", pblock->nFeatures);
+        pblock->nFeatures = g_policy_settings->blockFeatures;
 
     if(pXField && pXField->xfieldType != TAPYRUS_XFIELDTYPES::NONE)
     {
@@ -148,7 +143,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     coinbaseTx.vin[0].prevout.n = nHeight;
     coinbaseTx.vout.resize(1);
     coinbaseTx.vout[0].scriptPubKey = scriptPubKeyIn;
-    coinbaseTx.vout[0].nValue = nFees + g_consensus_settings->BlockSubsidy(nHeight);
+    coinbaseTx.vout[0].nValue = nFees + g_chainstate_manager.Settings().BlockSubsidy(nHeight);
     //coinbaseTx.vin[0].scriptSig = CScript();
     pblock->vtx[0] = MakeTransactionRef(std::move(coinbaseTx));
     pblocktemplate->vTxFees[0] = -nFees;
@@ -157,7 +152,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
 
     // Fill in header
     pblock->hashPrevBlock  = pindexPrev->GetBlockHash();
-    UpdateTime(pblock, chainparams.GetConsensus(), pindexPrev);
+    UpdateTime(pblock, pindexPrev);
     pblock->proof.clear();
     pblocktemplate->vTxSigOpsCost[0] = GetLegacySigOpCount(*pblock->vtx[0]);
 
@@ -189,7 +184,7 @@ bool BlockAssembler::TestPackage(uint64_t packageSize, int32_t packageSigOpsCost
 {
     if (nBlockSize +  packageSize >= nBlockMaxSize)
         return false;
-    if (nBlockSigOpsCost + packageSigOpsCost >= g_chainstate_manager.XFieldHistory().GetMaxBlockSigops())
+    if (nBlockSigOpsCost + packageSigOpsCost >= m_max_block_sigops)
         return false;
     return true;
 }

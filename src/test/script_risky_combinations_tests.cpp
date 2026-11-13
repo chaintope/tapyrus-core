@@ -26,6 +26,7 @@
 #include <key.h>
 #include <keystore.h>
 #include <coloridentifier.h>
+#include <policy/policyconstants.h>
 #include <script/interpreter.h>
 #include <script/transactionsignatureserializer.h>
 #include <script/transactionsignaturechecker.h>
@@ -101,7 +102,7 @@ BOOST_AUTO_TEST_CASE(risk_checkmultisig_zero_of_n)
         CMutableTransaction credit = BuildCreditingTx(scriptPubKey);
         CMutableTransaction spend = BuildSpendingTx(scriptSig, CTransaction(credit));
         ScriptError err;
-        bool ok = Verify(scriptSig, scriptPubKey, spend, credit.vout[0].nValue, STANDARD_SCRIPT_VERIFY_FLAGS, &err);
+        bool ok = Verify(scriptSig, scriptPubKey, spend, credit.vout[0].nValue, PolicyConstants::STANDARD_SCRIPT_VERIFY_FLAGS, &err);
         BOOST_CHECK_MESSAGE(ok, "0-of-2 CHECKMULTISIG should be spendable with zero signatures: " + std::string(ScriptErrorString(err)));
         BOOST_CHECK_EQUAL(err, SCRIPT_ERR_OK);
     }
@@ -115,7 +116,7 @@ BOOST_AUTO_TEST_CASE(risk_checkmultisig_zero_of_n)
         CMutableTransaction credit = BuildCreditingTx(scriptPubKey);
         CMutableTransaction spend = BuildSpendingTx(scriptSig, CTransaction(credit));
         ScriptError err;
-        bool ok = Verify(scriptSig, scriptPubKey, spend, credit.vout[0].nValue, STANDARD_SCRIPT_VERIFY_FLAGS, &err);
+        bool ok = Verify(scriptSig, scriptPubKey, spend, credit.vout[0].nValue, PolicyConstants::STANDARD_SCRIPT_VERIFY_FLAGS, &err);
         BOOST_CHECK(!ok);
         BOOST_CHECK_EQUAL(err, SCRIPT_ERR_SIG_NULLDUMMY);
     }
@@ -127,7 +128,7 @@ BOOST_AUTO_TEST_CASE(risk_checkmultisig_zero_of_n)
         CMutableTransaction credit = BuildCreditingTx(scriptPubKey);
         CMutableTransaction spend = BuildSpendingTx(scriptSig, CTransaction(credit));
         ScriptError err;
-        bool ok = Verify(scriptSig, scriptPubKey, spend, credit.vout[0].nValue, STANDARD_SCRIPT_VERIFY_FLAGS, &err);
+        bool ok = Verify(scriptSig, scriptPubKey, spend, credit.vout[0].nValue, PolicyConstants::STANDARD_SCRIPT_VERIFY_FLAGS, &err);
         BOOST_CHECK(ok);
         BOOST_CHECK_EQUAL(err, SCRIPT_ERR_OK);
     }
@@ -140,7 +141,7 @@ BOOST_AUTO_TEST_CASE(risk_checkmultisig_zero_of_n)
         CMutableTransaction credit = BuildCreditingTx(scriptPubKey);
         CMutableTransaction spend = BuildSpendingTx(scriptSig, CTransaction(credit));
         ScriptError err;
-        bool ok = Verify(scriptSig, scriptPubKey, spend, credit.vout[0].nValue, STANDARD_SCRIPT_VERIFY_FLAGS, &err);
+        bool ok = Verify(scriptSig, scriptPubKey, spend, credit.vout[0].nValue, PolicyConstants::STANDARD_SCRIPT_VERIFY_FLAGS, &err);
         BOOST_CHECK(!ok);
         // CHECKMULTISIG's mandatory extra "dummy" pop means it needs two
         // stack items here (dummy + one real signature); scriptSig supplies
@@ -157,7 +158,7 @@ BOOST_AUTO_TEST_CASE(risk_checkmultisig_zero_of_n)
 // standardness/consensus template matcher (IsColoredPayToPubkeyHash) would
 // have refused to recognize the script as colored at all.
 //
-// Using STANDARD_SCRIPT_VERIFY_FLAGS (which includes SCRIPT_VERIFY_CP2SH_COLORED)
+// Using PolicyConstants::STANDARD_SCRIPT_VERIFY_FLAGS (which includes SCRIPT_VERIFY_CP2SH_COLORED)
 // is not significant here: that flag only gates redeem-script evaluation for
 // CP2SH-shaped scriptPubKeys (IsColoredPayToScriptHash()), and the SWAP/ALTSTACK
 // scripts below aren't P2SH-shaped at all -- they're plain scripts evaluated
@@ -190,7 +191,7 @@ BOOST_AUTO_TEST_CASE(risk_opcolor_stack_manipulation)
         spend.vin[0].scriptSig = CScript() << sig << ToByteVector(pub) << realCid.toVector();
 
         ScriptError err;
-        bool ok = Verify(spend.vin[0].scriptSig, scriptPubKey, spend, credit.vout[0].nValue, STANDARD_SCRIPT_VERIFY_FLAGS, &err);
+        bool ok = Verify(spend.vin[0].scriptSig, scriptPubKey, spend, credit.vout[0].nValue, PolicyConstants::STANDARD_SCRIPT_VERIFY_FLAGS, &err);
         BOOST_CHECK_MESSAGE(ok, "SWAP-derived OP_COLOR should be accepted by the raw interpreter: " + std::string(ScriptErrorString(err)));
         BOOST_CHECK_EQUAL(err, SCRIPT_ERR_OK);
 
@@ -200,8 +201,8 @@ BOOST_AUTO_TEST_CASE(risk_opcolor_stack_manipulation)
         TransactionSignatureChecker checker(&spendTx, 0, credit.vout[0].nValue);
         std::vector<std::vector<unsigned char>> stack;
         ColorIdentifier resultColorId;
-        BOOST_REQUIRE(EvalScript(stack, spend.vin[0].scriptSig, STANDARD_SCRIPT_VERIFY_FLAGS, checker, &resultColorId, nullptr));
-        BOOST_REQUIRE(EvalScript(stack, scriptPubKey, STANDARD_SCRIPT_VERIFY_FLAGS, checker, &resultColorId, nullptr));
+        BOOST_REQUIRE(EvalScript(stack, spend.vin[0].scriptSig, PolicyConstants::STANDARD_SCRIPT_VERIFY_FLAGS, checker, &resultColorId, nullptr));
+        BOOST_REQUIRE(EvalScript(stack, scriptPubKey, PolicyConstants::STANDARD_SCRIPT_VERIFY_FLAGS, checker, &resultColorId, nullptr));
         BOOST_CHECK_MESSAGE(resultColorId == realCid, "OP_COLOR should bind to the SWAP-selected id, not the literal one written in scriptPubKey");
         BOOST_CHECK(resultColorId != decoyCid);
 
@@ -227,7 +228,7 @@ BOOST_AUTO_TEST_CASE(risk_opcolor_stack_manipulation)
         spend.vin[0].scriptSig = CScript() << sig << ToByteVector(pub) << realCid.toVector();
 
         ScriptError err;
-        bool ok = Verify(spend.vin[0].scriptSig, scriptPubKey, spend, credit.vout[0].nValue, STANDARD_SCRIPT_VERIFY_FLAGS, &err);
+        bool ok = Verify(spend.vin[0].scriptSig, scriptPubKey, spend, credit.vout[0].nValue, PolicyConstants::STANDARD_SCRIPT_VERIFY_FLAGS, &err);
         BOOST_CHECK_MESSAGE(ok, "ALTSTACK-derived OP_COLOR should be accepted by the raw interpreter: " + std::string(ScriptErrorString(err)));
         BOOST_CHECK_EQUAL(err, SCRIPT_ERR_OK);
 
@@ -235,8 +236,8 @@ BOOST_AUTO_TEST_CASE(risk_opcolor_stack_manipulation)
         TransactionSignatureChecker checker(&spendTx, 0, credit.vout[0].nValue);
         std::vector<std::vector<unsigned char>> stack;
         ColorIdentifier resultColorId;
-        BOOST_REQUIRE(EvalScript(stack, spend.vin[0].scriptSig, STANDARD_SCRIPT_VERIFY_FLAGS, checker, &resultColorId, nullptr));
-        BOOST_REQUIRE(EvalScript(stack, scriptPubKey, STANDARD_SCRIPT_VERIFY_FLAGS, checker, &resultColorId, nullptr));
+        BOOST_REQUIRE(EvalScript(stack, spend.vin[0].scriptSig, PolicyConstants::STANDARD_SCRIPT_VERIFY_FLAGS, checker, &resultColorId, nullptr));
+        BOOST_REQUIRE(EvalScript(stack, scriptPubKey, PolicyConstants::STANDARD_SCRIPT_VERIFY_FLAGS, checker, &resultColorId, nullptr));
         BOOST_CHECK(resultColorId == realCid);
         BOOST_CHECK(resultColorId != decoyCid);
 
@@ -274,15 +275,15 @@ BOOST_AUTO_TEST_CASE(risk_opcolor_stack_manipulation)
         spend.vin[0].scriptSig = CScript() << sig << ToByteVector(pub) << mutatedCid.toVector();
 
         ScriptError err;
-        bool ok = Verify(spend.vin[0].scriptSig, scriptPubKey, spend, credit.vout[0].nValue, STANDARD_SCRIPT_VERIFY_FLAGS, &err);
+        bool ok = Verify(spend.vin[0].scriptSig, scriptPubKey, spend, credit.vout[0].nValue, PolicyConstants::STANDARD_SCRIPT_VERIFY_FLAGS, &err);
         BOOST_CHECK_MESSAGE(ok, "SWAP-derived OP_COLOR with a mutated id should be accepted by the raw interpreter: " + std::string(ScriptErrorString(err)));
 
         CTransaction spendTx(spend);
         TransactionSignatureChecker checker(&spendTx, 0, credit.vout[0].nValue);
         std::vector<std::vector<unsigned char>> stack;
         ColorIdentifier resultColorId;
-        BOOST_REQUIRE(EvalScript(stack, spend.vin[0].scriptSig, STANDARD_SCRIPT_VERIFY_FLAGS, checker, &resultColorId, nullptr));
-        BOOST_REQUIRE(EvalScript(stack, scriptPubKey, STANDARD_SCRIPT_VERIFY_FLAGS, checker, &resultColorId, nullptr));
+        BOOST_REQUIRE(EvalScript(stack, spend.vin[0].scriptSig, PolicyConstants::STANDARD_SCRIPT_VERIFY_FLAGS, checker, &resultColorId, nullptr));
+        BOOST_REQUIRE(EvalScript(stack, scriptPubKey, PolicyConstants::STANDARD_SCRIPT_VERIFY_FLAGS, checker, &resultColorId, nullptr));
         BOOST_CHECK(resultColorId == mutatedCid);
         BOOST_CHECK(resultColorId != realCid);
         BOOST_CHECK(resultColorId != decoyCid);
@@ -317,7 +318,7 @@ BOOST_AUTO_TEST_CASE(risk_checkdatasig_replay)
         CMutableTransaction creditA = BuildCreditingTx(scriptPubKey, 1000);
         CMutableTransaction spendA = BuildSpendingTx(scriptSig, CTransaction(creditA), ConsensusConstants::SEQUENCE_FINAL, 0);
         ScriptError errA;
-        bool okA = Verify(scriptSig, scriptPubKey, spendA, creditA.vout[0].nValue, STANDARD_SCRIPT_VERIFY_FLAGS, &errA);
+        bool okA = Verify(scriptSig, scriptPubKey, spendA, creditA.vout[0].nValue, PolicyConstants::STANDARD_SCRIPT_VERIFY_FLAGS, &errA);
         BOOST_CHECK(okA);
         BOOST_CHECK_EQUAL(errA, SCRIPT_ERR_OK);
 
@@ -325,7 +326,7 @@ BOOST_AUTO_TEST_CASE(risk_checkdatasig_replay)
         CMutableTransaction spendB = BuildSpendingTx(scriptSig, CTransaction(creditB), 12345, 700000);
         spendB.vout[0].scriptPubKey = CScript() << OP_RETURN; // unrelated output too
         ScriptError errB;
-        bool okB = Verify(scriptSig, scriptPubKey, spendB, creditB.vout[0].nValue, STANDARD_SCRIPT_VERIFY_FLAGS, &errB);
+        bool okB = Verify(scriptSig, scriptPubKey, spendB, creditB.vout[0].nValue, PolicyConstants::STANDARD_SCRIPT_VERIFY_FLAGS, &errB);
         BOOST_CHECK_MESSAGE(okB, "the identical (sig, message) pair should replay across an unrelated transaction context");
         BOOST_CHECK_EQUAL(errB, SCRIPT_ERR_OK);
     }
@@ -345,12 +346,12 @@ BOOST_AUTO_TEST_CASE(risk_checkdatasig_replay)
 
         CMutableTransaction spendSame = BuildSpendingTx(scriptSig, CTransaction(credit), ConsensusConstants::SEQUENCE_FINAL, 0);
         ScriptError errSame;
-        bool okSame = Verify(scriptSig, scriptPubKey, spendSame, credit.vout[0].nValue, STANDARD_SCRIPT_VERIFY_FLAGS, &errSame);
+        bool okSame = Verify(scriptSig, scriptPubKey, spendSame, credit.vout[0].nValue, PolicyConstants::STANDARD_SCRIPT_VERIFY_FLAGS, &errSame);
         BOOST_CHECK(okSame);
 
         CMutableTransaction spendDifferent = BuildSpendingTx(scriptSig, CTransaction(credit), ConsensusConstants::SEQUENCE_FINAL, 999);
         ScriptError errDifferent;
-        bool okDifferent = Verify(scriptSig, scriptPubKey, spendDifferent, credit.vout[0].nValue, STANDARD_SCRIPT_VERIFY_FLAGS, &errDifferent);
+        bool okDifferent = Verify(scriptSig, scriptPubKey, spendDifferent, credit.vout[0].nValue, PolicyConstants::STANDARD_SCRIPT_VERIFY_FLAGS, &errDifferent);
         BOOST_CHECK_MESSAGE(!okDifferent, "OP_CHECKSIG must NOT replay across a transaction with a different nLockTime");
     }
 }
@@ -380,7 +381,7 @@ BOOST_AUTO_TEST_CASE(risk_mixed_signature_schemes)
         sig.push_back((unsigned char)SIGHASH_ALL);
         spend.vin[0].scriptSig = CScript() << sig << OP_1;
         ScriptError err;
-        bool ok = Verify(spend.vin[0].scriptSig, scriptPubKey, spend, credit.vout[0].nValue, STANDARD_SCRIPT_VERIFY_FLAGS, &err);
+        bool ok = Verify(spend.vin[0].scriptSig, scriptPubKey, spend, credit.vout[0].nValue, PolicyConstants::STANDARD_SCRIPT_VERIFY_FLAGS, &err);
         BOOST_CHECK(ok);
         BOOST_CHECK_EQUAL(err, SCRIPT_ERR_OK);
     }
@@ -396,7 +397,7 @@ BOOST_AUTO_TEST_CASE(risk_mixed_signature_schemes)
         sig.push_back((unsigned char)SIGHASH_ALL);
         spend.vin[0].scriptSig = CScript() << sig << OP_0;
         ScriptError err;
-        bool ok = Verify(spend.vin[0].scriptSig, scriptPubKey, spend, credit.vout[0].nValue, STANDARD_SCRIPT_VERIFY_FLAGS, &err);
+        bool ok = Verify(spend.vin[0].scriptSig, scriptPubKey, spend, credit.vout[0].nValue, PolicyConstants::STANDARD_SCRIPT_VERIFY_FLAGS, &err);
         BOOST_CHECK(ok);
         BOOST_CHECK_EQUAL(err, SCRIPT_ERR_OK);
     }
@@ -416,7 +417,7 @@ BOOST_AUTO_TEST_CASE(risk_mixed_signature_schemes)
         sig2.push_back((unsigned char)SIGHASH_ALL);
         spend.vin[0].scriptSig = CScript() << OP_0 << sig1 << sig2;
         ScriptError err;
-        bool ok = Verify(spend.vin[0].scriptSig, msPubKey, spend, credit.vout[0].nValue, STANDARD_SCRIPT_VERIFY_FLAGS, &err);
+        bool ok = Verify(spend.vin[0].scriptSig, msPubKey, spend, credit.vout[0].nValue, PolicyConstants::STANDARD_SCRIPT_VERIFY_FLAGS, &err);
         BOOST_CHECK(!ok);
         BOOST_CHECK_EQUAL(err, SCRIPT_ERR_MIXED_SCHEME_MULTISIG);
     }
@@ -456,7 +457,7 @@ BOOST_AUTO_TEST_CASE(risk_opcolor_with_timelock)
         spend.vin[0].scriptSig = CScript() << sig << ToByteVector(pub);
 
         ScriptError err;
-        bool ok = Verify(spend.vin[0].scriptSig, scriptPubKey, spend, credit.vout[0].nValue, STANDARD_SCRIPT_VERIFY_FLAGS, &err);
+        bool ok = Verify(spend.vin[0].scriptSig, scriptPubKey, spend, credit.vout[0].nValue, PolicyConstants::STANDARD_SCRIPT_VERIFY_FLAGS, &err);
         BOOST_CHECK_MESSAGE(ok, "OP_COLOR directly combined with CHECKLOCKTIMEVERIFY should be accepted by the raw interpreter: " + std::string(ScriptErrorString(err)));
         BOOST_CHECK_EQUAL(err, SCRIPT_ERR_OK);
 
@@ -481,7 +482,7 @@ BOOST_AUTO_TEST_CASE(risk_opcolor_with_timelock)
         spend.vin[0].scriptSig = CScript() << sig << ToByteVector(pub);
 
         ScriptError err;
-        bool ok = Verify(spend.vin[0].scriptSig, scriptPubKey, spend, credit.vout[0].nValue, STANDARD_SCRIPT_VERIFY_FLAGS, &err);
+        bool ok = Verify(spend.vin[0].scriptSig, scriptPubKey, spend, credit.vout[0].nValue, PolicyConstants::STANDARD_SCRIPT_VERIFY_FLAGS, &err);
         BOOST_CHECK(!ok);
         BOOST_CHECK_EQUAL(err, SCRIPT_ERR_UNSATISFIED_LOCKTIME);
     }
@@ -507,7 +508,7 @@ BOOST_AUTO_TEST_CASE(risk_opcolor_with_timelock)
         spend.vin[0].scriptSig = CScript() << sig << ToByteVector(pub) << mutatedCid.toVector();
 
         ScriptError err;
-        bool ok = Verify(spend.vin[0].scriptSig, swapPubKey, spend, swapCredit.vout[0].nValue, STANDARD_SCRIPT_VERIFY_FLAGS, &err);
+        bool ok = Verify(spend.vin[0].scriptSig, swapPubKey, spend, swapCredit.vout[0].nValue, PolicyConstants::STANDARD_SCRIPT_VERIFY_FLAGS, &err);
         BOOST_CHECK_MESSAGE(ok, "SWAP-derived OP_COLOR combined with CHECKLOCKTIMEVERIFY should be accepted by the raw interpreter: " + std::string(ScriptErrorString(err)));
         BOOST_CHECK_EQUAL(err, SCRIPT_ERR_OK);
 
@@ -515,8 +516,8 @@ BOOST_AUTO_TEST_CASE(risk_opcolor_with_timelock)
         TransactionSignatureChecker checker(&spendTx, 0, swapCredit.vout[0].nValue);
         std::vector<std::vector<unsigned char>> stack;
         ColorIdentifier resultColorId;
-        BOOST_REQUIRE(EvalScript(stack, spend.vin[0].scriptSig, STANDARD_SCRIPT_VERIFY_FLAGS, checker, &resultColorId, nullptr));
-        BOOST_REQUIRE(EvalScript(stack, swapPubKey, STANDARD_SCRIPT_VERIFY_FLAGS, checker, &resultColorId, nullptr));
+        BOOST_REQUIRE(EvalScript(stack, spend.vin[0].scriptSig, PolicyConstants::STANDARD_SCRIPT_VERIFY_FLAGS, checker, &resultColorId, nullptr));
+        BOOST_REQUIRE(EvalScript(stack, swapPubKey, PolicyConstants::STANDARD_SCRIPT_VERIFY_FLAGS, checker, &resultColorId, nullptr));
         BOOST_CHECK(resultColorId == mutatedCid);
         BOOST_CHECK(resultColorId != colorId);
 

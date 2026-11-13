@@ -128,6 +128,8 @@ static UniValue getpeerinfo(const JSONRPCRequest& request)
 
     assert(request.context.connman);
     CConnman& connman = *request.context.connman;
+    assert(request.context.peerman);
+    PeerManager& peerman = *request.context.peerman;
 
     std::vector<CNodeStats> vstats;
     connman.GetNodeStats(vstats);
@@ -137,7 +139,7 @@ static UniValue getpeerinfo(const JSONRPCRequest& request)
     for (const CNodeStats& stats : vstats) {
         UniValue obj(UniValue::VOBJ);
         CNodeStateStats statestats;
-        bool fStateStats = GetNodeStateStats(stats.nodeid, statestats);
+        bool fStateStats = peerman.GetNodeStateStats(stats.nodeid, statestats);
         obj.pushKV("id", stats.nodeid);
         obj.pushKV("addr", stats.addrName);
         if (!(stats.addrLocal.empty()))
@@ -483,8 +485,8 @@ static UniValue getnetworkinfo(const JSONRPCRequest& request)
         obj.pushKV("connections",   (int)node.connman->GetNodeCount(CConnman::CONNECTIONS_ALL));
     }
     obj.pushKV("networks",      GetNetworksInfo());
-    obj.pushKV("relayfee",      ValueFromAmount(::minRelayTxFee.GetFeePerK()));
-    obj.pushKV("incrementalfee", ValueFromAmount(::incrementalRelayFee.GetFeePerK()));
+    obj.pushKV("relayfee",      ValueFromAmount(g_policy_settings->minRelayTxFee.GetFeePerK()));
+    obj.pushKV("incrementalfee", ValueFromAmount(g_policy_settings->incrementalRelayFee.GetFeePerK()));
     UniValue localAddresses(UniValue::VARR);
     {
         LOCK(cs_mapLocalHost);

@@ -86,11 +86,16 @@ BasicTestingSetup::BasicTestingSetup(const std::string& chainName)
         SetDataDir("tempdir");
         writeTestGenesisBlockToFile(GetDataDir());
         SelectFederationParams(TAPYRUS_OP_MODE::PROD);
-        g_consensus_settings = std::make_unique<const ConsensusSettings>(ReadGenesisBlock(), TAPYRUS_OP_MODE::PROD, FederationParams().NetworkId());
+        g_chainstate_manager.InitConsensusSettings(std::make_unique<const ConsensusSettings>(ReadGenesisBlock(), TAPYRUS_OP_MODE::PROD, FederationParams().NetworkId()));
         noui_connect();
-        g_chainstate_manager.InitXFieldHistory(g_consensus_settings->GenesisBlock());
+        m_node.policy = std::make_unique<const PolicySettings>(gArgs, TAPYRUS_OP_MODE::PROD);
+        g_policy_settings = m_node.policy.get();
+        g_chainstate_manager.InitXFieldHistory(g_chainstate_manager.Settings().GenesisBlock());
         pxFieldHistory = &g_chainstate_manager.XFieldHistory();
-        g_colorid_state.reset(new CIssuedColorIds());
+        {
+            LOCK(cs_main);
+            g_chainstate_manager.IssuedColorIds() = CIssuedColorIds();
+        }
     } catch (...) {
         // ~BasicTestingSetup() never runs for a throwing constructor, so
         // ECC_Stop() and clearing the flag must happen here.
@@ -102,13 +107,32 @@ BasicTestingSetup::BasicTestingSetup(const std::string& chainName)
 
 BasicTestingSetup::~BasicTestingSetup()
 {
-    g_colorid_state.reset();
+    {
+        LOCK(cs_main);
+        g_chainstate_manager.IssuedColorIds() = CIssuedColorIds();
+    }
     // The xfield history is left alone: it belongs to g_chainstate_manager,
     // which lives for the whole test binary. See pxFieldHistory in test_tapyrus.h.
     ClearDatadirCache();
     fs::remove_all(m_path_root);
     ECC_Stop();
     g_ecc_started = false;
+}
+
+PolicySettingsOverride::PolicySettingsOverride(const std::vector<std::pair<std::string, std::string>>& options)
+    : m_previous(g_policy_settings)
+{
+    ArgsManager args;
+    for (const auto& option : options) {
+        args.ForceSetArg(option.first, option.second);
+    }
+    m_settings = std::make_unique<const PolicySettings>(args, TAPYRUS_OP_MODE::PROD);
+    g_policy_settings = m_settings.get();
+}
+
+PolicySettingsOverride::~PolicySettingsOverride()
+{
+    g_policy_settings = m_previous;
 }
 
 fs::path BasicTestingSetup::SetDataDir(const std::string& name)
@@ -156,7 +180,7 @@ TestingSetup::TestingSetup(const std::string& chainName) : BasicTestingSetup(cha
             nScriptCheckThreads = 3;
             StartScriptCheckWorkerThreads(nScriptCheckThreads);
             m_node.connman = std::unique_ptr<CConnman>(new CConnman(0x1337, 0x1337)); // Deterministic randomness for tests.
-            m_node.peer_logic.reset(new PeerLogicValidation(*m_node.connman, scheduler));
+            m_node.peerman.reset(new PeerManager(*m_node.connman, scheduler));
         } catch (...) {
             // ~TestingSetup() never runs for a throwing constructor, so the
             // scheduler thread started above must be stopped here. Left
@@ -176,7 +200,7 @@ void TestingSetup::TearDown()
         scheduler.stop();
         GetMainSignals().FlushBackgroundCallbacks();
         GetMainSignals().UnregisterBackgroundSignalScheduler();
-        m_node.peer_logic.reset();
+        m_node.peerman.reset();
         m_node.connman.reset();
         UnloadBlockIndex();
         pcoinsTip.reset();

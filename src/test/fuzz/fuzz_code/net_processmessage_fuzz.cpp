@@ -7,7 +7,7 @@
 // for every P2P message a peer can send. ProcessMessage itself is static,
 // so this drives it the way CConnman's message handler thread does: one
 // wire-format message is queued on a handshaken CNode, then
-// PeerLogicValidation::ProcessMessages() and SendMessages() run against
+// PeerManager::ProcessMessages() and SendMessages() run against
 // the shared FuzzNodeSetup node context (see fuzz_node_setup.h).
 //
 // The message header is built here, with this network's magic bytes and a
@@ -47,20 +47,20 @@
 static constexpr uint8_t MAX_PROCESS_ROUNDS = 8;
 
 // One handshaken inbound-style peer for the lifetime of a single fuzz
-// input: registered with PeerLogicValidation on construction (so
+// input: registered with PeerManager on construction (so
 // State(nodeid) exists) and unregistered on destruction, the same set-up
 // src/test/denialofservice_tests.cpp uses. INVALID_SOCKET means anything
 // the node tries to send just fails and marks it for disconnection.
 class FuzzPeer
 {
 public:
-    explicit FuzzPeer(PeerLogicValidation& peer_logic)
-        : m_peer_logic(peer_logic),
+    explicit FuzzPeer(PeerManager& peerman)
+        : m_peerman(peerman),
           m_node(NextNodeId(), ServiceFlags(NODE_NETWORK), 0, INVALID_SOCKET,
                  CAddress(CService(), NODE_NONE), 0, 0, CAddress(), "", /*fInboundIn=*/true)
     {
         m_node.SetSendVersion(PROTOCOL_VERSION);
-        m_peer_logic.InitializeNode(&m_node);
+        m_peerman.InitializeNode(&m_node);
         m_node.nVersion = PROTOCOL_VERSION;
         m_node.fSuccessfullyConnected = true;
     }
@@ -68,7 +68,7 @@ public:
     ~FuzzPeer()
     {
         bool update_connection_time = false;
-        m_peer_logic.FinalizeNode(m_node.GetId(), update_connection_time);
+        m_peerman.FinalizeNode(m_node.GetId(), update_connection_time);
     }
 
     FuzzPeer(const FuzzPeer&) = delete;
@@ -110,11 +110,11 @@ public:
         std::atomic<bool> interrupt{false};
         bool more_work = true;
         for (uint8_t round = 0; more_work && round < MAX_PROCESS_ROUNDS; ++round) {
-            more_work = m_peer_logic.ProcessMessages(&m_node, interrupt);
+            more_work = m_peerman.ProcessMessages(&m_node, interrupt);
         }
         // CConnman's message handler holds cs_sendProcessing around this.
         LOCK(m_node.cs_sendProcessing);
-        m_peer_logic.SendMessages(&m_node);
+        m_peerman.SendMessages(&m_node);
     }
 
 private:
@@ -124,7 +124,7 @@ private:
         return next_node_id++;
     }
 
-    PeerLogicValidation& m_peer_logic;
+    PeerManager& m_peerman;
     CNode m_node;
 };
 
@@ -145,7 +145,7 @@ static int test_one_input_processmessage(const uint8_t* data, size_t size)
     const std::string command = ConsumeCommand(fdp);
     const std::vector<uint8_t> payload = fdp.ConsumeRemainingBytes<uint8_t>();
 
-    FuzzPeer peer(*setup.m_node.peer_logic);
+    FuzzPeer peer(*setup.m_node.peerman);
     if (!peer.Deliver(command, payload)) return 0;
     peer.Process();
     return 0;
