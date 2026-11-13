@@ -53,6 +53,13 @@ class ConfArgsTest(BitcoinTestFramework):
         self.start_node(0, ['-addseeder=seed.tapyrus.dev.chaintope.com','-addseeder=static-seed.tapyrus.dev.chaintope.com', '-dnsseed=1'])
         self.stop_node(0)
 
+        self.log.info("-minstandardtxsize above -maxstandardtxsize capped at the block size limit")
+        # Within -maxstandardtxsize, so only the start-up check after the block index load refuses it.
+        self.nodes[0].assert_start_raises_init_error(
+            ['-maxstandardtxsize=4000000', '-minstandardtxsize=2000000'],
+            'Error: -minstandardtxsize value 2000000 is above the largest standard transaction size 1000000 '
+            '(-maxstandardtxsize, capped at the block size limit)')
+
         self.log.info("-networkid tests")
         conf_file = os.path.join(self.nodes[0].datadir, "tapyrus.conf")
 
