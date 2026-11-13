@@ -44,6 +44,43 @@ P2P
   exposed, because the node uses `select()` on every platform. Bitcoin Core
   disclosed the same issue as CVE-2026-117350 for its non-Linux systems.
 
+- Tor inbound peers are no longer whitelisted by `-whitelist` (CVE-2025-62860).
+  A Tor peer connects from the Tor daemon's address, so a range covering it,
+  such as 127.0.0.1 or a container network, whitelisted every Tor peer: they
+  could not be banned, their policy-rejected transactions were relayed, and
+  they got inventory without the trickle delay. The node now listens for Tor
+  on a separate onion bind, `-bind=<addr>[:<port>]=onion`, by default
+  127.0.0.1 at the P2P port + 1 (2358, dev 12384), and never applies
+  `-whitelist` to peers arriving there. A hidden service set up by hand in
+  torrc should forward to this port; see `doc/tor.md`.
+
+- The node refuses to start when a `-whitelist` range covers an address Tor
+  connects from: the `-proxy` or `-onion` address, or, with `-listenonion`,
+  127.0.0.1, ::1 or the `-torcontrol` address. Narrow the range, or use
+  `-whitebind` for trusted peers. A node that whitelists 127.0.0.1 for local
+  software connecting over P2P must now also set `-listenonion=0`, or use
+  `-whitebind` instead.
+
+- `-listenonion` now asks Tor for a v3 onion service. It used to ask for v2,
+  which Tor 0.4.6 and later reject, so no automatic onion service was
+  created on any current Tor. The key is kept in `onion_v3_private_key`, and
+  the old `onion_private_key` file is no longer used. A v3 address can't be
+  advertised to peers until addrv2 (BIP155) is supported, so the node only
+  logs it.
+
+- With `-listenonion`, the node refuses to start when it can't bind the
+  address its onion service forwards to, rather than let Tor forward peers
+  to a port another program owns. It also refuses an onion bind on the port
+  of a `-bind` or `-whitebind` on the same or a wildcard address, and
+  `-port=65535` when an onion bind needs the P2P port + 1. It warns when the
+  onion service forwards to a clearnet `-bind`, where Tor peers arrive
+  untagged, and when every `-bind` is an onion bind.
+
+- `-onion` now reaches v3 `.onion` names given to `-connect` or `-addnode`.
+  They used to go only through `-proxy`, so a node with just `-onion` could
+  not connect to them. A `.onion` name is never looked up in DNS, and
+  `-noonion` now blocks v3 names too.
+
 Downgrading warning
 -------------------
 

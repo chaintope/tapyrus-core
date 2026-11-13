@@ -28,8 +28,10 @@ from .util import (
     rpc_url,
     wait_until,
     p2p_port,
+    tor_port,
     TAPYRUS_MODES
 )
+from .netutil import test_ipv6_local
 from .timeout_config import TAPYRUSD_PROC_TIMEOUT, TAPYRUSD_IMMEDIATE_TIMEOUT
 
 def _parse_float_decimal(value):
@@ -111,6 +113,7 @@ class TestNode():
         self.url = None
         self.log = logging.getLogger('TestFramework.node%d' % i)
         self.cleanup_on_exit = True # Whether to kill the node when this object goes away
+        self.add_test_binds = True # Whether start() replaces tapyrusd's default binds with the node's own ports
         self.networkid = networkid
 
         self.p2ps = []
@@ -146,6 +149,16 @@ class TestNode():
         if extra_args is None:
             extra_args = self.extra_args
 
+        # Without -bind, tapyrusd listens for Tor on 127.0.0.1 at its P2P port + 1, which is the
+        # next node's P2P port here. Keep the default listening, with the node's own onion port.
+        will_listen = all(e != "-nolisten" and e != "-listen=0" for e in extra_args)
+        if self.add_test_binds and will_listen and not self._has_explicit_bind(extra_args):
+            port = p2p_port(self.index)
+            binds = ["-bind=0.0.0.0:{}".format(port), "-bind=127.0.0.1:{}=onion".format(tor_port(self.index))]
+            if test_ipv6_local():
+                binds.insert(0, "-bind=[::]:{}".format(port))
+            extra_args = extra_args + binds
+
         # Add a new stdout and stderr file each time tapyrusd is started
         if stderr is None:
             stderr = tempfile.NamedTemporaryFile(dir=self.stderr_dir, delete=False)
@@ -166,6 +179,17 @@ class TestNode():
 
         self.running = True
         self.log.debug("tapyrusd started, waiting for RPC to come up")
+
+    def _has_explicit_bind(self, extra_args):
+        if any(e.startswith("-bind=") for e in extra_args):
+            return True
+        # tapyrusd reads the last -conf, relative to the datadir, else the datadir's tapyrus.conf.
+        conf_args = [e[len("-conf="):] for e in extra_args if e.startswith("-conf=")]
+        conf_path = os.path.join(self.datadir, conf_args[-1] if conf_args else "tapyrus.conf")
+        if not os.path.exists(conf_path):
+            return False
+        with open(conf_path, encoding="utf8") as conf:
+            return any(line.startswith("bind=") for line in conf)
 
     def wait_for_rpc_connection(self):
         """Sets up an RPC connection to the tapyrusd process. Returns False if unable to connect."""

@@ -137,6 +137,7 @@ BASE_SCRIPTS = [
     'wallet_groups.py',
     'wallet_groups.py --scheme SCHNORR',
     'p2p_disconnect_ban.py',
+    'p2p_onion_whitelist.py',
     'rpc_decodescript.py',
     'rpc_blockchain.py',
     'rpc_deprecated.py',

@@ -69,6 +69,7 @@ enum BindFlags {
     BF_EXPLICIT     = (1U << 0),
     BF_REPORT_ERROR = (1U << 1),
     BF_WHITELIST    = (1U << 2),
+    BF_ONION        = (1U << 3), //!< Tor inbound; never advertised as a local address
 };
 
 static const uint64_t RANDOMIZER_ID_NETGROUP = 0x6c0edd8036ef4036ULL; // SHA256("netgroup")[0:8]
@@ -202,9 +203,14 @@ CNode* CConnman::ConnectNode(CAddress addrConnect, const char *pszDest, bool fCo
 
     // Resolve
     const int default_port = Params().GetDefaultPort();
+    std::string dest_host;
+    int dest_port = default_port;
+    if (pszDest) SplitHostPort(std::string(pszDest), dest_port, dest_host);
+    // A v3 .onion name doesn't parse as an address, so it is dialled by name, and never sent to DNS.
+    const bool onion_dest = dest_host.size() > 6 && dest_host.compare(dest_host.size() - 6, 6, ".onion") == 0;
     if (pszDest) {
         std::vector<CService> resolved;
-        if (Lookup(pszDest, resolved,  default_port, fNameLookup && !HaveNameProxy(), 256) && !resolved.empty()) {
+        if (Lookup(pszDest, resolved,  default_port, fNameLookup && !HaveNameProxy() && !onion_dest, 256) && !resolved.empty()) {
             addrConnect = CAddress(resolved[GetRand(resolved.size())], NODE_NONE);
             if (!addrConnect.IsValid()) {
                 LogPrint(BCLog::NET, "Resolver returned invalid address %s for %s\n", addrConnect.ToString(), pszDest);
@@ -251,15 +257,13 @@ CNode* CConnman::ConnectNode(CAddress addrConnect, const char *pszDest, bool fCo
             // the proxy, mark this as an attempt.
             addrman.Attempt(addrConnect, fCountFailure);
         }
-    } else if (pszDest && GetNameProxy(proxy)) {
+    } else if (pszDest && (onion_dest ? !IsLimited(NET_ONION) && GetProxy(NET_ONION, proxy) : GetNameProxy(proxy))) {
+        // A .onion name goes to the -onion proxy, as a v2 onion address does; -noonion blocks it.
         hSocket = CreateSocket(proxy.proxy);
         if (hSocket == INVALID_SOCKET) {
             return nullptr;
         }
-        std::string host;
-        int port = default_port;
-        SplitHostPort(std::string(pszDest), port, host);
-        connected = ConnectThroughProxy(proxy, host, port, hSocket, nConnectTimeout, nullptr);
+        connected = ConnectThroughProxy(proxy, dest_host, dest_port, hSocket, nConnectTimeout, nullptr);
     }
     if (!connected) {
         CloseSocket(hSocket);
@@ -465,6 +469,30 @@ void CConnman::SetBannedSetDirty(bool dirty)
     setBannedIsDirty = dirty;
 }
 
+
+const CSubNet* CConnman::Options::FindWhitelistedRange(const CNetAddr& addr) const {
+    for (const CSubNet& subnet : vWhitelistedRange) {
+        if (subnet.Match(addr)) return &subnet;
+    }
+    return nullptr;
+}
+
+const CService* CConnman::Options::FindClearnetBindOnPort(const CService& onion_bind) const {
+    struct in_addr inaddr_any;
+    inaddr_any.s_addr = INADDR_ANY;
+    struct in6_addr inaddr6_any = IN6ADDR_ANY_INIT;
+    const CNetAddr any4(inaddr_any), any6(inaddr6_any);
+    // A wildcard address overlaps every address, of either family on a dual-stack socket.
+    const auto overlaps = [&](const CNetAddr& a, const CNetAddr& b) {
+        return a == b || a == any4 || a == any6 || b == any4 || b == any6;
+    };
+    for (const std::vector<CService>* binds : {&vBinds, &vWhiteBinds}) {
+        for (const CService& bind : *binds) {
+            if (bind.GetPort() == onion_bind.GetPort() && overlaps(bind, onion_bind)) return &bind;
+        }
+    }
+    return nullptr;
+}
 
 bool CConnman::IsWhitelistedRange(const CNetAddr &addr) {
     for (const CSubNet& subnet : vWhitelistedRange) {
@@ -689,7 +717,8 @@ void CConnman::AcceptConnection(const ListenSocket& hListenSocket) {
         }
     }
 
-    bool whitelisted = hListenSocket.whitelisted || IsWhitelistedRange(addr);
+    // A Tor inbound peer's address is the Tor daemon's, not its own, so -whitelist ranges don't apply.
+    bool whitelisted = hListenSocket.whitelisted || (!hListenSocket.onion && IsWhitelistedRange(addr));
     {
         LOCK(cs_vNodes);
         for (const CNode* pnode : vNodes) {
@@ -1565,7 +1594,7 @@ void CConnman::ThreadMessageHandler()
 
 
 
-bool CConnman::BindListenPort(const CService &addrBind, std::string& strError, bool fWhitelisted)
+bool CConnman::BindListenPort(const CService &addrBind, std::string& strError, bool fWhitelisted, bool fOnion)
 {
     strError = "";
     int nOne = 1;
@@ -1626,9 +1655,9 @@ bool CConnman::BindListenPort(const CService &addrBind, std::string& strError, b
         return false;
     }
 
-    vhListenSocket.push_back(ListenSocket(hListenSocket, fWhitelisted));
+    vhListenSocket.push_back(ListenSocket(hListenSocket, fWhitelisted, fOnion));
 
-    if (addrBind.IsRoutable() && fDiscover && !fWhitelisted)
+    if (addrBind.IsRoutable() && fDiscover && !fWhitelisted && !fOnion)
         AddLocal(addrBind, LOCAL_BIND);
 
     return true;
@@ -1672,7 +1701,7 @@ bool CConnman::Bind(const CService &addr, unsigned int flags) {
     if (!(flags & BF_EXPLICIT) && IsLimited(addr))
         return false;
     std::string strError;
-    if (!BindListenPort(addr, strError, (flags & BF_WHITELIST) != 0)) {
+    if (!BindListenPort(addr, strError, (flags & BF_WHITELIST) != 0, (flags & BF_ONION) != 0)) {
         if ((flags & BF_REPORT_ERROR) && clientInterface) {
             clientInterface->ThreadSafeMessageBox(strError, "", CClientUIInterface::MSG_ERROR);
         }
@@ -1681,15 +1710,24 @@ bool CConnman::Bind(const CService &addr, unsigned int flags) {
     return true;
 }
 
-bool CConnman::InitBinds(const std::vector<CService>& binds, const std::vector<CService>& whiteBinds) {
+bool CConnman::InitBinds(const Options& options, bool& onion_target_bound) {
     bool fBound = false;
-    for (const auto& addrBind : binds) {
-        fBound |= Bind(addrBind, (BF_EXPLICIT | BF_REPORT_ERROR));
+    onion_target_bound = !options.onion_service_target;
+    const auto bind = [&](const CService& addr, unsigned int flags) {
+        const bool bound = Bind(addr, flags);
+        if (bound && options.onion_service_target == addr) onion_target_bound = true;
+        fBound |= bound;
+    };
+    for (const auto& addrBind : options.vBinds) {
+        bind(addrBind, (BF_EXPLICIT | BF_REPORT_ERROR));
     }
-    for (const auto& addrBind : whiteBinds) {
-        fBound |= Bind(addrBind, (BF_EXPLICIT | BF_REPORT_ERROR | BF_WHITELIST));
+    for (const auto& addrBind : options.vWhiteBinds) {
+        bind(addrBind, (BF_EXPLICIT | BF_REPORT_ERROR | BF_WHITELIST));
     }
-    if (binds.empty() && whiteBinds.empty()) {
+    for (const auto& addrBind : options.onion_binds) {
+        bind(addrBind, (BF_EXPLICIT | BF_REPORT_ERROR | BF_ONION));
+    }
+    if (options.bind_on_any) {
         struct in_addr inaddr_any;
         inaddr_any.s_addr = INADDR_ANY;
         struct in6_addr inaddr6_any = IN6ADDR_ANY_INIT;
@@ -1720,10 +1758,20 @@ bool CConnman::Start(CScheduler& scheduler, const Options& connOptions)
         nMaxOutboundCycleStartTime = 0;
     }
 
-    if (fListen && !InitBinds(connOptions.vBinds, connOptions.vWhiteBinds)) {
+    bool onion_target_bound = true;
+    if (fListen && !InitBinds(connOptions, onion_target_bound)) {
         if (clientInterface) {
             clientInterface->ThreadSafeMessageBox(
                 _("Failed to listen on any port. Use -listen=0 if you want this."),
+                "", CClientUIInterface::MSG_ERROR);
+        }
+        return false;
+    }
+    // Tor would otherwise forward the onion service's peers to a port this node doesn't own.
+    if (!onion_target_bound) {
+        if (clientInterface) {
+            clientInterface->ThreadSafeMessageBox(
+                strprintf(_("Failed to listen on %s, where Tor forwards the onion service. Free that port, give the onion bind another one with -bind=<addr>:<port>=onion, or use -listenonion=0."), connOptions.onion_service_target->ToStringIPPort()),
                 "", CClientUIInterface::MSG_ERROR);
         }
         return false;
