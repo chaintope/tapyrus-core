@@ -18,7 +18,7 @@
 * wallets/db.log: wallet database log file; since 0.16.0
 * wallets/wallet.dat: personal wallet (BDB) with keys and transactions; since 0.16.0
 * .cookie: session RPC authentication cookie (written at start when cookie authentication is used, deleted on shutdown): since 0.12.0
-* onion_private_key: cached Tor hidden service private key for `-listenonion`: since 0.12.0
+* onion_v3_private_key: cached Tor v3 onion service private key for `-listenonion`. It replaces onion_private_key, which held a v2 key that Tor no longer accepts
 * guisettings.ini.bak: backup of former GUI settings after `-resetguisettings` is used
 
 Only used in pre-0.8.0

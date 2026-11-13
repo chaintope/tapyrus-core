@@ -14,7 +14,8 @@ outgoing connections, but more is possible.
 	-proxy=ip:port  Set the proxy server. If SOCKS5 is selected (default), this proxy
 	                server will be used to try to reach .onion addresses as well.
 
-	-onion=ip:port  Set the proxy server to use for Tor hidden services. You do not
+	-onion=ip:port  Set the proxy server to use for Tor hidden services, including
+	                v3 .onion names given to -connect or -addnode. You do not
 	                need to set this if it's the same as -proxy. You can use -noonion
 	                to explicitly disable access to hidden service.
 
@@ -39,12 +40,27 @@ reachable from the Tor network. Add these lines to your /etc/tor/torrc (or equiv
 config file): *Needed for Tor version 0.2.7.0 and older versions of Tor only. For newer
 versions of Tor see [Section 3](#3-automatically-listen-on-tor).*
 
-	HiddenServiceDir /var/lib/tor/bitcoin-service/
-	HiddenServicePort 8333 127.0.0.1:8333
-	HiddenServicePort 18333 127.0.0.1:18333
+	HiddenServiceDir /var/lib/tor/tapyrus-service/
+	HiddenServicePort 2357 127.0.0.1:2358
+	HiddenServicePort 12383 127.0.0.1:12384
 
-The directory can be different of course, but (both) port numbers should be equal to
-your bitcoind's P2P listen port (8333 by default).
+The directory can be different of course. The first port on each line is the one peers
+use to reach the onion service, normally the P2P port (2357 by default, 12383 in dev
+mode). The second is the node's onion bind, where it listens for Tor inbound peers:
+127.0.0.1 at the P2P port + 1 by default, or the address given with
+`-bind=<addr>:<port>=onion`.
+
+Peers arriving on the onion bind are never whitelisted by `-whitelist`, because their
+address is the Tor daemon's. Don't point the service at the P2P port itself: the node
+then can't tell Tor peers from clearnet ones. To prevent that, the node refuses to start
+when a `-whitelist` range covers the `-proxy` or `-onion` address, or, with
+`-listenonion`, 127.0.0.1, ::1 or the `-torcontrol` address.
+
+The onion bind needs a port of its own. The node refuses to start when an onion bind
+uses the port of a `-bind` or `-whitebind` on the same address or a wildcard address,
+and when `-port=65535` leaves no P2P port + 1 for an onion bind given without a port.
+It warns when every `-bind` is an onion bind, since clearnet peers can then reach the
+node only through a `-whitebind`.
 
 	-externalip=X   You can tell bitcoin about its publicly reachable address using
 	                this option, and this can be a .onion address. Given the above
@@ -70,9 +86,10 @@ In a typical situation, where you're only reachable via Tor, this should suffice
 
 (obviously, replace the .onion address with your own). It should be noted that you still
 listen on all devices and another node could establish a clearnet connection, when knowing
-your address. To mitigate this, additionally bind the address of your Tor proxy:
+your address. To mitigate this, additionally bind the address of your Tor proxy, and keep
+the onion bind, since any `-bind` replaces the default one:
 
-	./bitcoind ... -bind=127.0.0.1
+	./bitcoind ... -bind=127.0.0.1 -bind=127.0.0.1:2358=onion
 
 If you don't care too much about hiding your node, and want to be reachable on IPv4
 as well, use `discover` instead:
@@ -100,6 +117,17 @@ This new feature is enabled by default if Bitcoin Core is listening (`-listen`),
 requires a Tor connection to work. It can be explicitly disabled with `-listenonion=0`
 and, if not disabled, configured using the `-torcontrol` and `-torpassword` settings.
 To show verbose debugging information, pass `-debug=tor`.
+
+The node asks Tor for a v3 onion service that forwards to its onion bind, and keeps the
+service key in `onion_v3_private_key` in the data directory. A v3 onion address doesn't
+fit the addr message, so the node writes it to the log but doesn't advertise it to
+peers. Share it by hand, for example with `-addnode` on other nodes.
+
+If the node can't bind the address the onion service forwards to, for example because
+another program uses the port, it refuses to start rather than let Tor forward its
+peers to someone else's port. When `-bind` is given without an onion bind, the service
+forwards to the first `-bind`, where Tor peers arrive as clearnet peers; the node warns
+about this, and adding `-bind=<addr>=onion` fixes it.
 
 Connecting to Tor's control socket API requires one of two authentication methods to be
 configured. For cookie authentication the user running bitcoind must have write access
