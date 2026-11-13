@@ -39,9 +39,8 @@
 #                              tapyrus_util, tapyrus_consensus, tapyrus_wallet (cond.),
 #                              tapyrus_zmq (cond.)
 #   bench_tapyrus          -- tapyrus_chainstate, tapyrus_peer, tapyrus_codec, tapyrus_wallet (cond.)
-#   tapyrus-genesis        -- tapyrus_codec, tapyrus_scripting, tapyrus_util (compiles its own
-#                              copy of checkblock.cpp/consensus/tx_verify.cpp instead of linking
-#                              tapyrus_chainstate -- see its add_executable() below)
+#   tapyrus-genesis        -- tapyrus_codec, tapyrus_scripting, tapyrus_util (CheckBlock() comes
+#                              from tapyrus_consensus, through tapyrus_scripting)
 #   tapyrus-tx             -- tapyrus_codec, tapyrus_scripting, tapyrus_util
 #   tapyrus-cli            -- tapyrus_cli, tapyrus_global, tapyrus_util
 #   tapyrus-verify         -- tapyrus_consensus, tapyrus_codec, tapyrus_global
@@ -49,9 +48,7 @@
 #
 # tapyrus-genesis/tapyrus-tx/tapyrus-cli/tapyrus-verify share a property worth
 # stating once: none of them link tapyrus_chainstate, tapyrus_wallet, tapyrus_peer,
-# tapyrus_netbase, or leveldb, at all -- not even transitively. tapyrus-genesis
-# compiles its own checkblock.cpp/tx_verify.cpp instead of linking
-# tapyrus_chainstate (see its add_executable() below), and tapyrus_util itself
+# tapyrus_netbase, or leveldb, at all -- not even transitively. tapyrus_util itself
 # doesn't link tapyrus_wallet (see its add_library() below), so none of these
 # four pull it in just by needing tapyrus_util.
 #
@@ -170,7 +167,9 @@ target_link_libraries(tapyrus_types
 # The consensus rules on top of tapyrus_types: script evaluation, the
 # signature checkers and the merkle root.
 add_library(tapyrus_consensus STATIC EXCLUDE_FROM_ALL
+  checkblock.cpp
   consensus/merkle.cpp
+  consensus/tx_check.cpp
   consensussettings.cpp
   script/interpreter.cpp
   script/script_error.cpp
@@ -346,10 +345,8 @@ add_library(tapyrus_chainstate STATIC EXCLUDE_FROM_ALL
   chain.cpp
   chainstate.cpp
   chainstatemanager.cpp
-  checkblock.cpp
+  contextualconsensusrules.cpp
   checkpoints.cpp
-  consensus/sequence_locks.cpp
-  consensus/tx_verify.cpp
   cs_main.cpp
   dbwrapper.cpp
   file_io.cpp
@@ -360,6 +357,7 @@ add_library(tapyrus_chainstate STATIC EXCLUDE_FROM_ALL
   policy/fees.cpp
   policy/packages.cpp
   policy/policy.cpp
+  policy/policysettings.cpp
   policy/rbf.cpp
   precomputedcolordata.cpp
   script/sigcache.cpp
@@ -593,26 +591,11 @@ if(BUILD_UTILS)
   install_binary_component(tapyrus-tx HAS_MANPAGE)
 endif()
 
-# Only needs CheckBlock() to validate the block it just built -- not full
-# chain-state (block index, UTXO set, leveldb storage), which tapyrus-genesis
-# never touches. checkblock.cpp (CheckBlock()/CheckBlockHeader()) and
-# consensus/tx_verify.cpp (CheckTransaction()/GetLegacySigOpCount(), called
-# by CheckBlock()) are both chain-state-free, but both are archive members of
-# tapyrus_chainstate, and static archives extract a whole member file at once
-# -- checkblock.cpp's archive-mates touch g_chainstate/leveldb -- so this
-# compiles its own copies of both directly instead. genesisblock.cpp builds
-# the block; besides this tool only the unit tests use it.
-#
-# TAPYRUS_GENESIS_SKIP compiles out checkblock.cpp's chain-tip check (see its
-# file-level comment): meaningless here, since tapyrus-genesis calls
-# CheckBlock() before any chain is loaded. This executable's own object files
-# resolve CheckBlock() et al. before the linker consults
-# libtapyrus_chainstate.a, so that archive's copies of checkblock.cpp/
-# consensus/tx_verify.cpp (built without the macro, for every other consumer)
-# are never extracted -- no duplicate symbols.
+# Checks the block it builds with tapyrus_consensus's CheckBlock(), which needs
+# no chain state. genesisblock.cpp builds the block; besides this tool only the
+# unit tests use it.
 if(BUILD_GENESIS)
-  add_executable(tapyrus-genesis tapyrus-genesis.cpp genesisblock.cpp checkblock.cpp consensus/tx_verify.cpp)
-  target_compile_definitions(tapyrus-genesis PRIVATE TAPYRUS_GENESIS_SKIP)
+  add_executable(tapyrus-genesis tapyrus-genesis.cpp genesisblock.cpp)
   add_windows_resources(tapyrus-genesis "${TAPYRUS_GENESIS_RC_FILE}")
   target_link_libraries(tapyrus-genesis
           PRIVATE

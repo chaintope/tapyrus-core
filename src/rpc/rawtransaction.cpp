@@ -11,6 +11,7 @@
 #include <coloridentifier.h>
 #include <consensus/validation.h>
 #include <core_io.h>
+#include <chainstatemanager.h>
 #include <consensussettings.h>
 #include <index/txindex.h>
 #include <keystore.h>
@@ -23,6 +24,7 @@
 #include <nodecontext.h>
 #include <netnode.h>
 #include <policy/packages.h>
+#include <policy/policyconstants.h>
 #include <policy/rbf.h>
 #include <primitives/transaction.h>
 #include <rpc/protocol.h>
@@ -163,7 +165,7 @@ static UniValue getrawtransaction(const JSONRPCRequest& request)
     uint256 hash = ParseHashV(request.params[0], "parameter 1");
     CBlockIndex* blockindex = nullptr;
 
-    if (hash == g_consensus_settings->GenesisBlock().hashMerkleRoot) {
+    if (hash == g_chainstate_manager.Settings().GenesisBlock().hashMerkleRoot) {
         // Special exception for the genesis block coinbase transaction
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "The genesis block coinbase is not considered an ordinary transaction and cannot be retrieved");
     }
@@ -192,7 +194,7 @@ static UniValue getrawtransaction(const JSONRPCRequest& request)
 
     CTransactionRef tx;
     uint256 hash_block;
-    if (!GetTransaction(hash, tx, Params().GetConsensus(), hash_block, true, blockindex)) {
+    if (!GetTransaction(hash, tx, hash_block, true, blockindex)) {
         std::string errmsg;
         if (blockindex) {
             if (!(blockindex->nStatus & BLOCK_HAVE_DATA)) {
@@ -287,7 +289,7 @@ static UniValue gettxoutproof(const JSONRPCRequest& request)
     if (pblockindex == nullptr)
     {
         CTransactionRef tx;
-        if (!GetTransaction(oneTxid, tx, Params().GetConsensus(), hashBlock, false) || hashBlock.IsNull())
+        if (!GetTransaction(oneTxid, tx, hashBlock, false) || hashBlock.IsNull())
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Transaction not yet in block");
         pblockindex = LookupBlockIndex(hashBlock);
         if (!pblockindex) {
@@ -778,7 +780,7 @@ static UniValue combinerawtransaction(const JSONRPCRequest& request)
         view.SetBackend(viewDummy); // switch back to avoid locking mempool for too long
     }
 
-    const unsigned int signVerifyFlags = STANDARD_SCRIPT_VERIFY_FLAGS;
+    const unsigned int signVerifyFlags = PolicyConstants::STANDARD_SCRIPT_VERIFY_FLAGS;
 
     // Use CTransaction for the constant parts of the
     // transaction to avoid rehashing.
@@ -892,7 +894,7 @@ UniValue SignTransaction(CMutableTransaction& mtx, const UniValue& prevTxsUnival
 
     bool fHashSingle = ((nHashType & ~SIGHASH_ANYONECANPAY) == SIGHASH_SINGLE);
 
-    const unsigned int signVerifyFlags = STANDARD_SCRIPT_VERIFY_FLAGS;
+    const unsigned int signVerifyFlags = PolicyConstants::STANDARD_SCRIPT_VERIFY_FLAGS;
 
     // Script verification errors
     UniValue vErrors(UniValue::VARR);
@@ -1181,7 +1183,7 @@ static UniValue sendrawtransaction(const JSONRPCRequest& request)
     CTransactionRef tx(MakeTransactionRef(std::move(mtx)));
     const uint256& hashTx = tx->GetHashMalFix();
 
-    CAmount nMaxRawTxFee = maxTxFee;
+    CAmount nMaxRawTxFee = g_policy_settings->maxTxFee;
     if (!request.params[1].isNull() && request.params[1].get_bool())
         nMaxRawTxFee = 0;
 

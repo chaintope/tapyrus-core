@@ -5,6 +5,7 @@
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 """Test mempool acceptance of raw transactions."""
 
+from decimal import Decimal
 from io import BytesIO
 import copy
 import time
@@ -329,6 +330,28 @@ class MempoolAcceptanceTest(BitcoinTestFramework):
             result_expected={tx.rehash():{ 'allowed': False, 'reject-reason': '64: scriptpubkey'}},
             rawtxs=[bytes_to_hex_str(tx.serialize())],
         )
+
+        self.log.info('-maxtxfee sets the fee limit of the raw-transaction RPCs')
+        coin = [c for c in node.listunspent() if c['amount'] > 1][0]
+        raw = node.signrawtransactionwithwallet(node.createrawtransaction(
+            inputs=[{'txid': coin['txid'], 'vout': coin['vout']}],
+            outputs=[{node.getnewaddress(): coin['amount'] - Decimal('0.2')}],
+        ), [], "ALL", self.options.scheme)['hex']
+        tx = CTransaction()
+        tx.deserialize(BytesIO(hex_str_to_bytes(raw)))
+        txid = tx.rehash()
+        # A 0.2 TPC fee is above the default limit of 0.1 TPC
+        self.check_mempool_result(
+            result_expected={txid: {'allowed': False, 'reject-reason': '256: absurdly-high-fee'}},
+            rawtxs=[raw],
+        )
+        assert_raises_rpc_error(-26, 'absurdly-high-fee', node.sendrawtransaction, raw)
+        self.restart_node(0, self.extra_args[0] + ['-maxtxfee=0.5'])
+        self.check_mempool_result(
+            result_expected={txid: {'allowed': True}},
+            rawtxs=[raw],
+        )
+        node.sendrawtransaction(hexstring=raw)
 
 if __name__ == '__main__':
     MempoolAcceptanceTest().main()

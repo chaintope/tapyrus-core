@@ -49,8 +49,12 @@ public:
     /** The coinbase subsidy of the block at this height, in tapyrus. */
     int64_t BlockSubsidy(int32_t height) const;
     const CCheckpointData& Checkpoints() const { return m_checkpoints; }
-    /** The softforks registered for this network. */
-    const CSoftForkManager& SoftForkManager() const { return m_soft_forks; }
+    /** Whether the soft fork with this script flag is active at this height. */
+    bool IsActive(uint32_t flag, int32_t height) const;
+    /** The soft-fork script flags that activate between these heights, or 0. */
+    uint32_t ActivationFlagsChange(int32_t oldHeight, int32_t newHeight) const;
+    /** The script flags of the soft forks active at this height. */
+    uint32_t ScriptFlagsAt(int32_t height) const;
 
 protected:
     //! Lets tests use a halving interval that neither mode has.
@@ -63,11 +67,5 @@ private:
     const CCheckpointData m_checkpoints;
     const CSoftForkManager m_soft_forks;
 };
-
-/**
- * The node's consensus settings, set once at start-up. It is a global until
- * ConsensusInterface is implemented, and then moves inside ConsensusInterface.
- */
-extern std::unique_ptr<const ConsensusSettings> g_consensus_settings;
 
 #endif // TAPYRUS_CONSENSUSSETTINGS_H

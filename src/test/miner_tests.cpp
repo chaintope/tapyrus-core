@@ -4,12 +4,14 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <chainparams.h>
+#include <contextualconsensusrules.h>
 #include <chainstatemanager.h>
 #include <coinsviewcache.h>
 #include <consensusconstants.h>
 #include <consensus/merkle.h>
-#include <consensus/tx_verify.h>
+#include <consensus/tx_check.h>
 #include <consensus/validation.h>
+#include <heightderivedconsensusrules.h>
 #include <validation.h>
 #include <miner.h>
 #include <policy/policy.h>
@@ -47,7 +49,7 @@ static CFeeRate blockMinFeeRate = CFeeRate(DEFAULT_BLOCK_MIN_TX_FEE);
 static BlockAssembler AssemblerForTest(const CChainParams& params) {
     BlockAssembler::Options options;
 
-    options.nBlockMaxSize = g_chainstate_manager.XFieldHistory().GetCurrentMaxBlockSize();
+    options.nBlockMaxSize = g_chainstate_manager.RulesLatest().MaxBlockSize();
     options.blockMinFeeRate = blockMinFeeRate;
     return BlockAssembler(params, options);
 }
@@ -506,7 +508,7 @@ BOOST_AUTO_TEST_CASE(CreateNewBlock_validity)
     mempool.addUnchecked(hash, entry.Fee(HIGHFEE).Time(GetTime()).SpendsCoinbase(true).FromTx(tx));
     BOOST_CHECK(CheckFinalTx(tx, flags)); // Locktime passes
     BOOST_CHECK(!TestSequenceLocks(tx, flags)); // Sequence locks fail
-    BOOST_CHECK(SequenceLocks(tx, flags, &prevheights, CreateBlockIndex(chainActive.Tip()->nHeight + 2))); // Sequence locks pass on 2nd block
+    BOOST_CHECK(ContextualConsensusRules::SequenceLocks(tx, flags, &prevheights, CreateBlockIndex(chainActive.Tip()->nHeight + 2))); // Sequence locks pass on 2nd block
 
     // relative time locked
     tx.vin[0].prevout.hashMalFix = txFirst[1]->GetHashMalFix();
@@ -519,7 +521,7 @@ BOOST_AUTO_TEST_CASE(CreateNewBlock_validity)
 
     for (int i = 0; i < ConsensusConstants::nMedianTimeSpan; i++)
         chainActive.Tip()->GetAncestor(chainActive.Tip()->nHeight - i)->nTime += 512; //Trick the MedianTimePast
-    BOOST_CHECK(SequenceLocks(tx, flags, &prevheights, CreateBlockIndex(chainActive.Tip()->nHeight + 1))); // Sequence locks pass 512 seconds later
+    BOOST_CHECK(ContextualConsensusRules::SequenceLocks(tx, flags, &prevheights, CreateBlockIndex(chainActive.Tip()->nHeight + 1))); // Sequence locks pass 512 seconds later
     for (int i = 0; i < ConsensusConstants::nMedianTimeSpan; i++)
         chainActive.Tip()->GetAncestor(chainActive.Tip()->nHeight - i)->nTime -= 512; //undo tricked MTP
 

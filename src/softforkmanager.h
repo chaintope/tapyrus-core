@@ -23,7 +23,7 @@ struct HeightActivation {
  * Represents a single softfork rule tied to a specific Tapyrus network.
  *
  * networkId        — the Tapyrus networkId this fork applies to
- * scriptVerifyFlag — SCRIPT_VERIFY_* bit(s) added to GetBlockScriptFlags()
+ * scriptVerifyFlag — SCRIPT_VERIFY_* bit(s) added to a block's script flags
  *                    when the fork is active
  * activationHeight — block height at which the fork becomes active (for introspection)
  * isActive         — callable(blockHeight) → bool; the canonical activation check;
@@ -93,15 +93,9 @@ public:
     }
 
     /**
-     * Convenience overload: queries the node's network via g_consensus_settings.
-     * Implemented in consensussettings.cpp to avoid a circular include dependency.
-     */
-    bool IsActive(unsigned int flag, int32_t blockHeight) const;
-
-    /**
      * Returns whether the softfork flag is reflected in the given pre-computed
      * script-verify flags.  Used in the script interpreter, which sees only the
-     * flags bitmask (already produced by GetBlockScriptFlags / IsActive) and
+     * flags bitmask (already produced by ChainstateManager) and
      * cannot query by block height.
      */
     static bool IsEnabled(unsigned int flag, unsigned int scriptFlags) {
@@ -116,7 +110,7 @@ public:
      * pass oldHeight = pindexNew->nHeight (flags the mempool was checked against)
      * and newHeight = pindexNew->nHeight + 1 (flags the next block requires).
      * A non-zero return means the mempool should be re-evaluated against
-     * (STANDARD_SCRIPT_VERIFY_FLAGS | returnValue).
+     * (PolicyConstants::STANDARD_SCRIPT_VERIFY_FLAGS | returnValue).
      */
     unsigned int ActivationFlagsChange(uint32_t networkId, int32_t oldHeight, int32_t newHeight) const {
         const unsigned int before = GetScriptFlags(networkId, oldHeight);
@@ -125,11 +119,5 @@ public:
     }
 
 };
-
-/**
- * Returns the softfork manager for the node's network, from g_consensus_settings.
- * Implemented in consensussettings.cpp.
- */
-const CSoftForkManager& GetSoftForkManager();
 
 #endif // TAPYRUS_SOFTFORKMANAGER_H

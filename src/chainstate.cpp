@@ -3,16 +3,18 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <chainstate.h>
+#include <contextualconsensusrules.h>
 #include <chainstatemanager.h>
 #include <chainparams.h>
+#include <checkblock.h>
 #include <consensussettings.h>
 #include <util.h>
 #include <issuedcolorids.h>
 
-#include <consensus/tx_verify.h>
 #include <index/txindex.h>
 #include <policy/packages.h>
 #include <policy/policy.h>
+#include <policy/policyconstants.h>
 #include <precomputedcolordata.h>
 #include <shutdown.h>
 #include <trace.h>
@@ -503,9 +505,9 @@ static void UpdateMempoolForReorg(DisconnectedBlockTransactions &disconnectpool,
     mempool.UpdateTransactionsFromBlock(vHashUpdate);
 
     // We also need to remove any now-immature transactions
-    mempool.removeForReorg(pcoinsTip.get(), chainActive.Tip()->nHeight + 1, STANDARD_LOCKTIME_VERIFY_FLAGS);
+    mempool.removeForReorg(pcoinsTip.get(), chainActive.Tip()->nHeight + 1, PolicyConstants::STANDARD_LOCKTIME_VERIFY_FLAGS);
     // Re-limit mempool size, in case we added any transactions
-    LimitMempoolSize(mempool, gArgs.GetArg("-maxmempool", DEFAULT_MAX_MEMPOOL_SIZE) * 1000000, gArgs.GetArg("-mempoolexpiry", DEFAULT_MEMPOOL_EXPIRY) * 60 * 60);
+    LimitMempoolSize(mempool, g_policy_settings->maxMempool, g_policy_settings->mempoolExpiry);
 }
 
 /** Apply the effects of this block (with given index) on the UTXO set represented by coins.
@@ -534,7 +536,8 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     // is enforced in ContextualCheckBlockHeader(); we wouldn't want to
     // re-enforce that rule here (at least until we make it impossible for
     // GetAdjustedTime() to go backward).
-    if (!CheckBlock(block, state, g_chainstate_manager.XFieldHistory(), !fJustCheck, !fJustCheck, pindex->nHeight)) {
+    const HeightDerivedConsensusRules consensusAtHeight = g_chainstate_manager.RulesAt(*pindex);
+    if (!CheckBlock(block, state, consensusAtHeight, !fJustCheck, !fJustCheck)) {
         if (state.CorruptionPossible()) {
             // We don't write down blocks to disk if they may have been
             // corrupted, so this should be impossible unless we're having hardware
@@ -550,7 +553,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
 
     // Special case for the genesis block, skipping connection of its transactions
     // (its coinbase is unspendable)
-    if (block.GetHash() == g_consensus_settings->GenesisBlock().GetHash()) {
+    if (block.GetHash() == g_chainstate_manager.Settings().GenesisBlock().GetHash()) {
         if (!fJustCheck)
             view.SetBestBlock(pindex->GetBlockHash());
         return true;
@@ -614,7 +617,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
 
         if (!tx.IsCoinBase())
         {
-            if (!Consensus::CheckTxInputs(tx, state, view, pindex->nHeight, txfee)) {
+            if (!ContextualConsensusRules::CheckTxInputs(tx, state, view, pindex->nHeight, txfee)) {
                 // Do not add to the DoS score already set by CheckTxInputs.
                 // "bad-txns-premature-spend-of-coinbase" deliberately uses DoS=0
                 // (via state.Invalid) so that a peer relaying a block during a
@@ -637,7 +640,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                 prevheights[j] = view.AccessCoin(tx.vin[j].prevout).nHeight;
             }
 
-            if (!SequenceLocks(tx, nLockTimeFlags, &prevheights, *pindex)) {
+            if (!ContextualConsensusRules::SequenceLocks(tx, nLockTimeFlags, &prevheights, *pindex)) {
                 return state.DoS(100, error("%s: contains a non-BIP68-final transaction", __func__),
                                  REJECT_INVALID, "bad-txns-nonfinal");
             }
@@ -646,8 +649,8 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         // GetTransactionSigOps counts 2 types of sigops:
         // * legacy (always)
         // * p2sh (when P2SH enabled in flags and excludes coinbase)
-        nSigOpsCost += GetTransactionSigOps(tx, view, SCRIPT_VERIFY_NONE);
-        if (nSigOpsCost > g_chainstate_manager.XFieldHistory().GetMaxBlockSigops())
+        nSigOpsCost += ContextualConsensusRules::GetTransactionSigOps(tx, view, SCRIPT_VERIFY_NONE);
+        if (nSigOpsCost > consensusAtHeight.MaxBlockSigops())
             return state.DoS(100, error("ConnectBlock(): too many sigops"),
                              REJECT_INVALID, "bad-blk-sigops");
 
@@ -663,7 +666,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         {
             std::vector<CScriptCheck> vChecks;
             bool fCacheResults = fJustCheck; /* Don't cache results if we're actually connecting blocks (still consult the cache, though) */
-            if (!CheckInputs(tx, state, view, fScriptChecks, GetBlockScriptFlags(pindex), fCacheResults, fCacheResults, nScriptCheckThreads ? &vChecks : nullptr, GetBlockScriptFlags(pindex)))
+            if (!CheckInputs(tx, state, view, fScriptChecks, consensusAtHeight.ScriptFlags(), fCacheResults, fCacheResults, nScriptCheckThreads ? &vChecks : nullptr, consensusAtHeight.ScriptFlags()))
                 // FormatStateMessage is evaluated before DoS() re-sets state, preserving
                 // the per-input detail in the log.  state.GetRejectReason() already holds
                 // the specific error string set by CheckInputs, so it is propagated as-is.
@@ -706,7 +709,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     int64_t nTime3 = GetTimeMicros(); nTimeConnect += nTime3 - nTime2;
     LogPrint(BCLog::BENCH, "      - Connect %u transactions: %.2fms (%.3fms/tx, %.3fms/txin) [%.2fs (%.2fms/blk)]\n", (unsigned)block.vtx.size(), MILLI * (nTime3 - nTime2), MILLI * (nTime3 - nTime2) / block.vtx.size(), nInputs <= 1 ? 0 : MILLI * (nTime3 - nTime2) / (nInputs-1), nTimeConnect * MICRO, nTimeConnect * MILLI / nBlocksTotal);
 
-    CAmount blockReward = nFees + g_consensus_settings->BlockSubsidy(pindex->nHeight);
+    CAmount blockReward = nFees + g_chainstate_manager.Settings().BlockSubsidy(pindex->nHeight);
     if (block.vtx[0]->GetValueOut(ColorIdentifier()) > blockReward)
         return state.DoS(100,
                          error("ConnectBlock(): coinbase pays too much (actual=%d vs limit=%d)",
@@ -909,10 +912,10 @@ bool CChainState::ConnectTip(CValidationState& state, CBlockIndex* pindexNew, co
     // If this block crossed a softfork activation boundary, evict mempool entries
     // that no longer pass script checks or colored-coin rules under the new next-block flags.
     {
-        const unsigned int newSoftforkFlags = GetSoftForkManager().ActivationFlagsChange(
-            FederationParams().NetworkId(), pindexNew->nHeight, pindexNew->nHeight + 1);
+        const unsigned int newSoftforkFlags = g_chainstate_manager.Settings().ActivationFlagsChange(
+            pindexNew->nHeight, pindexNew->nHeight + 1);
         if (newSoftforkFlags) {
-            mempool.removeForScriptFlagChange(STANDARD_SCRIPT_VERIFY_FLAGS | newSoftforkFlags, pindexNew->nHeight + 1);
+            mempool.removeForScriptFlagChange(PolicyConstants::STANDARD_SCRIPT_VERIFY_FLAGS | newSoftforkFlags, pindexNew->nHeight + 1);
         }
     }
 
@@ -1381,7 +1384,7 @@ bool CChainState::AcceptBlockHeader(const CBlockHeader& block, CValidationState&
     uint256 hash = block.GetHash();
     BlockMap::iterator miSelf = mapBlockIndex.find(hash);
     CBlockIndex *pindex = nullptr;
-    if (hash != g_consensus_settings->GenesisBlock().GetHash()) {
+    if (hash != g_chainstate_manager.Settings().GenesisBlock().GetHash()) {
         if (miSelf != mapBlockIndex.end()) {
             // Block header is already known.
             pindex = miSelf->second;
@@ -1400,16 +1403,17 @@ bool CChainState::AcceptBlockHeader(const CBlockHeader& block, CValidationState&
             if (mi != mapBlockIndex.end())
                 pindexPrev = (*mi).second;
         }
-        int nBlockHeight = pindexPrev ? pindexPrev->nHeight + 1 : -1;
-
-        if (!CheckBlockHeader(block, state, pxfieldHistory ? *pxfieldHistory : g_chainstate_manager.XFieldHistory(), nBlockHeight))
+        const CXFieldHistoryMap& history = pxfieldHistory ? *pxfieldHistory : g_chainstate_manager.XFieldHistory();
+        const HeightDerivedConsensusRules consensusAtHeight = pindexPrev ? g_chainstate_manager.RulesAfter(*pindexPrev, history)
+                                                                         : g_chainstate_manager.RulesLatest(history);
+        if (!CheckBlockHeader(block, state, consensusAtHeight))
             return error("%s: Consensus::CheckBlockHeader: %s, %s", __func__, hash.ToString(), FormatStateMessage(state));
 
         if (!pindexPrev)
             return state.DoS(10, error("%s: prev block not found", __func__), 0, "prev-blk-not-found");
         if (pindexPrev->nStatus & BLOCK_FAILED_MASK)
             return state.DoS(100, error("%s: prev block invalid", __func__), REJECT_INVALID, "bad-prevblk");
-        if (!ContextualCheckBlockHeader(block, state, pindexPrev, GetAdjustedTime()))
+        if (!ContextualConsensusRules::ContextualCheckBlockHeader(block, state, *pindexPrev, GetAdjustedTime(), GetLastCheckpointIfEnabled()))
             return error("%s: Consensus::ContextualCheckBlockHeader: %s, %s", __func__, hash.ToString(), FormatStateMessage(state));
 
         // If the previous block index isn't valid, determine if it descends from any block which
@@ -1463,6 +1467,12 @@ bool CChainState::AcceptBlock(const std::shared_ptr<const CBlock>& pblock, CVali
     CBlockIndex *pindexDummy = nullptr;
     CBlockIndex *&pindex = ppindex ? *ppindex : pindexDummy;
 
+    // Before AcceptBlockHeader, so a block with a wrong height leaves no index entry.
+    // ContextualCheckBlock below repeats this check, which then always passes.
+    const BlockMap::const_iterator prev = mapBlockIndex.find(block.hashPrevBlock);
+    if (prev != mapBlockIndex.end() && !ContextualConsensusRules::CheckCoinbaseHeight(block, state, *prev->second))
+        return false;
+
     if (!AcceptBlockHeader(block, state, &pindex, pxfieldHistory))
         return false;
 
@@ -1492,8 +1502,9 @@ bool CChainState::AcceptBlock(const std::shared_ptr<const CBlock>& pblock, CVali
         if (fTooFarAhead) return true;        // Block height is too high
     }
 
-    if (!CheckBlock(block, state, pxfieldHistory ? *pxfieldHistory : g_chainstate_manager.XFieldHistory(), false, true, pindex->pprev ? pindex->pprev->nHeight + 1 : 0) ||
-        !ContextualCheckBlock(block, state, pindex->pprev)) {
+    const CXFieldHistoryMap& history = pxfieldHistory ? *pxfieldHistory : g_chainstate_manager.XFieldHistory();
+    if (!CheckBlock(block, state, g_chainstate_manager.RulesAt(*pindex, history), false, true) ||
+        !ContextualConsensusRules::ContextualCheckBlock(block, state, *pindex->pprev)) {
         if (state.IsInvalid() && !state.CorruptionPossible()) {
             pindex->nStatus |= BLOCK_FAILED_VALID;
             setDirtyBlockIndex.insert(pindex);
@@ -1764,11 +1775,11 @@ bool CChainState::LoadGenesisBlock()
     // mapBlockIndex. Note that we can't use chainActive here, since it is
     // set based on the coins db, not the block index db, which is the only
     // thing loaded at this point.
-    if (mapBlockIndex.count(g_consensus_settings->GenesisBlock().GetHash()))
+    if (mapBlockIndex.count(g_chainstate_manager.Settings().GenesisBlock().GetHash()))
         return true;
 
     try {
-        CBlock &block = const_cast<CBlock&>(g_consensus_settings->GenesisBlock());
+        CBlock &block = const_cast<CBlock&>(g_chainstate_manager.Settings().GenesisBlock());
         CDiskBlockPos blockPos;
 
         if (fReindex && fs::exists(GetBlocksDir() / strprintf("blk%05u.dat", 0))) {
@@ -1789,7 +1800,7 @@ bool CChainState::LoadGenesisBlock()
         CBlockIndex *pindex = AddToBlockIndex(block);
         ReceivedBlockTransactions(block, pindex, blockPos);
 
-        g_chainstate_manager.InitXFieldHistory(g_consensus_settings->GenesisBlock());
+        g_chainstate_manager.InitXFieldHistory(g_chainstate_manager.Settings().GenesisBlock());
     } catch (const std::runtime_error& e) {
         return error("%s: failed to write genesis block: %s", __func__, e.what());
     }
@@ -1851,7 +1862,7 @@ void CChainState::CheckBlockIndex()
         // Begin: actual consistency checks.
         if (pindex->pprev == nullptr) {
             // Genesis block checks.
-            assert(pindex->GetBlockHash() == g_consensus_settings->GenesisBlock().GetHash()); // Genesis block's hash must match.
+            assert(pindex->GetBlockHash() == g_chainstate_manager.Settings().GenesisBlock().GetHash()); // Genesis block's hash must match.
             assert(pindex == chainActive.Genesis()); // The current active chain's genesis block must be this block.
         }
         if (pindex->nChainTx == 0) assert(pindex->nSequenceId <= 0);  // nSequenceId can't be set positive for blocks that aren't linked (negative is used for preciousblock)

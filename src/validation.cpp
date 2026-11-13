@@ -5,6 +5,9 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <consensussettings.h>
+#include <contextualconsensusrules.h>
+#include <checkblock.h>
+#include <consensus/tx_check.h>
 #include <validation.h>
 #include <cs_main.h>
 #include <issuedcolorids.h>
@@ -12,7 +15,6 @@
 #include <checkpoints.h>
 #include <checkqueue.h>
 #include <consensus/merkle.h>
-#include <consensus/tx_verify.h>
 #include <consensus/validation.h>
 #include <cuckoocache.h>
 #include <federationparams.h>
@@ -21,6 +23,7 @@
 #include <policy/fees.h>
 #include <policy/packages.h>
 #include <policy/policy.h>
+#include <policy/policyconstants.h>
 #include <policy/rbf.h>
 #include <precomputedcolordata.h>
 #include <primitives/block.h>
@@ -69,15 +72,8 @@ bool fCheckpointsEnabled = DEFAULT_CHECKPOINTS_ENABLED;
 size_t nCoinCacheUsage = 5000 * 300;
 uint64_t nPruneTarget = 0;
 int64_t nMaxTipAge = DEFAULT_MAX_TIP_AGE;
-bool fEnableReplacement = DEFAULT_ENABLE_REPLACEMENT;
-#ifdef DEBUG
-bool acceptnonstdtxn = false;
-#endif
 
 uint256 hashAssumeValid;
-
-CFeeRate minRelayTxFee = CFeeRate(DEFAULT_MIN_RELAY_TX_FEE);
-CAmount maxTxFee = DEFAULT_TRANSACTION_MAXFEE;
 
 CBlockPolicyEstimator feeEstimator;
 CTxMemPool mempool(&feeEstimator);
@@ -182,6 +178,12 @@ std::unique_ptr<CCoinsViewDB> pcoinsdbview;
 std::unique_ptr<CCoinsViewCache> pcoinsTip;
 std::unique_ptr<CBlockTreeDB> pblocktree;
 
+const CBlockIndex* GetLastCheckpointIfEnabled()
+{
+    AssertLockHeld(cs_main);
+    return fCheckpointsEnabled ? Checkpoints::GetLastCheckpoint(g_chainstate_manager.Settings().Checkpoints()) : nullptr;
+}
+
 bool CheckFinalTx(const CTransaction &tx, int flags)
 {
     AssertLockHeld(cs_main);
@@ -231,6 +233,7 @@ bool TestLockPointValidity(const LockPoints* lp)
     // LockPoints still valid
     return true;
 }
+
 bool CheckSequenceLocks(const CTransaction &tx, int flags, CCoinsViewMemPool& viewMemPool, LockPoints* lp, bool useExistingLockPoints)
 {
     AssertLockHeld(cs_main);
@@ -272,7 +275,7 @@ bool CheckSequenceLocks(const CTransaction &tx, int flags, CCoinsViewMemPool& vi
                 prevheights[txinIndex] = coin.nHeight;
             }
         }
-        lockPair = CalculateSequenceLocks(tx, flags, &prevheights, index);
+        lockPair = ContextualConsensusRules::CalculateSequenceLocks(tx, flags, &prevheights, index);
         if (lp) {
             lp->height = lockPair.first;
             lp->time = lockPair.second;
@@ -299,9 +302,8 @@ bool CheckSequenceLocks(const CTransaction &tx, int flags, CCoinsViewMemPool& vi
             lp->maxInputBlock = tip->GetAncestor(maxInputHeight);
         }
     }
-    return EvaluateSequenceLocks(index, lockPair);
+    return ContextualConsensusRules::EvaluateSequenceLocks(index, lockPair);
 }
-
 void LimitMempoolSize(CTxMemPool& pool, size_t limit, unsigned long age) {
     int expired = pool.Expire(GetTime() - age);
     if (expired != 0) {
@@ -390,7 +392,7 @@ static bool CheckConflictsInMempool(const CTransaction& tx, std::set<uint256>& s
                 // unconfirmed ancestors anyway; doing otherwise is hopelessly
                 // insecure.
                 bool fReplacementOptOut = true;
-                if (fEnableReplacement)
+                if (g_policy_settings->enableReplacement)
                 {
                     for (const CTxIn &_txin : ptxConflicting->vin)
                     {
@@ -434,23 +436,6 @@ static bool DoAllInputsExist(const CTransaction& tx, CValidationState& state, CT
     return true;
 }
 
-unsigned int GetBlockScriptFlags(int32_t blockHeight) {
-    AssertLockHeld(cs_main);
-
-    unsigned int flags = SCRIPT_VERIFY_NONE;
-
-    // Activation logic and network-id lookup are encapsulated in the softfork manager.
-    if (GetSoftForkManager().IsActive(SCRIPT_VERIFY_CP2SH_COLORED, blockHeight))
-        flags |= SCRIPT_VERIFY_CP2SH_COLORED;
-
-    return flags;
-}
-
-unsigned int GetBlockScriptFlags(const CBlockIndex* pindex) {
-    return GetBlockScriptFlags(pindex->nHeight);
-}
-
-
 static bool AcceptToMemoryPoolWorker(const CTransactionRef &ptx, CTxMempoolAcceptanceOptions& opt)
 {
     const CTransaction& tx = *ptx;
@@ -474,22 +459,17 @@ static bool AcceptToMemoryPoolWorker(const CTransactionRef &ptx, CTxMempoolAccep
 
     // Rather not work on nonstandard transactions (unless -dev)
     std::string reason;
-#ifdef DEBUG
-    if (!acceptnonstdtxn && !IsStandardTx(tx, reason))
+    if (!g_policy_settings->acceptNonStdTxn && !IsStandardTx(tx, reason))
         return state.DoS(0, false, REJECT_NONSTANDARD, reason);
-#else
-    if(!IsStandardTx(tx, reason))
-        return state.DoS(0, false, REJECT_NONSTANDARD, reason);
-#endif
     // Do not work on transactions that are too small.
     // Transactions smaller than this are not relayed to reduce unnecessary malloc overhead.
-    if (::GetSerializeSize(tx, SER_NETWORK, PROTOCOL_VERSION) < MIN_STANDARD_TX_SIZE)
+    if (::GetSerializeSize(tx, SER_NETWORK, PROTOCOL_VERSION) < g_policy_settings->MinStandardTxSize())
         return state.DoS(0, false, REJECT_NONSTANDARD, "tx-size-small");
 
     // Only accept nLockTime-using transactions that can be mined in the next
     // block; we don't want our mempool filled up with transactions that can't
     // be mined yet.
-    if (!CheckFinalTx(tx, STANDARD_LOCKTIME_VERIFY_FLAGS))
+    if (!CheckFinalTx(tx, PolicyConstants::STANDARD_LOCKTIME_VERIFY_FLAGS))
         return state.DoS(0, false, REJECT_NONSTANDARD, "non-final");
 
     // is it already in the memory pool?
@@ -533,11 +513,11 @@ static bool AcceptToMemoryPoolWorker(const CTransactionRef &ptx, CTxMempoolAccep
         // Must keep pool.cs for this unless we change CheckSequenceLocks to take a
         // CoinsViewCache instead of create its own
         LockPoints lp;
-        if (!CheckSequenceLocks(tx, STANDARD_LOCKTIME_VERIFY_FLAGS, *opt.mempool_view, &lp))
+        if (!CheckSequenceLocks(tx, PolicyConstants::STANDARD_LOCKTIME_VERIFY_FLAGS, *opt.mempool_view, &lp))
             return state.DoS(0, false, REJECT_NONSTANDARD, "non-BIP68-final");
 
         CAmount nFees = 0;
-        if (!Consensus::CheckTxInputs(tx, state, view, GetSpendHeight(view), nFees)) {
+        if (!ContextualConsensusRules::CheckTxInputs(tx, state, view, GetSpendHeight(view), nFees)) {
             return error("%s: Consensus::CheckTxInputs: %s, %s", __func__, tx.GetHashMalFix().ToString(), FormatStateMessage(state));
         }
 
@@ -545,7 +525,7 @@ static bool AcceptToMemoryPoolWorker(const CTransactionRef &ptx, CTxMempoolAccep
         if (!AreInputsStandard(tx, view))
             return state.Invalid(false, REJECT_NONSTANDARD, "bad-txns-nonstandard-inputs");
 
-        uint32_t nSigOps = GetTransactionSigOps(tx, view, STANDARD_SCRIPT_VERIFY_FLAGS);
+        uint32_t nSigOps = ContextualConsensusRules::GetTransactionSigOps(tx, view, PolicyConstants::STANDARD_SCRIPT_VERIFY_FLAGS);
 
         // nModifiedFees includes any fee deltas from PrioritiseTransaction
         CAmount nModifiedFees = nFees;
@@ -567,7 +547,7 @@ static bool AcceptToMemoryPoolWorker(const CTransactionRef &ptx, CTxMempoolAccep
                               fSpendsCoinbase, nSigOps, lp);
         unsigned int nSize = entry.GetTxSize();
 
-        CAmount mempoolRejectFee = pool.GetMinFee(gArgs.GetArg("-maxmempool", DEFAULT_MAX_MEMPOOL_SIZE) * 1000000).GetFee(nSize);
+        CAmount mempoolRejectFee = pool.GetMinFee(g_policy_settings->maxMempool).GetFee(nSize);
         if (opt.flags != MempoolAcceptanceFlags::BYPASSS_LIMITS
           && mempoolRejectFee > 0
           && nModifiedFees < mempoolRejectFee) {
@@ -576,8 +556,8 @@ static bool AcceptToMemoryPoolWorker(const CTransactionRef &ptx, CTxMempoolAccep
 
         // No transactions are allowed below minRelayTxFee except from disconnected blocks
         if (opt.flags != MempoolAcceptanceFlags::BYPASSS_LIMITS
-          && nModifiedFees < ::minRelayTxFee.GetFee(nSize)) {
-            return state.DoS(0, false, REJECT_INSUFFICIENTFEE, "min relay fee not met", false, strprintf("%d < %d", nModifiedFees, ::minRelayTxFee.GetFee(nSize)));
+          && nModifiedFees < g_policy_settings->minRelayTxFee.GetFee(nSize)) {
+            return state.DoS(0, false, REJECT_INSUFFICIENTFEE, "min relay fee not met", false, strprintf("%d < %d", nModifiedFees, g_policy_settings->minRelayTxFee.GetFee(nSize)));
         }
 
         if (opt.nAbsurdFee && nFees > opt.nAbsurdFee)
@@ -587,10 +567,10 @@ static bool AcceptToMemoryPoolWorker(const CTransactionRef &ptx, CTxMempoolAccep
 
         // Calculate in-mempool ancestors, up to a limit.
         CTxMemPool::setEntries setAncestors;
-        size_t nLimitAncestors = gArgs.GetArg("-limitancestorcount", DEFAULT_ANCESTOR_LIMIT);
-        size_t nLimitAncestorSize = gArgs.GetArg("-limitancestorsize", DEFAULT_ANCESTOR_SIZE_LIMIT)*1000;
-        size_t nLimitDescendants = gArgs.GetArg("-limitdescendantcount", DEFAULT_DESCENDANT_LIMIT);
-        size_t nLimitDescendantSize = gArgs.GetArg("-limitdescendantsize", DEFAULT_DESCENDANT_SIZE_LIMIT)*1000;
+        size_t nLimitAncestors = g_policy_settings->ancestorLimit;
+        size_t nLimitAncestorSize = g_policy_settings->ancestorSizeLimit;
+        size_t nLimitDescendants = g_policy_settings->descendantLimit;
+        size_t nLimitDescendantSize = g_policy_settings->descendantSizeLimit;
         std::string errString;
         if (!pool.CalculateMemPoolAncestors(entry, setAncestors, nLimitAncestors, nLimitAncestorSize, nLimitDescendants, nLimitDescendantSize, errString)) {
             return state.DoS(0, false, REJECT_NONSTANDARD, "too-long-mempool-chain", false, errString);
@@ -628,7 +608,7 @@ static bool AcceptToMemoryPoolWorker(const CTransactionRef &ptx, CTxMempoolAccep
         {
             CFeeRate newFeeRate(nModifiedFees, nSize);
             std::set<uint256> setConflictsParents;
-            const int maxDescendantsToVisit = 100;
+            const uint32_t maxDescendantsToVisit = g_policy_settings->maxReplacementCandidates;
             CTxMemPool::setEntries setIterConflicting;
             for (const uint256 &hashConflicting : setConflicts)
             {
@@ -726,14 +706,14 @@ static bool AcceptToMemoryPoolWorker(const CTransactionRef &ptx, CTxMempoolAccep
             // Finally in addition to paying more fees than the conflicts the
             // new transaction must pay for its own bandwidth.
             CAmount nDeltaFees = nModifiedFees - nConflictingFees;
-            if (nDeltaFees < ::incrementalRelayFee.GetFee(nSize))
+            if (nDeltaFees < g_policy_settings->incrementalRelayFee.GetFee(nSize))
             {
                 return state.DoS(0, false,
                         REJECT_INSUFFICIENTFEE, "insufficient fee", false,
                         strprintf("rejecting replacement %s, not enough additional fees to relay; %s < %s",
                               hash.ToString(),
                               FormatMoney(nDeltaFees),
-                              FormatMoney(::incrementalRelayFee.GetFee(nSize))));
+                              FormatMoney(g_policy_settings->incrementalRelayFee.GetFee(nSize))));
             }
         }
 
@@ -743,12 +723,11 @@ static bool AcceptToMemoryPoolWorker(const CTransactionRef &ptx, CTxMempoolAccep
         // activation at height H is enforced by the mempool at tip == H-1.
         // Using tip height here would admit txs that are valid pre-activation but
         // invalid post-activation, producing an invalid block at height H.
-        const int32_t nextBlockHeight = chainActive.Tip()->nHeight + 1;
-        const unsigned int tipScriptFlags = GetBlockScriptFlags(nextBlockHeight);
-        const unsigned int mempoolScriptFlags = STANDARD_SCRIPT_VERIFY_FLAGS | tipScriptFlags;
+        const unsigned int tipScriptFlags = g_chainstate_manager.Settings().ScriptFlagsAt(chainActive.Tip()->nHeight + 1);
+        const unsigned int mempoolScriptFlags = PolicyConstants::STANDARD_SCRIPT_VERIFY_FLAGS | tipScriptFlags;
         // Pass tipScriptFlags as mandatoryFlags so that softfork flags active at
         // nextBlockHeight are treated as mandatory even when they also appear in
-        // STANDARD_SCRIPT_VERIFY_FLAGS (e.g. SCRIPT_VERIFY_CP2SH_COLORED).
+        // PolicyConstants::STANDARD_SCRIPT_VERIFY_FLAGS (e.g. SCRIPT_VERIFY_CP2SH_COLORED).
         if (!CheckInputs(tx, state, view, true, mempoolScriptFlags, true, false, nullptr, tipScriptFlags)) {
             return false; // state filled in by CheckInputs
         }
@@ -760,9 +739,8 @@ static bool AcceptToMemoryPoolWorker(const CTransactionRef &ptx, CTxMempoolAccep
                     __func__, hash.ToString(), FormatStateMessage(state));
         }
 
-        if (!colorChecker.CheckTokenBalances(opt.state, ::minRelayTxFee.GetFee(nSize)))
+        if (!colorChecker.CheckTokenBalances(opt.state, g_policy_settings->minRelayTxFee.GetFee(nSize)))
             return false;
-
 
         if (opt.flags == MempoolAcceptanceFlags::TEST_ONLY) {
             // Tx was accepted, but not added
@@ -802,7 +780,7 @@ static bool AcceptToMemoryPoolWorker(const CTransactionRef &ptx, CTxMempoolAccep
 
         // trim mempool and check if tx was trimmed
         if (opt.flags != MempoolAcceptanceFlags::BYPASSS_LIMITS) {
-            LimitMempoolSize(pool, gArgs.GetArg("-maxmempool", DEFAULT_MAX_MEMPOOL_SIZE) * 1000000, gArgs.GetArg("-mempoolexpiry", DEFAULT_MEMPOOL_EXPIRY) * 60 * 60);
+            LimitMempoolSize(pool, g_policy_settings->maxMempool, g_policy_settings->mempoolExpiry);
             if (!pool.exists(hash))
                 return state.DoS(0, false, REJECT_INSUFFICIENTFEE, "mempool full");
         }
@@ -840,7 +818,7 @@ bool AcceptToMemoryPool(const CTransactionRef &tx, CTxMempoolAcceptanceOptions& 
  * Return transaction in txOut, and if it was found inside a block, its hash is placed in hashBlock.
  * If blockIndex is provided, the transaction is fetched from the corresponding block.
  */
-bool GetTransaction(const uint256& hash, CTransactionRef& txOut, const Consensus::Params& consensusParams, uint256& hashBlock, bool fAllowSlow, CBlockIndex* blockIndex)
+bool GetTransaction(const uint256& hash, CTransactionRef& txOut, uint256& hashBlock, bool fAllowSlow, CBlockIndex* blockIndex)
 {
     CBlockIndex* pindexSlow = blockIndex;
 
@@ -878,7 +856,6 @@ bool GetTransaction(const uint256& hash, CTransactionRef& txOut, const Consensus
 
     return false;
 }
-
 
 //////////////////////////////////////////////////////////////////////////////
 //
@@ -1008,9 +985,9 @@ bool CheckInputs(const CTransaction& tx, CValidationState &state, const CCoinsVi
                     // Flags that are in STANDARD but not in the mandatory block flags
                     // for this height are truly non-mandatory (policy-only).
                     // Flags present in mandatoryFlags are consensus-mandatory even if
-                    // they also appear in STANDARD_SCRIPT_VERIFY_FLAGS (e.g.
+                    // they also appear in PolicyConstants::STANDARD_SCRIPT_VERIFY_FLAGS (e.g.
                     // SCRIPT_VERIFY_CP2SH_COLORED after softfork activation).
-                    const unsigned int nonMandatory = STANDARD_NOT_MANDATORY_VERIFY_FLAGS & ~mandatoryFlags;
+                    const unsigned int nonMandatory = PolicyConstants::STANDARD_NOT_MANDATORY_VERIFY_FLAGS & ~mandatoryFlags;
                     if (flags & nonMandatory) {
                         // Check whether the failure was caused by a non-mandatory script
                         // verification flag. If check2 passes, the failure is non-mandatory
@@ -1093,69 +1070,8 @@ bool InvalidateBlock(CValidationState& state, CBlockIndex *pindex) {
     return g_chainstate.InvalidateBlock(state, pindex);
 }
 
-
 void ResetBlockFailureFlags(CBlockIndex *pindex) {
     return g_chainstate.ResetBlockFailureFlags(pindex);
-}
-
-// CheckBlockHeader()/CheckBlock() moved to checkblock.cpp -- see the
-// file-level comment there for why.
-
-/** Context-dependent validity checks.
- *  By "context", we mean only the previous block headers, but not the UTXO
- *  set; UTXO-related validity checks are done in ConnectBlock().
- *  NOTE: This function is not currently invoked by ConnectBlock(), so we
- *  should consider upgrade issues if we change which consensus rules are
- *  enforced in this function (eg by adding a new consensus rule). See comment
- *  in ConnectBlock().
- *  Note that -reindex-chainstate skips the validation that happens here!
- */
-bool ContextualCheckBlockHeader(const CBlockHeader& block, CValidationState& state, const CBlockIndex* pindexPrev, int64_t nAdjustedTime) EXCLUSIVE_LOCKS_REQUIRED(::cs_main)
-{
-    assert(pindexPrev != nullptr);
-    const int nHeight = pindexPrev->nHeight + 1;
-
-    // Check against checkpoints
-    if (fCheckpointsEnabled) {
-        // Don't accept any forks from the prod chain prior to last checkpoint.
-        // GetLastCheckpoint finds the last checkpoint in MapCheckpoints that's in our
-        // MapBlockIndex.
-        CBlockIndex* pcheckpoint = Checkpoints::GetLastCheckpoint(g_consensus_settings->Checkpoints());
-        if (pcheckpoint && nHeight < pcheckpoint->nHeight)
-            return state.DoS(100, error("%s: forked chain older than last checkpoint (height %d)", __func__, nHeight), REJECT_CHECKPOINT, "bad-fork-prior-to-checkpoint");
-    }
-
-    // Check timestamp against prev
-    if (block.GetBlockTime() <= pindexPrev->GetMedianTimePast())
-        return state.Invalid(false, REJECT_INVALID, "time-too-old", "block's timestamp is too early");
-
-    // Check timestamp
-    if (block.GetBlockTime() > nAdjustedTime + ConsensusConstants::MAX_FUTURE_BLOCK_TIME)
-        return state.Invalid(false, REJECT_INVALID, "time-too-new", "block timestamp too far in the future");
-
-    return true;
-}
-
-/** NOTE: This function is not currently invoked by ConnectBlock(), so we
- *  should consider upgrade issues if we change which consensus rules are
- *  enforced in this function (eg by adding a new consensus rule). See comment
- *  in ConnectBlock().
- *  Note that -reindex-chainstate skips the validation that happens here!
- */
-bool ContextualCheckBlock(const CBlock& block, CValidationState& state, const CBlockIndex* pindexPrev)
-{
-    const int nHeight = pindexPrev == nullptr ? 0 : pindexPrev->nHeight + 1;
-
-    int64_t nLockTimeCutoff = pindexPrev->GetMedianTimePast();
-
-    // Check that all transactions are finalized
-    for (const auto& tx : block.vtx) {
-        if (!IsFinalTx(*tx, nHeight, nLockTimeCutoff)) {
-            return state.DoS(10, false, REJECT_INVALID, "bad-txns-nonfinal", false, "non-final transaction");
-        }
-    }
-
-    return true;
 }
 
 // Exposed wrapper for AcceptBlockHeader
@@ -1191,7 +1107,7 @@ bool ProcessNewBlock(const std::shared_ptr<const CBlock> pblock, bool fForceProc
         CValidationState state;
         // Ensure that CheckBlock() passes before calling AcceptBlock, as
         // belt-and-suspenders.
-        bool ret = CheckBlock(*pblock, state, g_chainstate_manager.XFieldHistory());
+        bool ret = CheckBlock(*pblock, state, g_chainstate_manager.RulesLatest());
 
         LOCK(cs_main);
 
@@ -1226,11 +1142,11 @@ bool TestBlockValidity(CValidationState& state, const CBlock& block, CBlockIndex
     indexDummy.phashBlock = &block_hash;
 
     // NOTE: CheckBlockHeader is called by CheckBlock
-    if (!ContextualCheckBlockHeader(block, state, pindexPrev, GetAdjustedTime()))
+    if (!ContextualConsensusRules::ContextualCheckBlockHeader(block, state, *pindexPrev, GetAdjustedTime(), GetLastCheckpointIfEnabled()))
         return error("%s: Consensus::ContextualCheckBlockHeader: %s", __func__, FormatStateMessage(state));
-    if (!CheckBlock(block, state, g_chainstate_manager.XFieldHistory(), fCheckPOW, fCheckMerkleRoot, pindexPrev->nHeight + 1))
+    if (!CheckBlock(block, state, g_chainstate_manager.RulesAfter(*pindexPrev), fCheckPOW, fCheckMerkleRoot))
         return error("%s: Consensus::CheckBlock: %s", __func__, FormatStateMessage(state));
-    if (!ContextualCheckBlock(block, state, pindexPrev))
+    if (!ContextualConsensusRules::ContextualCheckBlock(block, state, *pindexPrev))
         return error("%s: Consensus::ContextualCheckBlock: %s", __func__, FormatStateMessage(state));
     if (!g_chainstate.ConnectBlock(block, state, &indexDummy, viewNew, true))
         return false;
@@ -1445,5 +1361,3 @@ double GuessVerificationProgress(const ChainTxData& data, const CBlockIndex *pin
     return pindex->nChainTx / fTxTotal;
 }
 
-// isBlockHeightInCoinbase() moved to checkblock.cpp -- see the file-level
-// comment there for why.
