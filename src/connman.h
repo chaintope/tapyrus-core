@@ -24,6 +24,7 @@
 #include <cstdint>
 #include <functional>
 #include <memory>
+#include <optional>
 #include <string>
 #include <thread>
 #include <vector>
@@ -71,9 +72,13 @@ public:
         std::vector<CService> onion_binds;
         //! No -bind or -whitebind was given, so listen on the wildcard addresses.
         bool bind_on_any = true;
+        //! Where Tor forwards this node's onion service; start-up fails if it can't be bound.
+        std::optional<CService> onion_service_target;
 
         //! The first -whitelist range that contains addr, or nullptr.
         const CSubNet* FindWhitelistedRange(const CNetAddr& addr) const;
+        //! The first -bind or -whitebind on onion_bind's port at an address that overlaps it, or nullptr.
+        const CService* FindClearnetBindOnPort(const CService& onion_bind) const;
         bool m_use_addrman_outgoing = true;
         std::vector<std::string> m_specified_outgoing;
         std::vector<std::string> m_added_nodes;
@@ -264,7 +269,7 @@ private:
 
     bool BindListenPort(const CService &bindAddr, std::string& strError, bool fWhitelisted = false, bool fOnion = false);
     bool Bind(const CService &addr, unsigned int flags);
-    bool InitBinds(const Options& options);
+    bool InitBinds(const Options& options, bool& onion_target_bound);
     void ThreadOpenAddedConnections();
     void AddOneShot(const std::string& strDest);
     void ProcessOneShot();
