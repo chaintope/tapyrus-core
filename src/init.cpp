@@ -388,7 +388,7 @@ void SetupServerArgs()
     gArgs.AddArg("-loadblock=<file>", "Imports blocks from external blk000??.dat file on startup", false, OptionsCategory::OPTIONS);
     gArgs.AddArg("-maxmempool=<n>", strprintf("Keep the transaction memory pool below <n> megabytes (default: %u)", DEFAULT_MAX_MEMPOOL_SIZE), false, OptionsCategory::OPTIONS);
     gArgs.AddArg("-maxorphantx=<n>", strprintf("Keep at most <n> unconnectable transactions in memory (default: %u)", DEFAULT_MAX_ORPHAN_TRANSACTIONS), false, OptionsCategory::OPTIONS);
-    gArgs.AddArg("-maxorphantxsize=<n>", strprintf("Maximum size in bytes of an unconnectable transaction kept in memory, capped at -maxstandardtxsize (default: %u)", DEFAULT_MAX_ORPHAN_TX_SIZE), false, OptionsCategory::OPTIONS);
+    gArgs.AddArg("-maxorphantxsize=<n>", strprintf("Maximum size in bytes of an unconnectable transaction kept in memory, capped at -maxstandardtxsize; 0 keeps none (default: %u)", DEFAULT_MAX_ORPHAN_TX_SIZE), false, OptionsCategory::OPTIONS);
     gArgs.AddArg("-mempoolexpiry=<n>", strprintf("Do not keep transactions in the mempool longer than <n> hours (default: %u)", DEFAULT_MEMPOOL_EXPIRY), false, OptionsCategory::OPTIONS);
     gArgs.AddArg("-orphanexpiry=<n>", strprintf("Do not keep unconnectable transactions in memory longer than <n> seconds; expired ones are removed in sweeps up to %u seconds apart (at least %u, default: %u)", ORPHAN_TX_EXPIRE_INTERVAL, ORPHAN_TX_EXPIRE_INTERVAL, DEFAULT_ORPHAN_TX_EXPIRE_TIME), false, OptionsCategory::OPTIONS);
     gArgs.AddArg("-par=<n>", strprintf("Set the number of script verification threads (%u to %d, 0 = auto, <0 = leave that many cores free, default: %d)",
@@ -1642,7 +1642,8 @@ bool AppInitMain(NodeContext& node)
         return false;
     }
 
-    // The block size limit that caps -maxstandardtxsize is known only now.
+    // The block size limit that caps -maxstandardtxsize is known only now. With -reindex the
+    // xfield history holds only the genesis entries here, so this checks the genesis limit.
     const std::string standardSizeError = node.policy->CheckMinStandardTxSize();
     if (!standardSizeError.empty()) {
         return InitError(standardSizeError);

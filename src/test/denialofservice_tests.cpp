@@ -419,4 +419,29 @@ BOOST_AUTO_TEST_CASE(DoS_mapOrphans)
     BOOST_CHECK(mapOrphanTransactions.empty());
 }
 
+BOOST_AUTO_TEST_CASE(DoS_orphan_size_limit)
+{
+    CMutableTransaction mtx;
+    mtx.vin.resize(1);
+    mtx.vin[0].prevout.n = 0;
+    mtx.vin[0].prevout.hashMalFix = InsecureRand256();
+    mtx.vin[0].scriptSig << OP_1;
+    mtx.vout.resize(1);
+    mtx.vout[0].nValue = 1*CENT;
+    const CTransactionRef tx = MakeTransactionRef(mtx);
+    const uint32_t size = GetSerializeSize(*tx, SER_NETWORK, PROTOCOL_VERSION);
+
+    // -maxorphantxsize, not -maxstandardtxsize, decides which orphans are kept.
+    LOCK(g_cs_orphans);
+    {
+        PolicySettingsOverride smallOrphans({{"-maxorphantxsize", std::to_string(size - 1)}});
+        BOOST_CHECK(!AddOrphanTx(tx, 0));
+    }
+    {
+        PolicySettingsOverride exactOrphans({{"-maxorphantxsize", std::to_string(size)}});
+        BOOST_CHECK(AddOrphanTx(tx, 0));
+    }
+    LimitOrphanTxSize(0);
+}
+
 BOOST_AUTO_TEST_SUITE_END()
