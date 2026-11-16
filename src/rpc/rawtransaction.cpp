@@ -44,7 +44,7 @@
 #include <txmempool.h>
 #include <uint256.h>
 #include <utilstrencodings.h>
-#include <file_io.h>
+#include <blockfilemanager.h>
 
 #if ENABLE_WALLET
 #include <wallet/rpcwallet.h>
@@ -298,7 +298,7 @@ static UniValue gettxoutproof(const JSONRPCRequest& request)
     }
 
     CBlock block;
-    if(!ReadBlockFromDisk(block, pblockindex))
+    if(!g_chainstate_manager.GetBlockFileManager().ReadBlockFromDisk(block, pblockindex, g_chainstate_manager.RulesAt(*pblockindex)))
         throw JSONRPCError(RPC_INTERNAL_ERROR, "Can't read block from disk");
 
     unsigned int ntxFound = 0;

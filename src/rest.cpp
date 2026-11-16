@@ -22,7 +22,8 @@
 #include <txmempool.h>
 #include <utilstrencodings.h>
 #include <version.h>
-#include <file_io.h>
+#include <blockfilemanager.h>
+#include <chainstatemanager.h>
 
 #include <boost/algorithm/string.hpp>
 
@@ -260,7 +261,7 @@ bool RESTHandler::rest_block(HTTPRequest* req,
         if (IsBlockPruned(pblockindex))
             return RESTERR(req, HTTP_NOT_FOUND, hashStr + " not available (pruned data)");
 
-        if (!ReadBlockFromDisk(block, pblockindex))
+        if (!g_chainstate_manager.GetBlockFileManager().ReadBlockFromDisk(block, pblockindex, g_chainstate_manager.RulesAt(*pblockindex)))
             return RESTERR(req, HTTP_NOT_FOUND, hashStr + " not found");
     }
 

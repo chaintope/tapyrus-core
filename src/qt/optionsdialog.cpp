@@ -11,6 +11,8 @@
 #include <qt/guiutil.h>
 #include <qt/optionsmodel.h>
 
+#include <blockfilemanager.h>
+#include <chainstatemanager.h>
 #include <interfaces/node.h>
 #include <validation.h> // for DEFAULT_SCRIPTCHECK_THREADS and MAX_SCRIPTCHECK_THREADS
 #include <netbase.h>
@@ -35,8 +37,8 @@ OptionsDialog::OptionsDialog(QWidget *parent, bool enableWallet) :
     ui->databaseCache->setMinimum(nMinDbCache);
     ui->databaseCache->setMaximum(nMaxDbCache);
     static const uint64_t GiB = 1024 * 1024 * 1024;
-    static const uint64_t nMinDiskSpace = MIN_DISK_SPACE_FOR_BLOCK_FILES / GiB +
-                          (MIN_DISK_SPACE_FOR_BLOCK_FILES % GiB) ? 1 : 0;
+    static const uint64_t nMinDiskSpace = BlockFileManager::MIN_DISK_SPACE_FOR_BLOCK_FILES / GiB +
+                          (BlockFileManager::MIN_DISK_SPACE_FOR_BLOCK_FILES % GiB) ? 1 : 0;
     ui->pruneSize->setMinimum(nMinDiskSpace);
     ui->threadsScriptVerif->setMinimum(-GetNumCores());
     ui->threadsScriptVerif->setMaximum(MAX_SCRIPTCHECK_THREADS);

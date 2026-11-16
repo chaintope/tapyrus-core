@@ -9,12 +9,11 @@
 export LC_ALL=C
 
 EXPECTED_CIRCULAR_DEPENDENCIES=(
-    "blockprune -> file_io -> blockprune"
-    "blockprune -> validation -> blockprune"
-    "blockprune -> validation -> chainstate -> blockprune"
+    "blockfilemanager -> validation -> blockfilemanager"
+    "blockfilemanager -> validation -> chainstate -> blockfilemanager"
+    "blockfilemanager -> validation -> chainstatemanager -> blockfilemanager"
     "chainstate -> file_io -> validation -> chainstate"
     "checkpoints -> validation -> checkpoints"
-    "file_io -> index/txindex -> index/base -> file_io"
     "file_io -> validation -> file_io"
     "index/txindex -> validation -> index/txindex"
     "policy/fees -> txmempool -> policy/fees"

@@ -9,7 +9,8 @@
 #include <ui_interface.h>
 #include <util.h>
 #include <validation.h>
-#include <file_io.h>
+#include <blockfilemanager.h>
+#include <chainstatemanager.h>
 #include <warnings.h>
 
 constexpr char DB_BEST_BLOCK = 'B';
@@ -120,7 +121,7 @@ void BaseIndex::ThreadSync()
             }
 
             CBlock block;
-            if (!ReadBlockFromDisk(block, pindex)) {
+            if (!g_chainstate_manager.GetBlockFileManager().ReadBlockFromDisk(block, pindex, g_chainstate_manager.RulesAt(*pindex))) {
                 FatalError("%s: Failed to read block %s from disk",
                            __func__, pindex->GetBlockHash().ToString());
                 return;

@@ -4,6 +4,8 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <script/transactionsignatureserializer.h>
+#include <blockfilemanager.h>
+#include <chainstatemanager.h>
 #include <wallet/wallet.h>
 
 #include <memory>
@@ -18,7 +20,6 @@
 #include <rpc/client.h>
 #include <test/test_tapyrus.h>
 #include <validation.h>
-#include <blockprune.h>
 #include <wallet/coincontrol.h>
 #include <wallet/test/wallet_test_fixture.h>
 #include <utilstrencodings.h>
@@ -56,7 +57,7 @@ BOOST_FIXTURE_TEST_CASE(rescan, TestChainSetup)
     // Cap last block file size, and mine new block in a new block file.
     CBlockIndex* const nullBlock = nullptr;
     CBlockIndex* oldTip = chainActive.Tip();
-    GetBlockFileInfo(oldTip->GetBlockPos().nFile)->nSize = MAX_BLOCKFILE_SIZE;
+    g_chainstate_manager.GetBlockFileManager().GetBlockFileInfo(oldTip->GetBlockPos().nFile)->nSize = BlockFileManager::MAX_BLOCKFILE_SIZE;
     CreateAndProcessBlock({}, GetScriptForRawPubKey(coinbaseKey.GetPubKey()));
     CBlockIndex* newTip = chainActive.Tip();
 
@@ -74,8 +75,8 @@ BOOST_FIXTURE_TEST_CASE(rescan, TestChainSetup)
     }
 
     // Prune the older block file.
-    PruneOneBlockFile(oldTip->GetBlockPos().nFile);
-    UnlinkPrunedFiles({oldTip->GetBlockPos().nFile});
+    g_chainstate_manager.GetBlockFileManager().PruneOneBlockFile(oldTip->GetBlockPos().nFile);
+    g_chainstate_manager.GetBlockFileManager().UnlinkPrunedFiles({oldTip->GetBlockPos().nFile});
 
     // Verify ScanForWalletTransactions only picks transactions in the new block
     // file.

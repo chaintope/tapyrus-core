@@ -79,6 +79,7 @@ static void AssembleBlock(benchmark::State& state)
     SelectFederationParams(TAPYRUS_OP_MODE::DEV);
     g_chainstate_manager.InitConsensusSettings(std::make_unique<const ConsensusSettings>(ReadGenesisBlock(), TAPYRUS_OP_MODE::DEV, FederationParams().NetworkId()));
     g_chainstate_manager.InitXFieldHistory(g_chainstate_manager.Settings().GenesisBlock());
+    g_chainstate_manager.InitBlockFileManager({false, 0, Params().PruneAfterHeight()});
 
     const CKey privKey(DecodeSecret(SIGN_BLOCK_PRIVKEY));
     const CPubKey pubkey(privKey.GetPubKey());

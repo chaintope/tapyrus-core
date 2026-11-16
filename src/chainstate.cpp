@@ -4,6 +4,7 @@
 
 #include <chainstate.h>
 #include <abortnode.h>
+#include <blockfilemanager.h>
 #include <contextualconsensusrules.h>
 #include <chainstatemanager.h>
 #include <chainparams.h>
@@ -24,7 +25,6 @@
 #include <warnings.h>
 #include <xfieldhistory.h>
 #include <file_io.h>
-#include <blockprune.h>
 
 #include <deque>
 #include <stdexcept>
@@ -34,7 +34,6 @@
 // Defined in validation.cpp; declared here to avoid pulling in validation.h
 // (which includes chainstate.h, creating an indirect self-inclusion).
 void RefreshChainTxDataFromTip(const CBlockIndex* pindexNew);
-extern std::atomic_bool fReindex;
 
 static int64_t nTimeCheck = 0;
 static int64_t nTimeForks = 0;
@@ -189,38 +188,6 @@ void CChainState::InvalidBlockFound(CBlockIndex *pindex, const CValidationState 
     }
 }
 
-bool UndoReadFromDisk(CBlockUndo& blockundo, const CBlockIndex *pindex, const CBlock& block)
-{
-    CDiskBlockPos pos = pindex->GetUndoPos();
-    if (pos.IsNull()) {
-        return error("no undo data available for %s", pos.ToString());
-    }
-
-    // Open history file to read
-    CAutoFile file(OpenUndoFile(pos, /*fReadOnly=*/true), SER_DISK, CLIENT_VERSION);
-    if (file.IsNull())
-        return error("OpenUndoFile failed for %s while reading block undo", pos.ToString());
-    BufferedReader<CAutoFile> filein(file);
-
-    try {
-        // Read block
-        CHashVerifier<BufferedReader<CAutoFile>> verifier(&filein); // Use CHashVerifier as reserializing may lose data, c.f. commit d342424301013ec47dc146a4beb49d5c9319d80a
-        verifier << pindex->pprev->GetBlockHash();
-        verifier >> BlockUndoDeserializer(&blockundo, block);
-
-        uint256 hashChecksum;
-        filein >> hashChecksum;
-
-        // Verify checksum
-        if (hashChecksum != verifier.GetHash())
-            return error("Checksum mismatch at %s while reading block undo", pos.ToString());
-    } catch (const std::exception& e) {
-        return error("Deserialize or I/O error - %s at %s while reading block undo", e.what(), pos.ToString());
-    }
-
-    return true;
-}
-
 /**
  * Restore the UTXO in a Coin at a given COutPoint
  * @param undo The Coin to be restored.
@@ -262,7 +229,7 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
     bool fClean = true;
 
     CBlockUndo blockUndo;
-    if (!UndoReadFromDisk(blockUndo, pindex, block)) {
+    if (!g_chainstate_manager.GetBlockFileManager().UndoReadFromDisk(blockUndo, pindex, block)) {
         error("DisconnectBlock(): failure reading undo data");
         return DISCONNECT_FAILED;
     }
@@ -326,79 +293,6 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
     return fClean ? DISCONNECT_OK : DISCONNECT_UNCLEAN;
 }
 
-static bool FindUndoPos(CValidationState &state, int nFile, CDiskBlockPos &pos, unsigned int nAddSize)
-{
-    pos.nFile = nFile;
-
-    LOCK(cs_LastBlockFile);
-
-    uint64_t nNewSize;
-    pos.nPos = vinfoBlockFile[nFile].nUndoSize;
-    nNewSize = vinfoBlockFile[nFile].nUndoSize += nAddSize;
-    setDirtyFileInfo.insert(nFile);
-
-    uint64_t nOldChunks = (pos.nPos + UNDOFILE_CHUNK_SIZE - 1) / UNDOFILE_CHUNK_SIZE;
-    uint64_t nNewChunks = (nNewSize + UNDOFILE_CHUNK_SIZE - 1) / UNDOFILE_CHUNK_SIZE;
-    if (nNewChunks > nOldChunks) {
-        if (fPruneMode)
-            fCheckForPruning = true;
-        if (CheckDiskSpace(nNewChunks * UNDOFILE_CHUNK_SIZE - pos.nPos, true)) {
-            FILE *file = OpenUndoFile(pos);
-            if (file) {
-                LogPrintf("Pre-allocating up to position 0x%x in rev%05u.dat\n", nNewChunks * UNDOFILE_CHUNK_SIZE, pos.nFile);
-                AllocateFileRange(file, pos.nPos, nNewChunks * UNDOFILE_CHUNK_SIZE - pos.nPos);
-                fclose(file);
-            }
-        }
-        else
-            return state.Error("out of disk space");
-    }
-
-    return true;
-}
-
-bool UndoWriteToDisk(const CBlockUndo& blockundo, CDiskBlockPos& pos, const uint256& hashBlock, const CMessageHeader::MessageStartChars& messageStart)
-{
-    // Open history file to append
-    CAutoFile file(OpenUndoFile(pos, /*fReadOnly=*/false), SER_DISK, CLIENT_VERSION);
-    if (file.IsNull())
-        return error("OpenUndoFile failed for %s while writing block undo", pos.ToString());
-
-    // Write index header (unbuffered: header must be on disk before we record pos.nPos)
-    unsigned int nSize = GetSerializeSize(file, blockundo);
-    file << messageStart << nSize;
-    pos.nPos += STORAGE_HEADER_BYTES;
-
-    {
-        BufferedWriter<CAutoFile> fileout(file);
-        // Calculate checksum and write undo data + checksum
-        CHashWriter hasher(SER_GETHASH, PROTOCOL_VERSION);
-        hasher << hashBlock << blockundo;
-        fileout << blockundo << hasher.GetHash();
-        fileout.flush();
-    }
-
-    return true;
-}
-
-static bool WriteUndoDataForBlock(const CBlockUndo& blockundo, CValidationState& state, CBlockIndex* pindex)
-{
-    // Write undo information to disk
-    if (pindex->GetUndoPos().IsNull()) {
-        CDiskBlockPos _pos;
-        if (!FindUndoPos(state, pindex->nFile, _pos, ::GetSerializeSize(blockundo, SER_DISK, CLIENT_VERSION) + 40))
-            return error("ConnectBlock(): FindUndoPos failed");
-        if (!UndoWriteToDisk(blockundo, _pos, pindex->pprev->GetBlockHash(), FederationParams().MessageStart()))
-            return AbortNode(state, "Failed to write undo data");
-
-        // update nUndoPos in block index
-        pindex->nUndoPos = _pos.nPos;
-        pindex->nStatus |= BLOCK_HAVE_UNDO;
-        setDirtyBlockIndex.insert(pindex);
-    }
-
-    return true;
-}
 /** Check warning conditions and do some notifications on new chain tip set. */
 void static UpdateTip(const CBlockIndex *pindexNew)
 {
@@ -724,7 +618,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     if (fJustCheck)
         return true;
 
-    if (!WriteUndoDataForBlock(blockundo, state, pindex))
+    if (!g_chainstate_manager.GetBlockFileManager().WriteUndoDataForBlock(blockundo, state, pindex))
         return false;
 
     if (!pindex->IsValid(BLOCK_VALID_SCRIPTS)) {
@@ -786,7 +680,7 @@ bool CChainState::DisconnectTip(CValidationState& state, DisconnectedBlockTransa
     // Read block from disk.
     std::shared_ptr<CBlock> pblock = std::make_shared<CBlock>();
     CBlock& block = *pblock;
-    if (!ReadBlockFromDisk(block, pindexDelete))
+    if (!g_chainstate_manager.GetBlockFileManager().ReadBlockFromDisk(block, pindexDelete, g_chainstate_manager.RulesAt(*pindexDelete)))
         return AbortNode(state, "Failed to read block");
     // Apply the block atomically to the chain state.
     int64_t nStart = GetTimeMicros();
@@ -852,7 +746,7 @@ bool CChainState::ConnectTip(CValidationState& state, CBlockIndex* pindexNew, co
     std::shared_ptr<const CBlock> pthisBlock;
     if (!pblock) {
         std::shared_ptr<CBlock> pblockNew = std::make_shared<CBlock>();
-        if (!ReadBlockFromDisk(*pblockNew, pindexNew))
+        if (!g_chainstate_manager.GetBlockFileManager().ReadBlockFromDisk(*pblockNew, pindexNew, g_chainstate_manager.RulesAt(*pindexNew)))
             return AbortNode(state, "Failed to read block");
         pthisBlock = pblockNew;
     } else {
@@ -1485,7 +1379,7 @@ bool CChainState::AcceptBlock(const std::shared_ptr<const CBlock>& pblock, CVali
     // blocks which are too close in height to the tip.  Apply this test
     // regardless of whether pruning is enabled; it should generally be safe to
     // not process unrequested blocks.
-    bool fTooFarAhead = (pindex->nHeight > int(chainActive.Height() + MIN_BLOCKS_TO_KEEP));
+    bool fTooFarAhead = (pindex->nHeight > int(chainActive.Height() + BlockFileManager::MIN_BLOCKS_TO_KEEP));
 
     // TODO: Decouple this function from the block download logic by removing fRequested
     // This requires some new chain data structure to efficiently look up if a
@@ -1519,7 +1413,7 @@ bool CChainState::AcceptBlock(const std::shared_ptr<const CBlock>& pblock, CVali
     // Write block to history file
     if (fNewBlock) *fNewBlock = true;
     try {
-        CDiskBlockPos blockPos = SaveBlockToDisk(block, pindex->nHeight, dbp);
+        CDiskBlockPos blockPos = g_chainstate_manager.GetBlockFileManager().SaveBlockToDisk(block, pindex->nHeight, dbp);
         if (blockPos.IsNull()) {
             state.Error(strprintf("%s: Failed to find position to write new block to disk", __func__));
             return false;
@@ -1612,7 +1506,7 @@ bool CChainState::RollforwardBlock(const CBlockIndex* pindex, CCoinsViewCache& i
     AssertLockHeld(cs_main);
     // TODO: merge with ConnectBlock
     CBlock block;
-    if (!ReadBlockFromDisk(block, pindex)) {
+    if (!g_chainstate_manager.GetBlockFileManager().ReadBlockFromDisk(block, pindex, g_chainstate_manager.RulesAt(*pindex))) {
         return error("ReplayBlock(): ReadBlockFromDisk failed at %d, hash=%s", pindex->nHeight, pindex->GetBlockHash().ToString());
     }
 
@@ -1689,7 +1583,7 @@ bool CChainState::ReplayBlocks(CCoinsView* view, CIssuedColorIds& issuedColorIds
     while (pindexOld != pindexFork) {
         if (pindexOld->nHeight > 0) { // Never disconnect the genesis block.
             CBlock block;
-            if (!ReadBlockFromDisk(block, pindexOld)) {
+            if (!g_chainstate_manager.GetBlockFileManager().ReadBlockFromDisk(block, pindexOld, g_chainstate_manager.RulesAt(*pindexOld))) {
                 return error("RollbackBlock(): ReadBlockFromDisk() failed at %d, hash=%s", pindexOld->nHeight, pindexOld->GetBlockHash().ToString());
             }
             LogPrintf("Rolling back %s (%i)\n", pindexOld->GetBlockHash().ToString(), pindexOld->nHeight);
@@ -1781,17 +1675,18 @@ bool CChainState::LoadGenesisBlock()
         CBlock &block = const_cast<CBlock&>(g_chainstate_manager.Settings().GenesisBlock());
         CDiskBlockPos blockPos;
 
-        if (fReindex && fs::exists(GetBlocksDir() / strprintf("blk%05u.dat", 0))) {
+        BlockFileManager& blockFileManager = g_chainstate_manager.GetBlockFileManager();
+        if (blockFileManager.fReindex && fs::exists(GetBlocksDir() / strprintf("blk%05u.dat", 0))) {
             // During reindex with existing block files, pass the known genesis
             // disk position so SaveBlockToDisk uses fKnown=true.
             // This skips AllocateFileRange (which on macOS uses ftruncate and
             // would shrink blk00000.dat to 16MB) and skips WriteBlockToDisk
             // (genesis is already on disk). Block index and xfield history are
             // still initialized correctly below.
-            CDiskBlockPos genesisKnownPos(0, STORAGE_HEADER_BYTES);
-            blockPos = SaveBlockToDisk(block, 0, &genesisKnownPos);
+            CDiskBlockPos genesisKnownPos(0, BlockFileManager::STORAGE_HEADER_BYTES);
+            blockPos = blockFileManager.SaveBlockToDisk(block, 0, &genesisKnownPos);
         } else {
-            blockPos = SaveBlockToDisk(block, 0, nullptr);
+            blockPos = blockFileManager.SaveBlockToDisk(block, 0, nullptr);
         }
 
         if (blockPos.IsNull())
@@ -1867,7 +1762,7 @@ void CChainState::CheckBlockIndex()
         if (pindex->nChainTx == 0) assert(pindex->nSequenceId <= 0);  // nSequenceId can't be set positive for blocks that aren't linked (negative is used for preciousblock)
         // VALID_TRANSACTIONS is equivalent to nTx > 0 for all nodes (whether or not pruning has occurred).
         // HAVE_DATA is only equivalent to nTx > 0 (or VALID_TRANSACTIONS) if no pruning has occurred.
-        if (!fHavePruned) {
+        if (!g_chainstate_manager.GetBlockFileManager().fHavePruned) {
             // If we've never pruned, then HAVE_DATA should be equivalent to nTx > 0
             assert(!(pindex->nStatus & BLOCK_HAVE_DATA) == (pindex->nTx == 0));
             assert(pindexFirstMissing == pindexFirstNeverProcessed);
@@ -1926,7 +1821,7 @@ void CChainState::CheckBlockIndex()
         if (pindexFirstMissing == nullptr) assert(!foundInUnlinked); // We aren't missing data for any parent -- cannot be in mapBlocksUnlinked.
         if (pindex->pprev && (pindex->nStatus & BLOCK_HAVE_DATA) && pindexFirstNeverProcessed == nullptr && pindexFirstMissing != nullptr) {
             // We HAVE_DATA for this block, have received data for all parents at some point, but we're currently missing data for some parent.
-            assert(fHavePruned); // We must have pruned.
+            assert(g_chainstate_manager.GetBlockFileManager().fHavePruned); // We must have pruned.
             // This block may have entered mapBlocksUnlinked if:
             //  - it has a descendant that at some point had more work than the
             //    tip, and

@@ -18,7 +18,6 @@
 #include <coin.h>
 #include <consensus/validation.h>
 #include <validation.h>
-#include <blockprune.h>
 #include <core_io.h>
 #include <index/txindex.h>
 #include <key_io.h>
@@ -39,7 +38,7 @@
 #include <warnings.h>
 #include <xfieldhistory.h>
 #include <verifydb.h>
-#include <file_io.h>
+#include <blockfilemanager.h>
 
 #include <assert.h>
 #include <stdexcept>
@@ -421,7 +420,7 @@ static CBlock GetBlockChecked(const CBlockIndex* pblockindex)
         throw JSONRPCError(RPC_MISC_ERROR, "Block not available (pruned data)");
     }
 
-    if (!ReadBlockFromDisk(block, pblockindex)) {
+    if (!g_chainstate_manager.GetBlockFileManager().ReadBlockFromDisk(block, pblockindex, g_chainstate_manager.RulesAt(*pblockindex))) {
         // Block not found on disk. This could be because we have the block
         // header in our index but don't have the block (for example if a
         // non-whitelisted node sends us an unrequested long chain of valid
@@ -528,7 +527,7 @@ static UniValue pruneblockchain(const JSONRPCRequest& request)
             + HelpExampleCli("pruneblockchain", "1000")
             + HelpExampleRpc("pruneblockchain", "1000"));
 
-    if (!fPruneMode)
+    if (!g_chainstate_manager.GetBlockFileManager().GetOptions().fPruneMode)
         throw JSONRPCError(RPC_MISC_ERROR, "Cannot prune blocks because node is not in prune mode.");
 
     LOCK(cs_main);
@@ -550,13 +549,13 @@ static UniValue pruneblockchain(const JSONRPCRequest& request)
 
     unsigned int height = (unsigned int) heightParam;
     unsigned int chainHeight = (unsigned int) chainActive.Height();
-    if (chainHeight < Params().PruneAfterHeight())
+    if (chainHeight < g_chainstate_manager.GetBlockFileManager().GetOptions().nPruneAfterHeight)
         throw JSONRPCError(RPC_MISC_ERROR, "Blockchain is too short for pruning.");
     else if (height > chainHeight)
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Blockchain is shorter than the attempted prune height.");
-    else if (height > chainHeight - MIN_BLOCKS_TO_KEEP) {
+    else if (height > chainHeight - BlockFileManager::MIN_BLOCKS_TO_KEEP) {
         LogPrint(BCLog::RPC, "Attempt to prune blocks close to the tip.  Retaining the minimum number of blocks.\n");
-        height = chainHeight - MIN_BLOCKS_TO_KEEP;
+        height = chainHeight - BlockFileManager::MIN_BLOCKS_TO_KEEP;
     }
 
     PruneBlockFilesManual(height);
@@ -728,9 +727,9 @@ UniValue getblockchaininfo(const JSONRPCRequest& request)
     obj.pushKV("mediantime",            (int64_t)chainActive.Tip()->GetMedianTimePast());
     obj.pushKV("verificationprogress",  GuessVerificationProgress(Params().TxData(), chainActive.Tip()));
     obj.pushKV("initialblockdownload",  IsInitialBlockDownload());
-    obj.pushKV("size_on_disk",          CalculateCurrentUsage());
-    obj.pushKV("pruned",                fPruneMode);
-    if (fPruneMode) {
+    obj.pushKV("size_on_disk",          g_chainstate_manager.GetBlockFileManager().CalculateCurrentUsage());
+    obj.pushKV("pruned",                g_chainstate_manager.GetBlockFileManager().GetOptions().fPruneMode);
+    if (g_chainstate_manager.GetBlockFileManager().GetOptions().fPruneMode) {
         CBlockIndex* block = chainActive.Tip();
         assert(block);
         while (block->pprev && (block->pprev->nStatus & BLOCK_HAVE_DATA)) {
@@ -743,7 +742,7 @@ UniValue getblockchaininfo(const JSONRPCRequest& request)
         bool automatic_pruning = (gArgs.GetArg("-prune", 0) != 1);
         obj.pushKV("automatic_pruning",  automatic_pruning);
         if (automatic_pruning) {
-            obj.pushKV("prune_target_size",  nPruneTarget);
+            obj.pushKV("prune_target_size",  g_chainstate_manager.GetBlockFileManager().GetOptions().nPruneTarget);
         }
     }
     //aggregate pubkey list with block height and block hash

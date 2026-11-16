@@ -10,7 +10,8 @@
 #include <validation.h>
 #include <util.h>
 #include <rpc/server.h>
-#include <file_io.h>
+#include <blockfilemanager.h>
+#include <chainstatemanager.h>
 
 static std::multimap<std::string, CZMQAbstractPublishNotifier*> mapPublishNotifiers;
 
@@ -187,7 +188,7 @@ bool CZMQPublishRawBlockNotifier::NotifyBlock(const CBlockIndex *pindex)
     {
         LOCK(cs_main);
         CBlock block;
-        if(!ReadBlockFromDisk(block, pindex))
+        if(!g_chainstate_manager.GetBlockFileManager().ReadBlockFromDisk(block, pindex, g_chainstate_manager.RulesAt(*pindex)))
         {
             zmqError("Can't read block from disk");
             return false;

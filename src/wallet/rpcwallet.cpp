@@ -42,7 +42,7 @@
 #include <wallet/walletdb.h>
 #include <wallet/walletutil.h>
 #include <xfieldhistory.h>
-#include <file_io.h>
+#include <blockfilemanager.h>
 
 #include <stdexcept>
 #include <stdint.h>
@@ -1728,7 +1728,7 @@ static UniValue listsinceblock(const JSONRPCRequest& request)
     UniValue removed(UniValue::VARR);
     while (include_removed && paltindex && paltindex != pindex) {
         CBlock block;
-        if (!ReadBlockFromDisk(block, paltindex)) {
+        if (!g_chainstate_manager.GetBlockFileManager().ReadBlockFromDisk(block, paltindex, g_chainstate_manager.RulesAt(*paltindex))) {
             throw JSONRPCError(RPC_INTERNAL_ERROR, "Can't read block from disk");
         }
         for (const CTransactionRef& tx : block.vtx) {
@@ -3489,7 +3489,7 @@ UniValue rescanblockchain(const JSONRPCRequest& request)
     }
 
     // We can't rescan beyond non-pruned blocks, stop and throw an error
-    if (fPruneMode) {
+    if (g_chainstate_manager.GetBlockFileManager().GetOptions().fPruneMode) {
         LOCK(cs_main);
         CBlockIndex *block = pindexStop ? pindexStop : pChainTip;
         while (block && block->nHeight >= pindexStart->nHeight) {

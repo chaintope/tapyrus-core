@@ -5,8 +5,6 @@
 #ifndef BITCOIN_FILE_IO_H
 #define BITCOIN_FILE_IO_H
 
-class HeightDerivedConsensusRules;
-
 constexpr size_t REINDEX_BUFFER_SIZE = 32 * 1000000;  //  use large 32MB buffer to handle any block size
 enum class FlushStateMode {
     NONE,
@@ -34,23 +32,5 @@ bool LoadExternalBlockFile(FILE* fileIn, CDiskBlockPos *dbp = nullptr, CXFieldHi
  * besides checking if we need to prune.
  */
 bool FlushStateToDisk(CValidationState &state, FlushStateMode mode, int nManualPruneHeight=0);
-
-void  FlushBlockFile(bool fFinalize = false);
-
-/** Functions for disk access for blocks */
-bool ReadBlockFromDisk(CBlock& block, const CDiskBlockPos& pos, const HeightDerivedConsensusRules& consensusAtHeight);
-bool ReadBlockFromDisk(CBlock& block, const CBlockIndex* pindex);
-bool ReadRawBlockFromDisk(std::vector<uint8_t>& block, const CDiskBlockPos& pos, const CMessageHeader::MessageStartChars& message_start);
-bool ReadRawBlockFromDisk(std::vector<uint8_t>& block, const CBlockIndex* pindex, const CMessageHeader::MessageStartChars& message_start);
-
-FILE* OpenDiskFile(const CDiskBlockPos &pos, const char *prefix, bool fReadOnly);
-/** Open an undo file (rev?????.dat) */
-FILE* OpenUndoFile(const CDiskBlockPos &pos, bool fReadOnly = false);
-
-/** Store block on disk. If dbp is non-nullptr, the file is known to already reside on disk */
-CDiskBlockPos SaveBlockToDisk(const CBlock& block, int nHeight, const CDiskBlockPos* dbp);
-
-/** Size of header written before serialized block/undo data on disk (4 magic bytes + 4 length bytes) */
-static constexpr uint32_t STORAGE_HEADER_BYTES{CMessageHeader::MESSAGE_START_SIZE + sizeof(unsigned int)};
 
 #endif // BITCOIN_FILE_IO_H

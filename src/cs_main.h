@@ -19,6 +19,5 @@
  * chainstate at the same time.
  */
 extern RecursiveMutex cs_main;
-extern RecursiveMutex cs_LastBlockFile;
 
 #endif // BITCOIN_CS_MAIN_H

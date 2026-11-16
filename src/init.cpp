@@ -10,6 +10,7 @@
 
 #include <addrman.h>
 #include <amount.h>
+#include <blockfilemanager.h>
 #include <blockindex.h>
 #include <diskblockpos.h>
 #include <chainparams.h>
@@ -64,7 +65,6 @@
 #include <xfieldhistory.h>
 #include <xfieldhistorymap.h>
 #include <tempxfieldhistory.h>
-#include <blockprune.h>
 #include <verifydb.h>
 #include <file_io.h>
 
@@ -77,7 +77,6 @@
 #include <boost/algorithm/string/split.hpp>
 #include <boost/interprocess/sync/file_lock.hpp>
 
-#include <charconv>
 #include <thread>
 
 #if ENABLE_ZMQ
@@ -402,7 +401,7 @@ void SetupServerArgs()
 #endif
     gArgs.AddArg("-prune=<n>", strprintf("Reduce storage requirements by enabling pruning (deleting) of old blocks. This allows the pruneblockchain RPC to be called to delete specific blocks, and enables automatic pruning of old blocks if a target size in MiB is provided. This mode is incompatible with -txindex and -rescan. "
             "Warning: Reverting this setting requires re-downloading the entire blockchain. "
-            "(default: 0 = disable pruning blocks, 1 = allow manual pruning via RPC, >=%u = automatically prune block files to stay under the specified target size in MiB)", MIN_DISK_SPACE_FOR_BLOCK_FILES / 1024 / 1024), false, OptionsCategory::OPTIONS);
+            "(default: 0 = disable pruning blocks, 1 = allow manual pruning via RPC, >=%u = automatically prune block files to stay under the specified target size in MiB)", BlockFileManager::MIN_DISK_SPACE_FOR_BLOCK_FILES / 1024 / 1024), false, OptionsCategory::OPTIONS);
     gArgs.AddArg("-reindex", "Rebuild chain state and block index from the blk*.dat files on disk", false, OptionsCategory::OPTIONS);
     gArgs.AddArg("-reindex-chainstate", "Rebuild chain state from the currently indexed blocks", false, OptionsCategory::OPTIONS);
     gArgs.AddArg("-reloadxfield", "Rebuild xfield change list in blocktree db from xfield in block headers from the blk*.dat files on disk", false, OptionsCategory::OPTIONS);
@@ -615,65 +614,16 @@ static void BlockNotifyGenesisWait(bool, const CBlockIndex *pBlockIndex)
 struct CImportingNow
 {
     CImportingNow() {
-        assert(fImporting == false);
-        fImporting = true;
+        assert(g_chainstate_manager.GetBlockFileManager().fImporting == false);
+        g_chainstate_manager.GetBlockFileManager().fImporting = true;
     }
 
     ~CImportingNow() {
-        assert(fImporting == true);
-        fImporting = false;
+        assert(g_chainstate_manager.GetBlockFileManager().fImporting == true);
+        g_chainstate_manager.GetBlockFileManager().fImporting = false;
     }
 };
 
-
-// If we're using -prune with -reindex, then delete block files that will be ignored by the
-// reindex.  Since reindexing works by starting at block file 0 and looping until a blockfile
-// is missing, do the same here to delete any later block files after a gap.  Also delete all
-// rev files since they'll be rewritten by the reindex anyway.  This ensures that vinfoBlockFile
-// is in sync with what's actually on disk by the time we start downloading, so that pruning
-// works correctly.
-static void CleanupBlockRevFiles()
-{
-    std::map<std::string, fs::path> mapBlockFiles;
-
-    // Glob all blk?????.dat and rev?????.dat files from the blocks directory.
-    // Remove the rev files immediately and insert the blk file paths into an
-    // ordered map keyed by block file index.
-    LogPrintf("Removing unusable blk?????.dat and rev?????.dat files for -reindex with -prune\n");
-    fs::path blocksdir = GetBlocksDir();
-    for (fs::directory_iterator it(blocksdir); it != fs::directory_iterator(); it++) {
-        if (fs::is_regular_file(*it) &&
-            it->path().filename().string().length() == 12 &&
-            it->path().filename().string().substr(8,4) == ".dat")
-        {
-            if (it->path().filename().string().substr(0,3) == "blk")
-                mapBlockFiles[it->path().filename().string().substr(3,5)] = it->path();
-            else if (it->path().filename().string().substr(0,3) == "rev")
-                remove(it->path());
-        }
-    }
-
-    // Remove all block files that aren't part of a contiguous set starting at
-    // zero by walking the ordered map (keys are block file indices) by
-    // keeping a separate counter.  Once we hit a gap (or if 0 doesn't exist)
-    // start removing block files.
-    int nContigCounter = 0;
-    for (const std::pair<const std::string, fs::path>& item : mapBlockFiles) {
-        // Use std::from_chars for locale-independent conversion
-        int fileIndex = 0;
-        auto result = std::from_chars(item.first.data(), item.first.data() + item.first.size(), fileIndex);
-        // Skip files with invalid indices (parsing failed or didn't consume entire string)
-        if (result.ec != std::errc{} || result.ptr != item.first.data() + item.first.size()) {
-            remove(item.second);
-            continue;
-        }
-        if (fileIndex == nContigCounter) {
-            nContigCounter++;
-            continue;
-        }
-        remove(item.second);
-    }
-}
 
 static void ThreadImport(std::vector<fs::path> vImportFiles, bool fReloadxfield)
 {
@@ -686,16 +636,17 @@ static void ThreadImport(std::vector<fs::path> vImportFiles, bool fReloadxfield)
     std::vector<XFieldAggpubkey> xFieldList;
 
     // -reindex
-    if (fReindex || fReloadxfield) {
+    BlockFileManager& blockFileManager = g_chainstate_manager.GetBlockFileManager();
+    if (blockFileManager.fReindex || fReloadxfield) {
         // To avoid ending up in a situation without genesis block, initialize it:
         LoadGenesisBlock();
 
         int nFile = 0;
         while (true) {
             CDiskBlockPos pos(nFile, 0);
-            if (!fs::exists(GetBlockPosFilename(pos, "blk")))
+            if (!fs::exists(blockFileManager.GetBlockPosFilename(pos, "blk")))
                 break; // No block files left to reindex
-            FILE *file = OpenBlockFile(pos, true);
+            FILE *file = blockFileManager.OpenBlockFile(pos, true);
             if (!file)
                 break; // This error is logged in OpenBlockFile
             LogPrintf("Reindexing block file blk%05u.dat...\n", (unsigned int)nFile);
@@ -703,7 +654,7 @@ static void ThreadImport(std::vector<fs::path> vImportFiles, bool fReloadxfield)
             nFile++;
         }
         pblocktree->WriteReindexing(false);
-        fReindex = false;
+        blockFileManager.fReindex = false;
         LogPrintf("Reindexing finished\n");
     }
 
@@ -1100,14 +1051,15 @@ bool AppInitParameterInteraction(NodeContext& node)
     if (nPruneArg < 0) {
         return InitError(_("Prune cannot be configured with a negative value."));
     }
-    nPruneTarget = (uint64_t) nPruneArg * 1024 * 1024;
+    uint64_t nPruneTarget = (uint64_t) nPruneArg * 1024 * 1024;
+    bool fPruneMode = false;
     if (nPruneArg == 1) {  // manual pruning: -prune=1
         LogPrintf("Block pruning enabled.  Use RPC call pruneblockchain(height) to manually prune block and undo files.\n");
         nPruneTarget = std::numeric_limits<uint64_t>::max();
         fPruneMode = true;
     } else if (nPruneTarget) {
-        if (nPruneTarget < MIN_DISK_SPACE_FOR_BLOCK_FILES) {
-            return InitError(strprintf(_("Prune configured below the minimum of %d MiB.  Please use a higher number."), MIN_DISK_SPACE_FOR_BLOCK_FILES / 1024 / 1024));
+        if (nPruneTarget < BlockFileManager::MIN_DISK_SPACE_FOR_BLOCK_FILES) {
+            return InitError(strprintf(_("Prune configured below the minimum of %d MiB.  Please use a higher number."), BlockFileManager::MIN_DISK_SPACE_FOR_BLOCK_FILES / 1024 / 1024));
         }
         LogPrintf("Prune configured to target %uMiB on disk for block and undo files.\n", nPruneTarget / 1024 / 1024);
         fPruneMode = true;
@@ -1131,6 +1083,8 @@ bool AppInitParameterInteraction(NodeContext& node)
     if (node.policy->maxTxFee > HIGH_MAX_TX_FEE) {
         InitWarning(_("-maxtxfee is set very high! Fees this large could be paid on a single transaction."));
     }
+
+    g_chainstate_manager.InitBlockFileManager({fPruneMode, nPruneTarget, Params().PruneAfterHeight()});
 
     // Option to startup with mocktime set (used for regression testing):
     SetMockTime(gArgs.GetArg("-mocktime", 0)); // SetMockTime(0) is a no-op
@@ -1421,7 +1375,8 @@ bool AppInitMain(NodeContext& node)
 
     // ********************************************************* Step 7: load block chain
 
-    fReindex = gArgs.GetBoolArg("-reindex", false);
+    BlockFileManager& blockFileManager = g_chainstate_manager.GetBlockFileManager();
+    blockFileManager.fReindex = gArgs.GetBoolArg("-reindex", false);
     bool fReindexChainState = gArgs.GetBoolArg("-reindex-chainstate", false);
     bool fReloadxfield = gArgs.GetBoolArg("-reloadxfield", false);
 
@@ -1448,7 +1403,7 @@ bool AppInitMain(NodeContext& node)
 
     bool fLoaded = false;
     while (!fLoaded && !ShutdownRequested()) {
-        bool fReset = fReindex || fReloadxfield;
+        bool fReset = blockFileManager.fReindex || fReloadxfield;
         std::string strLoadError;
 
         uiInterface.InitMessage(_("Loading block index..."));
@@ -1470,8 +1425,8 @@ bool AppInitMain(NodeContext& node)
                 if (fReset) {
                     pblocktree->WriteReindexing(true);
                     //If we're reindexing in prune mode, wipe away unusable block files and all undo data files
-                    if (fPruneMode)
-                        CleanupBlockRevFiles();
+                    if (blockFileManager.GetOptions().fPruneMode)
+                        blockFileManager.CleanupBlockRevFiles();
                 }
 
                 if (ShutdownRequested()) break;
@@ -1493,7 +1448,7 @@ bool AppInitMain(NodeContext& node)
 
                 // Check for changed -prune state.  What we are concerned about is a user who has pruned blocks
                 // in the past, but is now trying to run unpruned.
-                if (fHavePruned && !fPruneMode) {
+                if (blockFileManager.fHavePruned && !blockFileManager.GetOptions().fPruneMode) {
                     strLoadError = _("You need to rebuild the database using -reindex to go back to unpruned mode.  This will redownload the entire blockchain");
                     break;
                 }
@@ -1502,7 +1457,7 @@ bool AppInitMain(NodeContext& node)
                 // If we're not mid-reindex (based on disk + args), add a genesis block on disk
                 // (otherwise we use the one already on disk).
                 // This is called again in ThreadImport after the reindex completes.
-                if (!fReindex && !LoadGenesisBlock()) {
+                if (!blockFileManager.fReindex && !LoadGenesisBlock()) {
                     strLoadError = _("Error initializing block database");
                     break;
                 } else {
@@ -1585,9 +1540,9 @@ bool AppInitMain(NodeContext& node)
 
                 if (!is_coinsview_empty) {
                     uiInterface.InitMessage(_("Verifying blocks..."));
-                    if (fHavePruned && gArgs.GetArg("-checkblocks", DEFAULT_CHECKBLOCKS) > MIN_BLOCKS_TO_KEEP) {
+                    if (blockFileManager.fHavePruned && gArgs.GetArg("-checkblocks", DEFAULT_CHECKBLOCKS) > BlockFileManager::MIN_BLOCKS_TO_KEEP) {
                         LogPrintf("Prune: pruned datadir may not have more than %d blocks; only checking available blocks\n",
-                            MIN_BLOCKS_TO_KEEP);
+                            BlockFileManager::MIN_BLOCKS_TO_KEEP);
                     }
 
                     CBlockIndex* tip = chainActive.Tip();
@@ -1623,7 +1578,7 @@ bool AppInitMain(NodeContext& node)
                     strLoadError + ".\nPlease restart with -reindex or -reindex-chainstate to recover.",
                     "", CClientUIInterface::MSG_ERROR | CClientUIInterface::BTN_ABORT);
                 if (fRet) {
-                    fReindex = true;
+                    blockFileManager.fReindex = true;
                     AbortShutdown();
                 } else {
                     LogPrintf("Aborted block database rebuild. Exiting.\n");
@@ -1659,7 +1614,7 @@ bool AppInitMain(NodeContext& node)
 
     // ********************************************************* Step 8: start indexers
     if (gArgs.GetBoolArg("-txindex", DEFAULT_TXINDEX)) {
-        g_txindex = MakeUnique<TxIndex>(nTxIndexCache, false, fReindex);
+        g_txindex = MakeUnique<TxIndex>(nTxIndexCache, false, blockFileManager.fReindex);
         g_txindex->Start();
     }
 
@@ -1670,10 +1625,10 @@ bool AppInitMain(NodeContext& node)
 
     // if pruning, unset the service bit and perform the initial blockstore prune
     // after any wallet rescanning has taken place.
-    if (fPruneMode) {
+    if (blockFileManager.GetOptions().fPruneMode) {
         LogPrintf("Unsetting NODE_NETWORK on prune mode\n");
         nLocalServices = ServiceFlags(nLocalServices & ~NODE_NETWORK);
-        if (!fReindex) {
+        if (!blockFileManager.fReindex) {
             uiInterface.InitMessage(_("Pruning blockstore..."));
             PruneAndFlush();
         }
@@ -1681,7 +1636,7 @@ bool AppInitMain(NodeContext& node)
 
     // ********************************************************* Step 11: import blocks
 
-    if (!CheckDiskSpace() && !CheckDiskSpace(0, true))
+    if (!blockFileManager.CheckDiskSpace() && !blockFileManager.CheckDiskSpace(0, true))
         return false;
 
     // Either install a handler to notify us when genesis activates, or set fHaveGenesis directly.

@@ -9,7 +9,7 @@
 #include <federationparams.h>
 #include <primitives/block.h>
 #include <validation.h>
-#include <file_io.h>
+#include <blockfilemanager.h>
 #include <test/test_tapyrus.h>
 
 #include <boost/test/unit_test.hpp>
@@ -33,15 +33,15 @@ BOOST_AUTO_TEST_CASE(file_io_find_block_pos)
     // Scenario 1: Normal block addition (first block written to disk)
     // When a genesis block is added normally, it should be written at offset 8
     // (after the 8-byte serialization header)
-    CDiskBlockPos pos1 = SaveBlockToDisk(genesisBlock, 0, nullptr);
-    BOOST_CHECK_EQUAL(pos1.nPos, STORAGE_HEADER_BYTES);
+    CDiskBlockPos pos1 = g_chainstate_manager.GetBlockFileManager().SaveBlockToDisk(genesisBlock, 0, nullptr);
+    BOOST_CHECK_EQUAL(pos1.nPos, BlockFileManager::STORAGE_HEADER_BYTES);
 
     // Scenario 2: Simulate what happens during reindex
     // During reindex, blocks are found at known positions in the blk file.
     // The genesis block is found at offset 8 (after its serialization header).
-    CDiskBlockPos knownPos(0, STORAGE_HEADER_BYTES);
-    CDiskBlockPos pos2 = SaveBlockToDisk(genesisBlock, 0, &knownPos);
-    BOOST_CHECK_EQUAL(pos2.nPos, STORAGE_HEADER_BYTES);
+    CDiskBlockPos knownPos(0, BlockFileManager::STORAGE_HEADER_BYTES);
+    CDiskBlockPos pos2 = g_chainstate_manager.GetBlockFileManager().SaveBlockToDisk(genesisBlock, 0, &knownPos);
+    BOOST_CHECK_EQUAL(pos2.nPos, BlockFileManager::STORAGE_HEADER_BYTES);
 
     // Scenario 3: After reindex, when a new block is processed
     // This is the critical test that verifies the fix.
@@ -49,10 +49,10 @@ BOOST_AUTO_TEST_CASE(file_io_find_block_pos)
     // 8 bytes (serialization header)
     // + size of genesis block
     // + 8 bytes (serialization header for the new block)
-    CDiskBlockPos pos3 = SaveBlockToDisk(genesisBlock, 1, nullptr);
-    unsigned int expectedPos = STORAGE_HEADER_BYTES +
+    CDiskBlockPos pos3 = g_chainstate_manager.GetBlockFileManager().SaveBlockToDisk(genesisBlock, 1, nullptr);
+    unsigned int expectedPos = BlockFileManager::STORAGE_HEADER_BYTES +
                                ::GetSerializeSize(genesisBlock, SER_DISK, CLIENT_VERSION) +
-                               STORAGE_HEADER_BYTES;
+                               BlockFileManager::STORAGE_HEADER_BYTES;
     BOOST_CHECK_EQUAL(pos3.nPos, expectedPos);
 
     // This assertion ensures that the bug described in issue #21379 does not recur:

@@ -35,7 +35,7 @@
 #include <utilstrencodings.h>
 #include <trace.h>
 #include <utiltime.h>
-#include <file_io.h>
+#include <blockfilemanager.h>
 
 #include <deque>
 #include <memory>
@@ -880,7 +880,7 @@ void PeerManager::ProcessGetBlockData(CNode* pfrom, const CInv& inv)
         } else {
             // Send block from disk
             std::shared_ptr<CBlock> pblockRead = std::make_shared<CBlock>();
-            if (!ReadBlockFromDisk(*pblockRead, pindex))
+            if (!g_chainstate_manager.GetBlockFileManager().ReadBlockFromDisk(*pblockRead, pindex, g_chainstate_manager.RulesAt(*pindex)))
                 assert(!"cannot load block from disk");
             pblock = pblockRead;
         }
@@ -1736,7 +1736,7 @@ bool PeerManager::ProcessMessage(CNode* pfrom, const std::string& strCommand, CD
 
             if (inv.type == MSG_BLOCK) {
                 UpdateBlockAvailability(pfrom->GetId(), inv.hash);
-                if (!fAlreadyHave && !fImporting && !fReindex && mapBlocksInFlight.count(inv.hash) < MAX_CMPCTBLOCKS_INFLIGHT_PER_BLOCK) {
+                if (!fAlreadyHave && !g_chainstate_manager.GetBlockFileManager().LoadingBlocks() && mapBlocksInFlight.count(inv.hash) < MAX_CMPCTBLOCKS_INFLIGHT_PER_BLOCK) {
                     // Headers-first is the primary method of announcement on
                     // the network. If a node fell back to sending blocks by inv,
                     // it's probably for a re-org. The final block hash
@@ -1750,7 +1750,7 @@ bool PeerManager::ProcessMessage(CNode* pfrom, const std::string& strCommand, CD
                 pfrom->AddInventoryKnown(inv);
                 if (fBlocksOnly) {
                     LogPrint(BCLog::NET, "transaction (%s) inv sent in violation of protocol peer=%d\n", inv.hash.ToString(), pfrom->GetId());
-                } else if (!fAlreadyHave && !fImporting && !fReindex && !IsInitialBlockDownload()) {
+                } else if (!fAlreadyHave && !g_chainstate_manager.GetBlockFileManager().LoadingBlocks() && !IsInitialBlockDownload()) {
                     pfrom->AskFor(inv);
                 }
             }
@@ -1837,8 +1837,8 @@ bool PeerManager::ProcessMessage(CNode* pfrom, const std::string& strCommand, CD
             }
             // If pruning, don't inv blocks unless we have on disk and are likely to still have
             // for some reasonable time window (1 hour) that block relay might require.
-            const int nPrunedBlocksLikelyToHave = MIN_BLOCKS_TO_KEEP - 3600 / CFederationParams::EXPECTED_BLOCK_TIME;
-            if (fPruneMode && (!(pindex->nStatus & BLOCK_HAVE_DATA) || pindex->nHeight <= chainActive.Tip()->nHeight - nPrunedBlocksLikelyToHave))
+            const int nPrunedBlocksLikelyToHave = BlockFileManager::MIN_BLOCKS_TO_KEEP - 3600 / CFederationParams::EXPECTED_BLOCK_TIME;
+            if (g_chainstate_manager.GetBlockFileManager().GetOptions().fPruneMode && (!(pindex->nStatus & BLOCK_HAVE_DATA) || pindex->nHeight <= chainActive.Tip()->nHeight - nPrunedBlocksLikelyToHave))
             {
                 LogPrint(BCLog::NET, " getblocks stopping, pruned or too old block at %d %s\n", pindex->nHeight, pindex->GetBlockHash().ToString());
                 break;
@@ -1899,7 +1899,7 @@ bool PeerManager::ProcessMessage(CNode* pfrom, const std::string& strCommand, CD
         }
 
         CBlock block;
-        bool ret = ReadBlockFromDisk(block, pindex);
+        bool ret = g_chainstate_manager.GetBlockFileManager().ReadBlockFromDisk(block, pindex, g_chainstate_manager.RulesAt(*pindex));
         assert(ret);
 
         SendBlockTransactions(block, req, pfrom);
@@ -2088,7 +2088,7 @@ bool PeerManager::ProcessMessage(CNode* pfrom, const std::string& strCommand, CD
     }
 
 
-    else if (strCommand == NetMsgType::CMPCTBLOCK && !fImporting && !fReindex) // Ignore blocks received while importing
+    else if (strCommand == NetMsgType::CMPCTBLOCK && !g_chainstate_manager.GetBlockFileManager().LoadingBlocks()) // Ignore blocks received while importing
     {
         CBlockHeaderAndShortTxIDs cmpctblock;
         vRecv >> cmpctblock;
@@ -2353,7 +2353,7 @@ bool PeerManager::ProcessMessage(CNode* pfrom, const std::string& strCommand, CD
 
     }
 
-    else if (strCommand == NetMsgType::BLOCKTXN && !fImporting && !fReindex) // Ignore blocks received while importing
+    else if (strCommand == NetMsgType::BLOCKTXN && !g_chainstate_manager.GetBlockFileManager().LoadingBlocks()) // Ignore blocks received while importing
     {
         BlockTransactions resp;
         vRecv >> resp;
@@ -2454,7 +2454,7 @@ bool PeerManager::ProcessMessage(CNode* pfrom, const std::string& strCommand, CD
     }
 
 
-    else if (strCommand == NetMsgType::HEADERS && !fImporting && !fReindex) // Ignore headers received while importing
+    else if (strCommand == NetMsgType::HEADERS && !g_chainstate_manager.GetBlockFileManager().LoadingBlocks()) // Ignore headers received while importing
     {
         std::vector<CBlockHeader> headers;
 
@@ -2479,7 +2479,7 @@ bool PeerManager::ProcessMessage(CNode* pfrom, const std::string& strCommand, CD
         return ProcessHeadersMessage(pfrom, headers, chainparams, should_punish);
     }
 
-    else if (strCommand == NetMsgType::BLOCK && !fImporting && !fReindex) // Ignore blocks received while importing
+    else if (strCommand == NetMsgType::BLOCK && !g_chainstate_manager.GetBlockFileManager().LoadingBlocks()) // Ignore blocks received while importing
     {
         std::shared_ptr<CBlock> pblock = std::make_shared<CBlock>();
         vRecv >> *pblock;
@@ -3119,7 +3119,7 @@ bool PeerManager::SendMessages(CNode* pto)
         if (pindexBestHeader == nullptr)
             pindexBestHeader = chainActive.Tip();
         bool fFetch = state.fPreferredDownload || (nPreferredDownload == 0 && !pto->fClient && !pto->fOneShot); // Download if this is a nice peer, or we have no nice peers and this one might do.
-        if (!state.fSyncStarted && !pto->fClient && !fImporting && !fReindex) {
+        if (!state.fSyncStarted && !pto->fClient && !g_chainstate_manager.GetBlockFileManager().LoadingBlocks()) {
             // Only actively request headers from a single peer, unless we're close to today.
             if ((nSyncStarted == 0 && fFetch) || pindexBestHeader->GetBlockTime() > GetAdjustedTime() - 24 * 60 * 60) {
                 state.fSyncStarted = true;
@@ -3143,7 +3143,7 @@ bool PeerManager::SendMessages(CNode* pto)
         // Resend wallet transactions that haven't gotten in a block yet
         // Except during reindex, importing and IBD, when old wallet
         // transactions become unconfirmed and spams other nodes.
-        if (!fReindex && !fImporting && !IsInitialBlockDownload())
+        if (!g_chainstate_manager.GetBlockFileManager().LoadingBlocks() && !IsInitialBlockDownload())
         {
             GetMainSignals().Broadcast(nTimeBestReceived, &m_connman);
         }
@@ -3232,7 +3232,7 @@ bool PeerManager::SendMessages(CNode* pto)
                     }
                     if (!fGotBlockFromCache) {
                         CBlock block;
-                        bool ret = ReadBlockFromDisk(block, pBestIndex);
+                        bool ret = g_chainstate_manager.GetBlockFileManager().ReadBlockFromDisk(block, pBestIndex, g_chainstate_manager.RulesAt(*pBestIndex));
                         assert(ret);
                         CBlockHeaderAndShortTxIDs cmpctblock(block);
                         m_connman.PushMessage(pto, msgMaker.Make(NetMsgType::CMPCTBLOCK, cmpctblock));

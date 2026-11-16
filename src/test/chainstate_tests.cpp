@@ -29,7 +29,7 @@
 #include <coinsviewcache.h>
 #include <primitives/block.h>
 #include <primitives/transaction.h>
-#include <file_io.h>
+#include <blockfilemanager.h>
 #include <xfieldhistorymap.h>
 #include <tempxfieldhistory.h>
 #include <verifydb.h>
@@ -623,12 +623,12 @@ BOOST_AUTO_TEST_CASE(block_sequence_id_edge_cases)
     BOOST_CHECK(originalSeqId1 > 0);
 
     // Write the block to disk
-    CDiskBlockPos diskPos1 = SaveBlockToDisk(block1, block1.GetHeight(), nullptr);
+    CDiskBlockPos diskPos1 = g_chainstate_manager.GetBlockFileManager().SaveBlockToDisk(block1, block1.GetHeight(), nullptr);
     BOOST_CHECK(diskPos1.IsNull() == false);
 
     // Read the block back from disk
     CBlock blockFromDisk1;
-    BOOST_REQUIRE(ReadBlockFromDisk(blockFromDisk1, diskPos1, g_chainstate_manager.RulesLatest()));
+    BOOST_REQUIRE(g_chainstate_manager.GetBlockFileManager().ReadBlockFromDisk(blockFromDisk1, diskPos1, g_chainstate_manager.RulesLatest()));
 
     // Verify the block content is the same
     BOOST_CHECK(blockFromDisk1.GetHash() == hash1);
@@ -654,12 +654,12 @@ BOOST_AUTO_TEST_CASE(block_sequence_id_edge_cases)
     BOOST_CHECK(originalSeqId2 > originalSeqId1);
 
     // Write block2 to disk
-    CDiskBlockPos diskPos2 = SaveBlockToDisk(block2, block2.GetHeight(), nullptr);
+    CDiskBlockPos diskPos2 = g_chainstate_manager.GetBlockFileManager().SaveBlockToDisk(block2, block2.GetHeight(), nullptr);
     BOOST_CHECK(diskPos2.IsNull() == false);
 
     // Read block2 back from disk
     CBlock blockFromDisk2;
-    BOOST_REQUIRE(ReadBlockFromDisk(blockFromDisk2, diskPos2, g_chainstate_manager.RulesLatest()));
+    BOOST_REQUIRE(g_chainstate_manager.GetBlockFileManager().ReadBlockFromDisk(blockFromDisk2, diskPos2, g_chainstate_manager.RulesLatest()));
 
     // Verify the block content is the same
     BOOST_CHECK(blockFromDisk2.GetHash() == hash2);

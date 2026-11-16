@@ -4,6 +4,7 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
+#include <blockfilemanager.h>
 #include <consensussettings.h>
 #include <contextualconsensusrules.h>
 #include <checkblock.h>
@@ -45,7 +46,6 @@
 #include <sstream>
 
 #include <file_io.h>
-#include <blockprune.h>
 
 #if defined(NDEBUG)
 # error "Tapyrus cannot be compiled without assertions."
@@ -62,14 +62,9 @@ Mutex g_best_block_mutex;
 CConditionVariable g_best_block_cv;
 uint256 g_best_block;
 int nScriptCheckThreads = 0;
-std::atomic_bool fImporting(false);
-std::atomic_bool fReindex(false);
-bool fHavePruned = false;
-bool fPruneMode = false;
 bool fCheckBlockIndex = false;
 bool fCheckpointsEnabled = DEFAULT_CHECKPOINTS_ENABLED;
 size_t nCoinCacheUsage = 5000 * 300;
-uint64_t nPruneTarget = 0;
 int64_t nMaxTipAge = DEFAULT_MAX_TIP_AGE;
 
 uint256 hashAssumeValid;
@@ -88,19 +83,8 @@ CBlockIndex *&pindexBestInvalid = g_chainstate.pindexBestInvalid;
  */
 std::multimap<CBlockIndex*, CBlockIndex*>& mapBlocksUnlinked = g_chainstate.mapBlocksUnlinked;
 
-std::vector<CBlockFileInfo> vinfoBlockFile;
-int nLastBlockFile = 0;
-/** Global flag to indicate we should check to see if there are
- *  block/undo files that should be deleted.  Set on startup
- *  or if we allocate more file space when we're in prune mode
- */
-bool fCheckForPruning = false;
-
 /** Dirty block index entries. */
 std::set<CBlockIndex*> setDirtyBlockIndex;
-
-/** Dirty block file entries. */
-std::set<int> setDirtyFileInfo;
 
 // Minimum number of blocks in the sampling window for ChainTxData refresh.
 static constexpr int64_t MIN_CHAIN_TX_WINDOW = 100;
@@ -841,7 +825,7 @@ bool GetTransaction(const uint256& hash, CTransactionRef& txOut, uint256& hashBl
 
     if (pindexSlow) {
         CBlock block;
-        if (ReadBlockFromDisk(block, pindexSlow)) {
+        if (g_chainstate_manager.GetBlockFileManager().ReadBlockFromDisk(block, pindexSlow, g_chainstate_manager.RulesAt(*pindexSlow))) {
             for (const auto& tx : block.vtx) {
                 if (tx->GetHashMalFix() == hash) {
                     txOut = tx;
@@ -871,7 +855,7 @@ bool IsInitialBlockDownload()
     LOCK(cs_main);
     if (latchToFalse.load(std::memory_order_relaxed))
         return false;
-    if (fImporting || fReindex)
+    if (g_chainstate_manager.GetBlockFileManager().LoadingBlocks())
         return true;
     if (chainActive.Tip() == nullptr)
         return true;
@@ -1032,8 +1016,17 @@ void FlushStateToDisk() {
 
 void PruneAndFlush() {
     CValidationState state;
-    fCheckForPruning = true;
+    g_chainstate_manager.GetBlockFileManager().SetCheckForPruning();
     if (!FlushStateToDisk(state, FlushStateMode::NONE)) {
+        LogPrintf("%s: failed to flush state (%s)\n", __func__, FormatStateMessage(state));
+    }
+}
+
+/* This function is called from the RPC code for pruneblockchain */
+void PruneBlockFilesManual(int nManualPruneHeight)
+{
+    CValidationState state;
+    if (!FlushStateToDisk(state, FlushStateMode::NONE, nManualPruneHeight)) {
         LogPrintf("%s: failed to flush state (%s)\n", __func__, FormatStateMessage(state));
     }
 }
@@ -1135,66 +1128,12 @@ bool TestBlockValidity(CValidationState& state, const CBlock& block, CBlockIndex
     return true;
 }
 
-FILE* OpenBlockFile(const CDiskBlockPos &pos, bool fReadOnly) {
-    return OpenDiskFile(pos, "blk", fReadOnly);
-}
-
-fs::path GetBlockPosFilename(const CDiskBlockPos &pos, const char *prefix)
-{
-    return GetBlocksDir() / strprintf("%s%05u.dat", prefix, pos.nFile);
-}
-
 bool static LoadBlockIndexDB() EXCLUSIVE_LOCKS_REQUIRED(cs_main)
 {
     if (!g_chainstate.LoadBlockIndex(*pblocktree))
         return false;
 
-    // Load block file info
-    pblocktree->ReadLastBlockFile(nLastBlockFile);
-    vinfoBlockFile.resize(nLastBlockFile + 1);
-    LogPrintf("%s: last block file = %i\n", __func__, nLastBlockFile);
-    for (int nFile = 0; nFile <= nLastBlockFile; nFile++) {
-        pblocktree->ReadBlockFileInfo(nFile, vinfoBlockFile[nFile]);
-    }
-    LogPrintf("%s: last block file info: %s\n", __func__, vinfoBlockFile[nLastBlockFile].ToString());
-    for (int nFile = nLastBlockFile + 1; true; nFile++) {
-        CBlockFileInfo info;
-        if (pblocktree->ReadBlockFileInfo(nFile, info)) {
-            vinfoBlockFile.push_back(info);
-        } else {
-            break;
-        }
-    }
-
-    // Check presence of blk files
-    LogPrintf("Checking all blk files are present...\n");
-    std::set<int> setBlkDataFiles;
-    for (const std::pair<const uint256, CBlockIndex*>& item : mapBlockIndex)
-    {
-        CBlockIndex* pindex = item.second;
-        if (pindex->nStatus & BLOCK_HAVE_DATA) {
-            setBlkDataFiles.insert(pindex->nFile);
-        }
-    }
-    for (std::set<int>::iterator it = setBlkDataFiles.begin(); it != setBlkDataFiles.end(); it++)
-    {
-        CDiskBlockPos pos(*it, 0);
-        if (CAutoFile(OpenBlockFile(pos, true), SER_DISK, CLIENT_VERSION).IsNull()) {
-            return false;
-        }
-    }
-
-    // Check whether we have ever pruned block & undo files
-    pblocktree->ReadFlag("prunedblockfiles", fHavePruned);
-    if (fHavePruned)
-        LogPrintf("LoadBlockIndexDB(): Block files have previously been pruned\n");
-
-    // Check whether we need to continue reindexing
-    bool fReindexing = false;
-    pblocktree->ReadReindexing(fReindexing);
-    if(fReindexing) fReindex = true;
-
-    return true;
+    return g_chainstate_manager.GetBlockFileManager().LoadBlockFileInfo(*pblocktree);
 }
 
 bool LoadChainTip()
@@ -1264,16 +1203,13 @@ void UnloadBlockIndex()
     pindexBestHeader = nullptr;
     mempool.clear();
     mapBlocksUnlinked.clear();
-    vinfoBlockFile.clear();
-    nLastBlockFile = 0;
+    g_chainstate_manager.GetBlockFileManager().Unload();
     setDirtyBlockIndex.clear();
-    setDirtyFileInfo.clear();
 
     for (BlockMap::value_type& entry : mapBlockIndex) {
         delete entry.second;
     }
     mapBlockIndex.clear();
-    fHavePruned = false;
 
     g_chainstate.UnloadBlockIndex();
 }
@@ -1281,8 +1217,8 @@ void UnloadBlockIndex()
 bool LoadBlockIndex()
 {
     // Load block index from databases
-    bool needs_init = fReindex;
-    if (!fReindex) {
+    bool needs_init = g_chainstate_manager.GetBlockFileManager().fReindex;
+    if (!needs_init) {
         bool ret = LoadBlockIndexDB();
         if (!ret) return false;
         needs_init = mapBlockIndex.empty();
@@ -1300,6 +1236,11 @@ bool LoadBlockIndex()
     return true;
 }
 
+bool IsBlockPruned(const CBlockIndex* pblockindex)
+{
+    return (g_chainstate_manager.GetBlockFileManager().fHavePruned && !(pblockindex->nStatus & BLOCK_HAVE_DATA) && pblockindex->nTx > 0);
+}
+
 bool LoadGenesisBlock()
 {
     return g_chainstate.LoadGenesisBlock();
@@ -1308,13 +1249,6 @@ std::string CBlockFileInfo::ToString() const
 {
     AssertLockHeld(::cs_main);
     return strprintf("CBlockFileInfo(blocks=%u, size=%u, heights=%u...%u, time=%s...%s)", nBlocks, nSize, nHeightFirst, nHeightLast, FormatISO8601Date(nTimeFirst), FormatISO8601Date(nTimeLast));
-}
-
-CBlockFileInfo* GetBlockFileInfo(size_t n)
-{
-    LOCK(cs_LastBlockFile);
-
-    return &vinfoBlockFile.at(n);
 }
 
 //! Guess how far we are in the verification process at the given block index

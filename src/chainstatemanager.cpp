@@ -70,3 +70,8 @@ HeightDerivedConsensusRules ChainstateManager::BuildRules(std::optional<int32_t>
     const int32_t flagsHeight = height ? *height : std::numeric_limits<int32_t>::max();
     return HeightDerivedConsensusRules(height, maxBlockSize.data, aggregatePubKey.getPubKey(), Settings().ScriptFlagsAt(flagsHeight));
 }
+
+void ChainstateManager::InitBlockFileManager(const BlockFileManager::Options& options)
+{
+    m_block_file_manager = std::make_unique<BlockFileManager>(options);
+}
