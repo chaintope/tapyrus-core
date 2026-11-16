@@ -54,12 +54,13 @@ P2P
   `-whitelist` to peers arriving there. A hidden service set up by hand in
   torrc should forward to this port; see `doc/tor.md`.
 
-- The node refuses to start when a `-whitelist` range covers an address Tor
-  connects from: the `-proxy` or `-onion` address, or, with `-listenonion`,
-  127.0.0.1, ::1 or the `-torcontrol` address. Narrow the range, or use
-  `-whitebind` for trusted peers. A node that whitelists 127.0.0.1 for local
-  software connecting over P2P must now also set `-listenonion=0`, or use
-  `-whitebind` instead.
+- When `-listenonion` forwards to a clearnet `-bind` because no onion bind is
+  given, the node refuses to start if a `-whitelist` range covers an address
+  Tor connects from: the `-proxy` or `-onion` address, 127.0.0.1, ::1 or the
+  `-torcontrol` address. Add an onion bind, narrow the range, or use
+  `-listenonion=0`. In other setups, such as the default one with an onion
+  bind, the node only warns, as Tor peers then reach a clearnet port only
+  through an onion service set up by hand in torrc.
 
 - `-listenonion` now asks Tor for a v3 onion service. It used to ask for v2,
   which Tor 0.4.6 and later reject, so no automatic onion service was

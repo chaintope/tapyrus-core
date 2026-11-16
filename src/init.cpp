@@ -1843,10 +1843,12 @@ bool AppInitMain(NodeContext& node)
     // for Tor on loopback at the P2P port + 1, so Tor inbound peers never share a port with clearnet ones.
     const bool listen_onion = gArgs.GetBoolArg("-listenonion", DEFAULT_LISTEN_ONION);
     CService onion_service_target;
+    bool onion_target_is_clearnet{false};
     if (!connOptions.onion_binds.empty()) {
         onion_service_target = connOptions.onion_binds.front();
     } else if (!connOptions.vBinds.empty()) {
         onion_service_target = connOptions.vBinds.front();
+        onion_target_is_clearnet = true;
         if (listen_onion) {
             InitWarning(strprintf(_("No onion bind is given, so the Tor onion service forwards to the clearnet listener %s and its peers are not tagged as Tor. Add -bind=<addr>=onion to listen for them separately."), onion_service_target.ToStringIPPort()));
         }
@@ -1879,8 +1881,9 @@ bool AppInitMain(NodeContext& node)
         connOptions.vWhitelistedRange.push_back(subnet);
     }
 
-    // Tor connects to the node from its own address. A Tor service set up by hand can still forward
-    // to a clearnet port, where a -whitelist range covering that address would whitelist every Tor peer.
+    // Tor connects to the node from its own address, so a -whitelist range covering it whitelists Tor
+    // peers that arrive on a clearnet port. Refuse when -listenonion forwards to one; otherwise only a
+    // Tor service set up by hand in torrc can, so warn.
     if (fListen) {
         std::vector<CNetAddr> tor_addrs;
         proxyType proxy;
@@ -1896,7 +1899,11 @@ bool AppInitMain(NodeContext& node)
         }
         for (const CNetAddr& tor_addr : tor_addrs) {
             if (const CSubNet* range = connOptions.FindWhitelistedRange(tor_addr)) {
-                return InitError(strprintf(_("-whitelist=%s covers %s, an address Tor inbound peers can connect from, so they would be whitelisted. Narrow the range, or use -whitebind for trusted peers."), range->ToString(), tor_addr.ToString()));
+                if (listen_onion && onion_target_is_clearnet) {
+                    return InitError(strprintf(_("-whitelist=%s covers %s, an address Tor inbound peers can connect from, and the onion service forwards to the clearnet listener %s, so they would be whitelisted. Add an onion bind with -bind=<addr>=onion, narrow the range, or use -listenonion=0."), range->ToString(), tor_addr.ToString(), onion_service_target.ToStringIPPort()));
+                }
+                InitWarning(strprintf(_("-whitelist=%s covers %s, an address Tor inbound peers can connect from. Peers on the onion bind are never whitelisted, so an onion service set up in torrc must forward to the onion bind, not to a clearnet port."), range->ToString(), tor_addr.ToString()));
+                break;
             }
         }
     }

@@ -151,7 +151,11 @@ class TestNode():
 
         # Without -bind, tapyrusd listens for Tor on 127.0.0.1 at its P2P port + 1, which is the
         # next node's P2P port here. Keep the default listening, with the node's own onion port.
-        will_listen = all(e != "-nolisten" and e != "-listen=0" for e in extra_args)
+        # -bind turns -listen on, so a node whose -connect or -proxy turns it off gets no binds.
+        listen_given = any(e == "-listen" or e.startswith("-listen=") or e == "-nolisten" for e in extra_args)
+        listen_off = any(e.startswith("-connect=") or e.startswith("-proxy=") for e in extra_args)
+        will_listen = (all(e != "-nolisten" and e != "-listen=0" for e in extra_args)
+                       and (listen_given or not listen_off))
         if self.add_test_binds and will_listen and not self._has_explicit_bind(extra_args):
             port = p2p_port(self.index)
             binds = ["-bind=0.0.0.0:{}".format(port), "-bind=127.0.0.1:{}=onion".format(tor_port(self.index))]
