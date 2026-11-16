@@ -94,7 +94,10 @@ static void AssembleBlock(benchmark::State& state)
     std::thread thread(std::bind(&CScheduler::serviceQueue, &scheduler));
     {
         ::pblocktree.reset(new CBlockTreeDB(1 << 20, true));
-        ::pcoinsdbview.reset(new CCoinsViewDB(1 << 23, true));
+        {
+            LOCK(cs_main);
+            ::pcoinsdbview.reset(new CCoinsViewDB(g_chainstate_manager.IssuedColorIds(), 1 << 23, true));
+        }
         ::pcoinsTip.reset(new CCoinsViewCache(pcoinsdbview.get()));
 
         GetMainSignals().RegisterBackgroundSignalScheduler(scheduler);

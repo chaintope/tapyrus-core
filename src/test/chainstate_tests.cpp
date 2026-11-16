@@ -740,8 +740,8 @@ BOOST_AUTO_TEST_CASE(check_block_header_orphan_uses_latest_aggpubkey)
  * live colorId set whenever verifychain was run on a chain that contained
  * NON_REISSUABLE or NFT issuances.
  *
- * The test bypasses CVerifyDB's ColorIdsSnapshot so it fails without the one-line fix
- * and passes after it.
+ * The test passes the live issued colorIds, not a copy as CVerifyDB does, so it
+ * fails without the one-line fix and passes after it.
  */
 BOOST_AUTO_TEST_CASE(disconnect_block_dry_run_preserves_colorid_state)
 {
@@ -811,7 +811,7 @@ BOOST_AUTO_TEST_CASE(disconnect_block_dry_run_preserves_colorid_state)
         BOOST_REQUIRE(g_chainstate_manager.IssuedColorIds().IsIssued(colorid));
     }
 
-    // Call DisconnectBlock(fDryRun=true) directly — no ColorIdsSnapshot in place.
+    // Call DisconnectBlock(fDryRun=true) directly on the live issued colorIds.
     // Before the fix, this called IssuedColorIds().Erase(colorid) unconditionally.
     {
         LOCK(cs_main);
@@ -820,7 +820,7 @@ BOOST_AUTO_TEST_CASE(disconnect_block_dry_run_preserves_colorid_state)
 
         CCoinsViewCache coins(pcoinsTip.get());
         DisconnectResult res = g_chainstate.DisconnectBlock(
-            issueBlock, pindex, coins, /*fDryRun=*/true);
+            issueBlock, pindex, coins, g_chainstate_manager.IssuedColorIds(), /*fDryRun=*/true);
         BOOST_CHECK(res != DISCONNECT_FAILED);
     }
 

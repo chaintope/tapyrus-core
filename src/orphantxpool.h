@@ -11,6 +11,7 @@
 #include <primitives/transaction.h>
 #include <uint256.h>
 
+#include <cstddef>
 #include <cstdint>
 #include <map>
 #include <optional>
@@ -49,6 +50,8 @@ public:
     std::optional<COrphanTx> GetTx(const uint256& hash) const;
     /** Adds to work_set every orphan that spends an output of tx. */
     void AddChildrenToWorkSet(const CTransaction& tx, std::set<uint256>& work_set) const;
+    /** How many orphans are stored. */
+    size_t Size() const { return mapOrphanTransactions.size(); }
 
 protected:
     struct IteratorComparator

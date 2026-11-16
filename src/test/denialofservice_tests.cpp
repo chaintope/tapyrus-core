@@ -23,12 +23,10 @@
 
 #include <boost/test/unit_test.hpp>
 
-/** An orphan pool that also exposes its size and a random orphan to the test. */
+/** An orphan pool that also exposes a random orphan to the test. */
 class OrphanTxPoolTest : public OrphanTxPool
 {
 public:
-    size_t Size() const { return mapOrphanTransactions.size(); }
-
     CTransactionRef RandomOrphan()
     {
         std::map<uint256, COrphanTx>::iterator it = mapOrphanTransactions.lower_bound(InsecureRand256());

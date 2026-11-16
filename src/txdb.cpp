@@ -55,7 +55,8 @@ struct CoinEntry {
 
 }
 
-CCoinsViewDB::CCoinsViewDB(size_t nCacheSize, bool fMemory, bool fWipe) : db(GetDataDir() / "chainstate", nCacheSize, fMemory, fWipe, true)
+CCoinsViewDB::CCoinsViewDB(CIssuedColorIds& issuedColorIds, size_t nCacheSize, bool fMemory, bool fWipe)
+    : db(GetDataDir() / "chainstate", nCacheSize, fMemory, fWipe, true), m_issued_colorids(issuedColorIds)
 {
 }
 
@@ -136,8 +137,7 @@ bool CCoinsViewDB::BatchWrite(CoinsViewCacheCursor& cursor, const uint256 &hashB
     // ColorId changes are committed in this same batch so they are atomic with DB_BEST_BLOCK.
     batch.Erase(DB_HEAD_BLOCKS);
     batch.Write(DB_BEST_BLOCK, hashBlock);
-    if (m_colorid_state)
-        m_colorid_state->CommitToBatch(batch);
+    m_issued_colorids.CommitToBatch(batch);
 
     LogPrint(BCLog::COINDB, "Writing final batch of %.2f MiB\n", batch.SizeEstimate() * (1.0 / 1048576.0));
     bool ret = db.WriteBatch(batch);

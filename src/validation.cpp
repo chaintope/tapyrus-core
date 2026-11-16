@@ -1128,7 +1128,7 @@ bool TestBlockValidity(CValidationState& state, const CBlock& block, CBlockIndex
         return error("%s: Consensus::CheckBlock: %s", __func__, FormatStateMessage(state));
     if (!ContextualConsensusRules::ContextualCheckBlock(block, state, *pindexPrev))
         return error("%s: Consensus::ContextualCheckBlock: %s", __func__, FormatStateMessage(state));
-    if (!g_chainstate.ConnectBlock(block, state, &indexDummy, viewNew, true))
+    if (!g_chainstate.ConnectBlock(block, state, &indexDummy, viewNew, g_chainstate_manager.IssuedColorIds(), true))
         return false;
     assert(state.IsValid());
 
@@ -1230,8 +1230,8 @@ bool LoadChainTip()
     return true;
 }
 
-bool ReplayBlocks(CCoinsView* view) {
-    return g_chainstate.ReplayBlocks(view);
+bool ReplayBlocks(CCoinsView* view, CIssuedColorIds& issuedColorIds) {
+    return g_chainstate.ReplayBlocks(view, issuedColorIds);
 }
 
 bool RewindBlockIndex() {

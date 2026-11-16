@@ -166,7 +166,10 @@ TestingSetup::TestingSetup(const std::string& chainName) : BasicTestingSetup(cha
         try {
             mempool.setSanityCheck(1.0);
             pblocktree.reset(new CBlockTreeDB(1 << 20, true));
-            pcoinsdbview.reset(new CCoinsViewDB(1 << 23, true));
+            {
+                LOCK(cs_main);
+                pcoinsdbview.reset(new CCoinsViewDB(g_chainstate_manager.IssuedColorIds(), 1 << 23, true));
+            }
             pcoinsTip.reset(new CCoinsViewCache(pcoinsdbview.get()));
             if (!LoadGenesisBlock()) {
                 throw std::runtime_error("LoadGenesisBlock failed.");

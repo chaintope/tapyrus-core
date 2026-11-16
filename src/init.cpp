@@ -1512,14 +1512,13 @@ bool AppInitMain(NodeContext& node)
                 // At this point we're either in reindex or we've loaded a useful
                 // block tree into mapBlockIndex!
 
-                pcoinsdbview.reset(new CCoinsViewDB(nCoinDBCache, false, fReset || fReindexChainState));
+                pcoinsdbview.reset(new CCoinsViewDB(g_chainstate_manager.IssuedColorIds(), nCoinDBCache, false, fReset || fReindexChainState));
                 pcoinscatcher.reset(new CCoinsViewErrorCatcher(pcoinsdbview.get()));
 
                 // Reset the issued colorIds before ReplayBlocks so that DisconnectBlock
                 // inside the replay can stage erases that CommitToBatch writes atomically
                 // with the replay's UTXO flush.  cs_main is already held by the outer LOCK.
                 g_chainstate_manager.IssuedColorIds() = CIssuedColorIds();
-                pcoinsdbview->SetColorIdState(&g_chainstate_manager.IssuedColorIds());
 
                 // If necessary, upgrade from older database format.
                 // This is a no-op if we cleared the coinsviewdb with -reindex or -reindex-chainstate
@@ -1529,7 +1528,7 @@ bool AppInitMain(NodeContext& node)
                 }
 
                 // ReplayBlocks is a no-op if we cleared the coinsviewdb with -reindex or -reindex-chainstate
-                if (!ReplayBlocks(pcoinsdbview.get())) {
+                if (!ReplayBlocks(pcoinsdbview.get(), g_chainstate_manager.IssuedColorIds())) {
                     strLoadError = _("Unable to replay blocks. You will need to rebuild the database using -reindex-chainstate.");
                     break;
                 }

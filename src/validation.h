@@ -40,6 +40,7 @@ class CBlockTreeDB;
 class CChainParams;
 class CCoinsViewDB;
 class CInv;
+class CIssuedColorIds;
 class CConnman;
 class CScriptCheck;
 class CBlockPolicyEstimator;
@@ -332,7 +333,7 @@ bool TestBlockValidity(CValidationState& state, const CBlock& block, CBlockIndex
 bool RewindBlockIndex();
 
 /** Replay blocks that aren't fully applied to the database. */
-bool ReplayBlocks(CCoinsView* view);
+bool ReplayBlocks(CCoinsView* view, CIssuedColorIds& issuedColorIds);
 
 inline CBlockIndex* LookupBlockIndex(const uint256& hash) EXCLUSIVE_LOCKS_REQUIRED(cs_main)
 {

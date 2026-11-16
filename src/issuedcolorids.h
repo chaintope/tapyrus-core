@@ -23,9 +23,10 @@ class CDBBatch;
  * (bad-txns-colorid-already-issued).
  *
  * Owned by ChainstateManager. Lifecycle (mirrors pcoinsdbview / pcoinsTip):
- *   1. Reset to empty and connected to pcoinsdbview before ReplayBlocks,
- *      so DisconnectBlock inside ReplayBlocks can stage erases that
- *      CommitToBatch writes atomically with the replay's UTXO flush.
+ *   1. Reset to empty before ReplayBlocks, so DisconnectBlock inside
+ *      ReplayBlocks can stage erases that CommitToBatch writes atomically
+ *      with the replay's UTXO flush. pcoinsdbview holds a reference to it,
+ *      given when it is constructed.
  *   2. SetConfirmed() is called after ReplayBlocks to populate the confirmed set.
  *   3. Reset to empty on shutdown, after pcoinsdbview.
  */

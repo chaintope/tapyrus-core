@@ -165,7 +165,8 @@ private:
     std::atomic<int64_t> nTimeBestReceived{0}; // Used only to inform the wallet of when we last received a block
 
     /** Guards the orphan pool and the compact-block extra-transaction ring.
-     *  Taken after cs_main and before mempool.cs. */
+     *  Taken after cs_main and before mempool.cs. Never held across ProcessNewBlock,
+     *  whose BlockConnected callback takes it. */
     Mutex m_tx_download_mutex;
     OrphanTxPool m_orphan_tx_pool GUARDED_BY(m_tx_download_mutex);
 
