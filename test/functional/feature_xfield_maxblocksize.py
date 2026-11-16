@@ -13,6 +13,9 @@ MAX_BLOCK_BASE_SIZE/2,
 3 * MAX_BLOCK_BASE_SIZE
 3999500 bytes (as accepts only MAX_PROTOCOL_MESSAGE_LENGTH (4MB) messages in p2p protocol)
 
+Restart with -reindex-chainstate while the max block size is 0.5MB: a 1MB-era block with more sigops than the
+0.5MB limit allows is connected again against its own height's limit.
+
 Simulate Blockchain Reorg  - After the last federation block and Before the last federation block
 
 Test the output of RPC Getblockchaininfo before reorg and after reorg. Verify block aggpubkey and maxblock size changes against block height
@@ -175,10 +178,10 @@ class MaxBloxkSizeInXFieldTest(BitcoinTestFramework):
         chaintips = node.getchaintips()
         assert_equal(len(chaintips), 3)
 
+        #B14 -  Create block - 15000 checksigs, within the 1MB limit (20000) but over the later 0.5MB limit (10000) - sign with aggpubkey1 -- success
         self.block_time += 1
-        blocknew = self.new_block(14, spend=self.unspent[3])
+        blocknew = self.new_block(14, spend=self.unspent[3], script=CScript([OP_CHECKSIG] * 15000))
         blocknew.solve(self.aggprivkey[0])
-        self.expand_block(blocknew, MAX_BLOCK_BASE_SIZE - 1000)
         node.p2p.send_blocks_and_test([blocknew], node, success=True)
         self.tip = blocknew.hash
         assert_equal(self.tip, node.getbestblockhash())
@@ -261,6 +264,14 @@ class MaxBloxkSizeInXFieldTest(BitcoinTestFramework):
         node.p2p.send_blocks_and_test([blocknew], node, success=True)
         self.tip = blocknew.hash
         assert_equal(self.tip, node.getbestblockhash())
+
+        # B14 is connected again against its own 1MB sigop limit, not the latest 0.5MB one
+        self.log.info("Restarting node0 with '-reindex-chainstate' while the latest max block size is 0.5MB")
+        self.stop_node(0)
+        self.start_node(0, extra_args=["-reindex-chainstate"], timeout=TAPYRUSD_REORG_TIMEOUT)
+        wait_until(lambda: self.nodes[0].getbestblockhash() == self.tip, timeout=TAPYRUSD_REORG_TIMEOUT)
+        connect_nodes(self.nodes[0], 1)
+        self.reconnect_p2p(node)
 
         #B19 - B28 -- Generate 10 blocks - no change in aggpubkey or block size -- chain becomes longer
         self.unspent = self.unspent + generate_blocks(10, node, self.coinbase_pubkey, self.aggprivkey[1])

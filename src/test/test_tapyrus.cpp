@@ -86,9 +86,9 @@ BasicTestingSetup::BasicTestingSetup(const std::string& chainName)
         SetDataDir("tempdir");
         writeTestGenesisBlockToFile(GetDataDir());
         SelectFederationParams(TAPYRUS_OP_MODE::PROD);
-        g_consensus_settings = std::make_unique<const ConsensusSettings>(ReadGenesisBlock(), TAPYRUS_OP_MODE::PROD, FederationParams().NetworkId());
+        g_chainstate_manager.InitConsensusSettings(std::make_unique<const ConsensusSettings>(ReadGenesisBlock(), TAPYRUS_OP_MODE::PROD, FederationParams().NetworkId()));
         noui_connect();
-        g_chainstate_manager.InitXFieldHistory(g_consensus_settings->GenesisBlock());
+        g_chainstate_manager.InitXFieldHistory(g_chainstate_manager.Settings().GenesisBlock());
         pxFieldHistory = &g_chainstate_manager.XFieldHistory();
         g_colorid_state.reset(new CIssuedColorIds());
     } catch (...) {

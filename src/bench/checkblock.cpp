@@ -6,6 +6,7 @@
 
 #include <chainparams.h>
 #include <chainstatemanager.h>
+#include <checkblock.h>
 #include <validation.h>
 #include <streams.h>
 #include <consensus/validation.h>
@@ -49,7 +50,7 @@ static void DeserializeAndCheckBlockTest(benchmark::State& state)
         assert(stream.Rewind(sizeof(block_bench::block413567)));
 
         CValidationState validationState;
-        assert(CheckBlock(block, validationState, g_chainstate_manager.XFieldHistory()));
+        assert(CheckBlock(block, validationState, g_chainstate_manager.RulesLatest()));
     }
 }
 

@@ -3,6 +3,7 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 #include <tapyrus-config.h>
 
+#include <checkblock.h>
 #include <clientversion.h>
 #include <eccverifyhandle.h>
 #include <util.h>
@@ -17,7 +18,7 @@
 #include <tinyformat.h>
 #include <script/standard.h>
 #include <stdio.h>
-#include <xfieldhistory.h>
+#include <heightderivedconsensusrules.h>
 
 static const int CONTINUE_EXECUTION=-1;
 
@@ -109,13 +110,11 @@ static int generateGenesis(CPubKey aggpubkey, CKey& privatekey, long long blockT
 {
     CBlock genesis { createGenesisBlock(aggpubkey, privatekey, blockTime, payToAddress) };
 
-    //initialize xfield history
-    CXFieldHistory history(genesis);
-
-    // check validity
+    // check validity against the genesis block's own rules
+    const HeightDerivedConsensusRules consensusAtHeight(0, ConsensusConstants::MAX_BLOCK_SIZE, aggpubkey, SCRIPT_VERIFY_NONE);
     CValidationState state;
     bool fCheckProof = privatekey.IsValid();
-    if(!CheckBlock(genesis, state, history, fCheckProof)) {
+    if(!CheckBlock(genesis, state, consensusAtHeight, fCheckProof)) {
         fprintf(stderr, "error: Consensus::CheckBlock: %s", FormatStateMessage(state).c_str());
         return EXIT_FAILURE;
     }

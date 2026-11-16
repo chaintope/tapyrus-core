@@ -11,6 +11,7 @@
 #include <coloridentifier.h>
 #include <consensus/validation.h>
 #include <core_io.h>
+#include <chainstatemanager.h>
 #include <consensussettings.h>
 #include <index/txindex.h>
 #include <keystore.h>
@@ -163,7 +164,7 @@ static UniValue getrawtransaction(const JSONRPCRequest& request)
     uint256 hash = ParseHashV(request.params[0], "parameter 1");
     CBlockIndex* blockindex = nullptr;
 
-    if (hash == g_consensus_settings->GenesisBlock().hashMerkleRoot) {
+    if (hash == g_chainstate_manager.Settings().GenesisBlock().hashMerkleRoot) {
         // Special exception for the genesis block coinbase transaction
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "The genesis block coinbase is not considered an ordinary transaction and cannot be retrieved");
     }

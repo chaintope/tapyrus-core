@@ -3,6 +3,7 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
+#include <consensus/tx_check.h>
 #include <script/transactionsignaturechecker.h>
 #include <test/data/tx_invalid.json.h>
 #include <test/data/tx_valid.json.h>
@@ -11,7 +12,6 @@
 #include <chainstatemanager.h>
 #include <clientversion.h>
 #include <checkqueue.h>
-#include <consensus/tx_verify.h>
 #include <consensus/validation.h>
 #include <core_io.h>
 #include <key.h>

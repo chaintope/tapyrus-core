@@ -89,6 +89,7 @@ add_executable(test_tapyrus
         coins_tests.cpp
         coloridentifier_tests.cpp
         compress_tests.cpp
+        consensus_rules_tests.cpp
         crypto_tests.cpp
         cuckoocache_tests.cpp
         dbwrapper_tests.cpp
@@ -242,23 +243,6 @@ target_link_libraries(test_tapyrus
 # and fuzz-script-sweep jobs turn this on.
 if(BUILD_FUZZ_TEST)
 
-# tapyrus_rpc/tapyrus_peer/tapyrus_chainstate/tapyrus_codec/tapyrus_scripting/
-# tapyrus_global/tapyrus_netbase/tapyrus_util/tapyrus_consensus have real
-# circular symbol dependencies between them -- test_tapyrus above
-# never hits this because it also links tapyrus_wallet/tapyrus_cli/
-# tapyrus_zmq/libevent, which happen to pull in a superset of the same
-# object files early enough that everything each library needs is
-# already present in the link by the time it's needed. A standalone fuzz
-# binary linking only the libraries it actually needs has no such luck:
-# GNU ld/lld resolve each static archive in a single left-to-right pass,
-# so a later archive's need for a symbol in an earlier, already-scanned
-# archive is never revisited -- confirmed by fuzz_pstt_decode failing to
-# link with "undefined reference to GetSoftForkManager()" until wrapped
-# in --start-group/--end-group, which forces the linker to keep
-# re-scanning the whole set until every symbol resolves. Not supported
-# by Apple's ld64 the same way, but these fuzz binaries are Linux-only in
-# CI (daily-test.yml's fuzz-code-only job runs on ubuntu-latest) so that
-# doesn't matter here.
 # StartShutdown()/ShutdownRequested() for fuzz targets linking
 # FuzzNodeSetup (TestingSetup) -- test_tapyrus_main.cpp already provides
 # these for test_tapyrus, but that file also defines Boost Test's own
@@ -379,9 +363,7 @@ endfunction()
 # peer table. They link the same fixture object library test_tapyrus uses
 # (tapyrus_test_util, which carries noui.cpp and genesisblock.cpp) plus
 # tapyrus_fuzz_node_globals for StartShutdown/ShutdownRequested, so they
-# must not also compile rpc_glue_stub.cpp (duplicate symbols). The archive
-# group is needed on GNU ld/lld for the circular library dependencies
-# described above.
+# must not also compile rpc_glue_stub.cpp (duplicate symbols).
 function(add_fuzz_target_with_node_context name source)
     add_executable(${name}
         fuzz/fuzz_code/${source}
@@ -405,7 +387,6 @@ function(add_fuzz_target_with_node_context name source)
             secp256k1
             tapyrus_crypto
             Boost::headers
-            $<$<NOT:$<PLATFORM_ID:Darwin>>:-Wl,--start-group>
             tapyrus_test_util
             tapyrus_fuzz_node_globals
             tapyrus_cli
@@ -418,7 +399,6 @@ function(add_fuzz_target_with_node_context name source)
             tapyrus_netbase
             tapyrus_util
             tapyrus_consensus
-            $<$<NOT:$<PLATFORM_ID:Darwin>>:-Wl,--end-group>
             $<TARGET_NAME_IF_EXISTS:libevent::extra>
             $<TARGET_NAME_IF_EXISTS:libevent::core>
             $<TARGET_NAME_IF_EXISTS:libevent::pthreads>

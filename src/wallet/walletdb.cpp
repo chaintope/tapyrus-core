@@ -6,7 +6,7 @@
 #include <wallet/walletdb.h>
 
 #include <chainstatemanager.h>
-#include <consensus/tx_verify.h>
+#include <consensus/tx_check.h>
 #include <consensus/validation.h>
 #include <fs.h>
 #include <key_io.h>

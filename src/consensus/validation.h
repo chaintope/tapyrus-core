@@ -94,4 +94,11 @@ public:
     std::string GetDebugMessage() const { return strDebugMessage; }
 };
 
+/** Convert CValidationState to a human-readable message for logging */
+inline std::string FormatStateMessage(const CValidationState &state)
+{
+    return state.GetRejectReason() + (state.GetDebugMessage().empty() ? "" : ", " + state.GetDebugMessage())
+           + " (code " + std::to_string(state.GetRejectCode()) + ")";
+}
+
 #endif // BITCOIN_CONSENSUS_VALIDATION_H

@@ -10,6 +10,7 @@
 #include <arith_uint256.h>
 #include <blockencodings.h>
 #include <chainparams.h>
+#include <chainstatemanager.h>
 #include <consensus/validation.h>
 #include <hash.h>
 #include <localaddress.h>
@@ -2667,7 +2668,7 @@ bool PeerLogicValidation::ProcessMessage(CNode* pfrom, const std::string& strCom
                     }
                 }
                 std::vector<CTransactionRef> dummy;
-                status = tempBlock.FillBlock(*pblock, dummy, pindex->nHeight);
+                status = tempBlock.FillBlock(*pblock, dummy, g_chainstate_manager.RulesAt(*pindex));
                 if (status == READ_STATUS_OK) {
                     fBlockReconstructed = true;
                 }
@@ -2770,7 +2771,8 @@ bool PeerLogicValidation::ProcessMessage(CNode* pfrom, const std::string& strCom
 
             PartiallyDownloadedBlock& partialBlock = *range_flight.first->second.second->partialBlock;
             const CBlockIndex* blkPindex = range_flight.first->second.second->pindex;
-            ReadStatus status = partialBlock.FillBlock(*pblock, resp.txn, blkPindex ? blkPindex->nHeight : -1);
+            ReadStatus status = partialBlock.FillBlock(*pblock, resp.txn, blkPindex ? g_chainstate_manager.RulesAt(*blkPindex)
+                                                                                     : g_chainstate_manager.RulesLatest());
             if (status == READ_STATUS_INVALID) {
                 MarkBlockAsReceived(resp.blockhash, pfrom->GetId()); // Reset in-flight state in case of whitelist
                 Misbehaving(pfrom->GetId(), 100, strprintf("Peer %d sent us invalid compact block/non-matching block transactions\n", pfrom->GetId()));

@@ -18,11 +18,12 @@
  */
 
 #include <chainstate.h>
+#include <contextualconsensusrules.h>
+#include <checkblock.h>
 #include <test/test_tapyrus.h>
 #include <chainstatemanager.h>
 #include <validation.h>
 #include <consensus/validation.h>
-#include <consensus/tx_verify.h>
 #include <coin.h>
 #include <coinsview.h>
 #include <coinsviewcache.h>
@@ -626,7 +627,7 @@ BOOST_AUTO_TEST_CASE(block_sequence_id_edge_cases)
 
     // Read the block back from disk
     CBlock blockFromDisk1;
-    BOOST_REQUIRE(ReadBlockFromDisk(blockFromDisk1, diskPos1));
+    BOOST_REQUIRE(ReadBlockFromDisk(blockFromDisk1, diskPos1, g_chainstate_manager.RulesLatest()));
 
     // Verify the block content is the same
     BOOST_CHECK(blockFromDisk1.GetHash() == hash1);
@@ -657,7 +658,7 @@ BOOST_AUTO_TEST_CASE(block_sequence_id_edge_cases)
 
     // Read block2 back from disk
     CBlock blockFromDisk2;
-    BOOST_REQUIRE(ReadBlockFromDisk(blockFromDisk2, diskPos2));
+    BOOST_REQUIRE(ReadBlockFromDisk(blockFromDisk2, diskPos2, g_chainstate_manager.RulesLatest()));
 
     // Verify the block content is the same
     BOOST_CHECK(blockFromDisk2.GetHash() == hash2);
@@ -678,9 +679,9 @@ BOOST_AUTO_TEST_CASE(block_sequence_id_edge_cases)
 }
 
 /**
- * Regression test: 
- * CheckBlockHeader(nHeight=-1) must look up the
- * *latest* aggpubkey (UINT32_MAX semantics), not the genesis key (height-0).
+ * Regression test:
+ * a header with no known parent is checked against the RulesLatest() of the
+ * history in use, i.e. the *latest* aggpubkey, not the genesis key (height-0).
  * After a key rotation any header signed by the
  * post-rotation key would fail with bad-proof instead of the expected
  * prev-blk-not-found.
@@ -711,11 +712,11 @@ BOOST_AUTO_TEST_CASE(check_block_header_orphan_uses_latest_aggpubkey)
     BOOST_REQUIRE(rotatedKey.Sign_Schnorr(header.GetHashForSign(), sig));
     BOOST_REQUIRE(header.AbsorbBlockProof(sig, rotatedPubKey));
 
-    // CheckBlockHeader with nHeight=-1 must succeed: UINT32_MAX → latest entry
-    // → rotated key → valid Schnorr signature.
+    // The latest rules of the working copy carry the rotated key, so the
+    // signature is valid.
     {
         CValidationState state;
-        BOOST_CHECK(CheckBlockHeader(header, state, tempHistory, -1));
+        BOOST_CHECK(CheckBlockHeader(header, state, g_chainstate_manager.RulesLatest(tempHistory)));
     }
 
     // AcceptBlockHeader must reject for "prev-blk-not-found", not "bad-proof".
@@ -1349,7 +1350,7 @@ BOOST_AUTO_TEST_CASE(connectblock_premature_coinbase_dos_score_is_zero)
 
     CValidationState state;
     CAmount txfee = 0;
-    bool ok = Consensus::CheckTxInputs(
+    bool ok = ContextualConsensusRules::CheckTxInputs(
         CTransaction(spendTx), state, view, coinbaseHeight, txfee);
 
     // Must be rejected as a premature spend …
