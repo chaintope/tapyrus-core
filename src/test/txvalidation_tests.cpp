@@ -829,10 +829,11 @@ BOOST_FIXTURE_TEST_CASE(tx_mempool_nft_token, TestChainSetup)
     Sign(vchSig, coinbaseKey, m_coinbase_txns[3]->vout[0].scriptPubKey, coinbaseIn2, 1, tokenTransferTx, 0);
     tokenTransferTx.vin[1].scriptSig = CScript() << vchSig;
 
-    dustRelayFee = CFeeRate(1);
-    testTx(this, MakeTransactionRef(tokenTransferTx), false, "bad-txns-token-value");
-
-    dustRelayFee = CFeeRate(0);
+    {
+        PolicySettingsOverride oneDustRelayFee({{"-dustrelayfee", "0.00000001"}});
+        testTx(this, MakeTransactionRef(tokenTransferTx), false, "bad-txns-token-value");
+    }
+    PolicySettingsOverride zeroDustRelayFee({{"-dustrelayfee", "0"}});
     testTx(this, MakeTransactionRef(tokenTransferTx), false, "bad-txns-token-value");
 
     tokenTransferTx.vout.resize(1);

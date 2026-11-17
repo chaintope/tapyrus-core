@@ -169,7 +169,7 @@ void SendCoinsDialog::setModel(WalletModel *_model)
 
         // fee section
         for (const int n : confTargets) {
-            ui->confTargetSelector->addItem(tr("%1 (%2 blocks)").arg(GUIUtil::formatNiceTimeOffset(n*Params().GetConsensus().nExpectedBlockTime)).arg(n));
+            ui->confTargetSelector->addItem(tr("%1 (%2 blocks)").arg(GUIUtil::formatNiceTimeOffset(n*model->node().getExpectedBlockTime())).arg(n));
         }
         connect(ui->confTargetSelector, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &SendCoinsDialog::updateSmartFeeLabel);
         connect(ui->confTargetSelector, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &SendCoinsDialog::coinControlUpdateLabels);

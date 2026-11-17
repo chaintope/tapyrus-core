@@ -19,21 +19,12 @@
 #include <validation.h>
 #include <boost/test/unit_test.hpp>
 
-/** Sets -limitancestorcount and -limitdescendantcount for its lifetime,
- *  then restores the defaults. */
-class PackageLimitArgs
+/** Sets -limitancestorcount and -limitdescendantcount for its lifetime. */
+class PackageLimitArgs : public PolicySettingsOverride
 {
 public:
     PackageLimitArgs(const std::string& ancestors, const std::string& descendants)
-    {
-        gArgs.ForceSetArg("-limitancestorcount", ancestors);
-        gArgs.ForceSetArg("-limitdescendantcount", descendants);
-    }
-    ~PackageLimitArgs()
-    {
-        gArgs.ForceSetArg("-limitancestorcount", std::to_string(DEFAULT_ANCESTOR_LIMIT));
-        gArgs.ForceSetArg("-limitdescendantcount", std::to_string(DEFAULT_DESCENDANT_LIMIT));
-    }
+        : PolicySettingsOverride({{"-limitancestorcount", ancestors}, {"-limitdescendantcount", descendants}}) {}
 };
 
 struct PackageTestSetup: public TestChainSetup
@@ -172,8 +163,8 @@ BOOST_FIXTURE_TEST_CASE(package_sanitization_tests, PackageTestSetup)
 {
     // Packages can't have more than 25 transactions.
     Package package_too_many;
-    package_too_many.reserve(MAX_PACKAGE_COUNT + 1);
-    for (size_t i{0}; i < MAX_PACKAGE_COUNT + 1; ++i) {
+    package_too_many.reserve(DEFAULT_MAX_PACKAGE_COUNT + 1);
+    for (size_t i{0}; i < DEFAULT_MAX_PACKAGE_COUNT + 1; ++i) {
         package_too_many.emplace_back(MakeTransactionRef(create_placeholder_tx(1, 1)));
     }
     CValidationState state_too_many;
@@ -203,7 +194,7 @@ BOOST_FIXTURE_TEST_CASE(package_sanitization_tests, PackageTestSetup)
     }
     {
         CValidationState state_default;
-        BOOST_CHECK(CheckPackage(make_chain_package(MAX_PACKAGE_COUNT), state_default));
+        BOOST_CHECK(CheckPackage(make_chain_package(DEFAULT_MAX_PACKAGE_COUNT), state_default));
     }
 
     // Packages can't contain transactions with the same txid.

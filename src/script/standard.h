@@ -15,9 +15,6 @@
 
 #include <stdint.h>
 
-static const bool DEFAULT_ACCEPT_DATACARRIER = true;
-static const bool DEFAULT_ACCEPT_MULTIPLE_DATACARRIER = false;
-
 class CKeyID;
 
 class CColorScriptID : public uint160
@@ -27,22 +24,6 @@ public:
     explicit CColorScriptID(const ColorIdentifier& colorin) : uint160(), color(colorin) {}
     explicit CColorScriptID(const uint160& in, const ColorIdentifier& colorin) : uint160(in), color(colorin) {}
 };
-/**
- * Default setting for nMaxDatacarrierBytes. 80 bytes of data, +1 for OP_RETURN,
- * +2 for the pushdata opcodes.
- */
-static const unsigned int MAX_OP_RETURN_RELAY = 83;
-
-/**
- * A data carrying output is an unspendable output containing data. The script
- * type is designated as TX_NULL_DATA.
- */
-extern bool fAcceptDatacarrier;
-extern bool fAcceptMultipleDatacarrier;
-
-/** Maximum size of TX_NULL_DATA scripts that this node considers standard. */
-extern unsigned nMaxDatacarrierBytes;
-
 enum txnouttype
 {
     TX_NONSTANDARD,
@@ -132,6 +113,5 @@ CScript GetScriptForRawPubKey(const CPubKey& pubkey);
 
 /** Generate a multisig script. */
 CScript GetScriptForMultisig(int nRequired, const std::vector<CPubKey>& keys);
-
 
 #endif // BITCOIN_SCRIPT_STANDARD_H

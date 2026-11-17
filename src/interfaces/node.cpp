@@ -10,6 +10,7 @@
 #include <chainparams.h>
 #include <chainstatemanager.h>
 #include <consensussettings.h>
+#include <federationparams.h>
 #include <init.h>
 #include <interfaces/handler.h>
 #include <interfaces/wallet.h>
@@ -73,7 +74,7 @@ public:
     uint32_t getLogCategories() override { return LogInstance().GetCategoryMask(); }
     bool baseInitialize() override
     {
-        return AppInitBasicSetup() && AppInitParameterInteraction() && AppInitSanityChecks() &&
+        return AppInitBasicSetup() && AppInitParameterInteraction(m_context) && AppInitSanityChecks() &&
                AppInitLockDataDirectory();
     }
     bool appInitMain() override { return AppInitMain(m_context); }
@@ -201,7 +202,6 @@ public:
         }
     }
     bool getNetworkActive() override { return m_context.connman && m_context.connman->GetNetworkActive(); }
-    CAmount getMaxTxFee() override { return ::maxTxFee; }
     CFeeRate estimateSmartFee(int num_blocks, bool conservative, int* returned_target = nullptr) override
     {
         FeeCalculation fee_calc;
@@ -211,7 +211,9 @@ public:
         }
         return result;
     }
-    CFeeRate getDustRelayFee() override { return ::dustRelayFee; }
+    CFeeRate getDustRelayFee() override { return m_context.policy->dustRelayFee; }
+    int64_t getExpectedBlockTime() override { return CFederationParams::EXPECTED_BLOCK_TIME; }
+    CAmount getMaxTxFee() override { return m_context.policy->maxTxFee; }
     UniValue executeRpc(const std::string& command, const UniValue& params, const std::string& uri) override
     {
         JSONRPCRequest req(m_context);

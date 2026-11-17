@@ -129,7 +129,7 @@ static bool AppInit(int argc, char* argv[])
             // InitError will have been called with detailed error, which ends up on console
             return false;
         }
-        if (!AppInitParameterInteraction())
+        if (!AppInitParameterInteraction(node))
         {
             // InitError will have been called with detailed error, which ends up on console
             return false;

@@ -51,7 +51,6 @@ BOOST_FIXTURE_TEST_CASE(test_create_transaction, TestWalletSetup)
     BOOST_CHECK_EQUAL(strError, "Recipient that receives colored coin must not be a target of subtract fee");
 
     // test to create too small value transaction.
-    dustRelayFee = CFeeRate(DUST_RELAY_TX_FEE);
     nFeeRequired = 0;
     strError = "";
     mapChangePosRet.clear();

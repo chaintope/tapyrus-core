@@ -59,7 +59,7 @@ bool CheckPackage(const Package& txns, CValidationState& state)
 {
     const unsigned int package_count = txns.size();
 
-    if (package_count > MAX_PACKAGE_COUNT) {
+    if (package_count > g_policy_settings->maxPackageCount) {
         return state.Invalid(false, REJECT_PACKAGE_INVALID, "package-too-many-transactions");
     }
 
@@ -67,7 +67,7 @@ bool CheckPackage(const Package& txns, CValidationState& state)
                                [](int64_t sum, const auto& tx) { return sum + GetTransactionSize(*tx); });
 
     // If the package only contains 1 tx, it's better to report the policy violation on individual tx size.
-    if (package_count > 1 && total_size > MAX_PACKAGE_COUNT * 1000) {
+    if (package_count > 1 && total_size > (int64_t)g_policy_settings->maxPackageCount * 1000) {
         return state.Invalid(false, REJECT_PACKAGE_INVALID, "package-too-large");
     }
 
@@ -116,8 +116,8 @@ bool CheckPackage(const Package& txns, CValidationState& state)
     // Only chains inside the package are counted here; ancestors already in the
     // mempool are counted when each transaction is accepted.
     const PackageChainCounts chain_counts(txns);
-    const int64_t ancestor_limit{gArgs.GetArg("-limitancestorcount", DEFAULT_ANCESTOR_LIMIT)};
-    const int64_t descendant_limit{gArgs.GetArg("-limitdescendantcount", DEFAULT_DESCENDANT_LIMIT)};
+    const int64_t ancestor_limit{g_policy_settings->ancestorLimit};
+    const int64_t descendant_limit{g_policy_settings->descendantLimit};
     if (static_cast<int64_t>(chain_counts.MaxAncestors()) > ancestor_limit ||
         static_cast<int64_t>(chain_counts.MaxDescendants()) > descendant_limit) {
         return state.Invalid(false, REJECT_PACKAGE_INVALID, "package-mempool-limits");

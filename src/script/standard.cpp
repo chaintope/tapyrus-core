@@ -13,13 +13,7 @@
 #include <utilstrencodings.h>
 #include <coloridentifier.h>
 
-
 typedef std::vector<unsigned char> valtype;
-
-bool fAcceptDatacarrier = DEFAULT_ACCEPT_DATACARRIER;
-bool fAcceptMultipleDatacarrier = DEFAULT_ACCEPT_MULTIPLE_DATACARRIER;
-unsigned nMaxDatacarrierBytes = MAX_OP_RETURN_RELAY;
-
 
 const char* GetTxnOutputType(txnouttype t)
 {

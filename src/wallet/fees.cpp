@@ -23,8 +23,8 @@ CAmount GetMinimumFee(const CWallet& wallet, unsigned int nTxBytes, const CCoinC
 {
     CAmount fee_needed = GetMinimumFeeRate(wallet, coin_control, pool, estimator, feeCalc).GetFee(nTxBytes);
     // Always obey the maximum
-    if (fee_needed > maxTxFee) {
-        fee_needed = maxTxFee;
+    if (fee_needed > g_policy_settings->maxTxFee) {
+        fee_needed = g_policy_settings->maxTxFee;
         if (feeCalc) feeCalc->reason = FeeReason::MAXTXFEE;
     }
     return fee_needed;
@@ -32,7 +32,7 @@ CAmount GetMinimumFee(const CWallet& wallet, unsigned int nTxBytes, const CCoinC
 
 CFeeRate GetRequiredFeeRate(const CWallet& wallet)
 {
-    return std::max(wallet.m_min_fee, ::minRelayTxFee);
+    return std::max(wallet.m_min_fee, g_policy_settings->minRelayTxFee);
 }
 
 CFeeRate GetMinimumFeeRate(const CWallet& wallet, const CCoinControl& coin_control, const CTxMemPool& pool, const CBlockPolicyEstimator& estimator, FeeCalculation* feeCalc)
@@ -74,7 +74,7 @@ CFeeRate GetMinimumFeeRate(const CWallet& wallet, const CCoinControl& coin_contr
             if (wallet.m_fallback_fee == CFeeRate(0)) return feerate_needed;
         }
         // Obey mempool min fee when using smart fee estimation
-        CFeeRate min_mempool_feerate = pool.GetMinFee(gArgs.GetArg("-maxmempool", DEFAULT_MAX_MEMPOOL_SIZE) * 1000000);
+        CFeeRate min_mempool_feerate = pool.GetMinFee(g_policy_settings->maxMempool);
         if (feerate_needed < min_mempool_feerate) {
             feerate_needed = min_mempool_feerate;
             if (feeCalc) feeCalc->reason = FeeReason::MEMPOOL_MIN;
@@ -97,6 +97,6 @@ CFeeRate GetDiscardRate(const CWallet& wallet, const CBlockPolicyEstimator& esti
     // Don't let discard_rate be greater than longest possible fee estimate if we get a valid fee estimate
     discard_rate = (discard_rate == CFeeRate(0)) ? wallet.m_discard_rate : std::min(discard_rate, wallet.m_discard_rate);
     // Discard rate must be at least dustRelayFee
-    discard_rate = std::max(discard_rate, ::dustRelayFee);
+    discard_rate = std::max(discard_rate, g_policy_settings->dustRelayFee);
     return discard_rate;
 }

@@ -152,14 +152,17 @@ public:
     //! Get network active.
     virtual bool getNetworkActive() = 0;
 
-    //! Get max tx fee.
-    virtual CAmount getMaxTxFee() = 0;
-
     //! Estimate smart fee.
     virtual CFeeRate estimateSmartFee(int num_blocks, bool conservative, int* returned_target = nullptr) = 0;
 
     //! Get dust relay fee.
     virtual CFeeRate getDustRelayFee() = 0;
+
+    //! Get the expected spacing between blocks, in seconds.
+    virtual int64_t getExpectedBlockTime() = 0;
+
+    //! Get the most fees a single transaction may pay (-maxtxfee).
+    virtual CAmount getMaxTxFee() = 0;
 
     //! Execute rpc command.
     virtual UniValue executeRpc(const std::string& command, const UniValue& params, const std::string& uri) = 0;

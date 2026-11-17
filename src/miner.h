@@ -132,8 +132,12 @@ private:
     CBlock* pblock;
 
     // Configuration parameters for the block size
-    unsigned int nBlockMaxSize;
+    const size_t m_requested_block_max_size;
     CFeeRate blockMinFeeRate;
+
+    // Limits of the block being built, from the consensus rules of the next block
+    unsigned int nBlockMaxSize;
+    uint32_t m_max_block_sigops;
 
     // Information on the current status of the block
     uint64_t nBlockSize;
@@ -196,6 +200,6 @@ private:
 
 /** Modify the extranonce in a block */
 void IncrementExtraNonce(CBlock* pblock, const CBlockIndex* pindexPrev, unsigned int& nExtraNonce);
-int64_t UpdateTime(CBlockHeader* pblock, const Consensus::Params& consensusParams, const CBlockIndex* pindexPrev);
+int64_t UpdateTime(CBlockHeader* pblock, const CBlockIndex* pindexPrev);
 
 #endif // BITCOIN_MINER_H

@@ -125,7 +125,6 @@ static void AddRandomOutboundPeer(std::vector<CNode *> &vNodes, PeerLogicValidat
 
 BOOST_AUTO_TEST_CASE(stale_tip_peer_management)
 {
-    const Consensus::Params& consensusParams = Params().GetConsensus();
     constexpr int nMaxOutbound = 8;
     CConnman::Options options;
     options.nMaxConnections = 125;
@@ -144,7 +143,7 @@ BOOST_AUTO_TEST_CASE(stale_tip_peer_management)
         AddRandomOutboundPeer(vNodes, *m_node.peer_logic, *m_node.connman);
     }
 
-    m_node.peer_logic->CheckForStaleTipAndEvictPeers(consensusParams);
+    m_node.peer_logic->CheckForStaleTipAndEvictPeers();
 
     // No nodes should be marked for disconnection while we have no extra peers
     for (const CNode *node : vNodes) {
@@ -155,7 +154,7 @@ BOOST_AUTO_TEST_CASE(stale_tip_peer_management)
 
     // Now tip should definitely be stale, and we should look for an extra
     // outbound peer
-    m_node.peer_logic->CheckForStaleTipAndEvictPeers(consensusParams);
+    m_node.peer_logic->CheckForStaleTipAndEvictPeers();
     BOOST_CHECK(m_node.connman->GetTryNewOutboundPeer());
 
     // Still no peers should be marked for disconnection
@@ -170,7 +169,7 @@ BOOST_AUTO_TEST_CASE(stale_tip_peer_management)
     AddRandomOutboundPeer(vNodes, *m_node.peer_logic, *m_node.connman);
     SetMockTime(time_later);
 
-    m_node.peer_logic->CheckForStaleTipAndEvictPeers(consensusParams);
+    m_node.peer_logic->CheckForStaleTipAndEvictPeers();
     for (int i=0; i<nMaxOutbound; ++i) {
         BOOST_CHECK(vNodes[i]->fDisconnect == false);
     }
@@ -183,7 +182,7 @@ BOOST_AUTO_TEST_CASE(stale_tip_peer_management)
     // peer, and check that the next newest node gets evicted.
     UpdateLastBlockAnnounceTime(vNodes.back()->GetId(), GetTime());
 
-    m_node.peer_logic->CheckForStaleTipAndEvictPeers(consensusParams);
+    m_node.peer_logic->CheckForStaleTipAndEvictPeers();
     for (int i=0; i<nMaxOutbound-1; ++i) {
         BOOST_CHECK(vNodes[i]->fDisconnect == false);
     }
@@ -418,6 +417,31 @@ BOOST_AUTO_TEST_CASE(DoS_mapOrphans)
     BOOST_CHECK(mapOrphanTransactions.size() <= 10);
     LimitOrphanTxSize(0);
     BOOST_CHECK(mapOrphanTransactions.empty());
+}
+
+BOOST_AUTO_TEST_CASE(DoS_orphan_size_limit)
+{
+    CMutableTransaction mtx;
+    mtx.vin.resize(1);
+    mtx.vin[0].prevout.n = 0;
+    mtx.vin[0].prevout.hashMalFix = InsecureRand256();
+    mtx.vin[0].scriptSig << OP_1;
+    mtx.vout.resize(1);
+    mtx.vout[0].nValue = 1*CENT;
+    const CTransactionRef tx = MakeTransactionRef(mtx);
+    const uint32_t size = GetSerializeSize(*tx, SER_NETWORK, PROTOCOL_VERSION);
+
+    // -maxorphantxsize, not -maxstandardtxsize, decides which orphans are kept.
+    LOCK(g_cs_orphans);
+    {
+        PolicySettingsOverride smallOrphans({{"-maxorphantxsize", std::to_string(size - 1)}});
+        BOOST_CHECK(!AddOrphanTx(tx, 0));
+    }
+    {
+        PolicySettingsOverride exactOrphans({{"-maxorphantxsize", std::to_string(size)}});
+        BOOST_CHECK(AddOrphanTx(tx, 0));
+    }
+    LimitOrphanTxSize(0);
 }
 
 BOOST_AUTO_TEST_SUITE_END()

@@ -8,7 +8,6 @@
 #define BITCOIN_CHAINPARAMS_H
 
 #include <federationparams.h>
-#include <consensus/params.h>
 #include <protocol.h>
 #include <streams.h>
 #include <memory>
@@ -52,8 +51,6 @@ public:
         MAX_BASE58_TYPES
     };
 
-    const Consensus::Params& GetConsensus() const { return consensus; }
-
     /** Default value for -checkmempool and -checkblockindex argument */
     bool DefaultConsistencyChecks() const { return fDefaultConsistencyChecks; }
     uint32_t PruneAfterHeight() const { return nPruneAfterHeight; }
@@ -71,7 +68,6 @@ protected:
     //require signedblockpubkey argument only in tapyrusd
     CChainParams() {}
 
-    Consensus::Params consensus;
     int rpcPort;
     int nDefaultPort;
     uint32_t nPruneAfterHeight;
