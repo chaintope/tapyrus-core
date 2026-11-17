@@ -13,6 +13,8 @@
 #include <blockprune.h>
 #include <issuedcolorids.h>
 
+#include <optional>
+
 CVerifyDB::CVerifyDB()
 {
     uiInterface.ShowProgress(_("Verifying blocks..."), 0, false);
@@ -41,19 +43,9 @@ bool CVerifyDB::VerifyDB(CCoinsView *coinsview, int nCheckLevel, int nCheckDepth
     CValidationState state;
     int reportDone = 0;
 
-    // Sandbox g_colorid_state for Level 3 + 4: DisconnectBlock (Level 3) and
-    // ConnectBlock (Level 4) must operate on a scratch copy so that the real
-    // confirmed set is never mutated during the read-only verification walk.
-    struct ColorIdSandbox {
-        std::unique_ptr<CIssuedColorIds> saved;
-        explicit ColorIdSandbox(bool active) {
-            if (active && g_colorid_state) {
-                saved = std::move(g_colorid_state);
-                g_colorid_state = saved->Clone();
-            }
-        }
-        ~ColorIdSandbox() { if (saved) g_colorid_state = std::move(saved); }
-    } colorIdSandbox(nCheckLevel >= 3);
+    // Levels 3 and 4 disconnect and reconnect blocks on a copy of the issued colorIds,
+    // as they do on a local coins cache, so the live set is never changed.
+    const std::unique_ptr<CIssuedColorIds> issuedColorIds = nCheckLevel >= 3 ? g_chainstate_manager.IssuedColorIds().Clone() : nullptr;
 
     LogPrintf("[0%%]..."); /* Continued */
     for (pindex = chainActive.Tip(); pindex && pindex->pprev; pindex = pindex->pprev) {
@@ -91,12 +83,8 @@ bool CVerifyDB::VerifyDB(CCoinsView *coinsview, int nCheckLevel, int nCheckDepth
         // check level 3: check for inconsistencies during memory-only disconnect of tip blocks
         if (nCheckLevel >= 3 && (coins.DynamicMemoryUsage() + pcoinsTip->DynamicMemoryUsage()) <= nCoinCacheUsage) {
             assert(coins.GetBestBlock() == pindex->GetBlockHash());
-            // fDryRun=false: the ColorIdSandbox above already swapped in a clone of
-            // g_colorid_state, so DisconnectBlock erases from the clone, not from the
-            // live confirmed set.  Erasing into the clone is intentional: level 4
-            // reconnects via ConnectBlock starting from this sandbox state, which
-            // requires the colorIds to have been removed so ConnectBlock can re-add them.
-            DisconnectResult res = g_chainstate.DisconnectBlock(block, pindex, coins, /*fDryRun=*/false);
+            // Erases from the copy, so level 4 can add the colorIds again when it reconnects.
+            DisconnectResult res = g_chainstate.DisconnectBlock(block, pindex, coins, *issuedColorIds);
             if (res == DISCONNECT_FAILED) {
                 return error("VerifyDB(): *** irrecoverable inconsistency in block data at %d, hash=%s", pindex->nHeight, pindex->GetBlockHash().ToString());
             }
@@ -134,7 +122,7 @@ bool CVerifyDB::VerifyDB(CCoinsView *coinsview, int nCheckLevel, int nCheckDepth
             CBlock block;
             if (!ReadBlockFromDisk(block, pindex))
                 return error("VerifyDB(): *** ReadBlockFromDisk failed at %d, hash=%s", pindex->nHeight, pindex->GetBlockHash().ToString());
-            if (!g_chainstate.ConnectBlock(block, state, pindex, coins))
+            if (!g_chainstate.ConnectBlock(block, state, pindex, coins, *issuedColorIds))
                 return error("VerifyDB(): *** found unconnectable block at %d, hash=%s (%s)", pindex->nHeight, pindex->GetBlockHash().ToString(), FormatStateMessage(state));
         }
     }

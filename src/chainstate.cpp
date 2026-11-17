@@ -3,6 +3,7 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <chainstate.h>
+#include <abortnode.h>
 #include <contextualconsensusrules.h>
 #include <chainstatemanager.h>
 #include <chainparams.h>
@@ -33,7 +34,6 @@
 // Defined in validation.cpp; declared here to avoid pulling in validation.h
 // (which includes chainstate.h, creating an indirect self-inclusion).
 void RefreshChainTxDataFromTip(const CBlockIndex* pindexNew);
-extern std::unique_ptr<CIssuedColorIds> g_colorid_state;
 extern std::atomic_bool fReindex;
 
 static int64_t nTimeCheck = 0;
@@ -257,7 +257,7 @@ int ApplyTxInUndo(Coin&& undo, CCoinsViewCache& view, const COutPoint& out)
 
 /** Undo the effects of this block (with given index) on the UTXO set represented by coins.
  *  When FAILED is returned, view is left in an indeterminate state. */
-DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockIndex* pindex, CCoinsViewCache& view, bool fDryRun)
+DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockIndex* pindex, CCoinsViewCache& view, CIssuedColorIds& issuedColorIds, bool fDryRun)
 {
     bool fClean = true;
 
@@ -304,7 +304,7 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
                         continue;
                     COutPoint prevout = tx.vin[j].prevout;
                     if (ColorIdentifier(prevout, outColorId.type) == outColorId) {
-                        if (!fDryRun) g_colorid_state->Erase(outColorId);
+                        if (!fDryRun) issuedColorIds.Erase(outColorId);
                         break;
                     }
                 }
@@ -514,7 +514,7 @@ static void UpdateMempoolForReorg(DisconnectedBlockTransactions &disconnectpool,
  *  Validity checks that depend on the UTXO set are also done; ConnectBlock()
  *  can fail if those validity checks fail (among other reasons). */
 bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pindex,
-                  CCoinsViewCache& view, bool fJustCheck)
+                  CCoinsViewCache& view, CIssuedColorIds& issuedColorIds, bool fJustCheck)
 {
     AssertLockHeld(cs_main);
     assert(pindex);
@@ -603,7 +603,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
 
     CCheckQueueControl<CScriptCheck> control(fScriptChecks && nScriptCheckThreads ? scriptcheckqueue.get() : nullptr);
     // Accumulate new NON_REISSUABLE/NFT issuances across the whole block.
-    // Staged into g_colorid_state and committed to LevelDB atomically with
+    // Staged into the issued colorIds and committed to LevelDB atomically with
     // DB_BEST_BLOCK only after control.Wait() succeeds, so a late script-check
     // failure cannot leave the global set or the DB in a dirty state.
     std::set<ColorIdentifier> allNewIssuances;
@@ -656,8 +656,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
 
         // Colour checks run before the scripts, as in mempool acceptance.
         PrecomputedColorData colorData(tx, view, pindex->nHeight);
-        if (g_colorid_state)
-            colorData.SetIssued(*g_colorid_state);
+        colorData.SetIssued(issuedColorIds);
         const TransactionColorChecker colorChecker(colorData);
         if (!colorChecker.CheckOutputColorIds(state))
             return false;
@@ -743,7 +742,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     // inside the next view.Flush() → BatchWrite call, preventing a crash
     // between the colorId write and the UTXO flush from permanently poisoning
     // the block with bad-txns-colorid-already-issued on restart.
-    g_colorid_state->Insert(allNewIssuances);
+    issuedColorIds.Insert(allNewIssuances);
 
     assert(pindex->phashBlock);
     // add this block to the view's block chain
@@ -794,7 +793,7 @@ bool CChainState::DisconnectTip(CValidationState& state, DisconnectedBlockTransa
     {
         CCoinsViewCache view(pcoinsTip.get());
         assert(view.GetBestBlock() == pindexDelete->GetBlockHash());
-        if (DisconnectBlock(block, pindexDelete, view) != DISCONNECT_OK)
+        if (DisconnectBlock(block, pindexDelete, view, g_chainstate_manager.IssuedColorIds()) != DISCONNECT_OK)
             return error("DisconnectTip(): DisconnectBlock %s failed", pindexDelete->GetBlockHash().ToString());
         bool flushed = view.Flush();
         assert(flushed);
@@ -866,7 +865,7 @@ bool CChainState::ConnectTip(CValidationState& state, CBlockIndex* pindexNew, co
     LogPrint(BCLog::BENCH, "  - Load block from disk: %.2fms [%.2fs]\n", (nTime2 - nTime1) * MILLI, nTimeReadFromDisk * MICRO);
     {
         CCoinsViewCache view(pcoinsTip.get());
-        bool rv = ConnectBlock(blockConnecting, state, pindexNew, view);
+        bool rv = ConnectBlock(blockConnecting, state, pindexNew, view, g_chainstate_manager.IssuedColorIds());
         GetMainSignals().BlockChecked(blockConnecting, state);
         if (!rv) {
             if (state.IsInvalid())
@@ -1608,7 +1607,7 @@ bool CChainState::LoadBlockIndex(CBlockTreeDB& blocktree)
 
 
 /** Apply the effects of a block on the utxo cache, ignoring that it may already have been applied. */
-bool CChainState::RollforwardBlock(const CBlockIndex* pindex, CCoinsViewCache& inputs)
+bool CChainState::RollforwardBlock(const CBlockIndex* pindex, CCoinsViewCache& inputs, CIssuedColorIds& issuedColorIds)
 {
     AssertLockHeld(cs_main);
     // TODO: merge with ConnectBlock
@@ -1651,11 +1650,11 @@ bool CChainState::RollforwardBlock(const CBlockIndex* pindex, CCoinsViewCache& i
         AddCoins(inputs, *tx, pindex->nHeight, true);
     }
 
-    g_colorid_state->Insert(allNewIssuances);
+    issuedColorIds.Insert(allNewIssuances);
     return true;
 }
 
-bool CChainState::ReplayBlocks(CCoinsView* view)
+bool CChainState::ReplayBlocks(CCoinsView* view, CIssuedColorIds& issuedColorIds)
 {
     LOCK(cs_main);
 
@@ -1694,7 +1693,7 @@ bool CChainState::ReplayBlocks(CCoinsView* view)
                 return error("RollbackBlock(): ReadBlockFromDisk() failed at %d, hash=%s", pindexOld->nHeight, pindexOld->GetBlockHash().ToString());
             }
             LogPrintf("Rolling back %s (%i)\n", pindexOld->GetBlockHash().ToString(), pindexOld->nHeight);
-            DisconnectResult res = DisconnectBlock(block, pindexOld, cache);
+            DisconnectResult res = DisconnectBlock(block, pindexOld, cache, issuedColorIds);
             if (res == DISCONNECT_FAILED) {
                 return error("RollbackBlock(): DisconnectBlock failed at %d, hash=%s", pindexOld->nHeight, pindexOld->GetBlockHash().ToString());
             }
@@ -1711,7 +1710,7 @@ bool CChainState::ReplayBlocks(CCoinsView* view)
     for (int nHeight = nForkHeight + 1; nHeight <= pindexNew->nHeight; ++nHeight) {
         const CBlockIndex* pindex = pindexNew->GetAncestor(nHeight);
         LogPrintf("Rolling forward %s (%i)\n", pindex->GetBlockHash().ToString(), nHeight);
-        if (!RollforwardBlock(pindex, cache)) return false;
+        if (!RollforwardBlock(pindex, cache, issuedColorIds)) return false;
     }
 
     cache.SetBestBlock(pindexNew->GetBlockHash());

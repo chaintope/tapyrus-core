@@ -22,6 +22,7 @@
 #include <set>
 
 class CBlockTreeDB;
+class CIssuedColorIds;
 
 
 enum DisconnectResult
@@ -140,10 +141,10 @@ public:
     bool AcceptBlockHeader(const CBlockHeader& block, CValidationState& state, CBlockIndex** ppindex, CXFieldHistoryMap* pxfieldHistory = nullptr) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
     bool AcceptBlock(const std::shared_ptr<const CBlock>& pblock, CValidationState& state, CBlockIndex** ppindex, bool fRequested, const CDiskBlockPos* dbp, bool* fNewBlock, CXFieldHistoryMap* pxfieldHistory = nullptr) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 
-    // Block (dis)connection on a given view:
-    DisconnectResult DisconnectBlock(const CBlock& block, const CBlockIndex* pindex, CCoinsViewCache& view, bool fDryRun = false) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
+    // Block (dis)connection on a given view and issued colorIds:
+    DisconnectResult DisconnectBlock(const CBlock& block, const CBlockIndex* pindex, CCoinsViewCache& view, CIssuedColorIds& issuedColorIds, bool fDryRun = false) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
     bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pindex,
-                    CCoinsViewCache& view, bool fJustCheck = false);
+                    CCoinsViewCache& view, CIssuedColorIds& issuedColorIds, bool fJustCheck = false);
 
     // Block disconnection on our pcoinsTip:
     bool DisconnectTip(CValidationState& state, DisconnectedBlockTransactions *disconnectpool);
@@ -153,7 +154,7 @@ public:
     bool InvalidateBlock(CValidationState& state, CBlockIndex* pindex) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
     void ResetBlockFailureFlags(CBlockIndex* pindex) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 
-    bool ReplayBlocks(CCoinsView* view);
+    bool ReplayBlocks(CCoinsView* view, CIssuedColorIds& issuedColorIds);
     bool RewindBlockIndex();
     bool LoadGenesisBlock();
 
@@ -180,7 +181,7 @@ private:
     void ReceivedBlockTransactions(const CBlock& block, CBlockIndex* pindexNew, const CDiskBlockPos& pos) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 
 
-    bool RollforwardBlock(const CBlockIndex* pindex, CCoinsViewCache& inputs) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
+    bool RollforwardBlock(const CBlockIndex* pindex, CCoinsViewCache& inputs, CIssuedColorIds& issuedColorIds) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 } ;
 
 extern CChainState g_chainstate;

@@ -92,7 +92,10 @@ BasicTestingSetup::BasicTestingSetup(const std::string& chainName)
         g_policy_settings = m_node.policy.get();
         g_chainstate_manager.InitXFieldHistory(g_chainstate_manager.Settings().GenesisBlock());
         pxFieldHistory = &g_chainstate_manager.XFieldHistory();
-        g_colorid_state.reset(new CIssuedColorIds());
+        {
+            LOCK(cs_main);
+            g_chainstate_manager.IssuedColorIds() = CIssuedColorIds();
+        }
     } catch (...) {
         // ~BasicTestingSetup() never runs for a throwing constructor, so
         // ECC_Stop() and clearing the flag must happen here.
@@ -104,7 +107,10 @@ BasicTestingSetup::BasicTestingSetup(const std::string& chainName)
 
 BasicTestingSetup::~BasicTestingSetup()
 {
-    g_colorid_state.reset();
+    {
+        LOCK(cs_main);
+        g_chainstate_manager.IssuedColorIds() = CIssuedColorIds();
+    }
     // The xfield history is left alone: it belongs to g_chainstate_manager,
     // which lives for the whole test binary. See pxFieldHistory in test_tapyrus.h.
     ClearDatadirCache();
@@ -160,7 +166,10 @@ TestingSetup::TestingSetup(const std::string& chainName) : BasicTestingSetup(cha
         try {
             mempool.setSanityCheck(1.0);
             pblocktree.reset(new CBlockTreeDB(1 << 20, true));
-            pcoinsdbview.reset(new CCoinsViewDB(1 << 23, true));
+            {
+                LOCK(cs_main);
+                pcoinsdbview.reset(new CCoinsViewDB(g_chainstate_manager.IssuedColorIds(), 1 << 23, true));
+            }
             pcoinsTip.reset(new CCoinsViewCache(pcoinsdbview.get()));
             if (!LoadGenesisBlock()) {
                 throw std::runtime_error("LoadGenesisBlock failed.");
@@ -174,7 +183,7 @@ TestingSetup::TestingSetup(const std::string& chainName) : BasicTestingSetup(cha
             nScriptCheckThreads = 3;
             StartScriptCheckWorkerThreads(nScriptCheckThreads);
             m_node.connman = std::unique_ptr<CConnman>(new CConnman(0x1337, 0x1337)); // Deterministic randomness for tests.
-            m_node.peer_logic.reset(new PeerLogicValidation(*m_node.connman, scheduler));
+            m_node.peerman.reset(new PeerManager(*m_node.connman, scheduler));
         } catch (...) {
             // ~TestingSetup() never runs for a throwing constructor, so the
             // scheduler thread started above must be stopped here. Left
@@ -194,7 +203,7 @@ void TestingSetup::TearDown()
         scheduler.stop();
         GetMainSignals().FlushBackgroundCallbacks();
         GetMainSignals().UnregisterBackgroundSignalScheduler();
-        m_node.peer_logic.reset();
+        m_node.peerman.reset();
         m_node.connman.reset();
         UnloadBlockIndex();
         pcoinsTip.reset();

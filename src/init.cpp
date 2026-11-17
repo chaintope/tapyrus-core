@@ -225,7 +225,7 @@ void Shutdown(NodeContext& node)
 
     // Because these depend on each-other, we make sure that neither can be
     // using the other before destroying them.
-    if (node.peer_logic) UnregisterValidationInterface(node.peer_logic.get());
+    if (node.peerman) UnregisterValidationInterface(node.peerman.get());
     if (node.connman) node.connman->Stop();
     if (g_txindex) g_txindex->Stop();
 
@@ -237,7 +237,7 @@ void Shutdown(NodeContext& node)
 
     // After the threads that potentially access these pointers have been stopped,
     // destruct and reset all to nullptr.
-    node.peer_logic.reset();
+    node.peerman.reset();
     node.connman.reset();
     g_txindex.reset();
 
@@ -280,7 +280,7 @@ void Shutdown(NodeContext& node)
         pcoinsTip.reset();
         pcoinscatcher.reset();
         pcoinsdbview.reset();
-        g_colorid_state.reset();
+        g_chainstate_manager.IssuedColorIds() = CIssuedColorIds();
         pblocktree.reset();
     }
     g_wallet_init_interface.Stop();
@@ -1314,8 +1314,8 @@ bool AppInitMain(NodeContext& node)
     node.connman = std::unique_ptr<CConnman>(new CConnman(GetRand(std::numeric_limits<uint64_t>::max()), GetRand(std::numeric_limits<uint64_t>::max())));
     CConnman& connman = *node.connman;
 
-    node.peer_logic.reset(new PeerLogicValidation(connman, scheduler));
-    RegisterValidationInterface(node.peer_logic.get());
+    node.peerman.reset(new PeerManager(connman, scheduler));
+    RegisterValidationInterface(node.peerman.get());
 
     // sanitize comments per BIP-0014, format user agent and check total size
     std::vector<std::string> uacomments;
@@ -1512,14 +1512,13 @@ bool AppInitMain(NodeContext& node)
                 // At this point we're either in reindex or we've loaded a useful
                 // block tree into mapBlockIndex!
 
-                pcoinsdbview.reset(new CCoinsViewDB(nCoinDBCache, false, fReset || fReindexChainState));
+                pcoinsdbview.reset(new CCoinsViewDB(g_chainstate_manager.IssuedColorIds(), nCoinDBCache, false, fReset || fReindexChainState));
                 pcoinscatcher.reset(new CCoinsViewErrorCatcher(pcoinsdbview.get()));
 
-                // Create the colorId state before ReplayBlocks so that DisconnectBlock
+                // Reset the issued colorIds before ReplayBlocks so that DisconnectBlock
                 // inside the replay can stage erases that CommitToBatch writes atomically
                 // with the replay's UTXO flush.  cs_main is already held by the outer LOCK.
-                g_colorid_state.reset(new CIssuedColorIds());
-                pcoinsdbview->SetColorIdState(g_colorid_state.get());
+                g_chainstate_manager.IssuedColorIds() = CIssuedColorIds();
 
                 // If necessary, upgrade from older database format.
                 // This is a no-op if we cleared the coinsviewdb with -reindex or -reindex-chainstate
@@ -1529,7 +1528,7 @@ bool AppInitMain(NodeContext& node)
                 }
 
                 // ReplayBlocks is a no-op if we cleared the coinsviewdb with -reindex or -reindex-chainstate
-                if (!ReplayBlocks(pcoinsdbview.get())) {
+                if (!ReplayBlocks(pcoinsdbview.get(), g_chainstate_manager.IssuedColorIds())) {
                     strLoadError = _("Unable to replay blocks. You will need to rebuild the database using -reindex-chainstate.");
                     break;
                 }
@@ -1579,7 +1578,7 @@ bool AppInitMain(NodeContext& node)
                         strLoadError = _("Failed to load issued colorId set from chainstate database");
                         break;
                     }
-                    g_colorid_state->SetConfirmed(std::move(colorIds));
+                    g_chainstate_manager.IssuedColorIds().SetConfirmed(std::move(colorIds));
                 }
 
                 if (!is_coinsview_empty) {
@@ -1747,7 +1746,7 @@ bool AppInitMain(NodeContext& node)
     connOptions.nMaxFeeler = 1;
     connOptions.nBestHeight = chain_active_height;
     connOptions.uiInterface = &uiInterface;
-    connOptions.m_msgproc = node.peer_logic.get();
+    connOptions.m_msgproc = node.peerman.get();
     connOptions.nSendBufferMaxSize = 1000*gArgs.GetArg("-maxsendbuffer", DEFAULT_MAXSENDBUFFER);
     connOptions.nReceiveFloodSize = 1000*gArgs.GetArg("-maxreceivebuffer", DEFAULT_MAXRECEIVEBUFFER);
     connOptions.m_added_nodes = gArgs.GetArgs("-addnode");

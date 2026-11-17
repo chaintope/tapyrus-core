@@ -40,6 +40,7 @@ class CBlockTreeDB;
 class CChainParams;
 class CCoinsViewDB;
 class CInv;
+class CIssuedColorIds;
 class CConnman;
 class CScriptCheck;
 class CBlockPolicyEstimator;
@@ -131,9 +132,6 @@ extern uint64_t nLastBlockSize;
 extern Mutex g_best_block_mutex;
 extern CConditionVariable g_best_block_cv;
 extern uint256 g_best_block;
-/** Tracks all NON_REISSUABLE/NFT colorIds ever issued on this chain; see issuedcolorids.h. */
-class CIssuedColorIds;
-extern std::unique_ptr<CIssuedColorIds> g_colorid_state;
 extern std::atomic_bool fImporting;
 extern std::atomic_bool fReindex;
 extern int nScriptCheckThreads;
@@ -335,7 +333,7 @@ bool TestBlockValidity(CValidationState& state, const CBlock& block, CBlockIndex
 bool RewindBlockIndex();
 
 /** Replay blocks that aren't fully applied to the database. */
-bool ReplayBlocks(CCoinsView* view);
+bool ReplayBlocks(CCoinsView* view, CIssuedColorIds& issuedColorIds);
 
 inline CBlockIndex* LookupBlockIndex(const uint256& hash) EXCLUSIVE_LOCKS_REQUIRED(cs_main)
 {
@@ -384,9 +382,5 @@ inline bool IsBlockPruned(const CBlockIndex* pblockindex)
     return (fHavePruned && !(pblockindex->nStatus & BLOCK_HAVE_DATA) && pblockindex->nTx > 0);
 }
 
-
-/** Abort with a message */
-bool AbortNode(const std::string& strMessage, const std::string& userMessage="");
-bool AbortNode(CValidationState& state, const std::string& strMessage, const std::string& userMessage="");
 
 #endif // BITCOIN_VALIDATION_H

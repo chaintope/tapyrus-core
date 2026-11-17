@@ -96,9 +96,10 @@ class CCoinsViewDB final : public CCoinsView
 {
 protected:
     CDBWrapper db;
-    CIssuedColorIds* m_colorid_state = nullptr;
+    /** Its staged changes are written in the same batch as the coins and the best block. */
+    CIssuedColorIds& m_issued_colorids;
 public:
-    explicit CCoinsViewDB(size_t nCacheSize, bool fMemory = false, bool fWipe = false);
+    CCoinsViewDB(CIssuedColorIds& issuedColorIds, size_t nCacheSize, bool fMemory = false, bool fWipe = false);
 
     bool GetCoin(const COutPoint &outpoint, Coin &coin) const override;
     bool HaveCoin(const COutPoint &outpoint) const override;
@@ -110,9 +111,6 @@ public:
     //! Attempt to update from an older database format. Returns whether an error occurred.
     bool Upgrade();
     size_t EstimateSize() const override;
-
-    /** Connect the issued-colorId state object.  Call before ReplayBlocks. */
-    void SetColorIdState(CIssuedColorIds* state) { m_colorid_state = state; }
 
 
     bool LoadIssuedColorIds(std::set<ColorIdentifier>& colorIds);

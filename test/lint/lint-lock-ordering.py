@@ -17,7 +17,7 @@ The script also enforces a hard-coded forbidden list of inversions that violate
 the Tapyrus canonical lock hierarchy:
 
     cs_main > mempool.cs > cs_wallet > cs_KeyStore
-    cs_main > g_cs_orphans
+    cs_main > m_tx_download_mutex > mempool.cs
     cs_main > cs_LastBlockFile
     cs_inventory must NEVER be held when acquiring cs_main
 
@@ -56,7 +56,8 @@ FORBIDDEN_PAIRS: List[Tuple[str, str]] = [
     ("cs_inventory",     "mempool.cs"),
     ("cs_inventory",     "cs_wallet"),
     # ---- Other cs_main subordinates ----
-    ("g_cs_orphans",     "cs_main"),
+    ("m_tx_download_mutex", "cs_main"),
+    ("mempool.cs",       "m_tx_download_mutex"),
     ("cs_LastBlockFile", "cs_main"),
     # ---- Per-node locks must not be held when acquiring global locks ----
     ("cs_feeFilter",     "cs_main"),

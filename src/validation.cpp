@@ -61,7 +61,6 @@ CBlockIndex *pindexBestHeader = nullptr;
 Mutex g_best_block_mutex;
 CConditionVariable g_best_block_cv;
 uint256 g_best_block;
-std::unique_ptr<CIssuedColorIds> g_colorid_state;
 int nScriptCheckThreads = 0;
 std::atomic_bool fImporting(false);
 std::atomic_bool fReindex(false);
@@ -495,8 +494,7 @@ static bool AcceptToMemoryPoolWorker(const CTransactionRef &ptx, CTxMempoolAccep
         // Read once here; the balance check below reuses it after the view
         // is switched away from the mempool.
         PrecomputedColorData colorData(tx, view, chainActive.Tip()->nHeight + 1);
-        if (g_colorid_state)
-            colorData.SetIssued(*g_colorid_state);
+        colorData.SetIssued(g_chainstate_manager.IssuedColorIds());
         const TransactionColorChecker colorChecker(colorData);
         if (!colorChecker.CheckOutputColorIds(state))
             return false;
@@ -1020,24 +1018,6 @@ bool CheckInputs(const CTransaction& tx, CValidationState &state, const CCoinsVi
     return true;
 }
 
-/** Abort with a message */
-bool AbortNode(const std::string& strMessage, const std::string& userMessage)
-{
-    SetMiscWarning(strMessage);
-    LogPrintf("*** %s\n", strMessage);
-    uiInterface.ThreadSafeMessageBox(
-        userMessage.empty() ? _("Error: A fatal internal error occurred, see debug.log for details") : userMessage,
-        "", CClientUIInterface::MSG_ERROR);
-    StartShutdown();
-    return false;
-}
-
-bool AbortNode(CValidationState& state, const std::string& strMessage, const std::string& userMessage)
-{
-    AbortNode(strMessage, userMessage);
-    return state.Error(strMessage);
-}
-
 void StartScriptCheckWorkerThreads(int threads_num)
 {
     g_chainstate.scriptcheckqueue = std::make_unique< CCheckQueue<CScriptCheck> >(128, threads_num);
@@ -1148,7 +1128,7 @@ bool TestBlockValidity(CValidationState& state, const CBlock& block, CBlockIndex
         return error("%s: Consensus::CheckBlock: %s", __func__, FormatStateMessage(state));
     if (!ContextualConsensusRules::ContextualCheckBlock(block, state, *pindexPrev))
         return error("%s: Consensus::ContextualCheckBlock: %s", __func__, FormatStateMessage(state));
-    if (!g_chainstate.ConnectBlock(block, state, &indexDummy, viewNew, true))
+    if (!g_chainstate.ConnectBlock(block, state, &indexDummy, viewNew, g_chainstate_manager.IssuedColorIds(), true))
         return false;
     assert(state.IsValid());
 
@@ -1250,8 +1230,8 @@ bool LoadChainTip()
     return true;
 }
 
-bool ReplayBlocks(CCoinsView* view) {
-    return g_chainstate.ReplayBlocks(view);
+bool ReplayBlocks(CCoinsView* view, CIssuedColorIds& issuedColorIds) {
+    return g_chainstate.ReplayBlocks(view, issuedColorIds);
 }
 
 bool RewindBlockIndex() {

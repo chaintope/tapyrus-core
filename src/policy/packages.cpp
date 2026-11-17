@@ -247,7 +247,7 @@ bool SubmitPackageToMempool(const Package& package,
     // Goes through PackageTransactionsRelay() rather than calling into net
     // directly -- tapyrus_chainstate (this file) has no business linking
     // tapyrus_peer. See the comment on CValidationInterface::
-    // PackageTransactionsRelay() and PeerLogicValidation's override of it.
+    // PackageTransactionsRelay() and PeerManager's override of it.
     if (opt.flags != MempoolAcceptanceFlags::TEST_ONLY && all_admitted && !relay.empty()) {
         GetMainSignals().PackageTransactionsRelay(relay);
     }
