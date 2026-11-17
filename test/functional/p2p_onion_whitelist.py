@@ -28,7 +28,7 @@ options on a reachable host with Tor running, as seen by an external node:
 | Tor peers never whitelisted | -whitelist=127.0.0.1, clearnet bind, onion bind | Onion service set up in torrc next to trusted local peers | Clearnet peer in the range whitelisted, onion bind peer not | Accepted on the clearnet bind / sees our IP | Only through a torrc onion service, tagged / can't, no onion proxy |
 | -whitebind still whitelists | -whitebind, onion bind | Trusted peers on a port of their own | Whitebind peer whitelisted | Accepted on the whitebind, whitelisted / sees our IP | Only through a torrc onion service, tagged / can't, no onion proxy |
 | Whitelist covering a Tor address, Tor forwards to a clearnet bind | -listenonion=1 -bind=<clearnet>, -whitelist covering 127.0.0.1, ::1, -torcontrol, -proxy or -onion | Stop Tor peers being whitelisted | Start-up error naming -listenonion=0 | Node doesn't start | Node doesn't start |
-| Whitelist covering a Tor address, otherwise | -whitelist=127.0.0.1 -listenonion=1 with an onion bind, or -proxy -listen=1 | Trusted local software next to Tor | Warning; clearnet peer whitelisted, onion bind peer not | Accepted on the clearnet bind / sees our IP or a Tor exit IP | Tagged on the onion bind / as for No -bind |
+| Whitelist covering a Tor address, otherwise | -whitelist=127.0.0.1 -listenonion=1 with an onion bind, or -proxy -listen=1 | Trusted local software next to Tor | Warning in debug.log; clearnet peer whitelisted, onion bind peer not | Accepted on the clearnet bind / sees our IP or a Tor exit IP | Tagged on the onion bind / as for No -bind |
 | No check without listening | -listen=0 -proxy=A -whitelist covering A | Whitelist on a node that only dials out | Starts | Refused / sees a Tor exit IP | No onion service / sees us from 127.0.0.1 on its onion bind |
 | Unknown -bind suffix | -bind=<addr>=tor | Typo | Start-up error | Node doesn't start | Node doesn't start |
 | No -bind | none, or -listenonion=1 | Default node | Clearnet on 0.0.0.0 and :: at P, onion bind 127.0.0.1:P+1; Tor forwards to P+1 | Accepted on the clearnet bind / sees our IP | With -listenonion tagged on P+1, else no onion service / with -listenonion through the onion proxy set after Tor login, else can't |
@@ -99,18 +99,21 @@ class OnionWhitelistTest(BitcoinTestFramework):
             node.assert_start_raises_init_error(
                 clearnet_target + extra_args, refused.format(whitelist, covered, p2p_port(0)), match=ErrorMatch.PARTIAL_REGEX)
 
-        self.log.info("Only warn when Tor forwards to the onion bind, or when no onion service is created")
+        self.log.info("Only log a warning when Tor forwards to the onion bind, or when no onion service is created")
         warning = ("Warning: -whitelist={} covers {}, an address Tor inbound peers can connect from. Peers on the onion bind "
                    "are never whitelisted, so an onion service set up in torrc must forward to the onion bind, not to a clearnet port.")
-        self.start_node(0, extra_args=["-listenonion=1", "-torcontrol=127.0.0.1:1", "-whitelist=127.0.0.1", onion_bind])
+        start_up = self.start_node_read_log(node, ["-listenonion=1", "-torcontrol=127.0.0.1:1", "-whitelist=127.0.0.1", onion_bind])
+        assert warning.format("127.0.0.1/32", "127.0.0.1") in start_up
         assert_equal(self.peers_whitelisted(node, [p2p_port(0), onion_port]), {
             "127.0.0.1:{}".format(p2p_port(0)): True,
             "127.0.0.1:{}".format(onion_port): False,
         })
-        self.stop_node(0, expected_stderr=warning.format("127.0.0.1/32", "127.0.0.1"))
+        # Logged only, so nothing on stderr.
+        self.stop_node(0)
         # -proxy turns listening off unless -listen is given.
-        self.start_node(0, extra_args=["-proxy=172.17.0.2:9050", "-listen=1", "-whitelist=172.17.0.0/16"])
-        self.stop_node(0, expected_stderr=warning.format("172.17.0.0/16", "172.17.0.2"))
+        start_up = self.start_node_read_log(node, ["-proxy=172.17.0.2:9050", "-listen=1", "-whitelist=172.17.0.0/16"])
+        assert warning.format("172.17.0.0/16", "172.17.0.2") in start_up
+        self.stop_node(0)
 
         self.log.info("No check when the node does not listen")
         self.start_node(0, extra_args=["-listen=0", "-proxy=172.17.0.2:9050", "-whitelist=172.17.0.0/16"])
