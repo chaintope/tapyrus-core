@@ -414,14 +414,14 @@ static UniValue getblockheader(const JSONRPCRequest& request)
     return blockheaderToJSON(pblockindex);
 }
 
-static CBlock GetBlockChecked(const CBlockIndex* pblockindex)
+static CBlock GetBlockChecked(const CBlockIndex* pblockindex) EXCLUSIVE_LOCKS_REQUIRED(cs_main)
 {
     CBlock block;
-    if (IsBlockPruned(pblockindex)) {
+    if (g_chainstate_manager.IsBlockPruned(pblockindex)) {
         throw JSONRPCError(RPC_MISC_ERROR, "Block not available (pruned data)");
     }
 
-    if (!g_chainstate_manager.GetBlockFileManager().ReadBlockFromDisk(block, pblockindex, g_chainstate_manager.RulesAt(*pblockindex))) {
+    if (!g_chainstate_manager.ReadBlock(block, pblockindex)) {
         // Block not found on disk. This could be because we have the block
         // header in our index but don't have the block (for example if a
         // non-whitelisted node sends us an unrequested long chain of valid

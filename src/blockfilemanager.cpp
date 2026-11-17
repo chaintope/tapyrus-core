@@ -21,8 +21,40 @@
 #include <utilstrencodings.h>
 
 #include <charconv>
+#include <limits>
 #include <map>
+#include <stdexcept>
 #include <string>
+
+BlockFileManager::Options::Options(const ArgsManager& args, uint32_t pruneAfterHeight)
+    : nPruneTarget(ParsePruneTarget(args)),
+      fPruneMode(nPruneTarget != 0),
+      nPruneAfterHeight(pruneAfterHeight),
+      blocksDir(GetBlocksDir()),
+      dataDir(GetDataDir())
+{
+}
+
+uint64_t BlockFileManager::Options::ParsePruneTarget(const ArgsManager& args)
+{
+    // block pruning; get the amount of disk space (in MiB) to allot for block & undo files
+    const int64_t nPruneArg = args.GetArg("-prune", 0);
+    if (nPruneArg < 0) {
+        throw std::runtime_error(_("Prune cannot be configured with a negative value."));
+    }
+    if (nPruneArg == 1) {  // manual pruning: -prune=1
+        LogPrintf("Block pruning enabled.  Use RPC call pruneblockchain(height) to manually prune block and undo files.\n");
+        return std::numeric_limits<uint64_t>::max();
+    }
+    const uint64_t nPruneTarget = (uint64_t) nPruneArg * 1024 * 1024;
+    if (nPruneTarget) {
+        if (nPruneTarget < MIN_DISK_SPACE_FOR_BLOCK_FILES) {
+            throw std::runtime_error(strprintf(_("Prune configured below the minimum of %d MiB.  Please use a higher number."), MIN_DISK_SPACE_FOR_BLOCK_FILES / 1024 / 1024));
+        }
+        LogPrintf("Prune configured to target %uMiB on disk for block and undo files.\n", nPruneTarget / 1024 / 1024);
+    }
+    return nPruneTarget;
+}
 
 BlockFileManager::BlockFileManager(const Options& options, BlockIndexMap& blockIndex)
     : m_options(options), m_block_index(blockIndex)
@@ -69,16 +101,6 @@ bool BlockFileManager::LoadBlockFileInfo()
         }
     }
 
-    // Check whether we have ever pruned block & undo files
-    blocktree.ReadFlag("prunedblockfiles", fHavePruned);
-    if (fHavePruned)
-        LogPrintf("LoadBlockIndexDB(): Block files have previously been pruned\n");
-
-    // Check whether we need to continue reindexing
-    bool fReindexing = false;
-    blocktree.ReadReindexing(fReindexing);
-    if(fReindexing) fReindex = true;
-
     return true;
 }
 
@@ -88,7 +110,6 @@ void BlockFileManager::Unload()
     vinfoBlockFile.clear();
     nLastBlockFile = 0;
     setDirtyFileInfo.clear();
-    fHavePruned = false;
 }
 
 bool BlockFileManager::FindBlockPos(CDiskBlockPos &pos, unsigned int nAddSize, unsigned int nHeight, uint64_t nTime, bool fKnown)
@@ -179,7 +200,7 @@ bool BlockFileManager::FindUndoPos(CValidationState &state, int nFile, CDiskBloc
     return true;
 }
 
-bool BlockFileManager::WriteBlockToDisk(const CBlock& block, CDiskBlockPos& pos, const CMessageHeader::MessageStartChars& messageStart) const
+bool BlockFileManager::WriteBlockToDisk(const CBlock& block, CDiskBlockPos& pos) const
 {
     // Open history file to append
     CAutoFile file(OpenBlockFile(pos, /*fReadOnly=*/false), SER_DISK, CLIENT_VERSION);
@@ -188,7 +209,7 @@ bool BlockFileManager::WriteBlockToDisk(const CBlock& block, CDiskBlockPos& pos,
 
     // Write index header (unbuffered: header must be on disk before we record pos.nPos)
     unsigned int nSize = GetSerializeSize(file, block);
-    file << messageStart << nSize;
+    file << FederationParams().MessageStart() << nSize;
     pos.nPos += STORAGE_HEADER_BYTES;
 
     {
@@ -217,7 +238,7 @@ CDiskBlockPos BlockFileManager::SaveBlockToDisk(const CBlock& block, int nHeight
         return CDiskBlockPos();
     }
     if (!position_known) {
-        if (!WriteBlockToDisk(block, blockPos, FederationParams().MessageStart())) {
+        if (!WriteBlockToDisk(block, blockPos)) {
             AbortNode("Failed to write block");
             return CDiskBlockPos();
         }
@@ -225,7 +246,7 @@ CDiskBlockPos BlockFileManager::SaveBlockToDisk(const CBlock& block, int nHeight
     return blockPos;
 }
 
-bool BlockFileManager::UndoWriteToDisk(const CBlockUndo& blockundo, CDiskBlockPos& pos, const uint256& hashBlock, const CMessageHeader::MessageStartChars& messageStart) const
+bool BlockFileManager::UndoWriteToDisk(const CBlockUndo& blockundo, CDiskBlockPos& pos, const uint256& hashBlock) const
 {
     // Open history file to append
     CAutoFile file(OpenUndoFile(pos, /*fReadOnly=*/false), SER_DISK, CLIENT_VERSION);
@@ -234,7 +255,7 @@ bool BlockFileManager::UndoWriteToDisk(const CBlockUndo& blockundo, CDiskBlockPo
 
     // Write index header (unbuffered: header must be on disk before we record pos.nPos)
     unsigned int nSize = GetSerializeSize(file, blockundo);
-    file << messageStart << nSize;
+    file << FederationParams().MessageStart() << nSize;
     pos.nPos += STORAGE_HEADER_BYTES;
 
     {
@@ -256,7 +277,7 @@ bool BlockFileManager::WriteUndoDataForBlock(const CBlockUndo& blockundo, CValid
         CDiskBlockPos _pos;
         if (!FindUndoPos(state, pindex->nFile, _pos, ::GetSerializeSize(blockundo, SER_DISK, CLIENT_VERSION) + 40))
             return error("ConnectBlock(): FindUndoPos failed");
-        if (!UndoWriteToDisk(blockundo, _pos, pindex->pprev->GetBlockHash(), FederationParams().MessageStart()))
+        if (!UndoWriteToDisk(blockundo, _pos, pindex->pprev->GetBlockHash()))
             return AbortNode(state, "Failed to write undo data");
 
         // update nUndoPos in block index
@@ -296,8 +317,9 @@ void BlockFileManager::FlushBlockFile(bool fFinalize)
     }
 }
 
-bool BlockFileManager::ReadRawBlockFromDisk(std::vector<uint8_t>& block, const CDiskBlockPos& pos, const CMessageHeader::MessageStartChars& message_start) const
+bool BlockFileManager::ReadRawBlockFromDisk(std::vector<uint8_t>& block, const CDiskBlockPos& pos) const
 {
+    const CMessageHeader::MessageStartChars& message_start = FederationParams().MessageStart();
     if (pos.nPos < STORAGE_HEADER_BYTES) {
         // If nPos is less than STORAGE_HEADER_BYTES, we can't read the header that precedes the block data.
         // This would cause an unsigned integer underflow when trying to position the file cursor.
@@ -341,7 +363,7 @@ bool BlockFileManager::ReadBlockFromDisk(CBlock& block, const CDiskBlockPos& pos
 
     // Read raw block bytes (handles header validation internally)
     std::vector<uint8_t> block_data;
-    if (!ReadRawBlockFromDisk(block_data, pos, FederationParams().MessageStart())) {
+    if (!ReadRawBlockFromDisk(block_data, pos)) {
         return false;
     }
 
@@ -374,19 +396,8 @@ bool BlockFileManager::ReadBlockFromDisk(CBlock& block, const CBlockIndex* pinde
         return false;
     if (block.GetHash() != pindex->GetBlockHash())
         return error("GetHash() doesn't match index for %s at %s while reading block",
-                pindex->ToString(), pindex->GetBlockPos().ToString());
+                pindex->ToString(), blockPos.ToString());
     return true;
-}
-
-bool BlockFileManager::ReadRawBlockFromDisk(std::vector<uint8_t>& block, const CBlockIndex* pindex, const CMessageHeader::MessageStartChars& message_start) const
-{
-    CDiskBlockPos block_pos;
-    {
-        LOCK(cs_main);
-        block_pos = pindex->GetBlockPos();
-    }
-
-    return ReadRawBlockFromDisk(block, block_pos, message_start);
 }
 
 bool BlockFileManager::UndoReadFromDisk(CBlockUndo& blockundo, const CBlockIndex *pindex, const CBlock& block) const
@@ -459,12 +470,12 @@ FILE* BlockFileManager::OpenUndoFile(const CDiskBlockPos &pos, bool fReadOnly) c
 
 fs::path BlockFileManager::GetBlockPosFilename(const CDiskBlockPos &pos, const char *prefix) const
 {
-    return GetBlocksDir() / strprintf("%s%05u.dat", prefix, pos.nFile);
+    return m_options.blocksDir / strprintf("%s%05u.dat", prefix, pos.nFile);
 }
 
 bool BlockFileManager::CheckDiskSpace(uint64_t nAdditionalBytes, bool blocks_dir) const
 {
-    uint64_t nFreeBytesAvailable = fs::space(blocks_dir ? GetBlocksDir() : GetDataDir()).available;
+    uint64_t nFreeBytesAvailable = fs::space(blocks_dir ? m_options.blocksDir : m_options.dataDir).available;
 
     // Check for nMinDiskSpace bytes (currently 50MB)
     if (nFreeBytesAvailable < nMinDiskSpace + nAdditionalBytes)
@@ -475,8 +486,7 @@ bool BlockFileManager::CheckDiskSpace(uint64_t nAdditionalBytes, bool blocks_dir
 
 CBlockFileInfo* BlockFileManager::GetBlockFileInfo(size_t n)
 {
-    LOCK(cs_LastBlockFile);
-
+    AssertLockHeld(cs_LastBlockFile);
     return &vinfoBlockFile.at(n);
 }
 
@@ -530,7 +540,7 @@ void BlockFileManager::UnlinkPrunedFiles(const std::set<int>& setFilesToPrune) c
         CDiskBlockPos pos(fileNum, 0);
         fs::remove(GetBlockPosFilename(pos, "blk"));
         fs::remove(GetBlockPosFilename(pos, "rev"));
-        LogPrintf("Prune: %s deleted blk/rev (%05u)\n", __func__, pos.nPos);
+        LogPrintf("Prune: %s deleted blk/rev (%05u)\n", __func__, fileNum);
     }
 }
 
@@ -617,21 +627,15 @@ void BlockFileManager::SetCheckForPruning()
     fCheckForPruning = true;
 }
 
-void BlockFileManager::FindFilesToPruneOnFlush(std::set<int>& setFilesToPrune, int nManualPruneHeight, const CBlockIndex* tip, bool fInitialBlockDownload)
+void BlockFileManager::FindFilesToPruneOnFlush(std::set<int>& setFilesToPrune, int nManualPruneHeight, const CBlockIndex* tip, bool fInitialBlockDownload, bool reindexing)
 {
     LOCK(cs_LastBlockFile);
-    if (m_options.fPruneMode && (fCheckForPruning || nManualPruneHeight > 0) && !fReindex) {
+    if (m_options.fPruneMode && (fCheckForPruning || nManualPruneHeight > 0) && !reindexing) {
         if (nManualPruneHeight > 0) {
             FindFilesToPruneManual(setFilesToPrune, nManualPruneHeight, tip);
         } else {
             FindFilesToPrune(setFilesToPrune, tip, fInitialBlockDownload);
             fCheckForPruning = false;
-        }
-        if (!setFilesToPrune.empty()) {
-            if (!fHavePruned) {
-                m_block_index.pblocktreedb->WriteFlag("prunedblockfiles", true);
-                fHavePruned = true;
-            }
         }
     }
 }
@@ -663,8 +667,7 @@ void BlockFileManager::CleanupBlockRevFiles() const
     // Remove the rev files immediately and insert the blk file paths into an
     // ordered map keyed by block file index.
     LogPrintf("Removing unusable blk?????.dat and rev?????.dat files for -reindex with -prune\n");
-    fs::path blocksdir = GetBlocksDir();
-    for (fs::directory_iterator it(blocksdir); it != fs::directory_iterator(); it++) {
+    for (fs::directory_iterator it(m_options.blocksDir); it != fs::directory_iterator(); it++) {
         if (fs::is_regular_file(*it) &&
             it->path().filename().string().length() == 12 &&
             it->path().filename().string().substr(8,4) == ".dat")

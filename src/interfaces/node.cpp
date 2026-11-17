@@ -194,8 +194,8 @@ public:
         return GuessVerificationProgress(Params().TxData(), tip);
     }
     bool isInitialBlockDownload() override { return IsInitialBlockDownload(); }
-    bool getReindex() override { return g_chainstate_manager.GetBlockFileManager().fReindex; }
-    bool getImporting() override { return g_chainstate_manager.GetBlockFileManager().fImporting; }
+    bool getReindex() override { return g_chainstate_manager.IsReindexing(); }
+    bool getImporting() override { return g_chainstate_manager.GetBlockFileManager().IsImporting(); }
     void setNetworkActive(bool active) override
     {
         if (m_context.connman) {

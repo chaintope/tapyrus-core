@@ -79,7 +79,8 @@ static void AssembleBlock(benchmark::State& state)
     SelectFederationParams(TAPYRUS_OP_MODE::DEV);
     g_chainstate_manager.InitConsensusSettings(std::make_unique<const ConsensusSettings>(ReadGenesisBlock(), TAPYRUS_OP_MODE::DEV, FederationParams().NetworkId()));
     g_chainstate_manager.InitXFieldHistory(g_chainstate_manager.Settings().GenesisBlock());
-    g_chainstate_manager.InitBlockFileManager({false, 0, Params().PruneAfterHeight()});
+    g_chainstate_manager.InitOptions(ChainstateManager::Options(gArgs));
+    g_chainstate_manager.InitBlockFileManager(BlockFileManager::Options(gArgs, Params().PruneAfterHeight()));
     BlockIndexMap& blockIndex = g_chainstate_manager.BlockIndex();
 
     const CKey privKey(DecodeSecret(SIGN_BLOCK_PRIVKEY));

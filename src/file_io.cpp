@@ -312,7 +312,8 @@ bool FlushStateToDisk(CValidationState &state, FlushStateMode mode, int nManualP
         bool fDoFullFlush = false;
         BlockFileManager& blockFileManager = g_chainstate_manager.GetBlockFileManager();
         LOCK(blockFileManager.cs_LastBlockFile);
-        blockFileManager.FindFilesToPruneOnFlush(setFilesToPrune, nManualPruneHeight, chainActive.Tip(), IsInitialBlockDownload());
+        blockFileManager.FindFilesToPruneOnFlush(setFilesToPrune, nManualPruneHeight, chainActive.Tip(), IsInitialBlockDownload(), g_chainstate_manager.IsReindexing());
+        if (!setFilesToPrune.empty()) g_chainstate_manager.RecordPruned();
         fFlushForPrune = !setFilesToPrune.empty();
         int64_t nNow = GetTimeMicros();
         // Avoid writing/flushing immediately after startup.

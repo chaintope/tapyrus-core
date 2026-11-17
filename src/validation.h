@@ -324,9 +324,4 @@ static const unsigned int REJECT_INTERNAL = 0x100;
 /** Too high fee. Can not be triggered by P2P transactions */
 static const unsigned int REJECT_HIGHFEE = 0x100;
 
-
-//! Check whether the block associated with this index entry is pruned or not.
-bool IsBlockPruned(const CBlockIndex* pblockindex);
-
-
 #endif // BITCOIN_VALIDATION_H

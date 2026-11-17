@@ -260,10 +260,10 @@ bool RESTHandler::rest_block(HTTPRequest* req,
             return RESTERR(req, HTTP_NOT_FOUND, hashStr + " not found");
         }
 
-        if (IsBlockPruned(pblockindex))
+        if (g_chainstate_manager.IsBlockPruned(pblockindex))
             return RESTERR(req, HTTP_NOT_FOUND, hashStr + " not available (pruned data)");
 
-        if (!g_chainstate_manager.GetBlockFileManager().ReadBlockFromDisk(block, pblockindex, g_chainstate_manager.RulesAt(*pblockindex)))
+        if (!g_chainstate_manager.ReadBlock(block, pblockindex))
             return RESTERR(req, HTTP_NOT_FOUND, hashStr + " not found");
     }
 

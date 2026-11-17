@@ -301,7 +301,7 @@ static UniValue gettxoutproof(const JSONRPCRequest& request)
     }
 
     CBlock block;
-    if(!g_chainstate_manager.GetBlockFileManager().ReadBlockFromDisk(block, pblockindex, g_chainstate_manager.RulesAt(*pblockindex)))
+    if(!g_chainstate_manager.ReadBlock(block, pblockindex))
         throw JSONRPCError(RPC_INTERNAL_ERROR, "Can't read block from disk");
 
     unsigned int ntxFound = 0;

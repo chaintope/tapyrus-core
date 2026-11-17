@@ -64,7 +64,7 @@ bool CVerifyDB::VerifyDB(CCoinsView *coinsview, int nCheckLevel, int nCheckDepth
         }
         CBlock block;
         // check level 0: read from disk
-        if (!g_chainstate_manager.GetBlockFileManager().ReadBlockFromDisk(block, pindex, g_chainstate_manager.RulesAt(*pindex)))
+        if (!g_chainstate_manager.ReadBlock(block, pindex))
             return error("VerifyDB(): *** ReadBlockFromDisk failed at %d, hash=%s", pindex->nHeight, pindex->GetBlockHash().ToString());
         // check level 1: verify block validity
         if (nCheckLevel >= 1 && !CheckBlock(block, state, g_chainstate_manager.RulesAt(*pindex), true, true))
@@ -119,7 +119,7 @@ bool CVerifyDB::VerifyDB(CCoinsView *coinsview, int nCheckLevel, int nCheckDepth
             uiInterface.ShowProgress(_("Verifying blocks..."), std::max(1, std::min(99, 100 - (int)(((double)(chainActive.Height() - pindex->nHeight)) / (double)nCheckDepth * 50))), false);
             pindex = chainActive.Next(pindex);
             CBlock block;
-            if (!g_chainstate_manager.GetBlockFileManager().ReadBlockFromDisk(block, pindex, g_chainstate_manager.RulesAt(*pindex)))
+            if (!g_chainstate_manager.ReadBlock(block, pindex))
                 return error("VerifyDB(): *** ReadBlockFromDisk failed at %d, hash=%s", pindex->nHeight, pindex->GetBlockHash().ToString());
             if (!g_chainstate.ConnectBlock(block, state, pindex, coins, *issuedColorIds))
                 return error("VerifyDB(): *** found unconnectable block at %d, hash=%s (%s)", pindex->nHeight, pindex->GetBlockHash().ToString(), FormatStateMessage(state));

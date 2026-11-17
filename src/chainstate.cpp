@@ -683,7 +683,7 @@ bool CChainState::DisconnectTip(CValidationState& state, DisconnectedBlockTransa
     // Read block from disk.
     std::shared_ptr<CBlock> pblock = std::make_shared<CBlock>();
     CBlock& block = *pblock;
-    if (!g_chainstate_manager.GetBlockFileManager().ReadBlockFromDisk(block, pindexDelete, g_chainstate_manager.RulesAt(*pindexDelete)))
+    if (!g_chainstate_manager.ReadBlock(block, pindexDelete))
         return AbortNode(state, "Failed to read block");
     // Apply the block atomically to the chain state.
     int64_t nStart = GetTimeMicros();
@@ -750,7 +750,7 @@ bool CChainState::ConnectTip(CValidationState& state, CBlockIndex* pindexNew, co
     std::shared_ptr<const CBlock> pthisBlock;
     if (!pblock) {
         std::shared_ptr<CBlock> pblockNew = std::make_shared<CBlock>();
-        if (!g_chainstate_manager.GetBlockFileManager().ReadBlockFromDisk(*pblockNew, pindexNew, g_chainstate_manager.RulesAt(*pindexNew)))
+        if (!g_chainstate_manager.ReadBlock(*pblockNew, pindexNew))
             return AbortNode(state, "Failed to read block");
         pthisBlock = pblockNew;
     } else {
@@ -1432,7 +1432,7 @@ bool CChainState::RollforwardBlock(const CBlockIndex* pindex, CCoinsViewCache& i
     AssertLockHeld(cs_main);
     // TODO: merge with ConnectBlock
     CBlock block;
-    if (!g_chainstate_manager.GetBlockFileManager().ReadBlockFromDisk(block, pindex, g_chainstate_manager.RulesAt(*pindex))) {
+    if (!g_chainstate_manager.ReadBlock(block, pindex)) {
         return error("ReplayBlock(): ReadBlockFromDisk failed at %d, hash=%s", pindex->nHeight, pindex->GetBlockHash().ToString());
     }
 
@@ -1510,7 +1510,7 @@ bool CChainState::ReplayBlocks(CCoinsView* view, CIssuedColorIds& issuedColorIds
     while (pindexOld != pindexFork) {
         if (pindexOld->nHeight > 0) { // Never disconnect the genesis block.
             CBlock block;
-            if (!g_chainstate_manager.GetBlockFileManager().ReadBlockFromDisk(block, pindexOld, g_chainstate_manager.RulesAt(*pindexOld))) {
+            if (!g_chainstate_manager.ReadBlock(block, pindexOld)) {
                 return error("RollbackBlock(): ReadBlockFromDisk() failed at %d, hash=%s", pindexOld->nHeight, pindexOld->GetBlockHash().ToString());
             }
             LogPrintf("Rolling back %s (%i)\n", pindexOld->GetBlockHash().ToString(), pindexOld->nHeight);
@@ -1605,7 +1605,7 @@ bool CChainState::LoadGenesisBlock()
         CDiskBlockPos blockPos;
 
         BlockFileManager& blockFileManager = g_chainstate_manager.GetBlockFileManager();
-        if (blockFileManager.fReindex && fs::exists(GetBlocksDir() / strprintf("blk%05u.dat", 0))) {
+        if (g_chainstate_manager.IsReindexing() && fs::exists(blockFileManager.GetBlockPosFilename(CDiskBlockPos(0, 0), "blk"))) {
             // During reindex with existing block files, pass the known genesis
             // disk position so SaveBlockToDisk uses fKnown=true.
             // This skips AllocateFileRange (which on macOS uses ftruncate and
@@ -1692,7 +1692,7 @@ void CChainState::CheckBlockIndex()
         if (pindex->nChainTx == 0) assert(pindex->nSequenceId <= 0);  // nSequenceId can't be set positive for blocks that aren't linked (negative is used for preciousblock)
         // VALID_TRANSACTIONS is equivalent to nTx > 0 for all nodes (whether or not pruning has occurred).
         // HAVE_DATA is only equivalent to nTx > 0 (or VALID_TRANSACTIONS) if no pruning has occurred.
-        if (!g_chainstate_manager.GetBlockFileManager().fHavePruned) {
+        if (!g_chainstate_manager.HavePruned()) {
             // If we've never pruned, then HAVE_DATA should be equivalent to nTx > 0
             assert(!(pindex->nStatus & BLOCK_HAVE_DATA) == (pindex->nTx == 0));
             assert(pindexFirstMissing == pindexFirstNeverProcessed);
@@ -1751,7 +1751,7 @@ void CChainState::CheckBlockIndex()
         if (pindexFirstMissing == nullptr) assert(!foundInUnlinked); // We aren't missing data for any parent -- cannot be in mapBlocksUnlinked.
         if (pindex->pprev && (pindex->nStatus & BLOCK_HAVE_DATA) && pindexFirstNeverProcessed == nullptr && pindexFirstMissing != nullptr) {
             // We HAVE_DATA for this block, have received data for all parents at some point, but we're currently missing data for some parent.
-            assert(g_chainstate_manager.GetBlockFileManager().fHavePruned); // We must have pruned.
+            assert(g_chainstate_manager.HavePruned()); // We must have pruned.
             // This block may have entered mapBlocksUnlinked if:
             //  - it has a descendant that at some point had more work than the
             //    tip, and

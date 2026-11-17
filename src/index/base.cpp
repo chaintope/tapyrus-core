@@ -121,7 +121,7 @@ void BaseIndex::ThreadSync()
             }
 
             CBlock block;
-            if (!g_chainstate_manager.GetBlockFileManager().ReadBlockFromDisk(block, pindex, g_chainstate_manager.RulesAt(*pindex))) {
+            if (!g_chainstate_manager.ReadBlock(block, pindex)) {
                 FatalError("%s: Failed to read block %s from disk",
                            __func__, pindex->GetBlockHash().ToString());
                 return;

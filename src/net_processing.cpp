@@ -884,7 +884,7 @@ void PeerManager::ProcessGetBlockData(CNode* pfrom, const CInv& inv)
         } else {
             // Send block from disk
             std::shared_ptr<CBlock> pblockRead = std::make_shared<CBlock>();
-            if (!g_chainstate_manager.GetBlockFileManager().ReadBlockFromDisk(*pblockRead, pindex, g_chainstate_manager.RulesAt(*pindex)))
+            if (!g_chainstate_manager.ReadBlock(*pblockRead, pindex))
                 assert(!"cannot load block from disk");
             pblock = pblockRead;
         }
@@ -1742,7 +1742,7 @@ bool PeerManager::ProcessMessage(CNode* pfrom, const std::string& strCommand, CD
 
             if (inv.type == MSG_BLOCK) {
                 UpdateBlockAvailability(pfrom->GetId(), inv.hash);
-                if (!fAlreadyHave && !g_chainstate_manager.GetBlockFileManager().LoadingBlocks() && mapBlocksInFlight.count(inv.hash) < MAX_CMPCTBLOCKS_INFLIGHT_PER_BLOCK) {
+                if (!fAlreadyHave && !g_chainstate_manager.LoadingBlocks() && mapBlocksInFlight.count(inv.hash) < MAX_CMPCTBLOCKS_INFLIGHT_PER_BLOCK) {
                     // Headers-first is the primary method of announcement on
                     // the network. If a node fell back to sending blocks by inv,
                     // it's probably for a re-org. The final block hash
@@ -1756,7 +1756,7 @@ bool PeerManager::ProcessMessage(CNode* pfrom, const std::string& strCommand, CD
                 pfrom->AddInventoryKnown(inv);
                 if (fBlocksOnly) {
                     LogPrint(BCLog::NET, "transaction (%s) inv sent in violation of protocol peer=%d\n", inv.hash.ToString(), pfrom->GetId());
-                } else if (!fAlreadyHave && !g_chainstate_manager.GetBlockFileManager().LoadingBlocks() && !IsInitialBlockDownload()) {
+                } else if (!fAlreadyHave && !g_chainstate_manager.LoadingBlocks() && !IsInitialBlockDownload()) {
                     pfrom->AskFor(inv);
                 }
             }
@@ -1905,7 +1905,7 @@ bool PeerManager::ProcessMessage(CNode* pfrom, const std::string& strCommand, CD
         }
 
         CBlock block;
-        bool ret = g_chainstate_manager.GetBlockFileManager().ReadBlockFromDisk(block, pindex, g_chainstate_manager.RulesAt(*pindex));
+        bool ret = g_chainstate_manager.ReadBlock(block, pindex);
         assert(ret);
 
         SendBlockTransactions(block, req, pfrom);
@@ -2094,7 +2094,7 @@ bool PeerManager::ProcessMessage(CNode* pfrom, const std::string& strCommand, CD
     }
 
 
-    else if (strCommand == NetMsgType::CMPCTBLOCK && !g_chainstate_manager.GetBlockFileManager().LoadingBlocks()) // Ignore blocks received while importing
+    else if (strCommand == NetMsgType::CMPCTBLOCK && !g_chainstate_manager.LoadingBlocks()) // Ignore blocks received while importing
     {
         CBlockHeaderAndShortTxIDs cmpctblock;
         vRecv >> cmpctblock;
@@ -2359,7 +2359,7 @@ bool PeerManager::ProcessMessage(CNode* pfrom, const std::string& strCommand, CD
 
     }
 
-    else if (strCommand == NetMsgType::BLOCKTXN && !g_chainstate_manager.GetBlockFileManager().LoadingBlocks()) // Ignore blocks received while importing
+    else if (strCommand == NetMsgType::BLOCKTXN && !g_chainstate_manager.LoadingBlocks()) // Ignore blocks received while importing
     {
         BlockTransactions resp;
         vRecv >> resp;
@@ -2460,7 +2460,7 @@ bool PeerManager::ProcessMessage(CNode* pfrom, const std::string& strCommand, CD
     }
 
 
-    else if (strCommand == NetMsgType::HEADERS && !g_chainstate_manager.GetBlockFileManager().LoadingBlocks()) // Ignore headers received while importing
+    else if (strCommand == NetMsgType::HEADERS && !g_chainstate_manager.LoadingBlocks()) // Ignore headers received while importing
     {
         std::vector<CBlockHeader> headers;
 
@@ -2485,7 +2485,7 @@ bool PeerManager::ProcessMessage(CNode* pfrom, const std::string& strCommand, CD
         return ProcessHeadersMessage(pfrom, headers, chainparams, should_punish);
     }
 
-    else if (strCommand == NetMsgType::BLOCK && !g_chainstate_manager.GetBlockFileManager().LoadingBlocks()) // Ignore blocks received while importing
+    else if (strCommand == NetMsgType::BLOCK && !g_chainstate_manager.LoadingBlocks()) // Ignore blocks received while importing
     {
         std::shared_ptr<CBlock> pblock = std::make_shared<CBlock>();
         vRecv >> *pblock;
@@ -3126,7 +3126,7 @@ bool PeerManager::SendMessages(CNode* pto)
         if (pindexBestHeader == nullptr)
             pindexBestHeader = chainActive.Tip();
         bool fFetch = state.fPreferredDownload || (nPreferredDownload == 0 && !pto->fClient && !pto->fOneShot); // Download if this is a nice peer, or we have no nice peers and this one might do.
-        if (!state.fSyncStarted && !pto->fClient && !g_chainstate_manager.GetBlockFileManager().LoadingBlocks()) {
+        if (!state.fSyncStarted && !pto->fClient && !g_chainstate_manager.LoadingBlocks()) {
             // Only actively request headers from a single peer, unless we're close to today.
             if ((nSyncStarted == 0 && fFetch) || pindexBestHeader->GetBlockTime() > GetAdjustedTime() - 24 * 60 * 60) {
                 state.fSyncStarted = true;
@@ -3150,7 +3150,7 @@ bool PeerManager::SendMessages(CNode* pto)
         // Resend wallet transactions that haven't gotten in a block yet
         // Except during reindex, importing and IBD, when old wallet
         // transactions become unconfirmed and spams other nodes.
-        if (!g_chainstate_manager.GetBlockFileManager().LoadingBlocks() && !IsInitialBlockDownload())
+        if (!g_chainstate_manager.LoadingBlocks() && !IsInitialBlockDownload())
         {
             GetMainSignals().Broadcast(nTimeBestReceived, &m_connman);
         }
@@ -3239,7 +3239,7 @@ bool PeerManager::SendMessages(CNode* pto)
                     }
                     if (!fGotBlockFromCache) {
                         CBlock block;
-                        bool ret = g_chainstate_manager.GetBlockFileManager().ReadBlockFromDisk(block, pBestIndex, g_chainstate_manager.RulesAt(*pBestIndex));
+                        bool ret = g_chainstate_manager.ReadBlock(block, pBestIndex);
                         assert(ret);
                         CBlockHeaderAndShortTxIDs cmpctblock(block);
                         m_connman.PushMessage(pto, msgMaker.Make(NetMsgType::CMPCTBLOCK, cmpctblock));

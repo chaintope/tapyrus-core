@@ -92,7 +92,8 @@ BasicTestingSetup::BasicTestingSetup(const std::string& chainName)
         g_policy_settings = m_node.policy.get();
         g_chainstate_manager.InitXFieldHistory(g_chainstate_manager.Settings().GenesisBlock());
         pxFieldHistory = &g_chainstate_manager.XFieldHistory();
-        g_chainstate_manager.InitBlockFileManager({false, 0, Params().PruneAfterHeight()});
+        g_chainstate_manager.InitOptions(ChainstateManager::Options(gArgs));
+        g_chainstate_manager.InitBlockFileManager(BlockFileManager::Options(gArgs, Params().PruneAfterHeight()));
         {
             LOCK(cs_main);
             g_chainstate_manager.IssuedColorIds() = CIssuedColorIds();

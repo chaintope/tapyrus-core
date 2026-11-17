@@ -19,6 +19,7 @@
 #include <set>
 #include <vector>
 
+class ArgsManager;
 class BlockIndexMap;
 class CBlock;
 class CBlockIndex;
@@ -36,14 +37,27 @@ class HeightDerivedConsensusRules;
 class BlockFileManager
 {
 public:
-    /** Fixed for the node's lifetime, read from -prune at start-up. */
+    /** Read once from tapyrus.conf and the command line at start-up and fixed for the node's lifetime. */
     struct Options {
+        /**
+         * Reads -prune, and takes the blocks and data directories once.
+         * @throws std::runtime_error with the start-up error message if -prune is invalid.
+         */
+        Options(const ArgsManager& args, uint32_t pruneAfterHeight);
+
+        /** Number of bytes of block files that we're trying to stay below; the maximum for manual pruning. */
+        const uint64_t nPruneTarget;
         /** True if we're running in -prune mode. */
         const bool fPruneMode;
-        /** Number of bytes of block files that we're trying to stay below. */
-        const uint64_t nPruneTarget;
         /** Pruning waits until the chain is at least this long. */
         const uint32_t nPruneAfterHeight;
+        /** Where the blk?????.dat and rev?????.dat files are. */
+        const fs::path blocksDir;
+        /** The data directory, checked for space before the coins database is flushed. */
+        const fs::path dataDir;
+
+    private:
+        static uint64_t ParsePruneTarget(const ArgsManager& args);
     };
 
     /** The maximum size of a blk?????.dat file (since 0.8) */
@@ -75,17 +89,11 @@ public:
     /** Guards the file bookkeeping below; FlushStateToDisk holds it across a whole flush. */
     RecursiveMutex cs_LastBlockFile;
 
-    /** Set while blocks are imported from files at start-up. */
-    std::atomic_bool fImporting{false};
-    /** Set while the block files are reindexed. */
-    std::atomic_bool fReindex{false};
-    /** True if any block files have ever been pruned. */
-    bool fHavePruned{false};
+    /** True while blocks are imported from files at start-up. */
+    bool IsImporting() const { return m_importing; }
+    void SetImporting(bool importing) { m_importing = importing; }
 
-    /** True while blocks are imported or reindexed; incoming blocks are ignored then. */
-    bool LoadingBlocks() const { return fImporting || fReindex; }
-
-    /** Reads the file info and the pruned and reindexing flags from the block tree, and checks the blk files the index needs exist. */
+    /** Reads the file info from the block tree, and checks the blk files the index needs exist. */
     bool LoadBlockFileInfo() EXCLUSIVE_LOCKS_REQUIRED(cs_main);
     /** Forgets the file info, as when the block index is unloaded. */
     void Unload();
@@ -100,8 +108,6 @@ public:
     bool ReadBlockFromDisk(CBlock& block, const CDiskBlockPos& pos, const HeightDerivedConsensusRules& consensusAtHeight) const;
     /** consensusAtHeight are the rules at pindex's height, which the header is checked against. */
     bool ReadBlockFromDisk(CBlock& block, const CBlockIndex* pindex, const HeightDerivedConsensusRules& consensusAtHeight) const;
-    bool ReadRawBlockFromDisk(std::vector<uint8_t>& block, const CDiskBlockPos& pos, const CMessageHeader::MessageStartChars& message_start) const;
-    bool ReadRawBlockFromDisk(std::vector<uint8_t>& block, const CBlockIndex* pindex, const CMessageHeader::MessageStartChars& message_start) const;
     bool UndoReadFromDisk(CBlockUndo& blockundo, const CBlockIndex* pindex, const CBlock& block) const;
 
     /** Open a block file (blk?????.dat) */
@@ -114,8 +120,8 @@ public:
     /** Check whether enough disk space is available for an incoming block */
     bool CheckDiskSpace(uint64_t nAdditionalBytes = 0, bool blocks_dir = false) const;
 
-    /** Get block file info entry for one block file */
-    CBlockFileInfo* GetBlockFileInfo(size_t n);
+    /** Get block file info entry for one block file; the caller holds cs_LastBlockFile while it uses the entry. */
+    CBlockFileInfo* GetBlockFileInfo(size_t n) EXCLUSIVE_LOCKS_REQUIRED(cs_LastBlockFile);
 
     /** Calculate the amount of disk space the block & undo files currently use */
     uint64_t CalculateCurrentUsage();
@@ -136,10 +142,10 @@ public:
     /**
      * The files a flush can prune, marked pruned in the index: up to
      * nManualPruneHeight when it is positive, else those over the prune target
-     * if a check is due. Records in the block tree that files have been pruned.
+     * if a check is due. Nothing is pruned while reindexing.
      * tip is the active chain's tip; fInitialBlockDownload leaves a larger buffer.
      */
-    void FindFilesToPruneOnFlush(std::set<int>& setFilesToPrune, int nManualPruneHeight, const CBlockIndex* tip, bool fInitialBlockDownload) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
+    void FindFilesToPruneOnFlush(std::set<int>& setFilesToPrune, int nManualPruneHeight, const CBlockIndex* tip, bool fInitialBlockDownload, bool reindexing) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 
     /** Writes the changed file info and block index entries to the block tree. */
     bool WriteBlockIndexDB() EXCLUSIVE_LOCKS_REQUIRED(cs_main);
@@ -157,8 +163,9 @@ public:
 private:
     bool FindBlockPos(CDiskBlockPos& pos, unsigned int nAddSize, unsigned int nHeight, uint64_t nTime, bool fKnown = false);
     bool FindUndoPos(CValidationState& state, int nFile, CDiskBlockPos& pos, unsigned int nAddSize);
-    bool WriteBlockToDisk(const CBlock& block, CDiskBlockPos& pos, const CMessageHeader::MessageStartChars& messageStart) const;
-    bool UndoWriteToDisk(const CBlockUndo& blockundo, CDiskBlockPos& pos, const uint256& hashBlock, const CMessageHeader::MessageStartChars& messageStart) const;
+    bool WriteBlockToDisk(const CBlock& block, CDiskBlockPos& pos) const;
+    bool UndoWriteToDisk(const CBlockUndo& blockundo, CDiskBlockPos& pos, const uint256& hashBlock) const;
+    bool ReadRawBlockFromDisk(std::vector<uint8_t>& block, const CDiskBlockPos& pos) const;
     FILE* OpenDiskFile(const CDiskBlockPos& pos, const char* prefix, bool fReadOnly) const;
 
     /* Calculate the block/rev files to delete based on height specified by user with RPC command pruneblockchain */
@@ -182,6 +189,8 @@ private:
     void FindFilesToPrune(std::set<int>& setFilesToPrune, const CBlockIndex* tip, bool fInitialBlockDownload) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 
     const Options m_options;
+    //! Read by the network thread while the import thread sets it.
+    std::atomic_bool m_importing{false};
     BlockIndexMap& m_block_index;
 
     std::vector<CBlockFileInfo> vinfoBlockFile GUARDED_BY(cs_LastBlockFile);

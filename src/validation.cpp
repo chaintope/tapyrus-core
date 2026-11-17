@@ -818,7 +818,7 @@ bool GetTransaction(const uint256& hash, CTransactionRef& txOut, uint256& hashBl
 
     if (pindexSlow) {
         CBlock block;
-        if (g_chainstate_manager.GetBlockFileManager().ReadBlockFromDisk(block, pindexSlow, g_chainstate_manager.RulesAt(*pindexSlow))) {
+        if (g_chainstate_manager.ReadBlock(block, pindexSlow)) {
             for (const auto& tx : block.vtx) {
                 if (tx->GetHashMalFix() == hash) {
                     txOut = tx;
@@ -848,7 +848,7 @@ bool IsInitialBlockDownload()
     LOCK(cs_main);
     if (latchToFalse.load(std::memory_order_relaxed))
         return false;
-    if (g_chainstate_manager.GetBlockFileManager().LoadingBlocks())
+    if (g_chainstate_manager.LoadingBlocks())
         return true;
     if (chainActive.Tip() == nullptr)
         return true;
@@ -1127,7 +1127,10 @@ bool static LoadBlockIndexDB() EXCLUSIVE_LOCKS_REQUIRED(cs_main)
     if (!g_chainstate.LoadBlockIndex())
         return false;
 
-    return g_chainstate_manager.GetBlockFileManager().LoadBlockFileInfo();
+    if (!g_chainstate_manager.GetBlockFileManager().LoadBlockFileInfo())
+        return false;
+    g_chainstate_manager.LoadPersistentFlags();
+    return true;
 }
 
 bool LoadChainTip()
@@ -1199,6 +1202,7 @@ void UnloadBlockIndex()
     mempool.clear();
     g_chainstate_manager.BlockIndex().Unload();
     g_chainstate_manager.GetBlockFileManager().Unload();
+    g_chainstate_manager.UnloadPersistentFlags();
 
     g_chainstate.UnloadBlockIndex();
 }
@@ -1207,7 +1211,7 @@ bool LoadBlockIndex()
 {
     BlockIndexMap& blockIndex = g_chainstate_manager.BlockIndex();
     // Load block index from databases
-    bool needs_init = g_chainstate_manager.GetBlockFileManager().fReindex;
+    bool needs_init = g_chainstate_manager.IsReindexing();
     if (!needs_init) {
         bool ret = LoadBlockIndexDB();
         if (!ret) return false;
@@ -1216,19 +1220,14 @@ bool LoadBlockIndex()
 
     if (needs_init) {
         // Everything here is for *new* reindex/DBs. Thus, though
-        // LoadBlockIndexDB may have set fReindex if we shut down
-        // mid-reindex previously, we don't check fReindex and
+        // LoadBlockIndexDB may have set the reindexing flag if we shut down
+        // mid-reindex previously, we don't check it and
         // instead only check it prior to LoadBlockIndexDB to set
         // needs_init.
 
         LogPrintf("Initializing databases...\n");
     }
     return true;
-}
-
-bool IsBlockPruned(const CBlockIndex* pblockindex)
-{
-    return (g_chainstate_manager.GetBlockFileManager().fHavePruned && !(pblockindex->nStatus & BLOCK_HAVE_DATA) && pblockindex->nTx > 0);
 }
 
 bool LoadGenesisBlock()

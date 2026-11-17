@@ -1742,7 +1742,7 @@ CBlockIndex* CWallet::ScanForWalletTransactions(CBlockIndex* pindexStart, CBlock
             }
 
             CBlock block;
-            if (g_chainstate_manager.GetBlockFileManager().ReadBlockFromDisk(block, pindex, g_chainstate_manager.RulesAt(*pindex))) {
+            if (g_chainstate_manager.ReadBlock(block, pindex)) {
                 LOCK2(cs_main, cs_wallet);
                 if (pindex && !chainActive.Contains(pindex)) {
                     // Abort scan if current block is no longer active, to prevent

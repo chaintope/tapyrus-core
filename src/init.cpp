@@ -614,18 +614,18 @@ static void BlockNotifyGenesisWait(bool, const CBlockIndex *pBlockIndex)
 struct CImportingNow
 {
     CImportingNow() {
-        assert(g_chainstate_manager.GetBlockFileManager().fImporting == false);
-        g_chainstate_manager.GetBlockFileManager().fImporting = true;
+        assert(g_chainstate_manager.GetBlockFileManager().IsImporting() == false);
+        g_chainstate_manager.GetBlockFileManager().SetImporting(true);
     }
 
     ~CImportingNow() {
-        assert(g_chainstate_manager.GetBlockFileManager().fImporting == true);
-        g_chainstate_manager.GetBlockFileManager().fImporting = false;
+        assert(g_chainstate_manager.GetBlockFileManager().IsImporting() == true);
+        g_chainstate_manager.GetBlockFileManager().SetImporting(false);
     }
 };
 
 
-static void ThreadImport(std::vector<fs::path> vImportFiles, bool fReloadxfield)
+static void ThreadImport(std::vector<fs::path> vImportFiles)
 {
     BlockIndexMap& blockIndex = g_chainstate_manager.BlockIndex();
     RenameThread("tapyrus-loadblk");
@@ -638,7 +638,7 @@ static void ThreadImport(std::vector<fs::path> vImportFiles, bool fReloadxfield)
 
     // -reindex
     BlockFileManager& blockFileManager = g_chainstate_manager.GetBlockFileManager();
-    if (blockFileManager.fReindex || fReloadxfield) {
+    if (g_chainstate_manager.ShouldWipeBlockTree()) {
         // To avoid ending up in a situation without genesis block, initialize it:
         LoadGenesisBlock();
 
@@ -658,7 +658,7 @@ static void ThreadImport(std::vector<fs::path> vImportFiles, bool fReloadxfield)
             LOCK(cs_main);
             blockIndex.pblocktreedb->WriteReindexing(false);
         }
-        blockFileManager.fReindex = false;
+        g_chainstate_manager.SetReindexing(false);
         LogPrintf("Reindexing finished\n");
     }
 
@@ -695,7 +695,7 @@ static void ThreadImport(std::vector<fs::path> vImportFiles, bool fReloadxfield)
         return;
     }
 
-    if (fReloadxfield) {
+    if (g_chainstate_manager.GetOptions().fReloadXField) {
         // Rebuild the persisted xfield list from the active chain only.
         // tempXFieldHistory was populated from all processed blocks including orphans;
         // after ActivateBestChain the chain's CXFieldHistory only contains active-chain entries.
@@ -1052,25 +1052,6 @@ bool AppInitParameterInteraction(NodeContext& node)
     else if (nScriptCheckThreads > MAX_SCRIPTCHECK_THREADS)
         nScriptCheckThreads = MAX_SCRIPTCHECK_THREADS;
 
-    // block pruning; get the amount of disk space (in MiB) to allot for block & undo files
-    int64_t nPruneArg = gArgs.GetArg("-prune", 0);
-    if (nPruneArg < 0) {
-        return InitError(_("Prune cannot be configured with a negative value."));
-    }
-    uint64_t nPruneTarget = (uint64_t) nPruneArg * 1024 * 1024;
-    bool fPruneMode = false;
-    if (nPruneArg == 1) {  // manual pruning: -prune=1
-        LogPrintf("Block pruning enabled.  Use RPC call pruneblockchain(height) to manually prune block and undo files.\n");
-        nPruneTarget = std::numeric_limits<uint64_t>::max();
-        fPruneMode = true;
-    } else if (nPruneTarget) {
-        if (nPruneTarget < BlockFileManager::MIN_DISK_SPACE_FOR_BLOCK_FILES) {
-            return InitError(strprintf(_("Prune configured below the minimum of %d MiB.  Please use a higher number."), BlockFileManager::MIN_DISK_SPACE_FOR_BLOCK_FILES / 1024 / 1024));
-        }
-        LogPrintf("Prune configured to target %uMiB on disk for block and undo files.\n", nPruneTarget / 1024 / 1024);
-        fPruneMode = true;
-    }
-
     nConnectTimeout = gArgs.GetArg("-timeout", DEFAULT_CONNECT_TIMEOUT);
     if (nConnectTimeout <= 0)
         nConnectTimeout = DEFAULT_CONNECT_TIMEOUT;
@@ -1090,7 +1071,12 @@ bool AppInitParameterInteraction(NodeContext& node)
         InitWarning(_("-maxtxfee is set very high! Fees this large could be paid on a single transaction."));
     }
 
-    g_chainstate_manager.InitBlockFileManager({fPruneMode, nPruneTarget, Params().PruneAfterHeight()});
+    g_chainstate_manager.InitOptions(ChainstateManager::Options(gArgs));
+    try {
+        g_chainstate_manager.InitBlockFileManager(BlockFileManager::Options(gArgs, Params().PruneAfterHeight()));
+    } catch (const std::exception& e) {
+        return InitError(e.what());
+    }
 
     // Option to startup with mocktime set (used for regression testing):
     SetMockTime(gArgs.GetArg("-mocktime", 0)); // SetMockTime(0) is a no-op
@@ -1383,9 +1369,7 @@ bool AppInitMain(NodeContext& node)
     // ********************************************************* Step 7: load block chain
 
     BlockFileManager& blockFileManager = g_chainstate_manager.GetBlockFileManager();
-    blockFileManager.fReindex = gArgs.GetBoolArg("-reindex", false);
-    bool fReindexChainState = gArgs.GetBoolArg("-reindex-chainstate", false);
-    bool fReloadxfield = gArgs.GetBoolArg("-reloadxfield", false);
+    g_chainstate_manager.SetReindexing(gArgs.GetBoolArg("-reindex", false));
 
     // cache size calculations
     int64_t nTotalCache = (gArgs.GetArg("-dbcache", nDefaultDbCache) << 20);
@@ -1410,7 +1394,8 @@ bool AppInitMain(NodeContext& node)
 
     bool fLoaded = false;
     while (!fLoaded && !ShutdownRequested()) {
-        bool fReset = blockFileManager.fReindex || fReloadxfield;
+        // Taken before LoadBlockIndex, which can switch reindexing on to resume an interrupted reindex.
+        const bool wipeBlockTree = g_chainstate_manager.ShouldWipeBlockTree();
         std::string strLoadError;
 
         uiInterface.InitMessage(_("Loading block index..."));
@@ -1427,9 +1412,9 @@ bool AppInitMain(NodeContext& node)
                 // new CBlockTreeDB tries to delete the existing file, which
                 // fails if it's still open from the previous loop. Close it first:
                 blockIndex.pblocktreedb.reset();
-                blockIndex.pblocktreedb.reset(new CBlockTreeDB(nBlockTreeDBCache, false, fReset));
+                blockIndex.pblocktreedb.reset(new CBlockTreeDB(nBlockTreeDBCache, false, wipeBlockTree));
 
-                if (fReset) {
+                if (wipeBlockTree) {
                     blockIndex.pblocktreedb->WriteReindexing(true);
                     //If we're reindexing in prune mode, wipe away unusable block files and all undo data files
                     if (blockFileManager.GetOptions().fPruneMode)
@@ -1438,10 +1423,10 @@ bool AppInitMain(NodeContext& node)
 
                 if (ShutdownRequested()) break;
 
-                // LoadBlockIndex will load fHavePruned if we've ever removed a
+                // LoadBlockIndex will load the pruned flag if we've ever removed a
                 // block file from disk.
-                // Note that it also sets fReindex based on the disk flag!
-                // From here on out fReindex and fReset mean something different!
+                // Note that it also sets the reindexing flag based on the disk flag!
+                // From here on out IsReindexing() and wipeBlockTree mean something different!
                 if (!LoadBlockIndex()) {
                     strLoadError = _("Error loading block database");
                     break;
@@ -1455,7 +1440,7 @@ bool AppInitMain(NodeContext& node)
 
                 // Check for changed -prune state.  What we are concerned about is a user who has pruned blocks
                 // in the past, but is now trying to run unpruned.
-                if (blockFileManager.fHavePruned && !blockFileManager.GetOptions().fPruneMode) {
+                if (g_chainstate_manager.HavePruned() && !blockFileManager.GetOptions().fPruneMode) {
                     strLoadError = _("You need to rebuild the database using -reindex to go back to unpruned mode.  This will redownload the entire blockchain");
                     break;
                 }
@@ -1464,7 +1449,7 @@ bool AppInitMain(NodeContext& node)
                 // If we're not mid-reindex (based on disk + args), add a genesis block on disk
                 // (otherwise we use the one already on disk).
                 // This is called again in ThreadImport after the reindex completes.
-                if (!blockFileManager.fReindex && !LoadGenesisBlock()) {
+                if (!g_chainstate_manager.IsReindexing() && !LoadGenesisBlock()) {
                     strLoadError = _("Error initializing block database");
                     break;
                 } else {
@@ -1476,7 +1461,7 @@ bool AppInitMain(NodeContext& node)
                 // At this point we're either in reindex or we've loaded a useful
                 // block tree into mapBlockIndex!
 
-                pcoinsdbview.reset(new CCoinsViewDB(g_chainstate_manager.IssuedColorIds(), nCoinDBCache, false, fReset || fReindexChainState));
+                pcoinsdbview.reset(new CCoinsViewDB(g_chainstate_manager.IssuedColorIds(), nCoinDBCache, false, wipeBlockTree || g_chainstate_manager.GetOptions().fReindexChainState));
                 pcoinscatcher.reset(new CCoinsViewErrorCatcher(pcoinsdbview.get()));
 
                 // Reset the issued colorIds before ReplayBlocks so that DisconnectBlock
@@ -1500,7 +1485,7 @@ bool AppInitMain(NodeContext& node)
                 // The on-disk coinsdb is now in a good state, create the cache
                 pcoinsTip.reset(new CCoinsViewCache(pcoinscatcher.get()));
 
-                bool is_coinsview_empty = fReset || fReindexChainState || pcoinsTip->GetBestBlock().IsNull();
+                bool is_coinsview_empty = wipeBlockTree || g_chainstate_manager.GetOptions().fReindexChainState || pcoinsTip->GetBestBlock().IsNull();
                 if (!is_coinsview_empty) {
                     // LoadChainTip sets chainActive based on pcoinsTip's best block
                     if (!LoadChainTip()) {
@@ -1510,7 +1495,7 @@ bool AppInitMain(NodeContext& node)
                     assert(chainActive.Tip() != nullptr);
                 }
 
-                if (!fReset) {
+                if (!wipeBlockTree) {
                     // Note that RewindBlockIndex MUST run even if we're about to -reindex-chainstate.
                     // It reduces validity/have-data flags in mapBlockIndex and rebuilds
                     // setBlockIndexCandidates for the current chainActive.
@@ -1547,7 +1532,7 @@ bool AppInitMain(NodeContext& node)
 
                 if (!is_coinsview_empty) {
                     uiInterface.InitMessage(_("Verifying blocks..."));
-                    if (blockFileManager.fHavePruned && gArgs.GetArg("-checkblocks", DEFAULT_CHECKBLOCKS) > BlockFileManager::MIN_BLOCKS_TO_KEEP) {
+                    if (g_chainstate_manager.HavePruned() && gArgs.GetArg("-checkblocks", DEFAULT_CHECKBLOCKS) > BlockFileManager::MIN_BLOCKS_TO_KEEP) {
                         LogPrintf("Prune: pruned datadir may not have more than %d blocks; only checking available blocks\n",
                             BlockFileManager::MIN_BLOCKS_TO_KEEP);
                     }
@@ -1579,13 +1564,13 @@ bool AppInitMain(NodeContext& node)
 
         if (!fLoaded && !ShutdownRequested()) {
             // first suggest a reindex
-            if (!fReset) {
+            if (!wipeBlockTree) {
                 bool fRet = uiInterface.ThreadSafeQuestion(
                     strLoadError + ".\n\n" + _("Do you want to rebuild the block database now?"),
                     strLoadError + ".\nPlease restart with -reindex or -reindex-chainstate to recover.",
                     "", CClientUIInterface::MSG_ERROR | CClientUIInterface::BTN_ABORT);
                 if (fRet) {
-                    blockFileManager.fReindex = true;
+                    g_chainstate_manager.SetReindexing(true);
                     AbortShutdown();
                 } else {
                     LogPrintf("Aborted block database rebuild. Exiting.\n");
@@ -1621,7 +1606,7 @@ bool AppInitMain(NodeContext& node)
 
     // ********************************************************* Step 8: start indexers
     if (gArgs.GetBoolArg("-txindex", DEFAULT_TXINDEX)) {
-        g_txindex = MakeUnique<TxIndex>(nTxIndexCache, false, blockFileManager.fReindex);
+        g_txindex = MakeUnique<TxIndex>(nTxIndexCache, false, g_chainstate_manager.IsReindexing());
         g_txindex->Start();
     }
 
@@ -1635,7 +1620,7 @@ bool AppInitMain(NodeContext& node)
     if (blockFileManager.GetOptions().fPruneMode) {
         LogPrintf("Unsetting NODE_NETWORK on prune mode\n");
         nLocalServices = ServiceFlags(nLocalServices & ~NODE_NETWORK);
-        if (!blockFileManager.fReindex) {
+        if (!g_chainstate_manager.IsReindexing()) {
             uiInterface.InitMessage(_("Pruning blockstore..."));
             PruneAndFlush();
         }
@@ -1662,7 +1647,7 @@ bool AppInitMain(NodeContext& node)
         vImportFiles.push_back(strFile);
     }
 
-    scheduler.m_load_block = std::thread(std::bind(&ThreadImport, vImportFiles, fReloadxfield));
+    scheduler.m_load_block = std::thread(std::bind(&ThreadImport, vImportFiles));
 
     // Wait for genesis block to be processed
     {
