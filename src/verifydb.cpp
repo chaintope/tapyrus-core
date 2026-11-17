@@ -45,7 +45,7 @@ bool CVerifyDB::VerifyDB(CCoinsView *coinsview, int nCheckLevel, int nCheckDepth
 
     // Levels 3 and 4 disconnect and reconnect blocks on a copy of the issued colorIds,
     // as they do on a local coins cache, so the live set is never changed.
-    const std::unique_ptr<CIssuedColorIds> issuedColorIds = g_chainstate_manager.IssuedColorIds().Clone();
+    const std::unique_ptr<CIssuedColorIds> issuedColorIds = nCheckLevel >= 3 ? g_chainstate_manager.IssuedColorIds().Clone() : nullptr;
 
     LogPrintf("[0%%]..."); /* Continued */
     for (pindex = chainActive.Tip(); pindex && pindex->pprev; pindex = pindex->pprev) {

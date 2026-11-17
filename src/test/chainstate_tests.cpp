@@ -32,6 +32,7 @@
 #include <file_io.h>
 #include <xfieldhistorymap.h>
 #include <tempxfieldhistory.h>
+#include <verifydb.h>
 #include <transactioncolorchecker.h>
 #include <key.h>
 #include <coloridentifier.h>
@@ -741,7 +742,8 @@ BOOST_AUTO_TEST_CASE(check_block_header_orphan_uses_latest_aggpubkey)
  * NON_REISSUABLE or NFT issuances.
  *
  * The test passes the live issued colorIds, not a copy as CVerifyDB does, so it
- * fails without the one-line fix and passes after it.
+ * fails without the one-line fix and passes after it. It then checks that a
+ * level-3 VerifyDB leaves the live set unchanged.
  */
 BOOST_AUTO_TEST_CASE(disconnect_block_dry_run_preserves_colorid_state)
 {
@@ -827,6 +829,13 @@ BOOST_AUTO_TEST_CASE(disconnect_block_dry_run_preserves_colorid_state)
     // The issued colorIds must be unchanged: the colorId survives the dry-run disconnect.
     {
         LOCK(cs_main);
+        BOOST_CHECK(g_chainstate_manager.IssuedColorIds().IsIssued(colorid));
+    }
+
+    // Level 3 disconnects without reconnecting, so it must erase from a copy, not the live set.
+    {
+        LOCK(cs_main);
+        BOOST_REQUIRE(CVerifyDB().VerifyDB(pcoinsTip.get(), 3, 0));
         BOOST_CHECK(g_chainstate_manager.IssuedColorIds().IsIssued(colorid));
     }
 }
