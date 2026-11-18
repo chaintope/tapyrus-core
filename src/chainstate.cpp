@@ -595,7 +595,7 @@ bool Chainstate::ConnectBlock(const CBlock& block, CValidationState& state, CBlo
         if (i > 0) {
             blockundo.vtxundo.push_back(CTxUndo());
         }
-        UpdateCoins(tx, view, i == 0 ? undoDummy : blockundo.vtxundo.back(), pindex->nHeight);
+        view.UpdateCoins(tx, i == 0 ? undoDummy : blockundo.vtxundo.back(), pindex->nHeight);
     }
     int64_t nTime3 = GetTimeMicros(); nTimeConnect += nTime3 - nTime2;
     LogPrint(BCLog::BENCH, "      - Connect %u transactions: %.2fms (%.3fms/tx, %.3fms/txin) [%.2fs (%.2fms/blk)]\n", (unsigned)block.vtx.size(), MILLI * (nTime3 - nTime2), MILLI * (nTime3 - nTime2) / block.vtx.size(), nInputs <= 1 ? 0 : MILLI * (nTime3 - nTime2) / (nInputs-1), nTimeConnect * MICRO, nTimeConnect * MILLI / nBlocksTotal);
@@ -977,7 +977,7 @@ bool Chainstate::ActivateBestChainStep(CValidationState& state, CBlockIndex* pin
         // any disconnected transactions back to the mempool.
         UpdateMempoolForReorg(disconnectpool, true);
     }
-    m_mempool.check(&CoinsTip());
+    m_mempool.check(&CoinsTip(), m_chain.Height() + 1);
 
     // Callbacks/notifications for a new best chain.
     if (fInvalidFound)
