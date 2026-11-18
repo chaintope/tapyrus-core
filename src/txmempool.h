@@ -7,6 +7,7 @@
 #ifndef BITCOIN_TXMEMPOOL_H
 #define BITCOIN_TXMEMPOOL_H
 
+#include <functional>
 #include <memory>
 #include <set>
 #include <map>
@@ -18,6 +19,7 @@
 #include <coin.h>
 #include <coinsview.h>
 #include <coinsviewcache.h>
+#include <cs_main.h>
 #include <hasher.h>
 #include <indirectmap.h>
 #include <mempoolentry.h>
@@ -430,7 +432,10 @@ public:
     void addUnchecked(const uint256& hash, const CTxMemPoolEntry& entry, setEntries& setAncestors, bool validFeeEstimate = true) EXCLUSIVE_LOCKS_REQUIRED(cs);
 
     void removeRecursive(const CTransaction &tx, MemPoolRemovalReason reason = MemPoolRemovalReason::UNKNOWN);
-    void removeForReorg(const CCoinsViewCache *pcoins, unsigned int nMemPoolHeight, int flags);
+    /** After a reorg, removes (with their descendants) the transactions is_final rejects and
+     *  those spending a coinbase output pcoins no longer has. is_final may refresh the entry's
+     *  lock points. */
+    void removeForReorg(const CCoinsViewCache *pcoins, const std::function<bool(txiter)>& is_final) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
     void removeConflicts(const CTransaction &tx) EXCLUSIVE_LOCKS_REQUIRED(cs);
     void removeForBlock(const std::vector<CTransactionRef>& vtx, unsigned int nBlockHeight);
     /** Evict mempool entries that fail script checks or colored-coin consensus rules
