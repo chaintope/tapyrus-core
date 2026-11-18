@@ -7,6 +7,7 @@
 #ifndef BITCOIN_MINER_H
 #define BITCOIN_MINER_H
 
+#include <heightderivedconsensusrules.h>
 #include <primitives/block.h>
 #include <txmempool.h>
 #include <validation.h>
@@ -14,6 +15,7 @@
 #include <atomic>
 #include <stdint.h>
 #include <memory>
+#include <utility>
 #include <boost/multi_index_container.hpp>
 #include <boost/multi_index/ordered_index.hpp>
 
@@ -129,19 +131,35 @@ struct update_for_parent_inclusion
 class BlockAssembler
 {
 public:
-    /** The node options that control assembly, read once when the assembler is built. */
+    /** What a block template is built with: the node options that control assembly and
+     *  the next block's height and limits, read once from the active tip. */
     struct Options {
-        /** Reads -blockmaxsize, -blockmintxfee and -blockfeatures from the policy settings, and -printpriority from args. */
-        Options(const PolicySettings& policy, const ArgsManager& args);
+        /** Reads -blockmaxsize, -blockmintxfee and -blockfeatures from the policy settings,
+         *  -printpriority from args, and the active tip and its next block's rules from chainman. */
+        Options(const PolicySettings& policy, const ArgsManager& args, ChainstateManager& chainman);
 
-        /** -blockmaxsize: the requested size; CreateNewBlock caps it below the next block's size limit. */
+        /** The tip the block builds on; CreateNewBlock refuses to build once it is no longer active. */
+        CBlockIndex* const pindexPrev;
+        const int nHeight;
+        /** The tip's median time past; transactions must be final at it. */
+        const int64_t nLockTimeCutoff;
+        /** The size blocks are filled to: -blockmaxsize, kept between 1000 bytes and
+         *  1000 bytes below the block size limit (room for the coinbase). */
         const size_t nBlockMaxSize;
+        /** The next block's sigops limit. */
+        const uint32_t nBlockMaxSigops;
         /** -blockmintxfee: packages paying less are left out. */
         const CFeeRate blockMinFeeRate;
         /** nFeatures of the blocks built: -blockfeatures in DEV mode, the default otherwise. */
         const int32_t nBlockFeatures;
         /** -printpriority: log the fee rate and txid of each transaction added. */
         const bool fPrintPriority;
+
+    private:
+        using TipAndRules = std::pair<CBlockIndex*, HeightDerivedConsensusRules>;
+        /** The active tip and the rules of the block after it, read under cs_main. */
+        static TipAndRules ReadTip(ChainstateManager& chainman);
+        Options(const PolicySettings& policy, const ArgsManager& args, const TipAndRules& tip);
     };
 
 private:
@@ -152,21 +170,23 @@ private:
     std::unique_ptr<CBlockTemplate> pblocktemplate;
     // A convenience pointer that always refers to the CBlock in pblocktemplate
     CBlock* pblock;
-
-    // Limits of the block being built, from the consensus rules of the next block
-    unsigned int nBlockMaxSize;
-    uint32_t m_max_block_sigops;
-
-    // Information on the current status of the block
-    uint64_t nBlockSize;
-    uint64_t nBlockTx;
-    uint32_t nBlockSigOpsCost;
-    CAmount nFees;
+    // The mempool entries already in the block
     CTxMemPool::setEntries inBlock;
 
-    // Chain context for the block
-    int nHeight;
-    int64_t nLockTimeCutoff;
+    /** The running totals of the block being filled, which the limits are checked
+     *  against. CreateNewBlock holds one for the length of the call. */
+    class BlockAssemblerStats
+    {
+    public:
+        //! Starts with room for the header and the coinbase.
+        uint64_t nBlockSize{1000};
+        //! Not counting the coinbase.
+        uint64_t nBlockTx{0};
+        //! Starts with room for the coinbase's sigops.
+        uint32_t nBlockSigOpsCost{100};
+        //! Not counting the coinbase.
+        CAmount nFees{0};
+    };
 
 public:
     BlockAssembler(ChainstateManager& chainman, const Options& options);
@@ -182,22 +202,20 @@ public:
 
 private:
     // utility functions
-    /** Clear the block's state and prepare for assembling a new block */
-    void resetBlock();
     /** Add a tx to the block */
-    void AddToBlock(CTxMemPool::txiter iter);
+    void AddToBlock(BlockAssemblerStats& newBlockStats, CTxMemPool::txiter iter);
 
     // Methods for how to add transactions to a block.
     /** Add transactions based on feerate including unconfirmed ancestors
       * Increments nPackagesSelected / nDescendantsUpdated with corresponding
       * statistics from the package selection (for logging statistics). */
-    void addPackageTxs(int &nPackagesSelected, int &nDescendantsUpdated, int required_age_in_secs=0) EXCLUSIVE_LOCKS_REQUIRED(mempool.cs);
+    void addPackageTxs(BlockAssemblerStats& newBlockStats, int &nPackagesSelected, int &nDescendantsUpdated, int required_age_in_secs=0) EXCLUSIVE_LOCKS_REQUIRED(mempool.cs);
 
     // helper functions for addPackageTxs()
     /** Remove confirmed (inBlock) entries from given set */
-    void onlyUnconfirmed(CTxMemPool::setEntries& testSet);
+    void onlyUnconfirmed(CTxMemPool::setEntries& testSet) const;
     /** Test if a new package would "fit" in the block */
-    bool TestPackage(uint64_t packageSize, int32_t packageSigOpsCost) const;
+    bool TestPackage(const BlockAssemblerStats& newBlockStats, uint64_t packageSize, int32_t packageSigOpsCost) const;
     /** Perform checks on each transaction in a package:
       * locktime, serialized size (if necessary)
       * These checks should always succeed, and they're here

@@ -28,6 +28,7 @@
 
 #include <memory>
 #include <stdexcept>
+#include <string>
 
 #include <boost/test/unit_test.hpp>
 
@@ -51,7 +52,17 @@ static BlockAssembler AssemblerForTest() {
     ArgsManager args;
     args.ForceSetArg("-blockmaxsize", std::to_string(g_chainstate_manager.RulesLatest().MaxBlockSize()));
     const PolicySettings policy(args, TAPYRUS_OP_MODE::PROD);
-    return BlockAssembler(g_chainstate_manager, BlockAssembler::Options(policy, args));
+    const BlockAssembler::Options options(policy, args, g_chainstate_manager);
+    return BlockAssembler(g_chainstate_manager, options);
+}
+
+//! Options read from the active tip, with -blockmaxsize set to max_size.
+static BlockAssembler::Options OptionsWithMaxSize(const std::string& max_size)
+{
+    ArgsManager args;
+    args.ForceSetArg("-blockmaxsize", max_size);
+    const PolicySettings policy(args, TAPYRUS_OP_MODE::PROD);
+    return BlockAssembler::Options(policy, args, g_chainstate_manager);
 }
 
 static
@@ -626,6 +637,60 @@ BOOST_AUTO_TEST_CASE(CreateNewBlock_required_age_in_secs)
     BOOST_CHECK(pblocktemplate != nullptr);
     BOOST_CHECK(pblocktemplate->block.vtx.size() == 2); // index 0 is coinbase tx.
     BOOST_CHECK(pblocktemplate->block.vtx[1]->GetHashMalFix() == hashPastTimeTx);
+}
+
+BOOST_AUTO_TEST_CASE(the_options_read_the_next_block_from_the_tip)
+{
+    const BlockAssembler::Options options{OptionsWithMaxSize("50000")};
+    LOCK(cs_main);
+    const CBlockIndex* tip = g_chainstate_manager.ActiveChain().Tip();
+    BOOST_CHECK(options.pindexPrev == tip);
+    BOOST_CHECK_EQUAL(options.nHeight, tip->nHeight + 1);
+    BOOST_CHECK_EQUAL(options.nLockTimeCutoff, tip->GetMedianTimePast());
+    BOOST_CHECK_EQUAL(options.nBlockMaxSigops, g_chainstate_manager.RulesAfter(*tip).MaxBlockSigops());
+    // Between the floor and the limit, -blockmaxsize is kept as it is.
+    BOOST_CHECK_EQUAL(options.nBlockMaxSize, size_t{50000});
+}
+
+BOOST_AUTO_TEST_CASE(the_options_keep_the_block_size_within_the_limits)
+{
+    size_t limit;
+    {
+        LOCK(cs_main);
+        limit = g_chainstate_manager.RulesAfter(*g_chainstate_manager.ActiveChain().Tip()).MaxBlockSize();
+    }
+    // Below the floor of 1000 bytes, and above the limit less 1000 bytes for the coinbase.
+    BOOST_CHECK_EQUAL(OptionsWithMaxSize("500").nBlockMaxSize, size_t{1000});
+    BOOST_CHECK_EQUAL(OptionsWithMaxSize(std::to_string(limit + 5000)).nBlockMaxSize, limit - 1000);
+}
+
+// Negative case: no template for a tip that is no longer active.
+
+BOOST_AUTO_TEST_CASE(a_template_is_refused_once_the_tip_has_moved)
+{
+    std::unique_ptr<CBlockTemplate> pblocktemplate;
+    int baseheight = 0;
+    std::vector<CTransactionRef> txFirst;
+    ChainstateOptionsOverride noCheckpoints(ChainstateOptionsOverride::TestOptions({{"-par", TestingSetup::SCRIPT_CHECK_PAR}, {"-checkpoints", "0"}}));
+    CreateBlocks(Params(), pblocktemplate, baseheight, txFirst);
+
+    const BlockAssembler::Options options{OptionsWithMaxSize("50000")};
+    CBlockIndex* tip;
+    CValidationState state;
+    {
+        LOCK(cs_main);
+        tip = g_chainstate_manager.ActiveChain().Tip();
+        BOOST_REQUIRE(InvalidateBlock(state, tip));
+    }
+    BOOST_CHECK_THROW(BlockAssembler(g_chainstate_manager, options).CreateNewBlock(scriptPubKey), std::runtime_error);
+
+    {
+        LOCK(cs_main);
+        ResetBlockFailureFlags(tip);
+    }
+    BOOST_REQUIRE(ActivateBestChain(state));
+    // Back on the tip the options were read from, the template is built.
+    BOOST_CHECK(BlockAssembler(g_chainstate_manager, options).CreateNewBlock(scriptPubKey) != nullptr);
 }
 
 BOOST_AUTO_TEST_SUITE_END()

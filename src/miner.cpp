@@ -44,8 +44,25 @@ int64_t UpdateTime(CBlockHeader* pblock, const CBlockIndex* pindexPrev)
     return nNewTime - nOldTime;
 }
 
-BlockAssembler::Options::Options(const PolicySettings& policy, const ArgsManager& args)
-    : nBlockMaxSize(policy.blockMaxSize),
+BlockAssembler::Options::Options(const PolicySettings& policy, const ArgsManager& args, ChainstateManager& chainman)
+    : Options(policy, args, ReadTip(chainman))
+{
+}
+
+BlockAssembler::Options::TipAndRules BlockAssembler::Options::ReadTip(ChainstateManager& chainman)
+{
+    LOCK(cs_main);
+    CBlockIndex* tip = chainman.ActiveChain().Tip();
+    assert(tip != nullptr);
+    return {tip, chainman.RulesAfter(*tip)};
+}
+
+BlockAssembler::Options::Options(const PolicySettings& policy, const ArgsManager& args, const TipAndRules& tip)
+    : pindexPrev(tip.first),
+      nHeight(tip.first->nHeight + 1),
+      nLockTimeCutoff(tip.first->GetMedianTimePast()),
+      nBlockMaxSize(std::max(size_t{1000}, std::min(size_t{tip.second.MaxBlockSize()} - size_t{1000}, size_t{policy.blockMaxSize}))),
+      nBlockMaxSigops(tip.second.MaxBlockSigops()),
       blockMinFeeRate(policy.blockMinTxFee),
       nBlockFeatures(policy.blockFeatures),
       fPrintPriority(args.GetBoolArg("-printpriority", DEFAULT_PRINTPRIORITY))
@@ -57,30 +74,14 @@ BlockAssembler::BlockAssembler(ChainstateManager& chainman, const Options& optio
 {
 }
 
-void BlockAssembler::resetBlock()
-{
-    inBlock.clear();
-
-    // Reserve space for coinbase tx
-    nBlockSize = 1000;
-    nBlockSigOpsCost = 100;
-
-    // These counters do not include coinbase tx
-    nBlockTx = 0;
-    nFees = 0;
-}
-
 std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& scriptPubKeyIn, int required_age_in_secs, CXField* pXField)
 {
     int64_t nTimeStart = GetTimeMicros();
 
-    resetBlock();
-
-    pblocktemplate.reset(new CBlockTemplate());
-
-    if(!pblocktemplate.get())
-        return nullptr;
-    pblock = &pblocktemplate->block; // pointer for convenience
+    pblocktemplate = std::make_unique<CBlockTemplate>();
+    pblock = &pblocktemplate->block;
+    inBlock.clear();
+    BlockAssemblerStats newBlockStats;
 
     // Add dummy coinbase tx as first transaction
     pblock->vtx.emplace_back();
@@ -88,14 +89,10 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     pblocktemplate->vTxSigOpsCost.push_back(-1); // updated at end
 
     LOCK2(cs_main, mempool.cs);
-    CBlockIndex* pindexPrev = m_chainman.ActiveChain().Tip();
-    assert(pindexPrev != nullptr);
-    nHeight = pindexPrev->nHeight + 1;
-
-    const HeightDerivedConsensusRules consensusAtHeight = m_chainman.RulesAfter(*pindexPrev);
-    // Limit size to between 1K and the block size limit less 1K for sanity
-    nBlockMaxSize = static_cast<unsigned int>(std::max(size_t{1000}, std::min(size_t{consensusAtHeight.MaxBlockSize()} - size_t{1000}, m_options.nBlockMaxSize)));
-    m_max_block_sigops = consensusAtHeight.MaxBlockSigops();
+    CBlockIndex* pindexPrev = m_options.pindexPrev;
+    if (pindexPrev != m_chainman.ActiveChain().Tip()) {
+        throw std::runtime_error(strprintf("%s: the tip changed after the block options were read", __func__));
+    }
 
     pblock->nFeatures = m_options.nBlockFeatures;
 
@@ -106,32 +103,29 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     }
 
     pblock->nTime = GetAdjustedTime();
-    const int64_t nMedianTimePast = pindexPrev->GetMedianTimePast();
-
-    nLockTimeCutoff = nMedianTimePast;
 
     int nPackagesSelected = 0;
     int nDescendantsUpdated = 0;
-    addPackageTxs(nPackagesSelected, nDescendantsUpdated, required_age_in_secs);
+    addPackageTxs(newBlockStats, nPackagesSelected, nDescendantsUpdated, required_age_in_secs);
 
     int64_t nTime1 = GetTimeMicros();
 
-    m_last_block_tx = nBlockTx;
-    m_last_block_size = nBlockSize;
+    m_last_block_tx = newBlockStats.nBlockTx;
+    m_last_block_size = newBlockStats.nBlockSize;
 
     // Create coinbase transaction.
     CMutableTransaction coinbaseTx;
     coinbaseTx.vin.resize(1);
     coinbaseTx.vin[0].prevout.SetNull();
-    coinbaseTx.vin[0].prevout.n = nHeight;
+    coinbaseTx.vin[0].prevout.n = m_options.nHeight;
     coinbaseTx.vout.resize(1);
     coinbaseTx.vout[0].scriptPubKey = scriptPubKeyIn;
-    coinbaseTx.vout[0].nValue = nFees + m_chainman.Settings().BlockSubsidy(nHeight);
+    coinbaseTx.vout[0].nValue = newBlockStats.nFees + m_chainman.Settings().BlockSubsidy(m_options.nHeight);
     //coinbaseTx.vin[0].scriptSig = CScript();
     pblock->vtx[0] = MakeTransactionRef(std::move(coinbaseTx));
-    pblocktemplate->vTxFees[0] = -nFees;
+    pblocktemplate->vTxFees[0] = -newBlockStats.nFees;
 
-    LogPrintf("CreateNewBlock(): block size: %u txs: %u fees: %ld sigops %d\n",  ::GetSerializeSize(*pblock, SER_NETWORK, PROTOCOL_VERSION), nBlockTx, nFees, nBlockSigOpsCost);
+    LogPrintf("CreateNewBlock(): block size: %u txs: %u fees: %ld sigops %d\n",  ::GetSerializeSize(*pblock, SER_NETWORK, PROTOCOL_VERSION), newBlockStats.nBlockTx, newBlockStats.nFees, newBlockStats.nBlockSigOpsCost);
 
     // Fill in header
     pblock->hashPrevBlock  = pindexPrev->GetBlockHash();
@@ -150,7 +144,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     return std::move(pblocktemplate);
 }
 
-void BlockAssembler::onlyUnconfirmed(CTxMemPool::setEntries& testSet)
+void BlockAssembler::onlyUnconfirmed(CTxMemPool::setEntries& testSet) const
 {
     for (CTxMemPool::setEntries::iterator iit = testSet.begin(); iit != testSet.end(); ) {
         // Only test txs not already in the block
@@ -163,11 +157,11 @@ void BlockAssembler::onlyUnconfirmed(CTxMemPool::setEntries& testSet)
     }
 }
 
-bool BlockAssembler::TestPackage(uint64_t packageSize, int32_t packageSigOpsCost) const
+bool BlockAssembler::TestPackage(const BlockAssemblerStats& newBlockStats, uint64_t packageSize, int32_t packageSigOpsCost) const
 {
-    if (nBlockSize +  packageSize >= nBlockMaxSize)
+    if (newBlockStats.nBlockSize +  packageSize >= m_options.nBlockMaxSize)
         return false;
-    if (nBlockSigOpsCost + packageSigOpsCost >= m_max_block_sigops)
+    if (newBlockStats.nBlockSigOpsCost + packageSigOpsCost >= m_options.nBlockMaxSigops)
         return false;
     return true;
 }
@@ -177,21 +171,21 @@ bool BlockAssembler::TestPackage(uint64_t packageSize, int32_t packageSigOpsCost
 bool BlockAssembler::TestPackageTransactions(const CTxMemPool::setEntries& package)
 {
     for (CTxMemPool::txiter it : package) {
-        if (!IsFinalTx(it->GetTx(), nHeight, nLockTimeCutoff))
+        if (!IsFinalTx(it->GetTx(), m_options.nHeight, m_options.nLockTimeCutoff))
             return false;
     }
     return true;
 }
 
-void BlockAssembler::AddToBlock(CTxMemPool::txiter iter)
+void BlockAssembler::AddToBlock(BlockAssemblerStats& newBlockStats, CTxMemPool::txiter iter)
 {
     pblock->vtx.emplace_back(iter->GetSharedTx());
     pblocktemplate->vTxFees.push_back(iter->GetFee());
     pblocktemplate->vTxSigOpsCost.push_back(iter->GetSigOpCost());
-    nBlockSize += iter->GetTxSize();
-    ++nBlockTx;
-    nBlockSigOpsCost += iter->GetSigOpCost();
-    nFees += iter->GetFee();
+    newBlockStats.nBlockSize += iter->GetTxSize();
+    ++newBlockStats.nBlockTx;
+    newBlockStats.nBlockSigOpsCost += iter->GetSigOpCost();
+    newBlockStats.nFees += iter->GetFee();
     inBlock.insert(iter);
 
     if (m_options.fPrintPriority) {
@@ -264,7 +258,7 @@ void BlockAssembler::SortForBlock(const CTxMemPool::setEntries& package, std::ve
 // Each time through the loop, we compare the best transaction in
 // mapModifiedTxs with the next transaction in the mempool to decide what
 // transaction package to work on next.
-void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpdated, int required_age_in_secs)
+void BlockAssembler::addPackageTxs(BlockAssemblerStats& newBlockStats, int &nPackagesSelected, int &nDescendantsUpdated, int required_age_in_secs)
 {
     int64_t current_time = GetTime();
     // mapModifiedTx will store sorted packages after they are modified
@@ -344,7 +338,7 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
             return;
         }
 
-        if (!TestPackage(packageSize, packageSigOpsCost)) {
+        if (!TestPackage(newBlockStats, packageSize, packageSigOpsCost)) {
             if (fUsingModified) {
                 // Since we always look at the best entry in mapModifiedTx,
                 // we must erase failed entries so that we can consider the
@@ -355,8 +349,8 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
 
             ++nConsecutiveFailed;
 
-            if (nConsecutiveFailed > MAX_CONSECUTIVE_FAILURES && nBlockSize >
-                    nBlockMaxSize - 1000) {
+            if (nConsecutiveFailed > MAX_CONSECUTIVE_FAILURES && newBlockStats.nBlockSize >
+                    m_options.nBlockMaxSize - 1000) {
                 // Give up if we're close to full and haven't succeeded in a while
                 break;
             }
@@ -389,7 +383,7 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
 
         for (size_t i=0; i<sortedEntries.
         size(); ++i) {
-            AddToBlock(sortedEntries[i]);
+            AddToBlock(newBlockStats, sortedEntries[i]);
             // Erase from the modified set, if present
             mapModifiedTx.erase(sortedEntries[i]);
         }
