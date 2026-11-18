@@ -243,6 +243,9 @@ private:
     bool AcceptSingleTransaction(const CTransactionRef& tx, const MempoolAcceptOptions& options, CCoinsViewMemPool& view, bool in_package, MempoolAcceptResult& result) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
     void UpdateTip(const CBlockIndex* pindexNew) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
     void UpdateMempoolForReorg(DisconnectedBlockTransactions& disconnectpool, bool fAddToMempool) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
+    /** Evicts the mempool transactions that fail the script checks or colored-coin rules
+     *  in force at newBlockHeight, once a soft fork activates there. */
+    void RemoveForScriptFlagChange(unsigned int newMempoolScriptFlags, int32_t newBlockHeight) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
     bool ActivateBestChainStep(CValidationState& state, CBlockIndex* pindexMostWork, const std::shared_ptr<const CBlock>& pblock, bool& fInvalidFound, ConnectTrace& connectTrace);
     bool ConnectTip(CValidationState& state, CBlockIndex* pindexNew, const std::shared_ptr<const CBlock>& pblock, ConnectTrace& connectTrace, DisconnectedBlockTransactions &disconnectpool);
 

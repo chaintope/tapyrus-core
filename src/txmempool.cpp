@@ -8,15 +8,10 @@
 #include <contextualconsensusrules.h>
 
 #include <consensusconstants.h>
-#include <chainstatemanager.h>
 #include <consensus/validation.h>
-#include <validation.h>
-#include <issuedcolorids.h>
 #include <policy/policy.h>
-#include <precomputedcolordata.h>
 #include <streams.h>
 #include <trace.h>
-#include <transactioncolorchecker.h>
 #include <util.h>
 #include <utilmoneystr.h>
 #include <utiltime.h>
@@ -538,52 +533,18 @@ void CTxMemPool::removeForBlock(const std::vector<CTransactionRef>& vtx, unsigne
     blockSinceLastRollingFeeBump = true;
 }
 
-void CTxMemPool::removeForScriptFlagChange(unsigned int newMempoolScriptFlags, int32_t newBlockHeight)
+void CTxMemPool::removeIf(const std::function<bool(txiter)>& should_remove, MemPoolRemovalReason reason)
 {
-    AssertLockHeld(cs_main); // coins tip access
     LOCK(cs);
-    // Wrap CCoinsViewMemPool in a CCoinsViewCache so it satisfies CheckInputs's
-    // parameter type while still resolving intra-mempool dependencies.
-    CCoinsViewMemPool viewMemPool(&g_chainstate_manager.ActiveChainstate().CoinsTip(), *this);
-    CCoinsViewCache view(&viewMemPool);
-
     setEntries txToRemove;
     for (indexed_transaction_set::const_iterator it = mapTx.begin(); it != mapTx.end(); ++it) {
-        const CTransaction& tx = it->GetTx();
-        if (tx.IsCoinBase())
-            continue;
-        // Evict txs that break colour rules now active at newBlockHeight (e.g.
-        // bad-txns-nonstandard-opcolor); CheckInputs does not cover them.
-        // Colour checks run before the scripts, as in mempool acceptance.
-        PrecomputedColorData colorData(tx, view, newBlockHeight);
-        colorData.SetIssued(g_chainstate_manager.IssuedColorIds());
-        const TransactionColorChecker colorChecker(colorData);
-        CValidationState colorState;
-        if (!colorChecker.CheckOutputColorIds(colorState)) {
-            txToRemove.insert(it);
-            continue;
-        }
-        CValidationState state;
-        // For SCRIPT_VERIFY_CP2SH_COLORED this call is a no-op: the flag is
-        // already in PolicyConstants::STANDARD_SCRIPT_VERIFY_FLAGS, so every tx in the mempool
-        // was admitted under it and will pass here.  For any future softfork
-        // whose flag is NOT pre-added to STANDARD, this correctly evicts txs
-        // that would be invalid under the new consensus rules.
-        if (!CheckInputs(tx, state, view, true, newMempoolScriptFlags, false, false, g_chainstate_manager.ValidationCaches())) {
-            txToRemove.insert(it);
-            continue;
-        }
-        CValidationState balanceState;
-        const CAmount minFee = g_policy_settings->minRelayTxFee.GetFee(it->GetTxSize());
-        if (!colorChecker.CheckTokenBalances(balanceState, minFee)) {
-            txToRemove.insert(it);
-        }
+        if (should_remove(it)) txToRemove.insert(it);
     }
     setEntries setAllRemoves;
     for (txiter it : txToRemove) {
         CalculateDescendants(it, setAllRemoves);
     }
-    RemoveStaged(setAllRemoves, false, MemPoolRemovalReason::REORG);
+    RemoveStaged(setAllRemoves, false, reason);
 }
 
 void CTxMemPool::_clear()
