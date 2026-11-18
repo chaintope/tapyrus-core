@@ -1319,7 +1319,7 @@ void PeerManager::ProcessOrphanTx(std::set<uint256>& orphan_work_set)
             m_orphan_tx_pool.EraseOrphanTx(orphanHash);
             done = true;
         }
-        m_mempool.check(&g_chainstate_manager.ActiveChainstate().CoinsTip());
+        m_mempool.check(&g_chainstate_manager.ActiveChainstate().CoinsTip(), g_chainstate_manager.ActiveChain().Height() + 1);
 
         for(auto& tx:result.replaced) {
             AddToCompactExtraTransactions(tx);
@@ -2007,7 +2007,7 @@ bool PeerManager::ProcessMessage(CNode* pfrom, const std::string& strCommand, CD
         MempoolAcceptResult result;
         if (!AlreadyHave(inv) &&
             g_chainstate_manager.ActiveChainstate().AcceptToMemoryPool(ptx, MempoolAcceptOptions{}, result)) {
-            m_mempool.check(&g_chainstate_manager.ActiveChainstate().CoinsTip());
+            m_mempool.check(&g_chainstate_manager.ActiveChainstate().CoinsTip(), g_chainstate_manager.ActiveChain().Height() + 1);
             RelayTransaction(tx, &m_connman);
             m_orphan_tx_pool.AddChildrenToWorkSet(tx, pfrom->orphan_work_set);
 
