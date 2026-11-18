@@ -36,7 +36,6 @@
 #include <atomic>
 
 class CBlockIndex;
-class CBlockTreeDB;
 class CChainParams;
 class CCoinsViewDB;
 class CInv;
@@ -61,12 +60,6 @@ static const CAmount HIGH_TX_FEE_PER_KB = 0.01 * ConsensusConstants::COIN;
 static const CAmount HIGH_MAX_TX_FEE = 100 * HIGH_TX_FEE_PER_KB;
 /** Maximum kilobytes for transactions to store for processing during reorg */
 static const unsigned int MAX_DISCONNECTED_TX_POOL_SIZE = 20000;
-/** The maximum size of a blk?????.dat file (since 0.8) */
-static const unsigned int MAX_BLOCKFILE_SIZE = 0x8000000; // 128 MiB
-/** The pre-allocation chunk size for blk?????.dat files (since 0.8) */
-static const unsigned int BLOCKFILE_CHUNK_SIZE = 0x1000000; // 16 MiB
-/** The pre-allocation chunk size for rev?????.dat files (since 0.8) */
-static const unsigned int UNDOFILE_CHUNK_SIZE = 0x100000; // 1 MiB
 
 /** Maximum number of script-checking threads allowed */
 static const int MAX_SCRIPTCHECK_THREADS = 16;
@@ -126,14 +119,11 @@ extern RecursiveMutex cs_main;
 extern CBlockPolicyEstimator feeEstimator;
 extern CTxMemPool mempool;
 extern std::atomic_bool g_is_mempool_loaded;
-extern BlockMap& mapBlockIndex;
 extern uint64_t nLastBlockTx;
 extern uint64_t nLastBlockSize;
 extern Mutex g_best_block_mutex;
 extern CConditionVariable g_best_block_cv;
 extern uint256 g_best_block;
-extern std::atomic_bool fImporting;
-extern std::atomic_bool fReindex;
 extern int nScriptCheckThreads;
 extern bool fCheckBlockIndex;
 extern bool fCheckpointsEnabled;
@@ -147,12 +137,6 @@ extern uint256 hashAssumeValid;
 /** Best header we've seen so far (used for getheaders queries' starting points). */
 extern CBlockIndex *pindexBestHeader;
 
-extern std::vector<CBlockFileInfo> vinfoBlockFile;
-extern std::set<CBlockIndex*> setDirtyBlockIndex;
-extern int nLastBlockFile;
-extern std::multimap<CBlockIndex*, CBlockIndex*>& mapBlocksUnlinked;
-extern std::set<int> setDirtyFileInfo;
-extern bool fCheckForPruning;
 /** The currently-connected chain of blocks (protected by cs_main). */
 extern CChain& chainActive;
 
@@ -162,35 +146,13 @@ extern std::unique_ptr<CCoinsViewDB> pcoinsdbview;
 /** Global variable that points to the active CCoinsView (protected by cs_main) */
 extern std::unique_ptr<CCoinsViewCache> pcoinsTip;
 
-/** Global variable that points to the active block tree (protected by cs_main) */
-extern std::unique_ptr<CBlockTreeDB> pblocktree;
-
 extern CBlockIndex *&pindexBestInvalid;
 
-/** Pruning-related variables and constants */
-/** True if any block files have ever been pruned. */
-extern bool fHavePruned;
-/** True if we're running in -prune mode. */
-extern bool fPruneMode;
-/** Number of MiB of block files that we're trying to stay below. */
-extern uint64_t nPruneTarget;
-/** Block files containing a block-height within MIN_BLOCKS_TO_KEEP of chainActive.Tip() will not be pruned. */
-static const unsigned int MIN_BLOCKS_TO_KEEP = 288;
 /** Minimum blocks required to signal NODE_NETWORK_LIMITED */
 static const unsigned int NODE_NETWORK_LIMITED_MIN_BLOCKS = 288;
 
 static const signed int DEFAULT_CHECKBLOCKS = 6;
 static const unsigned int DEFAULT_CHECKLEVEL = 3;
-
-// Require that user allocate at least 550MB for block & undo files (blk???.dat and rev???.dat)
-// At 1MB per block, 288 blocks = 288MB.
-// Add 15% for Undo data = 331MB
-// Add 20% for Orphan block rate = 397MB
-// We want the low water mark after pruning to be at least 397 MB and since we prune in
-// full block file chunks, we need the high water mark which triggers the prune to be
-// one 128MB block file + added 15% undo data = 147MB greater for a total of 545MB
-// Setting the target to > than 550MB will make it likely we can respect the target.
-static const uint64_t MIN_DISK_SPACE_FOR_BLOCK_FILES = 550 * 1024 * 1024;
 
 /**
  * Process an incoming block. This only returns after the best known valid
@@ -227,10 +189,6 @@ bool ProcessNewBlock(const std::shared_ptr<const CBlock> pblock, bool fForceProc
  */
 bool ProcessNewBlockHeaders(const std::vector<CBlockHeader>& block, CValidationState& state, const CBlockIndex** ppindex = nullptr, CBlockHeader* first_invalid = nullptr) LOCKS_EXCLUDED(cs_main);
 
-/** Open a block file (blk?????.dat) */
-FILE* OpenBlockFile(const CDiskBlockPos &pos, bool fReadOnly = false);
-/** Translation to a filesystem path */
-fs::path GetBlockPosFilename(const CDiskBlockPos &pos, const char *prefix);
 /** Ensures we have a genesis block in the block tree, possibly writing one to disk. */
 bool LoadGenesisBlock();
 /** Load the block tree and coins database from disk,
@@ -335,13 +293,6 @@ bool RewindBlockIndex();
 /** Replay blocks that aren't fully applied to the database. */
 bool ReplayBlocks(CCoinsView* view, CIssuedColorIds& issuedColorIds);
 
-inline CBlockIndex* LookupBlockIndex(const uint256& hash) EXCLUSIVE_LOCKS_REQUIRED(cs_main)
-{
-    AssertLockHeld(cs_main);
-    BlockMap::const_iterator it = mapBlockIndex.find(hash);
-    return it == mapBlockIndex.end() ? nullptr : it->second;
-}
-
 /** Find the last common block between the parameter chain and a locator. */
 CBlockIndex* FindForkInGlobalIndex(const CChain& chain, const CBlockLocator& locator);
 
@@ -372,15 +323,5 @@ int GetSpendHeight(const CCoinsViewCache& inputs);
 static const unsigned int REJECT_INTERNAL = 0x100;
 /** Too high fee. Can not be triggered by P2P transactions */
 static const unsigned int REJECT_HIGHFEE = 0x100;
-
-/** Get block file info entry for one block file */
-CBlockFileInfo* GetBlockFileInfo(size_t n);
-
-//! Check whether the block associated with this index entry is pruned or not.
-inline bool IsBlockPruned(const CBlockIndex* pblockindex)
-{
-    return (fHavePruned && !(pblockindex->nStatus & BLOCK_HAVE_DATA) && pblockindex->nTx > 0);
-}
-
 
 #endif // BITCOIN_VALIDATION_H

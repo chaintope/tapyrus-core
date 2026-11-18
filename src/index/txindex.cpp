@@ -4,6 +4,8 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <index/txindex.h>
+#include <blockfilemanager.h>
+#include <chainstatemanager.h>
 #include <shutdown.h>
 #include <ui_interface.h>
 #include <util.h>
@@ -231,12 +233,13 @@ TxIndex::~TxIndex() {}
 
 bool TxIndex::Init()
 {
+    BlockIndexMap& blockIndex = g_chainstate_manager.BlockIndex();
     LOCK(cs_main);
 
     // Attempt to migrate txindex from the old database to the new one. Even if
     // chain_tip is null, the node could be reindexing and we still want to
     // delete txindex records in the old database.
-    if (!m_db->MigrateData(*pblocktree, chainActive.GetLocator())) {
+    if (!m_db->MigrateData(*blockIndex.pblocktreedb, chainActive.GetLocator())) {
         return false;
     }
 
@@ -264,7 +267,7 @@ bool TxIndex::FindTx(const uint256& tx_hash, uint256& block_hash, CTransactionRe
         return false;
     }
 
-    CAutoFile file(OpenBlockFile(postx, true), SER_DISK, CLIENT_VERSION);
+    CAutoFile file(g_chainstate_manager.GetBlockFileManager().OpenBlockFile(postx, true), SER_DISK, CLIENT_VERSION);
     if (file.IsNull()) {
         return error("%s: OpenBlockFile failed", __func__);
     }

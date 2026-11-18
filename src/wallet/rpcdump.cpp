@@ -4,6 +4,8 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <chain.h>
+#include <blockfilemanager.h>
+#include <chainstatemanager.h>
 #include <blockindex.h>
 #include <clientversion.h>
 #include <key_io.h>
@@ -184,7 +186,7 @@ UniValue importprivkey(const JSONRPCRequest& request)
         if (!request.params[2].isNull())
             fRescan = request.params[2].get_bool();
 
-        if (fRescan && fPruneMode)
+        if (fRescan && g_chainstate_manager.GetBlockFileManager().GetOptions().fPruneMode)
             throw JSONRPCError(RPC_WALLET_ERROR, "Rescan is disabled in pruned mode");
 
         if (fRescan && !reserver.reserve()) {
@@ -328,7 +330,7 @@ UniValue importaddress(const JSONRPCRequest& request)
     if (!request.params[2].isNull())
         fRescan = request.params[2].get_bool();
 
-    if (fRescan && fPruneMode)
+    if (fRescan && g_chainstate_manager.GetBlockFileManager().GetOptions().fPruneMode)
         throw JSONRPCError(RPC_WALLET_ERROR, "Rescan is disabled in pruned mode");
 
     WalletRescanReserver reserver(pwallet);
@@ -368,6 +370,7 @@ UniValue importaddress(const JSONRPCRequest& request)
 
 UniValue importprunedfunds(const JSONRPCRequest& request)
 {
+    BlockIndexMap& blockIndex = g_chainstate_manager.BlockIndex();
     std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
     CWallet* const pwallet = wallet.get();
     if (!EnsureWalletIsAvailable(pwallet, request.fHelp)) {
@@ -400,7 +403,7 @@ UniValue importprunedfunds(const JSONRPCRequest& request)
     if (merkleBlock.txn.ExtractMatches(vMatch, vIndex) == merkleBlock.header.hashImMerkleRoot) {
 
         LOCK(cs_main);
-        const CBlockIndex* pindex = LookupBlockIndex(merkleBlock.header.GetHash());
+        const CBlockIndex* pindex = blockIndex.LookupBlockIndex(merkleBlock.header.GetHash());
         if (!pindex || !chainActive.Contains(pindex)) {
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Block not found in chain");
         }
@@ -505,7 +508,7 @@ UniValue importpubkey(const JSONRPCRequest& request)
     if (!request.params[2].isNull())
         fRescan = request.params[2].get_bool();
 
-    if (fRescan && fPruneMode)
+    if (fRescan && g_chainstate_manager.GetBlockFileManager().GetOptions().fPruneMode)
         throw JSONRPCError(RPC_WALLET_ERROR, "Rescan is disabled in pruned mode");
 
     WalletRescanReserver reserver(pwallet);
@@ -561,7 +564,7 @@ UniValue importwallet(const JSONRPCRequest& request)
             + HelpExampleRpc("importwallet", "\"test\"")
         );
 
-    if (fPruneMode)
+    if (g_chainstate_manager.GetBlockFileManager().GetOptions().fPruneMode)
         throw JSONRPCError(RPC_WALLET_ERROR, "Importing wallets is disabled in pruned mode");
 
     WalletRescanReserver reserver(pwallet);

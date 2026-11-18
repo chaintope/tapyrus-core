@@ -29,7 +29,7 @@
 #include <coinsviewcache.h>
 #include <primitives/block.h>
 #include <primitives/transaction.h>
-#include <file_io.h>
+#include <blockfilemanager.h>
 #include <xfieldhistorymap.h>
 #include <tempxfieldhistory.h>
 #include <verifydb.h>
@@ -197,9 +197,11 @@ BOOST_AUTO_TEST_CASE(chainstate_initialization_edge_cases)
 {
     // Access global chainstate
     CChainState& chainstate = g_chainstate;
+    BlockIndexMap& blockIndex = g_chainstate_manager.BlockIndex();
+    LOCK(cs_main);
 
     // Verify mapBlockIndex is accessible and has entries (genesis + chain blocks loaded by fixture)
-    BOOST_CHECK(!chainstate.mapBlockIndex.empty());
+    BOOST_CHECK(!blockIndex.mapBlockIndex.empty());
 
     // Verify chainActive is accessible
     BOOST_CHECK(chainstate.chainActive.Height() >= 0);
@@ -208,7 +210,7 @@ BOOST_AUTO_TEST_CASE(chainstate_initialization_edge_cases)
     BOOST_CHECK(chainstate.pindexBestInvalid == nullptr);
 
     // Test mapBlocksUnlinked (multimap) - should be empty in a clean chain
-    BOOST_CHECK(chainstate.mapBlocksUnlinked.empty());
+    BOOST_CHECK(blockIndex.mapBlocksUnlinked.empty());
 
     // Verify scriptcheckqueue is initialized
     // Note: scriptcheckqueue is a unique_ptr, so we check if it's set up
@@ -584,6 +586,7 @@ BOOST_AUTO_TEST_CASE(block_status_flags_edge_cases)
  */
 BOOST_AUTO_TEST_CASE(block_sequence_id_edge_cases)
 {
+    BlockIndexMap& blockIndex = g_chainstate_manager.BlockIndex();
     CScript scriptPubKey = CScript() << ToByteVector(coinbaseKey.GetPubKey()) << OP_CHECKSIG;
 
     // Case 1: Test header-only block (sequence ID should be 0)
@@ -599,7 +602,7 @@ BOOST_AUTO_TEST_CASE(block_sequence_id_edge_cases)
 
         if (accepted && pindexHeader) {
             // Verify that header-only blocks have sequence ID 0
-            // This is set in AddToBlockIndex (chainstate.cpp:1203)
+            // This is set in BlockIndexMap::AddToBlockIndex
             BOOST_CHECK(pindexHeader->nSequenceId == 0);
         }
     }
@@ -613,8 +616,8 @@ BOOST_AUTO_TEST_CASE(block_sequence_id_edge_cases)
     CBlockIndex* pindex1 = nullptr;
     {
         LOCK(cs_main);
-        auto it = g_chainstate.mapBlockIndex.find(hash1);
-        BOOST_REQUIRE(it != g_chainstate.mapBlockIndex.end());
+        auto it = blockIndex.mapBlockIndex.find(hash1);
+        BOOST_REQUIRE(it != blockIndex.mapBlockIndex.end());
         pindex1 = it->second;
     }
 
@@ -623,12 +626,12 @@ BOOST_AUTO_TEST_CASE(block_sequence_id_edge_cases)
     BOOST_CHECK(originalSeqId1 > 0);
 
     // Write the block to disk
-    CDiskBlockPos diskPos1 = SaveBlockToDisk(block1, block1.GetHeight(), nullptr);
+    CDiskBlockPos diskPos1 = g_chainstate_manager.GetBlockFileManager().SaveBlockToDisk(block1, block1.GetHeight(), nullptr);
     BOOST_CHECK(diskPos1.IsNull() == false);
 
     // Read the block back from disk
     CBlock blockFromDisk1;
-    BOOST_REQUIRE(ReadBlockFromDisk(blockFromDisk1, diskPos1, g_chainstate_manager.RulesLatest()));
+    BOOST_REQUIRE(g_chainstate_manager.GetBlockFileManager().ReadBlockFromDisk(blockFromDisk1, diskPos1, g_chainstate_manager.RulesLatest()));
 
     // Verify the block content is the same
     BOOST_CHECK(blockFromDisk1.GetHash() == hash1);
@@ -644,8 +647,8 @@ BOOST_AUTO_TEST_CASE(block_sequence_id_edge_cases)
     CBlockIndex* pindex2 = nullptr;
     {
         LOCK(cs_main);
-        auto it = g_chainstate.mapBlockIndex.find(hash2);
-        BOOST_REQUIRE(it != g_chainstate.mapBlockIndex.end());
+        auto it = blockIndex.mapBlockIndex.find(hash2);
+        BOOST_REQUIRE(it != blockIndex.mapBlockIndex.end());
         pindex2 = it->second;
     }
 
@@ -654,12 +657,12 @@ BOOST_AUTO_TEST_CASE(block_sequence_id_edge_cases)
     BOOST_CHECK(originalSeqId2 > originalSeqId1);
 
     // Write block2 to disk
-    CDiskBlockPos diskPos2 = SaveBlockToDisk(block2, block2.GetHeight(), nullptr);
+    CDiskBlockPos diskPos2 = g_chainstate_manager.GetBlockFileManager().SaveBlockToDisk(block2, block2.GetHeight(), nullptr);
     BOOST_CHECK(diskPos2.IsNull() == false);
 
     // Read block2 back from disk
     CBlock blockFromDisk2;
-    BOOST_REQUIRE(ReadBlockFromDisk(blockFromDisk2, diskPos2, g_chainstate_manager.RulesLatest()));
+    BOOST_REQUIRE(g_chainstate_manager.GetBlockFileManager().ReadBlockFromDisk(blockFromDisk2, diskPos2, g_chainstate_manager.RulesLatest()));
 
     // Verify the block content is the same
     BOOST_CHECK(blockFromDisk2.GetHash() == hash2);

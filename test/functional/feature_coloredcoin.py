@@ -1072,7 +1072,7 @@ class ColoredCoinTest(BitcoinTestFramework):
 
     def test_reindex_colorid_set(self):
         """
-        -reindex wipes both pblocktree and the chainstate DB, so DB_ISSUED_COLORID
+        -reindex wipes both pblocktreedb and the chainstate DB, so DB_ISSUED_COLORID
         entries are cleared automatically and g_issued_colorids is always rebuilt
         from scratch by ConnectBlock.  This test guards against regressions in that path.
         """

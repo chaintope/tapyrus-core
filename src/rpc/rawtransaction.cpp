@@ -44,7 +44,7 @@
 #include <txmempool.h>
 #include <uint256.h>
 #include <utilstrencodings.h>
-#include <file_io.h>
+#include <blockfilemanager.h>
 
 #if ENABLE_WALLET
 #include <wallet/rpcwallet.h>
@@ -59,6 +59,7 @@
 
 static void TxToJSON(const CTransaction& tx, const uint256 hashBlock, UniValue& entry)
 {
+    BlockIndexMap& blockIndex = g_chainstate_manager.BlockIndex();
     // Call into TxToUniv() in tapyrus-common to decode the transaction hex.
     //
     // Blockchain contextual information (confirmations and blocktime) is not
@@ -70,7 +71,7 @@ static void TxToJSON(const CTransaction& tx, const uint256 hashBlock, UniValue& 
         LOCK(cs_main);
 
         entry.pushKV("blockhash", hashBlock.GetHex());
-        CBlockIndex* pindex = LookupBlockIndex(hashBlock);
+        CBlockIndex* pindex = blockIndex.LookupBlockIndex(hashBlock);
         if (pindex) {
             if (chainActive.Contains(pindex)) {
                 entry.pushKV("confirmations", 1 + chainActive.Height() - pindex->nHeight);
@@ -85,6 +86,7 @@ static void TxToJSON(const CTransaction& tx, const uint256 hashBlock, UniValue& 
 
 static UniValue getrawtransaction(const JSONRPCRequest& request)
 {
+    BlockIndexMap& blockIndex = g_chainstate_manager.BlockIndex();
     if (request.fHelp || request.params.size() < 1 || request.params.size() > 3)
         throw std::runtime_error(
             "getrawtransaction \"txid\" ( verbose \"blockhash\" )\n"
@@ -180,7 +182,7 @@ static UniValue getrawtransaction(const JSONRPCRequest& request)
         LOCK(cs_main);
 
         uint256 blockhash = ParseHashV(request.params[2], "parameter 3");
-        blockindex = LookupBlockIndex(blockhash);
+        blockindex = blockIndex.LookupBlockIndex(blockhash);
         if (!blockindex) {
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Block hash not found");
         }
@@ -223,6 +225,7 @@ static UniValue getrawtransaction(const JSONRPCRequest& request)
 
 static UniValue gettxoutproof(const JSONRPCRequest& request)
 {
+    BlockIndexMap& blockIndex = g_chainstate_manager.BlockIndex();
     if (request.fHelp || (request.params.size() != 1 && request.params.size() != 2))
         throw std::runtime_error(
             "gettxoutproof [\"txid\",...] ( blockhash )\n"
@@ -261,7 +264,7 @@ static UniValue gettxoutproof(const JSONRPCRequest& request)
     if (!request.params[1].isNull()) {
         LOCK(cs_main);
         hashBlock = uint256S(request.params[1].get_str());
-        pblockindex = LookupBlockIndex(hashBlock);
+        pblockindex = blockIndex.LookupBlockIndex(hashBlock);
         if (!pblockindex) {
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Block not found");
         }
@@ -291,14 +294,14 @@ static UniValue gettxoutproof(const JSONRPCRequest& request)
         CTransactionRef tx;
         if (!GetTransaction(oneTxid, tx, hashBlock, false) || hashBlock.IsNull())
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Transaction not yet in block");
-        pblockindex = LookupBlockIndex(hashBlock);
+        pblockindex = blockIndex.LookupBlockIndex(hashBlock);
         if (!pblockindex) {
             throw JSONRPCError(RPC_INTERNAL_ERROR, "Transaction index corrupt");
         }
     }
 
     CBlock block;
-    if(!ReadBlockFromDisk(block, pblockindex))
+    if(!g_chainstate_manager.ReadBlock(block, pblockindex))
         throw JSONRPCError(RPC_INTERNAL_ERROR, "Can't read block from disk");
 
     unsigned int ntxFound = 0;
@@ -317,6 +320,7 @@ static UniValue gettxoutproof(const JSONRPCRequest& request)
 
 static UniValue verifytxoutproof(const JSONRPCRequest& request)
 {
+    BlockIndexMap& blockIndex = g_chainstate_manager.BlockIndex();
     if (request.fHelp || request.params.size() != 1)
         throw std::runtime_error(
             "verifytxoutproof \"proof\"\n"
@@ -341,7 +345,7 @@ static UniValue verifytxoutproof(const JSONRPCRequest& request)
 
     LOCK(cs_main);
 
-    const CBlockIndex* pindex = LookupBlockIndex(merkleBlock.header.GetHash());
+    const CBlockIndex* pindex = blockIndex.LookupBlockIndex(merkleBlock.header.GetHash());
     if (!pindex || !chainActive.Contains(pindex) || pindex->nTx == 0) {
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Block not found in chain");
     }

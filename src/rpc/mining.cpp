@@ -311,6 +311,7 @@ static UniValue BIP22ValidationResult(const CValidationState& state)
 
 static UniValue getblocktemplate(const JSONRPCRequest& request)
 {
+    BlockIndexMap& blockIndex = g_chainstate_manager.BlockIndex();
     if (request.fHelp || request.params.size() > 1)
         throw std::runtime_error(
             "getblocktemplate ( TemplateRequest )\n"
@@ -413,7 +414,7 @@ static UniValue getblocktemplate(const JSONRPCRequest& request)
                 throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Block decode failed");
 
             uint256 hash = block.GetHash();
-            const CBlockIndex* pindex = LookupBlockIndex(hash);
+            const CBlockIndex* pindex = blockIndex.LookupBlockIndex(hash);
             if (pindex) {
                 if (pindex->IsValid(BLOCK_VALID_SCRIPTS))
                     return "duplicate";
@@ -617,6 +618,7 @@ protected:
 
 static UniValue submitblock(const JSONRPCRequest& request)
 {
+    BlockIndexMap& blockIndex = g_chainstate_manager.BlockIndex();
     // We allow 2 arguments for compliance with BIP22. Argument 2 is ignored.
     if (request.fHelp || request.params.size() < 1 || request.params.size() > 2) {
         throw std::runtime_error(
@@ -647,7 +649,7 @@ static UniValue submitblock(const JSONRPCRequest& request)
     uint256 hash = block.GetHash();
     {
         LOCK(cs_main);
-        const CBlockIndex* pindex = LookupBlockIndex(hash);
+        const CBlockIndex* pindex = blockIndex.LookupBlockIndex(hash);
         if (pindex) {
             if (pindex->IsValid(BLOCK_VALID_SCRIPTS)) {
                 return "duplicate";
@@ -896,6 +898,7 @@ UniValue combineblocksigs(const JSONRPCRequest& request)
 
 UniValue testproposedblock(const JSONRPCRequest& request)
 {
+    BlockIndexMap& blockIndex = g_chainstate_manager.BlockIndex();
     if (request.fHelp || request.params.size() != 1 )
         throw std::runtime_error(
             "testproposedblock \"blockhex\"\n"
@@ -916,7 +919,7 @@ UniValue testproposedblock(const JSONRPCRequest& request)
 
     //test block validity
     uint256 hash = block.GetHash();
-    const CBlockIndex* pindex = LookupBlockIndex(hash);
+    const CBlockIndex* pindex = blockIndex.LookupBlockIndex(hash);
     if (pindex)
     {
         if (pindex->IsValid(BLOCK_VALID_SCRIPTS))

@@ -9,7 +9,8 @@
 #include <ui_interface.h>
 #include <util.h>
 #include <validation.h>
-#include <file_io.h>
+#include <blockfilemanager.h>
+#include <chainstatemanager.h>
 #include <warnings.h>
 
 constexpr char DB_BEST_BLOCK = 'B';
@@ -120,7 +121,7 @@ void BaseIndex::ThreadSync()
             }
 
             CBlock block;
-            if (!ReadBlockFromDisk(block, pindex)) {
+            if (!g_chainstate_manager.ReadBlock(block, pindex)) {
                 FatalError("%s: Failed to read block %s from disk",
                            __func__, pindex->GetBlockHash().ToString());
                 return;
@@ -189,6 +190,7 @@ void BaseIndex::BlockConnected(const std::shared_ptr<const CBlock>& block, const
 
 void BaseIndex::ChainStateFlushed(const CBlockLocator& locator)
 {
+    BlockIndexMap& blockIndex = g_chainstate_manager.BlockIndex();
     if (!m_synced) {
         return;
     }
@@ -197,7 +199,7 @@ void BaseIndex::ChainStateFlushed(const CBlockLocator& locator)
     const CBlockIndex* locator_tip_index;
     {
         LOCK(cs_main);
-        locator_tip_index = LookupBlockIndex(locator_tip_hash);
+        locator_tip_index = blockIndex.LookupBlockIndex(locator_tip_hash);
     }
 
     if (!locator_tip_index) {

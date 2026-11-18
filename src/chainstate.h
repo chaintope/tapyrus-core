@@ -53,14 +53,6 @@ struct CBlockIndexWorkComparator
     }
 };
 
-
-struct BlockHasher
-{
-    size_t operator()(const uint256& hash) const { return hash.GetCheapHash(); }
-};
-
-typedef std::unordered_map<uint256, CBlockIndex*, BlockHasher> BlockMap;
-
 /**
  * CChainState stores and provides an API to update our local knowledge of the
  * current best chain and header tree.
@@ -124,13 +116,12 @@ private:
 
 public:
     CChain chainActive;
-    BlockMap mapBlockIndex;
-    std::multimap<CBlockIndex*, CBlockIndex*> mapBlocksUnlinked;
     CBlockIndex *pindexBestInvalid = nullptr;
 
     std::unique_ptr< CCheckQueue<CScriptCheck> >scriptcheckqueue;
 
-    bool LoadBlockIndex(CBlockTreeDB& blocktree) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
+    /** Loads the block index, then the candidates, best invalid and best header from it. */
+    bool LoadBlockIndex() EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 
     bool ActivateBestChain(CValidationState &state, std::shared_ptr<const CBlock> pblock);
 
@@ -166,9 +157,6 @@ private:
     bool ActivateBestChainStep(CValidationState& state, CBlockIndex* pindexMostWork, const std::shared_ptr<const CBlock>& pblock, bool& fInvalidFound, ConnectTrace& connectTrace);
     bool ConnectTip(CValidationState& state, CBlockIndex* pindexNew, const std::shared_ptr<const CBlock>& pblock, ConnectTrace& connectTrace, DisconnectedBlockTransactions &disconnectpool);
 
-    CBlockIndex* AddToBlockIndex(const CBlockHeader& block) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
-    /** Create a new block index entry for a given block hash */
-    CBlockIndex* InsertBlockIndex(const uint256& hash) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
     /**
      * Make various assertions about the state of the block index.
      *
@@ -176,7 +164,7 @@ private:
      */
     void CheckBlockIndex();
 
-    void InvalidBlockFound(CBlockIndex *pindex, const CValidationState &state);
+    void InvalidBlockFound(CBlockIndex *pindex, const CValidationState &state) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
     CBlockIndex* FindMostWorkChain() EXCLUSIVE_LOCKS_REQUIRED(cs_main);
     void ReceivedBlockTransactions(const CBlock& block, CBlockIndex* pindexNew, const CDiskBlockPos& pos) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 
@@ -187,7 +175,5 @@ private:
 extern CChainState g_chainstate;
 
 void NotifyHeaderTip() LOCKS_EXCLUDED(cs_main);
-
-bool UndoReadFromDisk(CBlockUndo& blockundo, const CBlockIndex *pindex, const CBlock& block);
 
 #endif //BITCOIN_CHAINSTATE_H

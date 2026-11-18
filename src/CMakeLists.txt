@@ -342,7 +342,8 @@ include(InstallBinaryComponent)
 # block/tx validation, mempool, block-storage indexes (leveldb-backed).
 add_library(tapyrus_chainstate STATIC EXCLUDE_FROM_ALL
   abortnode.cpp
-  blockprune.cpp
+  blockfilemanager.cpp
+  blockindexmap.cpp
   chain.cpp
   chainstate.cpp
   chainstatemanager.cpp

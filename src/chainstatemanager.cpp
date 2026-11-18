@@ -5,14 +5,27 @@
 #include <chainstatemanager.h>
 
 #include <blockindex.h>
+#include <util.h>
 #include <primitives/block.h>
 #include <primitives/xfieldvalues.h>
+#include <txdb.h>
 
 #include <assert.h>
 #include <limits>
 #include <utility>
 
 ChainstateManager g_chainstate_manager;
+
+ChainstateManager::Options::Options(const ArgsManager& args)
+    : fReindexChainState(args.GetBoolArg("-reindex-chainstate", false)),
+      fReloadXField(args.GetBoolArg("-reloadxfield", false))
+{
+}
+
+void ChainstateManager::InitOptions(const Options& options)
+{
+    m_options = std::make_unique<const Options>(options);
+}
 
 void ChainstateManager::InitXFieldHistory(const CBlock& genesis)
 {
@@ -69,4 +82,52 @@ HeightDerivedConsensusRules ChainstateManager::BuildRules(std::optional<int32_t>
     // A soft fork with no registration on this network is active from genesis.
     const int32_t flagsHeight = height ? *height : std::numeric_limits<int32_t>::max();
     return HeightDerivedConsensusRules(height, maxBlockSize.data, aggregatePubKey.getPubKey(), Settings().ScriptFlagsAt(flagsHeight));
+}
+
+void ChainstateManager::InitBlockFileManager(const BlockFileManager::Options& options)
+{
+    m_block_file_manager = std::make_unique<BlockFileManager>(options, m_block_index);
+}
+
+bool ChainstateManager::ShouldWipeBlockTree()
+{
+    return m_reindexing || GetOptions().fReloadXField;
+}
+
+bool ChainstateManager::LoadingBlocks()
+{
+    return GetBlockFileManager().IsImporting() || m_reindexing;
+}
+
+bool ChainstateManager::ReadBlock(CBlock& block, const CBlockIndex* pindex)
+{
+    return GetBlockFileManager().ReadBlockFromDisk(block, pindex, RulesAt(*pindex));
+}
+
+bool ChainstateManager::IsBlockPruned(const CBlockIndex* pblockindex) const
+{
+    return (m_have_pruned && !(pblockindex->nStatus & BLOCK_HAVE_DATA) && pblockindex->nTx > 0);
+}
+
+void ChainstateManager::RecordPruned()
+{
+    if (!m_have_pruned) {
+        m_block_index.pblocktreedb->WriteFlag("prunedblockfiles", true);
+        m_have_pruned = true;
+    }
+}
+
+void ChainstateManager::LoadPersistentFlags()
+{
+    CBlockTreeDB& blocktree = *m_block_index.pblocktreedb;
+
+    // Check whether we have ever pruned block & undo files
+    blocktree.ReadFlag("prunedblockfiles", m_have_pruned);
+    if (m_have_pruned)
+        LogPrintf("LoadBlockIndexDB(): Block files have previously been pruned\n");
+
+    // Check whether we need to continue reindexing
+    bool fReindexing = false;
+    blocktree.ReadReindexing(fReindexing);
+    if (fReindexing) m_reindexing = true;
 }

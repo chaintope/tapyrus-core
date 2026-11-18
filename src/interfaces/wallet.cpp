@@ -6,6 +6,8 @@
 #include <interfaces/wallet.h>
 
 #include <amount.h>
+#include <blockfilemanager.h>
+#include <chainstatemanager.h>
 #include <coloridentifier.h>
 #include <key_io.h>
 #include <univalue.h>
@@ -102,11 +104,12 @@ WalletTx MakeWalletTx(CWallet& wallet, const CWalletTx& wtx)
 }
 
 //! Construct wallet tx status struct.
-WalletTxStatus MakeWalletTxStatus(const CWalletTx& wtx)
+WalletTxStatus MakeWalletTxStatus(const CWalletTx& wtx) EXCLUSIVE_LOCKS_REQUIRED(cs_main)
 {
+    BlockIndexMap& blockIndex = g_chainstate_manager.BlockIndex();
     WalletTxStatus result;
-    auto mi = ::mapBlockIndex.find(wtx.hashBlock);
-    CBlockIndex* block = mi != ::mapBlockIndex.end() ? mi->second : nullptr;
+    auto mi = blockIndex.mapBlockIndex.find(wtx.hashBlock);
+    CBlockIndex* block = mi != blockIndex.mapBlockIndex.end() ? mi->second : nullptr;
     result.block_height = (block ? block->nHeight : std::numeric_limits<int>::max());
     result.depth_in_main_chain = wtx.GetDepthInMainChain();
     result.time_received = wtx.nTimeReceived;

@@ -7,4 +7,3 @@
 #include <sync.h>
 
 RecursiveMutex cs_main;
-RecursiveMutex cs_LastBlockFile;

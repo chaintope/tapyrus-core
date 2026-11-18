@@ -22,7 +22,8 @@
 #include <txmempool.h>
 #include <utilstrencodings.h>
 #include <version.h>
-#include <file_io.h>
+#include <blockfilemanager.h>
+#include <chainstatemanager.h>
 
 #include <boost/algorithm/string.hpp>
 
@@ -163,6 +164,7 @@ bool RESTHandler::CheckWarmup(HTTPRequest* req)
 bool RESTHandler::rest_headers(HTTPRequest* req,
                          const std::string& strURIPart) const
 {
+    BlockIndexMap& blockIndex = g_chainstate_manager.BlockIndex();
     if (!CheckWarmup(req))
         return false;
     std::string param;
@@ -188,7 +190,7 @@ bool RESTHandler::rest_headers(HTTPRequest* req,
     headers.reserve(count);
     {
         LOCK(cs_main);
-        const CBlockIndex* pindex = LookupBlockIndex(hash);
+        const CBlockIndex* pindex = blockIndex.LookupBlockIndex(hash);
         while (pindex != nullptr && chainActive.Contains(pindex)) {
             headers.push_back(pindex);
             if (headers.size() == (unsigned long)count)
@@ -239,6 +241,7 @@ bool RESTHandler::rest_block(HTTPRequest* req,
                        const std::string& strURIPart,
                        bool showTxDetails) const
 {
+    BlockIndexMap& blockIndex = g_chainstate_manager.BlockIndex();
     if (!CheckWarmup(req))
         return false;
     std::string hashStr;
@@ -252,15 +255,15 @@ bool RESTHandler::rest_block(HTTPRequest* req,
     CBlockIndex* pblockindex = nullptr;
     {
         LOCK(cs_main);
-        pblockindex = LookupBlockIndex(hash);
+        pblockindex = blockIndex.LookupBlockIndex(hash);
         if (!pblockindex) {
             return RESTERR(req, HTTP_NOT_FOUND, hashStr + " not found");
         }
 
-        if (IsBlockPruned(pblockindex))
+        if (g_chainstate_manager.IsBlockPruned(pblockindex))
             return RESTERR(req, HTTP_NOT_FOUND, hashStr + " not available (pruned data)");
 
-        if (!ReadBlockFromDisk(block, pblockindex))
+        if (!g_chainstate_manager.ReadBlock(block, pblockindex))
             return RESTERR(req, HTTP_NOT_FOUND, hashStr + " not found");
     }
 

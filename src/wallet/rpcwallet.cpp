@@ -42,7 +42,7 @@
 #include <wallet/walletdb.h>
 #include <wallet/walletutil.h>
 #include <xfieldhistory.h>
-#include <file_io.h>
+#include <blockfilemanager.h>
 
 #include <stdexcept>
 #include <stdint.h>
@@ -104,6 +104,7 @@ void EnsureWalletIsUnlocked(CWallet * const pwallet)
 
 static void WalletTxToJSON(const CWalletTx& wtx, UniValue& entry)
 {
+    BlockIndexMap& blockIndex = g_chainstate_manager.BlockIndex();
     int confirms = wtx.GetDepthInMainChain();
     entry.pushKV("confirmations", confirms);
     if (wtx.IsCoinBase())
@@ -113,7 +114,7 @@ static void WalletTxToJSON(const CWalletTx& wtx, UniValue& entry)
         AssertLockHeld(cs_main);
         entry.pushKV("blockhash", wtx.hashBlock.GetHex());
         entry.pushKV("blockindex", wtx.nIndex);
-        entry.pushKV("blocktime", LookupBlockIndex(wtx.hashBlock)->GetBlockTime());
+        entry.pushKV("blocktime", blockIndex.LookupBlockIndex(wtx.hashBlock)->GetBlockTime());
     } else {
         entry.pushKV("trusted", wtx.IsTrusted());
     }
@@ -1615,6 +1616,7 @@ UniValue listtransactions(const JSONRPCRequest& request)
 
 static UniValue listsinceblock(const JSONRPCRequest& request)
 {
+    BlockIndexMap& blockIndex = g_chainstate_manager.BlockIndex();
     std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
     CWallet* const pwallet = wallet.get();
 
@@ -1685,7 +1687,7 @@ static UniValue listsinceblock(const JSONRPCRequest& request)
         uint256 blockId;
 
         blockId.SetHex(request.params[0].get_str());
-        paltindex = pindex = LookupBlockIndex(blockId);
+        paltindex = pindex = blockIndex.LookupBlockIndex(blockId);
         if (!pindex) {
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Block not found");
         }
@@ -1728,7 +1730,7 @@ static UniValue listsinceblock(const JSONRPCRequest& request)
     UniValue removed(UniValue::VARR);
     while (include_removed && paltindex && paltindex != pindex) {
         CBlock block;
-        if (!ReadBlockFromDisk(block, paltindex)) {
+        if (!g_chainstate_manager.ReadBlock(block, paltindex)) {
             throw JSONRPCError(RPC_INTERNAL_ERROR, "Can't read block from disk");
         }
         for (const CTransactionRef& tx : block.vtx) {
@@ -3489,7 +3491,7 @@ UniValue rescanblockchain(const JSONRPCRequest& request)
     }
 
     // We can't rescan beyond non-pruned blocks, stop and throw an error
-    if (fPruneMode) {
+    if (g_chainstate_manager.GetBlockFileManager().GetOptions().fPruneMode) {
         LOCK(cs_main);
         CBlockIndex *block = pindexStop ? pindexStop : pChainTip;
         while (block && block->nHeight >= pindexStart->nHeight) {
