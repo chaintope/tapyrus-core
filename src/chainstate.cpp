@@ -359,6 +359,46 @@ size_t Chainstate::MempoolUsage() const
     return m_mempool.DynamicMemoryUsage();
 }
 
+void Chainstate::RemoveForScriptFlagChange(unsigned int newMempoolScriptFlags, int32_t newBlockHeight)
+{
+    AssertLockHeld(cs_main); // coins tip access
+    LOCK(m_mempool.cs);
+    // Wrap CCoinsViewMemPool in a CCoinsViewCache so it satisfies CheckInputs's
+    // parameter type while still resolving intra-mempool dependencies.
+    CCoinsViewMemPool viewMemPool(&CoinsTip(), m_mempool);
+    CCoinsViewCache view(&viewMemPool);
+    m_mempool.removeIf([&](CTxMemPool::txiter it) EXCLUSIVE_LOCKS_REQUIRED(::cs_main, m_mempool.cs) {
+        const CTransaction& tx = it->GetTx();
+        if (tx.IsCoinBase())
+            return false;
+        // Evict txs that break colour rules now active at newBlockHeight (e.g.
+        // bad-txns-nonstandard-opcolor); CheckInputs does not cover them.
+        // Colour checks run before the scripts, as in mempool acceptance.
+        PrecomputedColorData colorData(tx, view, newBlockHeight);
+        colorData.SetIssued(g_chainstate_manager.IssuedColorIds());
+        const TransactionColorChecker colorChecker(colorData);
+        CValidationState colorState;
+        if (!colorChecker.CheckOutputColorIds(colorState)) {
+            return true;
+        }
+        CValidationState state;
+        // For SCRIPT_VERIFY_CP2SH_COLORED this call is a no-op: the flag is
+        // already in PolicyConstants::STANDARD_SCRIPT_VERIFY_FLAGS, so every tx in the mempool
+        // was admitted under it and will pass here.  For any future softfork
+        // whose flag is NOT pre-added to STANDARD, this correctly evicts txs
+        // that would be invalid under the new consensus rules.
+        if (!CheckInputs(tx, state, view, true, newMempoolScriptFlags, false, false, g_chainstate_manager.ValidationCaches())) {
+            return true;
+        }
+        CValidationState balanceState;
+        const CAmount minFee = g_policy_settings->minRelayTxFee.GetFee(it->GetTxSize());
+        if (!colorChecker.CheckTokenBalances(balanceState, minFee)) {
+            return true;
+        }
+        return false;
+    }, MemPoolRemovalReason::REORG);
+}
+
 void Chainstate::UpdateMempoolForReorg(DisconnectedBlockTransactions &disconnectpool, bool fAddToMempool)
 {
     AssertLockHeld(cs_main);
@@ -826,7 +866,7 @@ bool Chainstate::ConnectTip(CValidationState& state, CBlockIndex* pindexNew, con
         const unsigned int newSoftforkFlags = g_chainstate_manager.Settings().ActivationFlagsChange(
             pindexNew->nHeight, pindexNew->nHeight + 1);
         if (newSoftforkFlags) {
-            m_mempool.removeForScriptFlagChange(PolicyConstants::STANDARD_SCRIPT_VERIFY_FLAGS | newSoftforkFlags, pindexNew->nHeight + 1);
+            RemoveForScriptFlagChange(PolicyConstants::STANDARD_SCRIPT_VERIFY_FLAGS | newSoftforkFlags, pindexNew->nHeight + 1);
         }
     }
 
