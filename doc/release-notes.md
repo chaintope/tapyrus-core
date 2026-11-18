@@ -59,7 +59,7 @@ P2P
   Tor connects from: the `-proxy` or `-onion` address, 127.0.0.1, ::1 or the
   `-torcontrol` address. Add an onion bind, narrow the range, or use
   `-listenonion=0`. In other setups, such as the default one with an onion
-  bind, the node only warns, as Tor peers then reach a clearnet port only
+  bind, the node logs a warning to debug.log, as Tor peers then reach a clearnet port only
   through an onion service set up by hand in torrc.
 
 - `-listenonion` now asks Tor for a v3 onion service. It used to ask for v2,

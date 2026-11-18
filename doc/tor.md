@@ -55,7 +55,7 @@ address is the Tor daemon's. Don't point the service at the P2P port itself: the
 then can't tell Tor peers from clearnet ones. When `-listenonion` forwards to a clearnet
 `-bind` because no onion bind is given, the node refuses to start if a `-whitelist` range
 covers the `-proxy` or `-onion` address, 127.0.0.1, ::1 or the `-torcontrol` address. In
-other setups it only warns.
+other setups it logs a warning to debug.log.
 
 The onion bind needs a port of its own. The node refuses to start when an onion bind
 uses the port of a `-bind` or `-whitebind` on the same address or a wildcard address,
