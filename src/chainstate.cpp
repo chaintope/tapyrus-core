@@ -394,7 +394,21 @@ void Chainstate::UpdateMempoolForReorg(DisconnectedBlockTransactions &disconnect
     m_mempool.UpdateTransactionsFromBlock(vHashUpdate);
 
     // We also need to remove any now-immature transactions
-    m_mempool.removeForReorg(&g_chainstate_manager.ActiveChainstate().CoinsTip(), g_chainstate_manager.ActiveChain().Tip()->nHeight + 1, PolicyConstants::STANDARD_LOCKTIME_VERIFY_FLAGS);
+    CCoinsViewMemPool viewMemPool(&CoinsTip(), m_mempool);
+    const int flags = PolicyConstants::STANDARD_LOCKTIME_VERIFY_FLAGS;
+    const auto is_final = [&](CTxMemPool::txiter it) EXCLUSIVE_LOCKS_REQUIRED(m_mempool.cs) {
+        const CTransaction& tx = it->GetTx();
+        LockPoints lp = it->GetLockPoints();
+        const bool validLP = TestLockPointValidity(&lp);
+        // If CheckSequenceLocks fails the LockPoints may still be invalid,
+        // so the transaction must be removed, not kept on those LockPoints.
+        const bool final = CheckFinalTx(tx, flags) && CheckSequenceLocks(m_mempool, tx, flags, viewMemPool, &lp, validLP);
+        if (!validLP) {
+            m_mempool.mapTx.modify(it, update_lock_points(lp));
+        }
+        return final;
+    };
+    m_mempool.removeForReorg(&CoinsTip(), is_final);
     // Re-limit mempool size, in case we added any transactions
     LimitMempoolSize(m_mempool);
 }
