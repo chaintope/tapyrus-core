@@ -64,7 +64,13 @@ std::shared_ptr<CBlock> Block(const uint256& prev_hash, int height)
     CScript pubKey;
     pubKey << i++ << OP_TRUE;
 
-    auto ptemplate = BlockAssembler(g_chainstate_manager, BlockAssembler::Options(*g_policy_settings, gArgs)).CreateNewBlock(pubKey, false);
+    std::unique_ptr<CBlockTemplate> ptemplate;
+    {
+        // Held across both, so the template builds on the tip the options read.
+        LOCK(cs_main);
+        const BlockAssembler::Options options(*g_policy_settings, gArgs, g_chainstate_manager);
+        ptemplate = BlockAssembler(g_chainstate_manager, options).CreateNewBlock(pubKey, false);
+    }
     auto pblock = std::make_shared<CBlock>(ptemplate->block);
     pblock->hashPrevBlock = prev_hash;
     pblock->nTime = ++time;

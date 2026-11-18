@@ -64,7 +64,13 @@ UniValue generateBlocks(std::shared_ptr<CReserveScript> coinbaseScript, int nGen
     UniValue blockHashes(UniValue::VARR);
     while (nHeight < nHeightEnd && !ShutdownRequested())
     {
-        std::unique_ptr<CBlockTemplate> pblocktemplate(BlockAssembler(g_chainstate_manager, BlockAssembler::Options(*g_policy_settings, gArgs)).CreateNewBlock(coinbaseScript->reserveScript));
+        std::unique_ptr<CBlockTemplate> pblocktemplate;
+        {
+            // Held across both, so the template builds on the tip the options read.
+            LOCK(cs_main);
+            const BlockAssembler::Options options(*g_policy_settings, gArgs, g_chainstate_manager);
+            pblocktemplate = BlockAssembler(g_chainstate_manager, options).CreateNewBlock(coinbaseScript->reserveScript);
+        }
         if (!pblocktemplate.get())
             throw JSONRPCError(RPC_INTERNAL_ERROR, "Couldn't create new block");
         CBlock *pblock = &pblocktemplate->block;
@@ -238,7 +244,13 @@ UniValue getnewblock(const JSONRPCRequest& request)
     }
     CScript coinbaseScript {GetScriptForDestination(destination)};
 
-    std::unique_ptr<CBlockTemplate> pblocktemplate(BlockAssembler(g_chainstate_manager, BlockAssembler::Options(*request.context.policy, gArgs)).CreateNewBlock(coinbaseScript, true, &xfield));
+    std::unique_ptr<CBlockTemplate> pblocktemplate;
+    {
+        // Held across both, so the template builds on the tip the options read.
+        LOCK(cs_main);
+        const BlockAssembler::Options options(*request.context.policy, gArgs, g_chainstate_manager);
+        pblocktemplate = BlockAssembler(g_chainstate_manager, options).CreateNewBlock(coinbaseScript, true, &xfield);
+    }
     if (!pblocktemplate.get())
         throw JSONRPCError(RPC_INTERNAL_ERROR, "Wallet keypool empty");
     {
@@ -518,7 +530,9 @@ static UniValue getblocktemplate(const JSONRPCRequest& request)
 
         // Create new block
         CScript scriptDummy = CScript() << OP_TRUE;
-        pblocktemplate = BlockAssembler(g_chainstate_manager, BlockAssembler::Options(*request.context.policy, gArgs)).CreateNewBlock(scriptDummy);
+        const BlockAssembler::Options options(*request.context.policy, gArgs, g_chainstate_manager);
+        BlockAssembler assembler(g_chainstate_manager, options);
+        pblocktemplate = assembler.CreateNewBlock(scriptDummy);
         if (!pblocktemplate)
             throw JSONRPCError(RPC_OUT_OF_MEMORY, "Out of memory");
 

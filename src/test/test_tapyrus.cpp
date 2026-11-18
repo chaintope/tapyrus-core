@@ -288,7 +288,13 @@ CBlock
 TestChainSetup::CreateAndProcessBlock(const std::vector<CMutableTransaction>& txns, const CScript& scriptPubKey)
 {
     const CChainParams& chainparams = Params();
-    std::unique_ptr<CBlockTemplate> pblocktemplate = BlockAssembler(g_chainstate_manager, BlockAssembler::Options(*m_node.policy, gArgs)).CreateNewBlock(scriptPubKey);
+    std::unique_ptr<CBlockTemplate> pblocktemplate;
+    {
+        // Held across both, so the template builds on the tip the options read.
+        LOCK(cs_main);
+        const BlockAssembler::Options options(*m_node.policy, gArgs, g_chainstate_manager);
+        pblocktemplate = BlockAssembler(g_chainstate_manager, options).CreateNewBlock(scriptPubKey);
+    }
     CBlock& block = pblocktemplate->block;
 
     // Replace mempool-selected txns with just coinbase plus passed-in txns:

@@ -36,10 +36,13 @@
 
 static std::shared_ptr<CBlock> PrepareBlock(const CScript& coinbase_scriptPubKey)
 {
-    auto block = std::make_shared<CBlock>(
-        BlockAssembler{g_chainstate_manager, BlockAssembler::Options(*g_policy_settings, gArgs)}
-            .CreateNewBlock(coinbase_scriptPubKey)
-            ->block);
+    std::shared_ptr<CBlock> block;
+    {
+        // Held across both, so the template builds on the tip the options read.
+        LOCK(cs_main);
+        const BlockAssembler::Options options(*g_policy_settings, gArgs, g_chainstate_manager);
+        block = std::make_shared<CBlock>(BlockAssembler(g_chainstate_manager, options).CreateNewBlock(coinbase_scriptPubKey)->block);
+    }
 
     block->nTime = g_chainstate_manager.ActiveChain().Tip()->GetMedianTimePast() + 1;
     block->hashMerkleRoot = BlockMerkleRoot(*block);
