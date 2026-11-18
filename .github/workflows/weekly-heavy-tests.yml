@@ -10,6 +10,9 @@
 #     on every native platform (with tests) and cross target (build only),
 #     to prove both still build.
 #   docker-testnet-sync: a node from the Docker image syncs the public testnet.
+#   tor-testnet: a Tor-only node syncs the public testnet, then a Tor client,
+#     an -onion node, a node with no proxy and a node reachable only through
+#     Tor connect to it and each other.
 #   upnp-port-mapping: -upnp maps a port on a real UPnP router (miniupnpd).
 #   integration-test: tapyrus-core, tapyrus-signer and tapyrus-seeder run
 #     together on a test network, defined in tapyrus-integration-tests.
@@ -873,6 +876,339 @@ jobs:
       - name: Stop and remove container
         if: always()
         run: docker rm -f tapyrus_testnet_sync || true
+
+  tor-testnet:
+    name: Tor nodes on the public testnet
+    runs-on: ubuntu-latest
+    # Syncing through Tor exit relays is slower than docker-testnet-sync's
+    # ~30 minutes direct, so the sync gets up to 4 hours. The rest of the job
+    # (image build, Tor bootstrap, onion connections) takes about 30 minutes.
+    timeout-minutes: 300
+    env:
+      TESTNET_SEED: static-seed.tapyrus.dev.chaintope.com
+    # Five nodes on three Tor daemons. Each node shares the network namespace
+    # of a Tor container, so 127.0.0.1:9050 (SOCKS) and 127.0.0.1:9051
+    # (control) are local to it, as on a single host:
+    #   node1 (tor1): -proxy for all outbound, only an onion bind for inbound.
+    #   node2 (tor2): the plain Tor client, -proxy with listen=0.
+    #   node3 (tor1): no proxy, a clearnet and an onion bind. Dials node1's
+    #     onion bind on loopback.
+    #   node4 (tor4): -onion for .onion peers, a clearnet and an onion bind.
+    #     Dials the onion services of node1, node3 and node5, and one testnet peer.
+    #   node5 (tor2): reachable only through Tor. listenonion=0 and an onion
+    #     service set up in tor2's torrc, forwarding to node5's onion bind.
+    #     No proxy and no outbound peers.
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.inputs.test_branch || github.ref || 'master' }}
+          submodules: recursive
+
+      - name: Build tapyrusd Docker image
+        run: docker build -t tapyrusd:weekly-tor .
+
+      - name: Start the Tor daemons
+        run: |
+          # A fresh control password per run; tapyrusd reads it from its conf.
+          TOR_PW=$(openssl rand -hex 16)
+          echo "::add-mask::$TOR_PW"
+          echo "TOR_PW=$TOR_PW" >> "$GITHUB_ENV"
+          docker network create tor-test-net
+          for t in tor1 tor2 tor4; do
+            # node5's onion service, set up by hand rather than by tapyrusd.
+            hidden_service=""
+            [ "$t" = tor2 ] && hidden_service='HiddenServiceDir /root/hs\nHiddenServicePort 2357 127.0.0.1:2358\n'
+            docker run -d --name "$t" --network tor-test-net -e TOR_PW="$TOR_PW" -e HIDDEN_SERVICE="$hidden_service" ubuntu:24.04 bash -c '
+              apt-get update -qq &&
+              DEBIAN_FRONTEND=noninteractive apt-get install -y -qq tor iproute2 > /dev/null &&
+              hash=$(tor --quiet --hash-password "$TOR_PW" | tail -n 1) &&
+              printf "SocksPort 127.0.0.1:9050\nControlPort 127.0.0.1:9051\nHashedControlPassword %s\nDataDirectory /root/tor-data\nLog notice stdout\n%b" "$hash" "$HIDDEN_SERVICE" > /root/torrc &&
+              exec tor -f /root/torrc'
+          done
+          for t in tor1 tor2 tor4; do
+            deadline=$((SECONDS + 600))
+            until docker logs "$t" 2>&1 | grep -q "Bootstrapped 100%"; do
+              if [ "$(docker inspect -f '{{.State.Running}}' "$t")" != "true" ] || [ "$SECONDS" -ge "$deadline" ]; then
+                docker logs "$t" 2>&1 | tail -50
+                echo "FAILED: $t did not bootstrap within 10 minutes"
+                exit 1
+              fi
+              sleep 5
+            done
+            echo "$t bootstrapped"
+          done
+          node5_onion=$(docker exec tor2 cat /root/hs/hostname) || { echo "FAILED: tor2 created no onion service for node5"; exit 1; }
+          echo "node5 onion service: $node5_onion:2357"
+          echo "NODE5_ONION=$node5_onion:2357" >> "$GITHUB_ENV"
+
+      - name: Start node1 (Tor only)
+        run: |
+          mkdir -p tor_test
+          # Testnet: network ID 1939510133, prod mode, as in docker-testnet-sync.
+          cat << EOS > tor_test/node1.conf
+          networkid=1939510133
+          server=1
+          rpcuser=rpcuser
+          rpcpassword=rpcpassword
+          rpcallowip=127.0.0.1
+          debug=net
+          debug=tor
+          listen=1
+          proxy=127.0.0.1:9050
+          bind=127.0.0.1:2358=onion
+          listenonion=1
+          torcontrol=127.0.0.1:9051
+          torpassword=$TOR_PW
+          addseeder=$TESTNET_SEED
+          EOS
+          docker run -d --name node1 --network container:tor1 \
+            -v "$PWD/tor_test/node1.conf:/etc/tapyrus/tapyrus.conf" \
+            -e GENESIS_BLOCK_WITH_SIG="$(cat contrib/docker/testnet-genesis-block-with-sig)" \
+            tapyrusd:weekly-tor
+
+          # No node advertises its v3 onion address, so read it from the log.
+          deadline=$((SECONDS + 600))
+          until onion=$(docker exec node1 sh -c 'cat /var/lib/tapyrus/*/debug.log' 2>/dev/null \
+                        | sed -n 's/.*tor: Got service ID [a-z2-7]*, onion service \([a-z2-7]*\.onion:[0-9]*\).*/\1/p' | tail -n 1) && [ -n "$onion" ]; do
+            if [ "$(docker inspect -f '{{.State.Running}}' node1)" != "true" ] || [ "$SECONDS" -ge "$deadline" ]; then
+              echo "FAILED: node1 got no onion service from Tor within 10 minutes"
+              exit 1
+            fi
+            sleep 5
+          done
+          echo "node1 onion service: $onion"
+          echo "NODE1_ONION=$onion" >> "$GITHUB_ENV"
+
+      - name: Wait for node1 to sync the testnet through Tor
+        run: |
+          cli() { docker exec node1 tapyrus-cli -conf=/etc/tapyrus/tapyrus.conf "$@"; }
+          ibd_complete() { [ "$(cli getblockchaininfo | jq -r .initialblockdownload)" = "false" ]; }
+
+          # Poll every 10 minutes, failing on no progress, up to 4 hours.
+          height_prev=-1
+          for checkpoint in $(seq 1 24); do
+            sleep 600
+            height_now=$(cli getblockcount 2>/dev/null || echo 0)
+            connections=$(cli getconnectioncount 2>/dev/null || echo 0)
+            echo "Checkpoint $checkpoint (elapsed $((checkpoint * 10))m): height=$height_now connections=$connections"
+            if ibd_complete; then
+              echo "node1 completed initial block download through Tor."
+              exit 0
+            fi
+            if [ "$connections" -lt 1 ]; then
+              echo "FAILED: node1 has no peers at checkpoint $checkpoint"
+              exit 1
+            fi
+            if [ "$height_now" -le "$height_prev" ]; then
+              echo "FAILED: no sync progress since the last checkpoint ($height_prev -> $height_now)"
+              exit 1
+            fi
+            height_prev=$height_now
+          done
+          echo "FAILED: node1 did not sync within 4 hours"
+          exit 1
+
+      - name: Start node2 (Tor client), node3 (no proxy) and node5 (behind Tor)
+        run: |
+          # -connect, so each node has only the outbound peers checked below.
+          cat << EOS > tor_test/node2.conf
+          networkid=1939510133
+          server=1
+          rpcuser=rpcuser
+          rpcpassword=rpcpassword
+          rpcallowip=127.0.0.1
+          debug=net
+          listen=0
+          proxy=127.0.0.1:9050
+          connect=$TESTNET_SEED
+          EOS
+          # node3 shares tor1's namespace with node1, so its ports are shifted by 10.
+          cat << EOS > tor_test/node3.conf
+          networkid=1939510133
+          server=1
+          rpcuser=rpcuser
+          rpcpassword=rpcpassword
+          rpcallowip=127.0.0.1
+          rpcport=2387
+          debug=net
+          debug=tor
+          listen=1
+          port=2367
+          bind=0.0.0.0:2367
+          bind=127.0.0.1:2368=onion
+          listenonion=1
+          torcontrol=127.0.0.1:9051
+          torpassword=$TOR_PW
+          connect=127.0.0.1:2358
+          EOS
+          # node5 shares tor2's namespace with node2, so its RPC port is shifted by 10.
+          # tor2's torrc forwards node5's onion service to its onion bind.
+          cat << EOS > tor_test/node5.conf
+          networkid=1939510133
+          server=1
+          rpcuser=rpcuser
+          rpcpassword=rpcpassword
+          rpcallowip=127.0.0.1
+          rpcport=2387
+          debug=net
+          listen=1
+          bind=127.0.0.1:2358=onion
+          listenonion=0
+          connect=0
+          EOS
+          for n in 2 3 5; do
+            case $n in 3) tor=tor1 ;; *) tor=tor2 ;; esac
+            docker run -d --name "node$n" --network "container:$tor" \
+              -v "$PWD/tor_test/node$n.conf:/etc/tapyrus/tapyrus.conf" \
+              -e GENESIS_BLOCK_WITH_SIG="$(cat contrib/docker/testnet-genesis-block-with-sig)" \
+              tapyrusd:weekly-tor
+          done
+
+          deadline=$((SECONDS + 600))
+          until onion=$(docker exec node3 sh -c 'cat /var/lib/tapyrus/*/debug.log' 2>/dev/null \
+                        | sed -n 's/.*tor: Got service ID [a-z2-7]*, onion service \([a-z2-7]*\.onion:[0-9]*\).*/\1/p' | tail -n 1) && [ -n "$onion" ]; do
+            if [ "$(docker inspect -f '{{.State.Running}}' node3)" != "true" ] || [ "$SECONDS" -ge "$deadline" ]; then
+              echo "FAILED: node3 got no onion service from Tor within 10 minutes"
+              exit 1
+            fi
+            sleep 5
+          done
+          echo "node3 onion service: $onion"
+          echo "NODE3_ONION=$onion" >> "$GITHUB_ENV"
+
+      - name: Start node4 (-onion, clearnet and onion bind)
+        run: |
+          cat << EOS > tor_test/node4.conf
+          networkid=1939510133
+          server=1
+          rpcuser=rpcuser
+          rpcpassword=rpcpassword
+          rpcallowip=127.0.0.1
+          debug=net
+          debug=tor
+          listen=1
+          bind=0.0.0.0
+          bind=127.0.0.1:2358=onion
+          onion=127.0.0.1:9050
+          listenonion=1
+          torcontrol=127.0.0.1:9051
+          torpassword=$TOR_PW
+          connect=$NODE1_ONION
+          connect=$NODE3_ONION
+          connect=$NODE5_ONION
+          connect=$TESTNET_SEED
+          EOS
+          docker run -d --name node4 --network container:tor4 \
+            -v "$PWD/tor_test/node4.conf:/etc/tapyrus/tapyrus.conf" \
+            -e GENESIS_BLOCK_WITH_SIG="$(cat contrib/docker/testnet-genesis-block-with-sig)" \
+            tapyrusd:weekly-tor
+
+      - name: Check the peers and that onion traffic goes through Tor
+        run: |
+          cli() { docker exec "$1" tapyrus-cli -conf=/etc/tapyrus/tapyrus.conf "${@:2}"; }
+          # Peers that finished the version handshake.
+          peers() { cli "$1" getpeerinfo | jq '[.[] | select(.version > 0)]'; }
+          count() { peers "$1" | jq "[.[] | select($2)] | length"; }
+          debug_log() { docker exec "$1" sh -c 'cat /var/lib/tapyrus/*/debug.log'; }
+          # TCP sockets in a Tor container's network namespace.
+          sockets() { docker exec "$1" ss -Htn state established; }
+          listeners() { docker exec "$1" ss -Hltn; }
+
+          # node1's and node5's onion services were published during node1's sync,
+          # and node4 starts after node3's, so this waits for Tor circuits and
+          # node3's new descriptor, normally a minute or two.
+          deadline=$((SECONDS + 300))
+          until [ "$(count node2 "(.inbound | not) and (.addr | startswith(\"$TESTNET_SEED\"))")" -ge 1 ] \
+             && [ "$(count node3 '(.inbound | not) and .addr == "127.0.0.1:2358"')" -ge 1 ] \
+             && [ "$(count node4 "(.inbound | not) and .addr == \"$NODE1_ONION\"")" -ge 1 ] \
+             && [ "$(count node4 "(.inbound | not) and .addr == \"$NODE3_ONION\"")" -ge 1 ] \
+             && [ "$(count node4 "(.inbound | not) and .addr == \"$NODE5_ONION\"")" -ge 1 ] \
+             && [ "$(count node4 "(.inbound | not) and (.addr | startswith(\"$TESTNET_SEED\"))")" -ge 1 ]; do
+            if [ "$SECONDS" -ge "$deadline" ]; then
+              for n in 2 3 4; do echo "== node$n peers =="; peers "node$n"; done
+              echo "FAILED: node2, node3 and node4 did not connect to their peers within 5 minutes"
+              exit 1
+            fi
+            sleep 15
+          done
+          for n in 1 2 3 4 5; do echo "== node$n peers =="; peers "node$n"; done
+          for t in tor1 tor2 tor4; do echo "== $t namespace sockets =="; sockets "$t"; listeners "$t"; done
+
+          fail() { echo "FAILED: $*"; exit 1; }
+          via_socks() { [ "$(sockets "$1" | awk '$4 == "127.0.0.1:9050"' | wc -l)" -ge 1 ]; }
+
+          # node1 and node2: every outbound peer goes through the SOCKS port, and
+          # nothing in their namespaces dials a P2P port directly.
+          for n in 1 2; do
+            [ "$(count "node$n" '(.inbound | not) and (.addrbind | startswith("127.0.0.1:") | not)')" -eq 0 ] \
+              || fail "node$n has an outbound peer that does not go through the Tor SOCKS proxy"
+          done
+          via_socks tor1 || fail "node1 has no connection to its Tor SOCKS port"
+          via_socks tor2 || fail "node2 has no connection to its Tor SOCKS port"
+          for t in tor1 tor2; do
+            [ "$(sockets "$t" | awk '$4 ~ /:2357$/ && $4 !~ /^127\.0\.0\.1:/' | wc -l)" -eq 0 ] \
+              || fail "a node in $t's namespace connects to a P2P port directly, not through Tor"
+          done
+
+          # node1: node3 (directly) and node4 (through Tor) arrive on the onion bind,
+          # and -whitelist never applies to them.
+          [ "$(count node1 '.inbound and .addrbind == "127.0.0.1:2358"')" -ge 2 ] \
+            || fail "node1 does not see node3 and node4 as inbound peers on its onion bind"
+          [ "$(count node1 '.inbound and .addrbind != "127.0.0.1:2358"')" -eq 0 ] \
+            || fail "node1 has an inbound peer that did not arrive on its onion bind"
+
+          # node2: listen=0, so it has no inbound peers, no P2P listener and no onion service.
+          [ "$(count node2 '.inbound')" -eq 0 ] || fail "node2 has an inbound peer with listen=0"
+          [ "$(listeners tor2 | awk '$4 ~ /:2357$/' | wc -l)" -eq 0 ] || fail "node2 listens on its P2P port with listen=0"
+          if debug_log node2 | grep -q "torcontrol thread start"; then fail "node2 started Tor control with listen=0"; fi
+
+          # node3: no proxy; node4 arrives from Tor on the onion bind, not the clearnet one.
+          [ "$(count node3 '.inbound and .addrbind == "127.0.0.1:2368"')" -ge 1 ] \
+            || fail "node3 does not see node4 as an inbound peer on its onion bind"
+          [ "$(count node3 '.inbound and .addrbind != "127.0.0.1:2368"')" -eq 0 ] \
+            || fail "node3 has an inbound peer that did not arrive on its onion bind"
+
+          # node4: the onion services are reached through the -onion proxy, so their
+          # sockets are local to 127.0.0.1; the testnet peer is a direct clearnet connection.
+          for o in "$NODE1_ONION" "$NODE3_ONION" "$NODE5_ONION"; do
+            [ "$(count node4 "(.inbound | not) and .addr == \"$o\" and (.addrbind | startswith(\"127.0.0.1:\"))")" -ge 1 ] \
+              || fail "node4's connection to $o does not go through the Tor SOCKS proxy"
+          done
+          [ "$(count node4 "(.inbound | not) and (.addr | startswith(\"$TESTNET_SEED\")) and (.addrbind | startswith(\"127.0.0.1:\") | not)")" -ge 1 ] \
+            || fail "node4's testnet peer is not a direct clearnet connection"
+          via_socks tor4 || fail "node4 has no connection to its Tor SOCKS port"
+
+          # node5: reached only through tor2's hand-made onion service, on its onion bind;
+          # with listenonion=0 it never talks to Tor control, and it dials no one.
+          [ "$(count node5 '.inbound and .addrbind == "127.0.0.1:2358"')" -ge 1 ] \
+            || fail "node5 does not see node4 as an inbound peer on its onion bind"
+          [ "$(count node5 '.inbound and .addrbind != "127.0.0.1:2358"')" -eq 0 ] \
+            || fail "node5 has an inbound peer that did not arrive on its onion bind"
+          [ "$(count node5 '.inbound | not')" -eq 0 ] || fail "node5 has an outbound peer with connect=0"
+          if debug_log node5 | grep -q "torcontrol thread start"; then fail "node5 started Tor control with listenonion=0"; fi
+
+          for n in 1 2 3 4 5; do
+            [ "$(count "node$n" '.inbound and .whitelisted')" -eq 0 ] || fail "node$n whitelisted an inbound peer"
+          done
+          echo "PASSED: outbound traffic takes the configured route, and each node tags its Tor inbound peers by bind"
+
+      - name: Dump logs
+        if: always()
+        run: |
+          for n in 1 2 3 4 5; do
+            echo "== node$n debug.log =="
+            docker exec "node$n" sh -c 'cat /var/lib/tapyrus/*/debug.log' 2>/dev/null | tail -n 3000 || true
+          done
+          for t in tor1 tor2 tor4; do
+            echo "== $t log =="
+            docker logs "$t" 2>&1 | tail -n 200 || true
+          done
+
+      - name: Stop and remove containers/network
+        if: always()
+        run: |
+          docker rm -f node1 node2 node3 node4 node5 tor1 tor2 tor4 || true
+          docker network rm tor-test-net || true
 
   upnp-port-mapping:
     name: UPnP port mapping (real IGD)

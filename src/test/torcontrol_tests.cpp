@@ -3,8 +3,10 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 //
+#include <netbase.h>
 #include <test/test_tapyrus.h>
 #include <torcontrol.h>
+#include <util.h>
 
 #include <boost/test/unit_test.hpp>
 
@@ -203,6 +205,27 @@ BOOST_AUTO_TEST_CASE(util_ParseTorReplyMapping)
     CheckParseTorReplyMapping("MORE  ARGS", {});
     CheckParseTorReplyMapping("EVEN more=ARGS", {});
     CheckParseTorReplyMapping("EVEN+more ARGS", {});
+}
+
+BOOST_AUTO_TEST_CASE(add_onion_command_targets_onion_bind)
+{
+    const uint16_t virtual_port = 2357;
+    BOOST_CHECK_EQUAL(TorAddOnionCommand::Build("", virtual_port, LookupNumeric("127.0.0.1", 2358)),
+                      "ADD_ONION NEW:ED25519-V3 Port=2357,127.0.0.1:2358");
+    BOOST_CHECK_EQUAL(TorAddOnionCommand::Build("ED25519-V3:KEY", virtual_port, LookupNumeric("::1", 12384)),
+                      "ADD_ONION ED25519-V3:KEY Port=2357,[::1]:12384");
+}
+
+BOOST_AUTO_TEST_CASE(interrupt_right_after_start_stops_the_thread)
+{
+    // Interrupting at once often lands before the thread enters its event loop; StopTorControl must still return.
+    gArgs.ForceSetArg("-torcontrol", "127.0.0.1:1");
+    for (int32_t i{0}; i < 50; ++i) {
+        StartTorControl(LookupNumeric("127.0.0.1", 2358));
+        InterruptTorControl();
+        StopTorControl();
+    }
+    gArgs.ForceSetArg("-torcontrol", DEFAULT_TOR_CONTROL);
 }
 
 BOOST_AUTO_TEST_SUITE_END()

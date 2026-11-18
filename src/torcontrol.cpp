@@ -424,7 +424,7 @@ static bool WriteBinaryFile(const fs::path &filename, const std::string &data)
 class TorController
 {
 public:
-    TorController(struct event_base* base, const std::string& target);
+    TorController(struct event_base* base, const std::string& target, const CService& service_target);
     ~TorController();
 
     /** Get name fo file to store private key in */
@@ -441,7 +441,8 @@ private:
     bool reconnect;
     struct event *reconnect_ev;
     float reconnect_timeout;
-    CService service;
+    //! Local address Tor forwards the onion service's connections to.
+    CService service_target;
     /** Cookie for SAFECOOKIE auth */
     std::vector<uint8_t> cookie;
     /** ClientNonce for SAFECOOKIE auth */
@@ -464,10 +465,10 @@ private:
     static void reconnect_cb(evutil_socket_t fd, short what, void *arg);
 };
 
-TorController::TorController(struct event_base* _base, const std::string& _target):
+TorController::TorController(struct event_base* _base, const std::string& _target, const CService& _service_target):
     base(_base),
     target(_target), conn(base), reconnect(true), reconnect_ev(0),
-    reconnect_timeout(RECONNECT_TIMEOUT_START)
+    reconnect_timeout(RECONNECT_TIMEOUT_START), service_target(_service_target)
 {
     reconnect_ev = event_new(base, -1, 0, reconnect_cb, this);
     if (!reconnect_ev)
@@ -491,9 +492,6 @@ TorController::~TorController()
         event_free(reconnect_ev);
         reconnect_ev = nullptr;
     }
-    if (service.IsValid()) {
-        RemoveLocal(service);
-    }
 }
 
 void TorController::add_onion_cb(TorControlConnection& _conn, const TorControlReply& reply)
@@ -515,14 +513,13 @@ void TorController::add_onion_cb(TorControlConnection& _conn, const TorControlRe
             }
             return;
         }
-        service = LookupNumeric(std::string(service_id+".onion").c_str(), GetListenPort());
-        LogPrintf("tor: Got service ID %s, advertising service %s\n", service_id, service.ToString());
+        // A v3 onion address doesn't fit the addr message, so it isn't advertised to peers.
+        LogPrintf("tor: Got service ID %s, onion service %s.onion:%u (not advertised to peers)\n", service_id, service_id, GetListenPort());
         if (WriteBinaryFile(GetPrivateKeyFile(), private_key)) {
             LogPrint(BCLog::TOR, "tor: Cached service private key to %s\n", GetPrivateKeyFile().string());
         } else {
             LogPrintf("tor: Error writing service private key to %s\n", GetPrivateKeyFile().string());
         }
-        AddLocal(service, LOCAL_MANUAL);
         // ... onion requested - keep connection open
     } else if (reply.code == 510) { // 510 Unrecognized command
         LogPrintf("tor: Add onion failed with unrecognized command (You probably need to upgrade Tor)\n");
@@ -546,12 +543,8 @@ void TorController::auth_cb(TorControlConnection& _conn, const TorControlReply& 
         }
 
         // Finally - now create the service
-        if (private_key.empty()) // No private key, generate one
-            private_key = "NEW:RSA1024"; // Explicitly request RSA1024 - see issue #9214
-        // Request hidden service, redirect port.
-        // Note that the 'virtual' port doesn't have to be the same as our internal port, but this is just a convenient
-        // choice.  TODO; refactor the shutdown sequence some day.
-        _conn.Command(strprintf("ADD_ONION %s Port=%i,127.0.0.1:%i", private_key, GetListenPort(), GetListenPort()),
+        // Request the onion service, forwarded to the onion bind so its inbound peers are tagged as Tor.
+        _conn.Command(TorAddOnionCommand::Build(private_key, GetListenPort(), service_target),
             std::bind(&TorController::add_onion_cb, this, std::placeholders::_1, std::placeholders::_2));
     } else {
         LogPrintf("tor: Authentication failed\n");
@@ -704,10 +697,6 @@ void TorController::connected_cb(TorControlConnection& _conn)
 
 void TorController::disconnected_cb(TorControlConnection& _conn)
 {
-    // Stop advertising service when disconnected
-    if (service.IsValid())
-        RemoveLocal(service);
-    service = CService();
     if (!reconnect)
         return;
 
@@ -733,7 +722,7 @@ void TorController::Reconnect()
 
 fs::path TorController::GetPrivateKeyFile()
 {
-    return GetDataDir() / "onion_private_key";
+    return GetDataDir() / "onion_v3_private_key";
 }
 
 void TorController::reconnect_cb(evutil_socket_t fd, short what, void *arg)
@@ -746,14 +735,19 @@ void TorController::reconnect_cb(evutil_socket_t fd, short what, void *arg)
 static struct event_base *gBase;
 static std::thread torControlThread;
 
-static void TorControlThread()
+static void TorControlThread(const CService& onion_service_target)
 {
-    TorController ctrl(gBase, gArgs.GetArg("-torcontrol", DEFAULT_TOR_CONTROL));
+    TorController ctrl(gBase, gArgs.GetArg("-torcontrol", DEFAULT_TOR_CONTROL), onion_service_target);
 
     event_base_dispatch(gBase);
 }
 
-void StartTorControl()
+std::string TorAddOnionCommand::Build(const std::string& private_key, uint16_t virtual_port, const CService& target)
+{
+    return strprintf("ADD_ONION %s Port=%u,%s", private_key.empty() ? NEW_KEY : private_key, virtual_port, target.ToStringIPPort());
+}
+
+void StartTorControl(const CService& onion_service_target)
 {
     assert(!gBase);
 #ifdef WIN32
@@ -767,14 +761,17 @@ void StartTorControl()
         return;
     }
 
-    torControlThread = std::thread(std::bind(&TraceThread, "torcontrol", &TorControlThread));
+    torControlThread = std::thread(&TraceThread, "torcontrol", [onion_service_target] { TorControlThread(onion_service_target); });
 }
 
 void InterruptTorControl()
 {
     if (gBase) {
         LogPrintf("tor: Thread interrupt\n");
-        event_base_loopbreak(gBase);
+        // Break from inside the loop: a loopbreak sent before the thread enters the loop is lost.
+        event_base_once(gBase, -1, EV_TIMEOUT, [](evutil_socket_t, short, void*) {
+            event_base_loopbreak(gBase);
+        }, nullptr, nullptr);
     }
 }
 

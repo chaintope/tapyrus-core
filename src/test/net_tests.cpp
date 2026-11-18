@@ -15,6 +15,7 @@
 #include <localaddress.h>
 #include <netbase.h>
 #include <chainparams.h>
+#include <connman.h>
 #include <util.h>
 
 #include <memory>
@@ -230,6 +231,24 @@ BOOST_AUTO_TEST_CASE(ipv4_peer_with_ipv6_addrMe_test)
 
     // suppress no-checks-run warning; if this test fails, it's by triggering a sanitizer
     BOOST_CHECK(1);
+}
+
+BOOST_AUTO_TEST_CASE(find_whitelisted_range)
+{
+    CConnman::Options options;
+    CSubNet loopback_v4, docker_net;
+    LookupSubNet("127.0.0.0/8", loopback_v4);
+    LookupSubNet("172.17.0.0/16", docker_net);
+    options.vWhitelistedRange = {docker_net, loopback_v4};
+
+    const CSubNet* range = options.FindWhitelistedRange(LookupNumeric("127.0.0.1"));
+    BOOST_REQUIRE(range != nullptr);
+    BOOST_CHECK_EQUAL(range->ToString(), "127.0.0.0/8");
+    range = options.FindWhitelistedRange(LookupNumeric("172.17.0.2"));
+    BOOST_REQUIRE(range != nullptr);
+    BOOST_CHECK_EQUAL(range->ToString(), "172.17.0.0/16");
+    BOOST_CHECK(options.FindWhitelistedRange(LookupNumeric("::1")) == nullptr);
+    BOOST_CHECK(options.FindWhitelistedRange(LookupNumeric("10.0.0.1")) == nullptr);
 }
 
 BOOST_AUTO_TEST_SUITE_END()
