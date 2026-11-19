@@ -46,7 +46,6 @@ class CBlockPolicyEstimator;
 class CTxMemPool;
 class CValidationState;
 class HeightDerivedConsensusRules;
-struct ChainTxData;
 struct XFieldChange;
 
 struct LockPoints;
@@ -178,9 +177,6 @@ bool GetTransaction(const uint256& hash, CTransactionRef& tx, uint256& hashBlock
  * validationinterface callback.
  */
 bool ActivateBestChain(CValidationState& state, std::shared_ptr<const CBlock> pblock = std::shared_ptr<const CBlock>());
-
-/** Guess verification progress (as a fraction between 0.0=genesis and 1.0=current tip). */
-double GuessVerificationProgress(const ChainTxData& data, const CBlockIndex* pindex);
 
 /** Flush all state, indexes and buffers to disk. */
 void FlushStateToDisk();

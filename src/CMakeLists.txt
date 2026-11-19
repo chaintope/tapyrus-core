@@ -370,6 +370,7 @@ add_library(tapyrus_chainstate STATIC EXCLUDE_FROM_ALL
   utxo_snapshot.cpp
   validation.cpp
   validationinterface.cpp
+  verificationprogress.cpp
   verifydb.cpp
 )
 target_link_libraries(tapyrus_chainstate
