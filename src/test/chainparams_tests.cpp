@@ -31,7 +31,7 @@ struct ChainParamsTestingSetup {
         SetupNetworking();
         InitSignatureCache();
         InitScriptExecutionCache();
-        fCheckBlockIndex = true;
+        g_chainstate_manager.InitOptions(ChainstateOptionsOverride::TestOptions({}));
         SetDataDir("tempdir");
         writeTestGenesisBlockToFile(GetDataDir());
         noui_connect();

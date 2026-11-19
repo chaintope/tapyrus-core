@@ -79,7 +79,9 @@ static void AssembleBlock(benchmark::State& state)
     SelectFederationParams(TAPYRUS_OP_MODE::DEV);
     g_chainstate_manager.InitConsensusSettings(std::make_unique<const ConsensusSettings>(ReadGenesisBlock(), TAPYRUS_OP_MODE::DEV, FederationParams().NetworkId()));
     g_chainstate_manager.InitXFieldHistory(g_chainstate_manager.Settings().GenesisBlock());
-    g_chainstate_manager.InitOptions(ChainstateManager::Options(gArgs));
+    // No script-check worker threads are started, so -par=1 checks scripts on the connecting thread.
+    gArgs.ForceSetArg("-par", "1");
+    g_chainstate_manager.InitOptions(ChainstateManager::Options(gArgs, /*defaultConsistencyChecks=*/false, /*coinCacheUsage=*/size_t{5000} * 300));
     g_chainstate_manager.InitBlockFileManager(BlockFileManager::Options(gArgs, Params().PruneAfterHeight()));
     BlockIndexMap& blockIndex = g_chainstate_manager.BlockIndex();
 

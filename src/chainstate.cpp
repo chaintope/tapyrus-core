@@ -303,9 +303,9 @@ void static UpdateTip(const CBlockIndex *pindexNew)
     mempool.AddTransactionsUpdated(1);
 
     {
-        WaitableLock lock(g_best_block_mutex);
-        g_best_block = pindexNew->GetBlockHash();
-        g_best_block_cv.notify_all();
+        UniqueLock lock(g_chainstate_manager.m_best_block_mutex);
+        g_chainstate_manager.m_best_block = pindexNew->GetBlockHash();
+        g_chainstate_manager.m_best_block_cv.notify_all();
     }
 
     RefreshChainTxDataFromTip(pindexNew);
@@ -458,6 +458,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     nBlocksTotal++;
 
     bool fScriptChecks = true;
+    const uint256& hashAssumeValid = g_chainstate_manager.GetOptions().hashAssumeValid;
     if (!hashAssumeValid.IsNull()) {
         // We've been configured with the hash of a block which has been externally verified to have a valid history.
         // A suitable default value is included with the software and updated from time to time.  Because validity
@@ -497,7 +498,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     int64_t nSigOpsCost = 0;
     blockundo.vtxundo.reserve(block.vtx.size() - 1);
 
-    CCheckQueueControl<CScriptCheck> control(fScriptChecks && nScriptCheckThreads ? scriptcheckqueue.get() : nullptr);
+    CCheckQueueControl<CScriptCheck> control(fScriptChecks && g_chainstate_manager.GetOptions().nScriptCheckThreads ? scriptcheckqueue.get() : nullptr);
     // Accumulate new NON_REISSUABLE/NFT issuances across the whole block.
     // Staged into the issued colorIds and committed to LevelDB atomically with
     // DB_BEST_BLOCK only after control.Wait() succeeds, so a late script-check
@@ -561,7 +562,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         {
             std::vector<CScriptCheck> vChecks;
             bool fCacheResults = fJustCheck; /* Don't cache results if we're actually connecting blocks (still consult the cache, though) */
-            if (!CheckInputs(tx, state, view, fScriptChecks, consensusAtHeight.ScriptFlags(), fCacheResults, fCacheResults, nScriptCheckThreads ? &vChecks : nullptr, consensusAtHeight.ScriptFlags()))
+            if (!CheckInputs(tx, state, view, fScriptChecks, consensusAtHeight.ScriptFlags(), fCacheResults, fCacheResults, g_chainstate_manager.GetOptions().nScriptCheckThreads ? &vChecks : nullptr, consensusAtHeight.ScriptFlags()))
                 // FormatStateMessage is evaluated before DoS() re-sets state, preserving
                 // the per-input detail in the log.  state.GetRejectReason() already holds
                 // the specific error string set by CheckInputs, so it is propagated as-is.
@@ -1634,7 +1635,7 @@ bool CChainState::LoadGenesisBlock()
 void CChainState::CheckBlockIndex()
 {
     BlockIndexMap& blockIndex = g_chainstate_manager.BlockIndex();
-    if (!fCheckBlockIndex) {
+    if (!g_chainstate_manager.GetOptions().fCheckBlockIndex) {
         return;
     }
 

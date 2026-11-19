@@ -8,6 +8,7 @@
 
 #include <federationparams.h>
 #include <chainparams.h>
+#include <chainstatemanager.h>
 #include <eccverifyhandle.h>
 #include <fs.h>
 #include <key.h>
@@ -22,6 +23,9 @@
 #include <xfieldhistory.h>
 
 #include <memory>
+#include <string>
+#include <utility>
+#include <vector>
 
 #include <test/test_keys_helper.h>
 
@@ -89,6 +93,23 @@ private:
     std::unique_ptr<const PolicySettings> m_settings;
 };
 
+/** Replaces g_chainstate_manager's options for the life of this object, then restores the previous ones. */
+class ChainstateOptionsOverride
+{
+public:
+    /** The unit tests' coins cache size. */
+    static constexpr size_t TEST_COIN_CACHE_USAGE{size_t{5000} * 300};
+
+    /** Options built from these arguments alone, with -checkblockindex on and -par=1 (no worker threads) unless they say otherwise. */
+    static ChainstateManager::Options TestOptions(const std::vector<std::pair<std::string, std::string>>& args, size_t coinCacheUsage = TEST_COIN_CACHE_USAGE);
+
+    explicit ChainstateOptionsOverride(const ChainstateManager::Options& options);
+    ~ChainstateOptionsOverride();
+
+private:
+    const ChainstateManager::Options m_previous;
+};
+
 /** Testing setup that configures a complete environment.
  * Included are data directory, coins database, script check threads setup.
  */
@@ -100,6 +121,9 @@ struct CConnmanTest {
 };
 
 struct TestingSetup: public BasicTestingSetup {
+    /** -par for the fixture's script-check worker threads; tests that replace the options pass it again. */
+    static constexpr const char* SCRIPT_CHECK_PAR{"3"};
+
     CScheduler scheduler;
 
     explicit TestingSetup(const std::string& chainName = TAPYRUS_MODES::PROD);

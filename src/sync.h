@@ -117,6 +117,16 @@ typedef std::condition_variable CConditionVariable;
 /** Just a typedef for std::unique_lock, can be wrapped later if desired */
 typedef std::unique_lock<std::mutex> WaitableLock;
 
+/** A lock on a Mutex that condition variables can wait on and the thread-safety
+ *  analysis can see, so members GUARDED_BY the Mutex can be read under it, as
+ *  Core's UniqueLock. */
+class SCOPED_LOCKABLE UniqueLock : public std::unique_lock<std::mutex>
+{
+public:
+    explicit UniqueLock(Mutex& mutexIn) EXCLUSIVE_LOCK_FUNCTION(mutexIn) : std::unique_lock<std::mutex>(mutexIn) {}
+    ~UniqueLock() UNLOCK_FUNCTION() {}
+};
+
 #ifdef DEBUG_LOCKCONTENTION
 void PrintLockContention(const char* pszName, const char* pszFile, int nLine);
 #endif

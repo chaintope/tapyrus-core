@@ -57,16 +57,6 @@ extern RecursiveMutex cs_main;
 
 CChain& chainActive = g_chainstate.chainActive;
 CBlockIndex *pindexBestHeader = nullptr;
-Mutex g_best_block_mutex;
-CConditionVariable g_best_block_cv;
-uint256 g_best_block;
-int nScriptCheckThreads = 0;
-bool fCheckBlockIndex = false;
-bool fCheckpointsEnabled = DEFAULT_CHECKPOINTS_ENABLED;
-size_t nCoinCacheUsage = 5000 * 300;
-int64_t nMaxTipAge = DEFAULT_MAX_TIP_AGE;
-
-uint256 hashAssumeValid;
 
 CBlockPolicyEstimator feeEstimator;
 CTxMemPool mempool(&feeEstimator);
@@ -157,7 +147,7 @@ std::unique_ptr<CCoinsViewCache> pcoinsTip;
 const CBlockIndex* GetLastCheckpointIfEnabled()
 {
     AssertLockHeld(cs_main);
-    return fCheckpointsEnabled ? Checkpoints::GetLastCheckpoint(g_chainstate_manager.Settings().Checkpoints()) : nullptr;
+    return g_chainstate_manager.GetOptions().fCheckpointsEnabled ? Checkpoints::GetLastCheckpoint(g_chainstate_manager.Settings().Checkpoints()) : nullptr;
 }
 
 bool CheckFinalTx(const CTransaction &tx, int flags)
@@ -852,7 +842,7 @@ bool IsInitialBlockDownload()
         return true;
     if (chainActive.Tip() == nullptr)
         return true;
-    if (chainActive.Tip()->GetBlockTime() < (GetTime() - nMaxTipAge))
+    if (chainActive.Tip()->GetBlockTime() < (GetTime() - g_chainstate_manager.GetOptions().nMaxTipAge))
         return true;
     LogPrintf("Leaving InitialBlockDownload (latching to false)\n");
     latchToFalse.store(true, std::memory_order_relaxed);

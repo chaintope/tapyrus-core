@@ -80,7 +80,7 @@ bool CVerifyDB::VerifyDB(CCoinsView *coinsview, int nCheckLevel, int nCheckDepth
             }
         }
         // check level 3: check for inconsistencies during memory-only disconnect of tip blocks
-        if (nCheckLevel >= 3 && (coins.DynamicMemoryUsage() + pcoinsTip->DynamicMemoryUsage()) <= nCoinCacheUsage) {
+        if (nCheckLevel >= 3 && (coins.DynamicMemoryUsage() + pcoinsTip->DynamicMemoryUsage()) <= g_chainstate_manager.GetOptions().nCoinCacheUsage) {
             assert(coins.GetBestBlock() == pindex->GetBlockHash());
             // Erases from the copy, so level 4 can add the colorIds again when it reconnects.
             DisconnectResult res = g_chainstate.DisconnectBlock(block, pindex, coins, *issuedColorIds);

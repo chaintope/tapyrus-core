@@ -115,8 +115,6 @@ static void CreateBlocks(const CChainParams &chainparams,
                          std::unique_ptr<CBlockTemplate> &pblocktemplate, int &baseheight,
                          std::vector<CTransactionRef> &txFirst)
 {
-    fCheckpointsEnabled = false;
-
     // Simple block creation, nothing special yet:
     pblocktemplate = AssemblerForTest(chainparams).CreateNewBlock(scriptPubKey);
     BOOST_CHECK(pblocktemplate != nullptr);
@@ -296,6 +294,7 @@ BOOST_AUTO_TEST_CASE(CreateNewBlock_validity)
     std::unique_ptr<CBlockTemplate> pblocktemplate;
     int baseheight = 0;
     std::vector<CTransactionRef> txFirst;
+    ChainstateOptionsOverride noCheckpoints(ChainstateOptionsOverride::TestOptions({{"-par", TestingSetup::SCRIPT_CHECK_PAR}, {"-checkpoints", "0"}}));
     CreateBlocks(Params(), pblocktemplate, baseheight, txFirst);
 
     LOCK(cs_main);
@@ -585,8 +584,6 @@ BOOST_AUTO_TEST_CASE(CreateNewBlock_validity)
     mempool.clear();
 
     TestPackageSelection(Params(), txFirst);
-
-    fCheckpointsEnabled = true;
 }
 
 BOOST_AUTO_TEST_CASE(CreateNewBlock_required_age_in_secs)
@@ -596,6 +593,7 @@ BOOST_AUTO_TEST_CASE(CreateNewBlock_required_age_in_secs)
     std::unique_ptr<CBlockTemplate> pblocktemplate;
     int baseheight = 0;
     std::vector<CTransactionRef> txFirst;
+    ChainstateOptionsOverride noCheckpoints(ChainstateOptionsOverride::TestOptions({{"-par", TestingSetup::SCRIPT_CHECK_PAR}, {"-checkpoints", "0"}}));
     CreateBlocks(Params(), pblocktemplate, baseheight, txFirst);
 
     // Test the ancestor feerate transaction selection.

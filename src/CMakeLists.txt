@@ -344,6 +344,7 @@ add_library(tapyrus_chainstate STATIC EXCLUDE_FROM_ALL
   abortnode.cpp
   blockfilemanager.cpp
   blockindexmap.cpp
+  cachesettings.cpp
   chain.cpp
   chainstate.cpp
   chainstatemanager.cpp
