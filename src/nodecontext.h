@@ -6,6 +6,8 @@
 #ifndef TAPYRUS_NODECONTEXT_H
 #define TAPYRUS_NODECONTEXT_H
 
+#include <notificationhub.h>
+
 #include <memory>
 
 class CacheSettings;
@@ -16,16 +18,21 @@ struct PolicySettings;
 /** The objects a running node owns, held in one place instead of globals.
  *  tapyrusd and tapyrus-qt create one and pass it to init, which fills it;
  *  RPC reaches it through the request context and the interfaces hold a
- *  reference. Members are null until init creates them. */
+ *  reference. The pointer members are null until init creates them. */
 struct NodeContext {
     //! First, so the objects below that read it are destroyed before it.
     std::unique_ptr<const PolicySettings> policy;
+    //! What the components publish to; keeps the warnings the GUI and RPC read.
+    //! Declared before peerman, which holds a reference to it. The block files,
+    //! the coins views and the indexes refer to it too, so Shutdown() releases
+    //! them before this is destroyed.
+    NotificationHub notifications;
     std::unique_ptr<const CacheSettings> cache;
     std::unique_ptr<CConnman> connman;
     std::unique_ptr<PeerManager> peerman;
 
     //! Declared here and defined in the .cpp, so this header needs only
-    //! forward declarations of the member types.
+    //! forward declarations of the pointer members' types.
     NodeContext();
     ~NodeContext();
 };

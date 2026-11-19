@@ -10,6 +10,7 @@
 #include <chainstatemanager.h>
 #include <consensus/validation.h>
 #include <core_io.h>
+#include <notificationhub.h>
 #include <validation.h>
 #include <key_io.h>
 #include <miner.h>
@@ -29,7 +30,6 @@
 #include <util.h>
 #include <utilstrencodings.h>
 #include <validationinterface.h>
-#include <warnings.h>
 #include <xfieldhistory.h>
 
 #include <memory>
@@ -283,7 +283,7 @@ static UniValue getmininginfo(const JSONRPCRequest& request)
     // TODO: push signed block multisig condition
     obj.pushKV("pooledtx",         (uint64_t)mempool.size());
     obj.pushKV("chain",            FederationParams().NetworkIDString());
-    obj.pushKV("warnings",         GetWarnings("statusbar"));
+    obj.pushKV("warnings",         request.context.notifications.GetWarnings("statusbar"));
     return obj;
 }
 

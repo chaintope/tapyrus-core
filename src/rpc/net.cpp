@@ -9,6 +9,7 @@
 #include <chainparams.h>
 #include <clientversion.h>
 #include <core_io.h>
+#include <notificationhub.h>
 #include <validation.h>
 #include <net.h>
 #include <connman.h>
@@ -25,7 +26,6 @@
 #include <util.h>
 #include <utilstrencodings.h>
 #include <version.h>
-#include <warnings.h>
 
 #include <stdexcept>
 
@@ -500,7 +500,7 @@ static UniValue getnetworkinfo(const JSONRPCRequest& request)
         }
     }
     obj.pushKV("localaddresses", localAddresses);
-    obj.pushKV("warnings",       GetWarnings("statusbar"));
+    obj.pushKV("warnings",       request.context.notifications.GetWarnings("statusbar"));
     return obj;
 }
 

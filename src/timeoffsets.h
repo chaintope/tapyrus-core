@@ -11,6 +11,15 @@
 #include <cstddef>
 #include <deque>
 
+class PeerNotifications;
+
+/**
+ * "Never go to sea with two chronometers; take one or three."
+ * Our three time sources are:
+ *  - System clock
+ *  - Median of other nodes clocks
+ *  - The user (asking the user to fix the system clock if the first two disagree)
+ */
 class TimeOffsets
 {
     //! Maximum number of timeoffsets stored.
@@ -23,7 +32,12 @@ class TimeOffsets
      * positive offset means our peer's clock is ahead of our local clock. */
     std::deque<std::chrono::seconds> m_offsets GUARDED_BY(m_mutex){};
 
+    //! Where the out-of-sync warning is raised; NodeContext owns it.
+    PeerNotifications& m_notifications;
+
 public:
+    explicit TimeOffsets(PeerNotifications& notifications) : m_notifications(notifications) {}
+
     /** Add a new time offset sample. */
     void Add(std::chrono::seconds offset) EXCLUSIVE_LOCKS_REQUIRED(!m_mutex);
 
@@ -35,14 +49,5 @@ public:
      * warnings were raised. */
     bool WarnIfOutOfSync() const EXCLUSIVE_LOCKS_REQUIRED(!m_mutex);
 };
-
-/**
- * "Never go to sea with two chronometers; take one or three."
- * Our three time sources are:
- *  - System clock
- *  - Median of other nodes clocks
- *  - The user (asking the user to fix the system clock if the first two disagree)
- */
-extern TimeOffsets outbound_time_offsets;
 
 #endif // TAPYRUS_TIMEOFFSETS_H

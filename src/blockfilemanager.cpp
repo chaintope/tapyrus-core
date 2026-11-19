@@ -6,7 +6,7 @@
 
 #include <blockfilemanager.h>
 
-#include <abortnode.h>
+#include <notifications.h>
 #include <blockindexmap.h>
 #include <checkblock.h>
 #include <clientversion.h>
@@ -56,8 +56,8 @@ uint64_t BlockFileManager::Options::ParsePruneTarget(const ArgsManager& args)
     return nPruneTarget;
 }
 
-BlockFileManager::BlockFileManager(const Options& options, BlockIndexMap& blockIndex)
-    : m_options(options), m_block_index(blockIndex)
+BlockFileManager::BlockFileManager(const Options& options, BlockIndexMap& blockIndex, ChainNotifications& notifications)
+    : m_options(options), m_block_index(blockIndex), m_notifications(notifications)
 {
 }
 
@@ -239,7 +239,7 @@ CDiskBlockPos BlockFileManager::SaveBlockToDisk(const CBlock& block, int nHeight
     }
     if (!position_known) {
         if (!WriteBlockToDisk(block, blockPos)) {
-            AbortNode("Failed to write block");
+            m_notifications.ReportShutdown(ShutdownReason::BLOCK_WRITE_FAILED, "");
             return CDiskBlockPos();
         }
     }
@@ -277,8 +277,10 @@ bool BlockFileManager::WriteUndoDataForBlock(const CBlockUndo& blockundo, CValid
         CDiskBlockPos _pos;
         if (!FindUndoPos(state, pindex->nFile, _pos, ::GetSerializeSize(blockundo, SER_DISK, CLIENT_VERSION) + 40))
             return error("ConnectBlock(): FindUndoPos failed");
-        if (!UndoWriteToDisk(blockundo, _pos, pindex->pprev->GetBlockHash()))
-            return AbortNode(state, "Failed to write undo data");
+        if (!UndoWriteToDisk(blockundo, _pos, pindex->pprev->GetBlockHash())) {
+            m_notifications.ReportShutdown(ShutdownReason::UNDO_WRITE_FAILED, "");
+            return state.Error("Failed to write undo data");
+        }
 
         // update nUndoPos in block index
         pindex->nUndoPos = _pos.nPos;
@@ -313,7 +315,7 @@ void BlockFileManager::FlushBlockFile(bool fFinalize)
     }
 
     if (!status) {
-        AbortNode("Flushing block file to disk failed. This is likely the result of an I/O error.");
+        m_notifications.ReportShutdown(ShutdownReason::BLOCK_FILE_FLUSH_FAILED, "");
     }
 }
 
@@ -478,8 +480,10 @@ bool BlockFileManager::CheckDiskSpace(uint64_t nAdditionalBytes, bool blocks_dir
     uint64_t nFreeBytesAvailable = fs::space(blocks_dir ? m_options.blocksDir : m_options.dataDir).available;
 
     // Check for nMinDiskSpace bytes (currently 50MB)
-    if (nFreeBytesAvailable < nMinDiskSpace + nAdditionalBytes)
-        return AbortNode("Disk space is low!", _("Error: Disk space is low!"));
+    if (nFreeBytesAvailable < nMinDiskSpace + nAdditionalBytes) {
+        m_notifications.ReportShutdown(ShutdownReason::DISK_SPACE_LOW, "");
+        return false;
+    }
 
     return true;
 }

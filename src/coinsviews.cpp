@@ -6,9 +6,8 @@
 
 #include <coinsviews.h>
 
+#include <notifications.h>
 #include <txdb.h>
-#include <ui_interface.h>
-#include <util.h>
 
 #include <stdexcept>
 
@@ -17,8 +16,7 @@ bool CCoinsViewErrorCatcher::GetCoin(const COutPoint &outpoint, Coin &coin) cons
     try {
         return CCoinsViewBacked::GetCoin(outpoint, coin);
     } catch(const std::runtime_error& e) {
-        uiInterface.ThreadSafeMessageBox(_("Error reading from database, shutting down."), "", CClientUIInterface::MSG_ERROR);
-        LogPrintf("Error reading from database: %s\n", e.what());
+        m_notifications.ReportShutdown(ShutdownReason::COINS_READ_FAILED, e.what());
         // Starting the shutdown sequence and returning false to the caller would be
         // interpreted as 'entry not found' (as opposed to unable to read data), and
         // could lead to invalid interpretation. Just exit immediately, as we can't
@@ -27,9 +25,9 @@ bool CCoinsViewErrorCatcher::GetCoin(const COutPoint &outpoint, Coin &coin) cons
     }
 }
 
-CoinsViews::CoinsViews(CIssuedColorIds& issuedColorIds, size_t cache_size_bytes, bool in_memory, bool should_wipe)
+CoinsViews::CoinsViews(CIssuedColorIds& issuedColorIds, size_t cache_size_bytes, bool in_memory, bool should_wipe, ChainNotifications& notifications)
     : m_dbview(std::make_unique<CCoinsViewDB>(issuedColorIds, cache_size_bytes, in_memory, should_wipe)),
-      m_catcherview(m_dbview.get())
+      m_catcherview(m_dbview.get(), notifications)
 {
 }
 

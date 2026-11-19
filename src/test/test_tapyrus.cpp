@@ -14,6 +14,7 @@
 #include <genesisfile.h>
 #include <genesisblock.h>
 #include <issuedcolorids.h>
+#include <notificationhub.h>
 #include <validation.h>
 #include <miner.h>
 #include <net_processing.h>
@@ -81,6 +82,8 @@ BasicTestingSetup::BasicTestingSetup(const std::string& chainName)
         SetupNetworking();
         InitSignatureCache();
         InitScriptExecutionCache();
+        // No subscribers: a fatal error in a test is recorded, not shown or shut down on.
+        g_chainstate_manager.SetNotifications(&m_node.notifications);
         SelectParams(TAPYRUS_OP_MODE::PROD);
         SetDataDir("tempdir");
         writeTestGenesisBlockToFile(GetDataDir());
@@ -92,7 +95,7 @@ BasicTestingSetup::BasicTestingSetup(const std::string& chainName)
         g_chainstate_manager.InitXFieldHistory(g_chainstate_manager.Settings().GenesisBlock());
         pxFieldHistory = &g_chainstate_manager.XFieldHistory();
         g_chainstate_manager.InitOptions(ChainstateOptionsOverride::TestOptions({}));
-        g_chainstate_manager.InitBlockFileManager(BlockFileManager::Options(gArgs, Params().PruneAfterHeight()));
+        g_chainstate_manager.InitBlockFileManager(BlockFileManager::Options(gArgs, Params().PruneAfterHeight()), m_node.notifications);
         // Created once per test binary, as the global chainstate it replaces was.
         if (!g_chainstate_manager.HasChainstate()) g_chainstate_manager.InitializeChainstate();
         {
@@ -211,7 +214,7 @@ TestingSetup::TestingSetup(const std::string& chainName) : BasicTestingSetup(cha
             g_chainstate_manager.InitOptions(ChainstateOptionsOverride::TestOptions({{"-par", SCRIPT_CHECK_PAR}}));
             StartScriptCheckWorkerThreads(g_chainstate_manager.GetOptions().nScriptCheckThreads);
             m_node.connman = std::unique_ptr<CConnman>(new CConnman(0x1337, 0x1337)); // Deterministic randomness for tests.
-            m_node.peerman.reset(new PeerManager(*m_node.connman, scheduler));
+            m_node.peerman.reset(new PeerManager(*m_node.connman, scheduler, m_node.notifications));
         } catch (...) {
             // ~TestingSetup() never runs for a throwing constructor, so the
             // scheduler thread started above must be stopped here. Left

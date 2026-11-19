@@ -16,19 +16,22 @@
 #include <memory>
 
 class CCoinsViewDB;
+class ChainNotifications;
 class CIssuedColorIds;
 
 /**
- * This is a minimally invasive approach to shutdown on LevelDB read errors from the
- * chainstate, while keeping user interface out of the common library, which is shared
- * between tapyrusd, and tapyrus-qt and non-server tools.
+ * Shuts the node down on LevelDB read errors from the chainstate, reporting
+ * them through the chain's notifications.
 */
 class CCoinsViewErrorCatcher final : public CCoinsViewBacked
 {
 public:
-    explicit CCoinsViewErrorCatcher(CCoinsView* view) : CCoinsViewBacked(view) {}
+    CCoinsViewErrorCatcher(CCoinsView* view, ChainNotifications& notifications) : CCoinsViewBacked(view), m_notifications(notifications) {}
     bool GetCoin(const COutPoint &outpoint, Coin &coin) const override;
     // Writes do not need similar protection, as failure to write is handled by the caller.
+
+private:
+    ChainNotifications& m_notifications;
 };
 
 /**
@@ -39,7 +42,7 @@ public:
 class CoinsViews
 {
 public:
-    CoinsViews(CIssuedColorIds& issuedColorIds, size_t cache_size_bytes, bool in_memory, bool should_wipe);
+    CoinsViews(CIssuedColorIds& issuedColorIds, size_t cache_size_bytes, bool in_memory, bool should_wipe, ChainNotifications& notifications);
     //! Defined in the .cpp, so this header needs only a forward declaration of CCoinsViewDB.
     ~CoinsViews();
 

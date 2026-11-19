@@ -17,10 +17,12 @@
 #include <checkpoints.h>
 #include <coin.h>
 #include <consensus/validation.h>
+#include <notificationhub.h>
 #include <validation.h>
 #include <core_io.h>
 #include <index/txindex.h>
 #include <key_io.h>
+#include <nodecontext.h>
 #include <policy/feerate.h>
 #include <policy/packages.h>
 #include <primitives/transaction.h>
@@ -35,7 +37,6 @@
 #include <util.h>
 #include <utilstrencodings.h>
 #include <validationinterface.h>
-#include <warnings.h>
 #include <xfieldhistory.h>
 #include <verifydb.h>
 #include <blockfilemanager.h>
@@ -757,7 +758,7 @@ UniValue getblockchaininfo(const JSONRPCRequest& request)
         obj.pushKV(GetXFieldNameForRpc(x), xfieldChanges);
     }
 
-    obj.pushKV("warnings", GetWarnings("statusbar"));
+    obj.pushKV("warnings", request.context.notifications.GetWarnings("statusbar"));
     return obj;
 }
 

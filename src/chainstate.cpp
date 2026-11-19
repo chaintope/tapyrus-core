@@ -3,7 +3,6 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <chainstate.h>
-#include <abortnode.h>
 #include <blockfilemanager.h>
 #include <contextualconsensusrules.h>
 #include <chainstatemanager.h>
@@ -22,13 +21,11 @@
 #include <trace.h>
 #include <transactioncolorchecker.h>
 #include <ui_interface.h>
-#include <warnings.h>
+#include <notifications.h>
 #include <xfieldhistory.h>
-#include <file_io.h>
 
 #include <deque>
 #include <stdexcept>
-#include <boost/algorithm/string/replace.hpp>
 
 
 // Defined in validation.cpp; declared here to avoid pulling in validation.h
@@ -52,29 +49,12 @@ static int64_t nTimeChainState = 0;
 static int64_t nTimePostConnect = 0;
 
 
-static void AlertNotify(const std::string& strMessage)
-{
-    uiInterface.NotifyAlertChanged();
-    std::string strCmd = gArgs.GetArg("-alertnotify", "");
-    if (strCmd.empty()) return;
-
-    // Alert text should be plain ascii coming from a trusted source, but to
-    // be safe we first strip anything not in safeChars, then add single quotes around
-    // the whole string before passing it to the shell:
-    std::string singleQuote("'");
-    std::string safeStatus = SanitizeString(strMessage);
-    safeStatus = singleQuote+safeStatus+singleQuote;
-    boost::replace_all(strCmd, "%s", safeStatus);
-
-    std::thread t(runCommand, strCmd);
-    t.detach(); // thread runs free
-}
-
 CBlockIndex *pindexBestForkTip = nullptr, *pindexBestForkBase = nullptr;
 
 static void CheckForkWarningConditions()
 {
     AssertLockHeld(cs_main);
+    ChainNotifications& notifications = g_chainstate_manager.Notifications();
     // Before we get past initial download, we cannot reliably alert about forks
     // (we assume we don't get stuck on a fork before finishing our initial sync)
     if (IsInitialBlockDownload())
@@ -87,29 +67,22 @@ static void CheckForkWarningConditions()
 
     if (pindexBestForkTip || (g_chainstate_manager.BestInvalid() && g_chainstate_manager.BestInvalid()->nHeight > g_chainstate_manager.ActiveChain().Tip()->nHeight + 6))
     {
-        if (!GetfLargeWorkForkFound() && pindexBestForkBase)
-        {
-            std::string warning = std::string("'Warning: Large-work fork detected, forking after block ") +
-                pindexBestForkBase->phashBlock->ToString() + std::string("'");
-            AlertNotify(warning);
-        }
         if (pindexBestForkTip && pindexBestForkBase)
         {
             LogPrintf("%s: Warning: Large valid fork found\n  forking the chain at height %d (%s)\n  lasting to height %d (%s).\nChain state database corruption likely.\n", __func__,
                    pindexBestForkBase->nHeight, pindexBestForkBase->phashBlock->ToString(),
                    pindexBestForkTip->nHeight, pindexBestForkTip->phashBlock->ToString());
-            SetfLargeWorkForkFound(true);
+            notifications.ReportLargeWorkFork(pindexBestForkBase->GetBlockHash());
         }
         else
         {
             LogPrintf("%s: Warning: Found invalid chain at least ~6 blocks longer than our best chain.\nChain state database corruption likely.\n", __func__);
-            SetfLargeWorkInvalidChainFound(true);
+            notifications.ReportInvalidChainAhead();
         }
     }
     else
     {
-        SetfLargeWorkForkFound(false);
-        SetfLargeWorkInvalidChainFound(false);
+        notifications.ReportForkResolved();
     }
 }
 
@@ -150,7 +123,7 @@ void NotifyHeaderTip() LOCKS_EXCLUDED(cs_main) {
 
 void Chainstate::InitCoinsDB(CIssuedColorIds& issuedColorIds, size_t cache_size_bytes, bool in_memory, bool should_wipe)
 {
-    m_coins_views = std::make_unique<CoinsViews>(issuedColorIds, cache_size_bytes, in_memory, should_wipe);
+    m_coins_views = std::make_unique<CoinsViews>(issuedColorIds, cache_size_bytes, in_memory, should_wipe, m_chainman.Notifications());
 }
 
 void Chainstate::InitCoinsCache()
@@ -448,7 +421,8 @@ bool Chainstate::ConnectBlock(const CBlock& block, CValidationState& state, CBlo
             // We don't write down blocks to disk if they may have been
             // corrupted, so this should be impossible unless we're having hardware
             // problems.
-            return AbortNode(state, "Corrupt block found indicating potential hardware failure; shutting down");
+            m_chainman.Notifications().ReportShutdown(ShutdownReason::CORRUPT_BLOCK, "");
+            return state.Error("Corrupt block found indicating potential hardware failure; shutting down");
         }
         return error("%s: Consensus::CheckBlock: %s", __func__, FormatStateMessage(state));
     }
@@ -694,8 +668,10 @@ bool Chainstate::DisconnectTip(CValidationState& state, DisconnectedBlockTransac
     // Read block from disk.
     std::shared_ptr<CBlock> pblock = std::make_shared<CBlock>();
     CBlock& block = *pblock;
-    if (!g_chainstate_manager.ReadBlock(block, pindexDelete))
-        return AbortNode(state, "Failed to read block");
+    if (!g_chainstate_manager.ReadBlock(block, pindexDelete)) {
+        m_chainman.Notifications().ReportShutdown(ShutdownReason::BLOCK_READ_FAILED, "");
+        return state.Error("Failed to read block");
+    }
     // Apply the block atomically to the chain state.
     int64_t nStart = GetTimeMicros();
     {
@@ -761,8 +737,10 @@ bool Chainstate::ConnectTip(CValidationState& state, CBlockIndex* pindexNew, con
     std::shared_ptr<const CBlock> pthisBlock;
     if (!pblock) {
         std::shared_ptr<CBlock> pblockNew = std::make_shared<CBlock>();
-        if (!g_chainstate_manager.ReadBlock(*pblockNew, pindexNew))
-            return AbortNode(state, "Failed to read block");
+        if (!g_chainstate_manager.ReadBlock(*pblockNew, pindexNew)) {
+            m_chainman.Notifications().ReportShutdown(ShutdownReason::BLOCK_READ_FAILED, "");
+            return state.Error("Failed to read block");
+        }
         pthisBlock = pblockNew;
     } else {
         pthisBlock = pblock;
@@ -1088,7 +1066,9 @@ bool Chainstate::ActivateBestChain(CValidationState &state, std::shared_ptr<cons
         }
         // When we reach this point, we switched to a new tip (stored in pindexNewTip).
 
-        if (nStopAtHeight && pindexNewTip && pindexNewTip->nHeight >= nStopAtHeight) StartShutdown();
+        if (nStopAtHeight && pindexNewTip && pindexNewTip->nHeight >= nStopAtHeight && !ShutdownRequested()) {
+            m_chainman.Notifications().ReportShutdown(ShutdownReason::STOP_HEIGHT_REACHED, std::to_string(nStopAtHeight));
+        }
 
         // We check shutdown only after giving ActivateBestChainStep a chance to run once so that we
         // never shutdown before connecting the genesis block during LoadChainTip(). Previously this
@@ -1406,7 +1386,8 @@ bool Chainstate::AcceptBlock(const std::shared_ptr<const CBlock>& pblock, CValid
         }
         ReceivedBlockTransactions(block, pindex, blockPos);
     } catch (const std::runtime_error& e) {
-        return AbortNode(state, std::string("System error: ") + e.what());
+        m_chainman.Notifications().ReportShutdown(ShutdownReason::SYSTEM_ERROR, e.what());
+        return state.Error(std::string("System error: ") + e.what());
     }
 
     FlushStateToDisk(state, FlushStateMode::NONE);

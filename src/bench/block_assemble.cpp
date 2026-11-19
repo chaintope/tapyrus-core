@@ -12,6 +12,7 @@
 #include <consensussettings.h>
 #include <genesisfile.h>
 #include <miner.h>
+#include <notificationhub.h>
 #include <policy/policy.h>
 #include <scheduler.h>
 #include <txdb.h>
@@ -82,7 +83,10 @@ static void AssembleBlock(benchmark::State& state)
     // No script-check worker threads are started, so -par=1 checks scripts on the connecting thread.
     gArgs.ForceSetArg("-par", "1");
     g_chainstate_manager.InitOptions(ChainstateManager::Options(gArgs, /*defaultConsistencyChecks=*/false, /*coinCacheUsage=*/size_t{5000} * 300));
-    g_chainstate_manager.InitBlockFileManager(BlockFileManager::Options(gArgs, Params().PruneAfterHeight()));
+    // Static: the global block files and coins views keep referring to it after this returns.
+    static NotificationHub notifications;
+    g_chainstate_manager.SetNotifications(&notifications);
+    g_chainstate_manager.InitBlockFileManager(BlockFileManager::Options(gArgs, Params().PruneAfterHeight()), notifications);
     BlockIndexMap& blockIndex = g_chainstate_manager.BlockIndex();
     g_chainstate_manager.InitializeChainstate();
 
