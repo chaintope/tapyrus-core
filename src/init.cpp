@@ -1161,8 +1161,8 @@ bool AppInitMain(NodeContext& node)
     }
     LogPrintf("Genesis Block [%s] of Tapyrus network [%s] Loaded successfully\n", g_chainstate_manager.Settings().GenesisBlock().GetHash().ToString(), FederationParams().NetworkIDString());
 
-    // Initialise ChainTxData from the genesis block timestamp so that
-    // GuessVerificationProgress produces meaningful values during IBD.
+    // Seed the verification progress estimate from the genesis block timestamp
+    // so that it produces meaningful values during IBD.
     // nTime is wall-clock time (so nNow - nTime ≈ 0 and fTxTotal ≈ nTxCount),
     // and nTxCount is the expected total transactions from genesis to now.
     if (!g_chainstate_manager.Settings().GenesisBlock().vtx.empty()) {
@@ -1171,7 +1171,7 @@ bool AppInitMain(NodeContext& node)
         const int64_t nNow = time(nullptr);
         const int64_t nTxCount = std::max(int64_t(1),
             static_cast<int64_t>((nNow - genesisTime) * dTxRate));
-        UpdateChainTxData({nNow, nTxCount, dTxRate});
+        g_chainstate_manager.Progress().Set({nNow, nTxCount, dTxRate});
     }
 
     InitSignatureCache();

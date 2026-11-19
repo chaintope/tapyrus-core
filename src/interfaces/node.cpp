@@ -194,7 +194,7 @@ public:
             LOCK(::cs_main);
             tip = g_chainstate_manager.ActiveChain().Tip();
         }
-        return GuessVerificationProgress(Params().TxData(), tip);
+        return g_chainstate_manager.Progress().Guess(tip);
     }
     bool isInitialBlockDownload() override { return IsInitialBlockDownload(); }
     bool getReindex() override { return g_chainstate_manager.IsReindexing(); }
@@ -287,7 +287,7 @@ public:
     {
         return MakeHandler(::uiInterface.NotifyBlockTip.connect([fn](bool initial_download, const CBlockIndex* block) {
             fn(initial_download, block->nHeight, block->GetBlockTime(),
-                GuessVerificationProgress(Params().TxData(), block));
+                g_chainstate_manager.Progress().Guess(block));
         }));
     }
     std::unique_ptr<Handler> handleNotifyHeaderTip(NotifyHeaderTipFn fn) override
@@ -295,7 +295,7 @@ public:
         return MakeHandler(
             ::uiInterface.NotifyHeaderTip.connect([fn](bool initial_download, const CBlockIndex* block) {
                 fn(initial_download, block->nHeight, block->GetBlockTime(),
-                    GuessVerificationProgress(Params().TxData(), block));
+                    g_chainstate_manager.Progress().Guess(block));
             }));
     }
 

@@ -17,19 +17,6 @@
 
 
 /**
- * Holds various statistics on transactions within a chain. Used to estimate
- * verification progress during chain sync.
- *
- * See also: CChainParams::TxData, GuessVerificationProgress.
- */
-struct ChainTxData {
-    int64_t nTime;    //!< UNIX timestamp of last known number of transactions
-    int64_t nTxCount; //!< total number of transactions between genesis and that timestamp
-    double dTxRate;   //!< estimated number of transactions per second after that timestamp
-};
-
-
-/**
  * CChainParams defines various tweakable parameters of a given instance of the
  * Bitcoin system. There are three: the main network on which people trade goods
  * and services, the public test network which gets reset from time to time and
@@ -58,8 +45,6 @@ public:
     bool MineBlocksOnDemand() const { return fMineBlocksOnDemand; }
     /** Return true if the fallback fee is by default enabled for this network */
     bool IsFallbackFeeEnabled() const { return m_fallback_fee_enabled; }
-    const ChainTxData& TxData() const { return chainTxData; }
-    void SetChainTxData(const ChainTxData& data) { chainTxData = data; }
     const std::vector<unsigned char>& Base58Prefix(Base58Type type) const { return base58Prefixes[type]; }
     int GetRPCPort() const { return rpcPort; }
     int GetDefaultPort() const { return nDefaultPort; }
@@ -74,7 +59,6 @@ protected:
     bool fDefaultConsistencyChecks;
     bool fMineBlocksOnDemand;
     std::vector<unsigned char> base58Prefixes[MAX_BASE58_TYPES];
-    ChainTxData chainTxData;
     bool m_fallback_fee_enabled;
     std::vector<SeedSpec6> vFixedSeeds;
 };
@@ -96,8 +80,5 @@ const CChainParams &Params();
  * @throws std::runtime_error when the chain is not supported.
  */
 void SelectParams(const TAPYRUS_OP_MODE mode);
-
-/** Update ChainTxData for IBD progress estimation after genesis block is loaded. */
-void UpdateChainTxData(const ChainTxData& data);
 
 #endif // BITCOIN_CHAINPARAMS_H

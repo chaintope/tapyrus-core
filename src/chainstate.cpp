@@ -28,10 +28,6 @@
 #include <stdexcept>
 
 
-// Defined in validation.cpp; declared here to avoid pulling in validation.h
-// (which includes chainstate.h, creating an indirect self-inclusion).
-void RefreshChainTxDataFromTip(const CBlockIndex* pindexNew) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
-
 static int64_t nTimeCheck = 0;
 static int64_t nTimeForks = 0;
 static int64_t nTimeVerify = 0;
@@ -291,13 +287,13 @@ void static UpdateTip(const CBlockIndex *pindexNew)
         g_chainstate_manager.m_best_block_cv.notify_all();
     }
 
-    RefreshChainTxDataFromTip(pindexNew);
+    g_chainstate_manager.Progress().Refresh(pindexNew, g_chainstate_manager.BestHeader());
 
     LogPrintf("%s: new best=%s height=%d version=0x%08x xfield=%s tx=%lu date='%s' progress=%f cache=%.1fMiB(%utxo)", __func__, /* Continued */
       pindexNew->GetBlockHash().ToString(), pindexNew->nHeight, pindexNew->nFeatures,
       pindexNew->xfield.ToString(),
       (unsigned long)pindexNew->nChainTx, FormatISO8601DateTime(pindexNew->GetBlockTime()),
-      GuessVerificationProgress(Params().TxData(), pindexNew), g_chainstate_manager.ActiveChainstate().CoinsTip().DynamicMemoryUsage() * (1.0 / (1<<20)), g_chainstate_manager.ActiveChainstate().CoinsTip().GetCacheSize());
+      g_chainstate_manager.Progress().Guess(pindexNew), g_chainstate_manager.ActiveChainstate().CoinsTip().DynamicMemoryUsage() * (1.0 / (1<<20)), g_chainstate_manager.ActiveChainstate().CoinsTip().GetCacheSize());
     LogPrintf("\n");
 
 }

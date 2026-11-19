@@ -729,7 +729,7 @@ UniValue getblockchaininfo(const JSONRPCRequest& request)
     obj.pushKV("headers",               g_chainstate_manager.BestHeader() ? g_chainstate_manager.BestHeader()->nHeight : -1);
     obj.pushKV("bestblockhash",         g_chainstate_manager.ActiveChain().Tip()->GetBlockHash().GetHex());
     obj.pushKV("mediantime",            (int64_t)g_chainstate_manager.ActiveChain().Tip()->GetMedianTimePast());
-    obj.pushKV("verificationprogress",  GuessVerificationProgress(Params().TxData(), g_chainstate_manager.ActiveChain().Tip()));
+    obj.pushKV("verificationprogress",  g_chainstate_manager.Progress().Guess(g_chainstate_manager.ActiveChain().Tip()));
     obj.pushKV("initialblockdownload",  IsInitialBlockDownload());
     obj.pushKV("size_on_disk",          g_chainstate_manager.GetBlockFileManager().CalculateCurrentUsage());
     obj.pushKV("pruned",                g_chainstate_manager.GetBlockFileManager().GetOptions().fPruneMode);

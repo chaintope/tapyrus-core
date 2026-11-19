@@ -97,9 +97,3 @@ void SelectParams(const TAPYRUS_OP_MODE mode)
 {
     globalChainParams = CreateChainParams(mode);
 }
-
-void UpdateChainTxData(const ChainTxData& data)
-{
-    assert(globalChainParams);
-    globalChainParams->SetChainTxData(data);
-}

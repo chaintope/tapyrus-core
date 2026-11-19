@@ -62,58 +62,6 @@ CScript COINBASE_FLAGS;
 
 
 
-// Minimum number of blocks in the sampling window for ChainTxData refresh.
-static constexpr int64_t MIN_CHAIN_TX_WINDOW = 100;
-
-/**
- * Refresh ChainTxData with the observed tx rate from recently connected blocks.
- * Called from UpdateTip every windowSize blocks.
- *
- * Window size is 1% of chain height (minimum 100 blocks), so the rate estimate
- * becomes more stable as the chain grows. Triggered by height modulo so no
- * extra state is needed; rate is computed via pprev walk over the window.
- *
- * nTxCount is estimated using the best header (the furthest header known from
- * peers) so that during IBD, progress = nChainTx / nTxCount tracks
- * height / bestHeaderHeight rather than extrapolating years of empty time.
- */
-void RefreshChainTxDataFromTip(const CBlockIndex* pindexNew) EXCLUSIVE_LOCKS_REQUIRED(cs_main)
-{
-    if (!pindexNew || pindexNew->nHeight == 0)
-        return;
-
-    const int64_t windowSize = std::max(MIN_CHAIN_TX_WINDOW,
-        static_cast<int64_t>(pindexNew->nHeight) / 100);
-
-    if (pindexNew->nHeight % windowSize != 0)
-        return;
-
-    const CBlockIndex* pWindow = pindexNew;
-    for (int64_t i = 0; i < windowSize && pWindow->pprev; i++)
-        pWindow = pWindow->pprev;
-
-    const int64_t dt = pindexNew->GetBlockTime() - pWindow->GetBlockTime();
-    if (dt <= 0)
-        return;
-
-    const double rate = static_cast<double>(
-        static_cast<int64_t>(pindexNew->nChainTx) - static_cast<int64_t>(pWindow->nChainTx)) / dt;
-
-    const int64_t bestHeight =
-        (g_chainstate_manager.BestHeader() && g_chainstate_manager.BestHeader()->nHeight > pindexNew->nHeight)
-        ? static_cast<int64_t>(g_chainstate_manager.BestHeader()->nHeight)
-        : static_cast<int64_t>(pindexNew->nHeight);
-
-    const double txPerBlock = static_cast<double>(pindexNew->nChainTx) /
-        pindexNew->nHeight;
-
-    const int64_t nTxCount = std::max(
-        static_cast<int64_t>(pindexNew->nChainTx),
-        static_cast<int64_t>(txPerBlock * bestHeight));
-
-    UpdateChainTxData({time(nullptr), nTxCount, rate});
-}
-
 CBlockIndex* FindForkInGlobalIndex(const CChain& chain, const CBlockLocator& locator)
 {
     BlockIndexMap& blockIndex = g_chainstate_manager.BlockIndex();
@@ -1148,7 +1096,7 @@ bool LoadChainTip()
     LogPrintf("Loaded best chain: hashBestChain=%s height=%d date=%s progress=%f\n",
         g_chainstate_manager.ActiveChain().Tip()->GetBlockHash().ToString(), g_chainstate_manager.ActiveChain().Height(),
         FormatISO8601DateTime(g_chainstate_manager.ActiveChain().Tip()->GetBlockTime()),
-        GuessVerificationProgress(Params().TxData(), g_chainstate_manager.ActiveChain().Tip()));
+        g_chainstate_manager.Progress().Guess(g_chainstate_manager.ActiveChain().Tip()));
     return true;
 }
 
@@ -1223,29 +1171,5 @@ std::string CBlockFileInfo::ToString() const
 {
     AssertLockHeld(::cs_main);
     return strprintf("CBlockFileInfo(blocks=%u, size=%u, heights=%u...%u, time=%s...%s)", nBlocks, nSize, nHeightFirst, nHeightLast, FormatISO8601Date(nTimeFirst), FormatISO8601Date(nTimeLast));
-}
-
-//! Guess how far we are in the verification process at the given block index
-//! require cs_main if pindex has not been validated yet (because nChainTx might be unset)
-double GuessVerificationProgress(const ChainTxData& data, const CBlockIndex *pindex) {
-    if (pindex == nullptr)
-        return 0.0;
-
-    // If nChainTx is 0, the block hasn't been fully validated/connected yet.
-    // Return 0 to indicate no progress can be determined.
-    if (pindex->nChainTx == 0)
-        return 0.0;
-
-    int64_t nNow = time(nullptr);
-
-    double fTxTotal;
-
-    if (pindex->nChainTx <= data.nTxCount) {
-        fTxTotal = data.nTxCount + (nNow - data.nTime) * data.dTxRate;
-    } else {
-        fTxTotal = pindex->nChainTx + (nNow - pindex->GetBlockTime()) * data.dTxRate;
-    }
-
-    return pindex->nChainTx / fTxTotal;
 }
 

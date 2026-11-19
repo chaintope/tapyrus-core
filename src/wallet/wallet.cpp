@@ -1702,7 +1702,6 @@ int64_t CWallet::RescanFromTime(int64_t startTime, const WalletRescanReserver& r
 CBlockIndex* CWallet::ScanForWalletTransactions(CBlockIndex* pindexStart, CBlockIndex* pindexStop, const WalletRescanReserver &reserver, bool fUpdate)
 {
     int64_t nNow = GetTime();
-    const CChainParams& chainParams = Params();
 
     assert(reserver.isReserved());
     if (pindexStop) {
@@ -1722,12 +1721,12 @@ CBlockIndex* CWallet::ScanForWalletTransactions(CBlockIndex* pindexStart, CBlock
         double progress_end;
         {
             LOCK(cs_main);
-            progress_begin = GuessVerificationProgress(chainParams.TxData(), pindex);
+            progress_begin = g_chainstate_manager.Progress().Guess(pindex);
             if (pindexStop == nullptr) {
                 tip = g_chainstate_manager.ActiveChain().Tip();
-                progress_end = GuessVerificationProgress(chainParams.TxData(), tip);
+                progress_end = g_chainstate_manager.Progress().Guess(tip);
             } else {
-                progress_end = GuessVerificationProgress(chainParams.TxData(), pindexStop);
+                progress_end = g_chainstate_manager.Progress().Guess(pindexStop);
             }
         }
         double progress_current = progress_begin;
@@ -1762,11 +1761,11 @@ CBlockIndex* CWallet::ScanForWalletTransactions(CBlockIndex* pindexStart, CBlock
             {
                 LOCK(cs_main);
                 pindex = g_chainstate_manager.ActiveChain().Next(pindex);
-                progress_current = GuessVerificationProgress(chainParams.TxData(), pindex);
+                progress_current = g_chainstate_manager.Progress().Guess(pindex);
                 if (pindexStop == nullptr && tip != g_chainstate_manager.ActiveChain().Tip()) {
                     tip = g_chainstate_manager.ActiveChain().Tip();
                     // in case the tip has changed, update progress max
-                    progress_end = GuessVerificationProgress(chainParams.TxData(), tip);
+                    progress_end = g_chainstate_manager.Progress().Guess(tip);
                 }
             }
         }
