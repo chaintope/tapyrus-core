@@ -164,9 +164,9 @@ public:
     bool getHeaderTip(int& height, int64_t& block_time) override
     {
         LOCK(::cs_main);
-        if (::pindexBestHeader) {
-            height = ::pindexBestHeader->nHeight;
-            block_time = ::pindexBestHeader->GetBlockTime();
+        if (g_chainstate_manager.BestHeader()) {
+            height = g_chainstate_manager.BestHeader()->nHeight;
+            block_time = g_chainstate_manager.BestHeader()->GetBlockTime();
             return true;
         }
         return false;
@@ -174,13 +174,13 @@ public:
     int getNumBlocks() override
     {
         LOCK(::cs_main);
-        return ::chainActive.Height();
+        return g_chainstate_manager.ActiveChain().Height();
     }
     int64_t getLastBlockTime() override
     {
         LOCK(::cs_main);
-        if (::chainActive.Tip()) {
-            return ::chainActive.Tip()->GetBlockTime();
+        if (g_chainstate_manager.ActiveChain().Tip()) {
+            return g_chainstate_manager.ActiveChain().Tip()->GetBlockTime();
         }
         return g_chainstate_manager.Settings().GenesisBlock().GetBlockTime(); // Genesis block's time of current network
     }
@@ -189,7 +189,7 @@ public:
         const CBlockIndex* tip;
         {
             LOCK(::cs_main);
-            tip = ::chainActive.Tip();
+            tip = g_chainstate_manager.ActiveChain().Tip();
         }
         return GuessVerificationProgress(Params().TxData(), tip);
     }
@@ -229,7 +229,7 @@ public:
     bool getUnspentOutput(const COutPoint& output, Coin& coin) override
     {
         LOCK(::cs_main);
-        return ::pcoinsTip->GetCoin(output, coin);
+        return g_chainstate_manager.ActiveChainstate().CoinsTip().GetCoin(output, coin);
     }
     std::vector<std::unique_ptr<Wallet>> getWallets() override
     {

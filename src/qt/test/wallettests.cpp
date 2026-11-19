@@ -161,7 +161,7 @@ void TestGUI()
         LOCK(cs_main);
         WalletRescanReserver reserver(wallet.get());
         reserver.reserve();
-        wallet->ScanForWalletTransactions(chainActive.Genesis(), nullptr, reserver, true);
+        wallet->ScanForWalletTransactions(g_chainstate_manager.ActiveChain().Genesis(), nullptr, reserver, true);
     }
     wallet->SetBroadcastTransactions(true);
 
@@ -282,7 +282,7 @@ void TestGUI_coloredCoin()
         LOCK(cs_main);
         WalletRescanReserver reserver(wallet.get());
         reserver.reserve();
-        wallet->ScanForWalletTransactions(chainActive.Genesis(), nullptr, reserver, true);
+        wallet->ScanForWalletTransactions(g_chainstate_manager.ActiveChain().Genesis(), nullptr, reserver, true);
     }
     wallet->SetBroadcastTransactions(true);
 
@@ -331,7 +331,7 @@ void TestGUI_coloredCoin()
             LOCK(cs_main);
             WalletRescanReserver reserver(wallet.get());
             reserver.reserve();
-            wallet->ScanForWalletTransactions(chainActive.Genesis(), nullptr, reserver, true);
+            wallet->ScanForWalletTransactions(g_chainstate_manager.ActiveChain().Genesis(), nullptr, reserver, true);
         }
         // qWait drains the event queue continuously for 50 ms, giving
         // TransactionTableModel::updateTransaction events (queued from

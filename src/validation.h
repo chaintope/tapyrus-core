@@ -114,19 +114,6 @@ extern CTxMemPool mempool;
 extern std::atomic_bool g_is_mempool_loaded;
 extern uint64_t nLastBlockTx;
 extern uint64_t nLastBlockSize;
-/** Best header we've seen so far (used for getheaders queries' starting points). */
-extern CBlockIndex *pindexBestHeader;
-
-/** The currently-connected chain of blocks (protected by cs_main). */
-extern CChain& chainActive;
-
-/** Global variable that points to the coins database (protected by cs_main) */
-extern std::unique_ptr<CCoinsViewDB> pcoinsdbview;
-
-/** Global variable that points to the active CCoinsView (protected by cs_main) */
-extern std::unique_ptr<CCoinsViewCache> pcoinsTip;
-
-extern CBlockIndex *&pindexBestInvalid;
 
 /** Minimum blocks required to signal NODE_NETWORK_LIMITED */
 static const unsigned int NODE_NETWORK_LIMITED_MIN_BLOCKS = 288;
@@ -204,10 +191,10 @@ void PruneBlockFilesManual(int nManualPruneHeight);
 
 /** (try to) add transaction to memory pool
  * plTxnReplaced will be appended to with all transactions replaced from mempool **/
-bool AcceptToMemoryPool(const CTransactionRef &tx, CTxMempoolAcceptanceOptions &opt);
+bool AcceptToMemoryPool(const CTransactionRef &tx, CTxMempoolAcceptanceOptions &opt) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 
 /** remove old transactions from mempool based on age to keep it within size limits*/
-void LimitMempoolSize(CTxMemPool& pool, size_t limit, unsigned long age);
+void LimitMempoolSize(CTxMemPool& pool, size_t limit, unsigned long age) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 
 /** Apply the effects of this transaction on the UTXO set represented by view */
 void UpdateCoins(const CTransaction& tx, CCoinsViewCache& inputs, int nHeight);

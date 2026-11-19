@@ -234,7 +234,7 @@ bool LoadExternalBlockFile(FILE* fileIn, CDiskBlockPos *dbp, CXFieldHistoryMap* 
                     CBlockIndex* pindex = blockIndex.LookupBlockIndex(hash);
                     if (!pindex || (pindex->nStatus & BLOCK_HAVE_DATA) == 0) {
                         CValidationState state;
-                        if (g_chainstate.AcceptBlock(pblock, state, nullptr, true, dbp, nullptr, pxfieldHistory)) {
+                        if (g_chainstate_manager.ActiveChainstate().AcceptBlock(pblock, state, nullptr, true, dbp, nullptr, pxfieldHistory)) {
                             nLoaded++;
                         }
                         if (state.IsError()) {
@@ -272,7 +272,7 @@ bool LoadExternalBlockFile(FILE* fileIn, CDiskBlockPos *dbp, CXFieldHistoryMap* 
                                     head.ToString());
                             LOCK(cs_main);
                             CValidationState dummy;
-                            if (g_chainstate.AcceptBlock(pblockrecursive, dummy, nullptr, true, &it->second, nullptr, pxfieldHistory))
+                            if (g_chainstate_manager.ActiveChainstate().AcceptBlock(pblockrecursive, dummy, nullptr, true, &it->second, nullptr, pxfieldHistory))
                             {
                                 nLoaded++;
                                 queue.push_back(pblockrecursive->GetHash());
@@ -305,14 +305,14 @@ bool FlushStateToDisk(CValidationState &state, FlushStateMode mode, int nManualP
 
     try {
     {
-        [[maybe_unused]]const size_t coins_count = pcoinsTip->GetCacheSize();
-        [[maybe_unused]]const size_t coins_mem_usage = pcoinsTip->DynamicMemoryUsage();
+        [[maybe_unused]]const size_t coins_count = g_chainstate_manager.ActiveChainstate().CoinsTip().GetCacheSize();
+        [[maybe_unused]]const size_t coins_mem_usage = g_chainstate_manager.ActiveChainstate().CoinsTip().DynamicMemoryUsage();
 
         bool fFlushForPrune = false;
         bool fDoFullFlush = false;
         BlockFileManager& blockFileManager = g_chainstate_manager.GetBlockFileManager();
         LOCK(blockFileManager.cs_LastBlockFile);
-        blockFileManager.FindFilesToPruneOnFlush(setFilesToPrune, nManualPruneHeight, chainActive.Tip(), IsInitialBlockDownload(), g_chainstate_manager.IsReindexing());
+        blockFileManager.FindFilesToPruneOnFlush(setFilesToPrune, nManualPruneHeight, g_chainstate_manager.ActiveChain().Tip(), IsInitialBlockDownload(), g_chainstate_manager.IsReindexing());
         if (!setFilesToPrune.empty()) g_chainstate_manager.RecordPruned();
         fFlushForPrune = !setFilesToPrune.empty();
         int64_t nNow = GetTimeMicros();
@@ -324,7 +324,7 @@ bool FlushStateToDisk(CValidationState &state, FlushStateMode mode, int nManualP
             nLastFlush = nNow;
         }
         int64_t nMempoolSizeMax = g_policy_settings->maxMempool;
-        int64_t cacheSize = pcoinsTip->DynamicMemoryUsage();
+        int64_t cacheSize = g_chainstate_manager.ActiveChainstate().CoinsTip().DynamicMemoryUsage();
         int64_t nTotalSpace = g_chainstate_manager.GetOptions().nCoinCacheUsage + std::max<int64_t>(nMempoolSizeMax - nMempoolUsage, 0);
         // The cache is large and we're within 10% and 10 MiB of the limit, but we have time now (not in the middle of a block processing).
         bool fCacheLarge = mode == FlushStateMode::PERIODIC && cacheSize > std::max((9 * nTotalSpace) / 10, nTotalSpace - MAX_BLOCK_COINSDB_USAGE * 1024 * 1024);
@@ -357,17 +357,17 @@ bool FlushStateToDisk(CValidationState &state, FlushStateMode mode, int nManualP
             nLastWrite = nNow;
         }
         // Flush best chain related state. This can only be done if the blocks / block index write was also done.
-        if ((fDoFullFlush || fFlushForPrune) && !pcoinsTip->GetBestBlock().IsNull()) {
+        if ((fDoFullFlush || fFlushForPrune) && !g_chainstate_manager.ActiveChainstate().CoinsTip().GetBestBlock().IsNull()) {
             // Typical Coin structures on disk are around 48 bytes in size.
             // Pushing a new one to the database can cause it to be written
             // twice (once in the log, and once in the tables). This is already
             // an overestimation, as most will delete an existing entry or
             // overwrite one. Still, use a conservative safety factor of 2.
-            if (!blockFileManager.CheckDiskSpace(48 * 2 * 2 * pcoinsTip->GetCacheSize()))
+            if (!blockFileManager.CheckDiskSpace(48 * 2 * 2 * g_chainstate_manager.ActiveChainstate().CoinsTip().GetCacheSize()))
                 return state.Error("out of disk space");
             // For a full flush, wipe the entire cache; for a prune flush, use Sync()
             // to write dirty entries while keeping the cache warm for faster block connection.
-            if (fDoFullFlush ? !pcoinsTip->Flush() : !pcoinsTip->Sync())
+            if (fDoFullFlush ? !g_chainstate_manager.ActiveChainstate().CoinsTip().Flush() : !g_chainstate_manager.ActiveChainstate().CoinsTip().Sync())
                 return AbortNode(state, "Failed to write to coin database");
             nLastFlush = nNow;
             full_flush_completed = fDoFullFlush;
@@ -381,7 +381,7 @@ bool FlushStateToDisk(CValidationState &state, FlushStateMode mode, int nManualP
     }
     if (full_flush_completed) {
         // Update best block in wallet (so we can detect restored wallets).
-        GetMainSignals().ChainStateFlushed(chainActive.GetLocator());
+        GetMainSignals().ChainStateFlushed(g_chainstate_manager.ActiveChain().GetLocator());
     }
     } catch (const std::runtime_error& e) {
         return AbortNode(state, std::string("System error while flushing: ") + e.what());

@@ -93,6 +93,8 @@ BasicTestingSetup::BasicTestingSetup(const std::string& chainName)
         pxFieldHistory = &g_chainstate_manager.XFieldHistory();
         g_chainstate_manager.InitOptions(ChainstateOptionsOverride::TestOptions({}));
         g_chainstate_manager.InitBlockFileManager(BlockFileManager::Options(gArgs, Params().PruneAfterHeight()));
+        // Created once per test binary, as the global chainstate it replaces was.
+        if (!g_chainstate_manager.HasChainstate()) g_chainstate_manager.InitializeChainstate();
         {
             LOCK(cs_main);
             g_chainstate_manager.IssuedColorIds() = CIssuedColorIds();
@@ -193,9 +195,10 @@ TestingSetup::TestingSetup(const std::string& chainName) : BasicTestingSetup(cha
             {
                 LOCK(cs_main);
                 blockIndex.pblocktreedb.reset(new CBlockTreeDB(1 << 20, true));
-                pcoinsdbview.reset(new CCoinsViewDB(g_chainstate_manager.IssuedColorIds(), 1 << 23, true));
+                Chainstate& chainstate = g_chainstate_manager.ActiveChainstate();
+                chainstate.InitCoinsDB(g_chainstate_manager.IssuedColorIds(), 1 << 23, true, false);
+                chainstate.InitCoinsCache();
             }
-            pcoinsTip.reset(new CCoinsViewCache(pcoinsdbview.get()));
             if (!LoadGenesisBlock()) {
                 throw std::runtime_error("LoadGenesisBlock failed.");
             }
@@ -232,9 +235,8 @@ void TestingSetup::TearDown()
         m_node.peerman.reset();
         m_node.connman.reset();
         UnloadBlockIndex();
-        pcoinsTip.reset();
-        pcoinsdbview.reset();
         LOCK(cs_main);
+        g_chainstate_manager.ActiveChainstate().ResetCoinsViews();
         blockIndex.pblocktreedb.reset();
 }
 
@@ -289,7 +291,7 @@ TestChainSetup::CreateAndProcessBlock(const std::vector<CMutableTransaction>& tx
     {
         LOCK(cs_main);
         unsigned int extraNonce = 0;
-        IncrementExtraNonce(&block, chainActive.Tip(), extraNonce);
+        IncrementExtraNonce(&block, g_chainstate_manager.ActiveChain().Tip(), extraNonce);
     }
     XFieldAggPubKey aggpubkeyChange;
     g_chainstate_manager.XFieldHistory().GetLatest(TAPYRUS_XFIELDTYPES::AGGPUBKEY, aggpubkeyChange);

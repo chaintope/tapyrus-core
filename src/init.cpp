@@ -156,32 +156,6 @@ static const char* FEE_ESTIMATES_FILENAME="fee_estimates.dat";
 // shutdown thing.
 //
 
-/**
- * This is a minimally invasive approach to shutdown on LevelDB read errors from the
- * chainstate, while keeping user interface out of the common library, which is shared
- * between tapyrusd, and tapyrus-qt and non-server tools.
-*/
-class CCoinsViewErrorCatcher final : public CCoinsViewBacked
-{
-public:
-    explicit CCoinsViewErrorCatcher(CCoinsView* view) : CCoinsViewBacked(view) {}
-    bool GetCoin(const COutPoint &outpoint, Coin &coin) const override {
-        try {
-            return CCoinsViewBacked::GetCoin(outpoint, coin);
-        } catch(const std::runtime_error& e) {
-            uiInterface.ThreadSafeMessageBox(_("Error reading from database, shutting down."), "", CClientUIInterface::MSG_ERROR);
-            LogPrintf("Error reading from database: %s\n", e.what());
-            // Starting the shutdown sequence and returning false to the caller would be
-            // interpreted as 'entry not found' (as opposed to unable to read data), and
-            // could lead to invalid interpretation. Just exit immediately, as we can't
-            // continue anyway, and all writes should be atomic.
-            abort();
-        }
-    }
-    // Writes do not need similar protection, as failure to write is handled by the caller.
-};
-
-static std::unique_ptr<CCoinsViewErrorCatcher> pcoinscatcher;
 static std::unique_ptr<ECCVerifyHandle> globalVerifyHandle;
 
 static CScheduler scheduler;
@@ -258,7 +232,12 @@ void Shutdown(NodeContext& node)
     }
 
     // FlushStateToDisk generates a ChainStateFlushed callback, which we should avoid missing
-    if (pcoinsTip != nullptr) {
+    bool fCanFlush = false;
+    {
+        LOCK(cs_main);
+        fCanFlush = g_chainstate_manager.HasChainstate() && g_chainstate_manager.ActiveChainstate().CanFlushToDisk();
+    }
+    if (fCanFlush) {
         FlushStateToDisk();
     }
 
@@ -274,12 +253,14 @@ void Shutdown(NodeContext& node)
 
     {
         LOCK(cs_main);
-        if (pcoinsTip != nullptr) {
-            FlushStateToDisk();
+        // Absent when start-up failed before the chainstate was created.
+        if (g_chainstate_manager.HasChainstate()) {
+            Chainstate& chainstate = g_chainstate_manager.ActiveChainstate();
+            if (chainstate.CanFlushToDisk()) {
+                FlushStateToDisk();
+            }
+            chainstate.ResetCoinsViews();
         }
-        pcoinsTip.reset();
-        pcoinscatcher.reset();
-        pcoinsdbview.reset();
         g_chainstate_manager.IssuedColorIds() = CIssuedColorIds();
         g_chainstate_manager.BlockIndex().pblocktreedb.reset();
     }
@@ -466,7 +447,7 @@ void SetupServerArgs()
 
     gArgs.AddArg("-checkblocks=<n>", strprintf("How many blocks to check at startup (default: %u, 0 = all)", DEFAULT_CHECKBLOCKS), true, OptionsCategory::DEBUG_TEST);
     gArgs.AddArg("-checklevel=<n>", strprintf("How thorough the block verification of -checkblocks is (0-4, default: %u)", DEFAULT_CHECKLEVEL), true, OptionsCategory::DEBUG_TEST);
-    gArgs.AddArg("-checkblockindex", strprintf("Do a full consistency check for mapBlockIndex, setBlockIndexCandidates, chainActive and mapBlocksUnlinked occasionally. (default: %u)", defaultChainParams->DefaultConsistencyChecks()), true, OptionsCategory::DEBUG_TEST);
+    gArgs.AddArg("-checkblockindex", strprintf("Do a full consistency check for mapBlockIndex, setBlockIndexCandidates, the active chain and mapBlocksUnlinked occasionally. (default: %u)", defaultChainParams->DefaultConsistencyChecks()), true, OptionsCategory::DEBUG_TEST);
     gArgs.AddArg("-checkmempool=<n>", strprintf("Run checks every <n> transactions (default: %u)", defaultChainParams->DefaultConsistencyChecks()), true, OptionsCategory::DEBUG_TEST);
     gArgs.AddArg("-checkpoints", strprintf("Disable expensive verification for known chain history (default: %u)", DEFAULT_CHECKPOINTS_ENABLED), true, OptionsCategory::DEBUG_TEST);
     gArgs.AddArg("-deprecatedrpc=<method>", "Allows deprecated RPC method(s) to be used", true, OptionsCategory::DEBUG_TEST);
@@ -1066,6 +1047,7 @@ bool AppInitParameterInteraction(NodeContext& node)
     } catch (const std::exception& e) {
         return InitError(e.what());
     }
+    g_chainstate_manager.InitializeChainstate();
 
     // Option to startup with mocktime set (used for regression testing):
     SetMockTime(gArgs.GetArg("-mocktime", 0)); // SetMockTime(0) is a no-op
@@ -1383,9 +1365,7 @@ bool AppInitMain(NodeContext& node)
             const int64_t load_block_index_start_time = GetTimeMillis();
             try {
                 UnloadBlockIndex();
-                pcoinsTip.reset();
-                pcoinsdbview.reset();
-                pcoinscatcher.reset();
+                g_chainstate_manager.ActiveChainstate().ResetCoinsViews();
                 // new CBlockTreeDB tries to delete the existing file, which
                 // fails if it's still open from the previous loop. Close it first:
                 blockIndex.pblocktreedb.reset();
@@ -1438,8 +1418,7 @@ bool AppInitMain(NodeContext& node)
                 // At this point we're either in reindex or we've loaded a useful
                 // block tree into mapBlockIndex!
 
-                pcoinsdbview.reset(new CCoinsViewDB(g_chainstate_manager.IssuedColorIds(), cache.nCoinDBCache, false, wipeBlockTree || g_chainstate_manager.GetOptions().fReindexChainState));
-                pcoinscatcher.reset(new CCoinsViewErrorCatcher(pcoinsdbview.get()));
+                g_chainstate_manager.ActiveChainstate().InitCoinsDB(g_chainstate_manager.IssuedColorIds(), cache.nCoinDBCache, false, wipeBlockTree || g_chainstate_manager.GetOptions().fReindexChainState);
 
                 // Reset the issued colorIds before ReplayBlocks so that DisconnectBlock
                 // inside the replay can stage erases that CommitToBatch writes atomically
@@ -1448,34 +1427,34 @@ bool AppInitMain(NodeContext& node)
 
                 // If necessary, upgrade from older database format.
                 // This is a no-op if we cleared the coinsviewdb with -reindex or -reindex-chainstate
-                if (!pcoinsdbview->Upgrade()) {
+                if (!g_chainstate_manager.ActiveChainstate().CoinsDB().Upgrade()) {
                     strLoadError = _("Error upgrading chainstate database");
                     break;
                 }
 
                 // ReplayBlocks is a no-op if we cleared the coinsviewdb with -reindex or -reindex-chainstate
-                if (!ReplayBlocks(pcoinsdbview.get(), g_chainstate_manager.IssuedColorIds())) {
+                if (!ReplayBlocks(&g_chainstate_manager.ActiveChainstate().CoinsDB(), g_chainstate_manager.IssuedColorIds())) {
                     strLoadError = _("Unable to replay blocks. You will need to rebuild the database using -reindex-chainstate.");
                     break;
                 }
 
                 // The on-disk coinsdb is now in a good state, create the cache
-                pcoinsTip.reset(new CCoinsViewCache(pcoinscatcher.get()));
+                g_chainstate_manager.ActiveChainstate().InitCoinsCache();
 
-                bool is_coinsview_empty = wipeBlockTree || g_chainstate_manager.GetOptions().fReindexChainState || pcoinsTip->GetBestBlock().IsNull();
+                bool is_coinsview_empty = wipeBlockTree || g_chainstate_manager.GetOptions().fReindexChainState || g_chainstate_manager.ActiveChainstate().CoinsTip().GetBestBlock().IsNull();
                 if (!is_coinsview_empty) {
-                    // LoadChainTip sets chainActive based on pcoinsTip's best block
+                    // LoadChainTip sets the active chain based on the coins tip's best block
                     if (!LoadChainTip()) {
                         strLoadError = _("Error initializing block database");
                         break;
                     }
-                    assert(chainActive.Tip() != nullptr);
+                    assert(g_chainstate_manager.ActiveChain().Tip() != nullptr);
                 }
 
                 if (!wipeBlockTree) {
                     // Note that RewindBlockIndex MUST run even if we're about to -reindex-chainstate.
                     // It reduces validity/have-data flags in mapBlockIndex and rebuilds
-                    // setBlockIndexCandidates for the current chainActive.
+                    // setBlockIndexCandidates for the current active chain.
                     uiInterface.InitMessage(_("Rewinding blocks..."));
                     if (!RewindBlockIndex()) {
                         strLoadError = _("Unable to rewind the database to a pre-fork state. You will need to redownload the blockchain");
@@ -1500,7 +1479,7 @@ bool AppInitMain(NodeContext& node)
                 // cs_main is already held by the outer LOCK.
                 {
                     std::set<ColorIdentifier> colorIds;
-                    if (!pcoinsdbview->LoadIssuedColorIds(colorIds)) {
+                    if (!g_chainstate_manager.ActiveChainstate().CoinsDB().LoadIssuedColorIds(colorIds)) {
                         strLoadError = _("Failed to load issued colorId set from chainstate database");
                         break;
                     }
@@ -1514,7 +1493,7 @@ bool AppInitMain(NodeContext& node)
                             BlockFileManager::MIN_BLOCKS_TO_KEEP);
                     }
 
-                    CBlockIndex* tip = chainActive.Tip();
+                    CBlockIndex* tip = g_chainstate_manager.ActiveChain().Tip();
                     RPCNotifyBlockChange(true, tip);
                     if (tip && tip->nTime > GetAdjustedTime() + 2 * 60 * 60) {
                         strLoadError = _("The block database contains a block which appears to be from the future. "
@@ -1523,7 +1502,7 @@ bool AppInitMain(NodeContext& node)
                         break;
                     }
 
-                    if (!CVerifyDB().VerifyDB(pcoinsdbview.get(), gArgs.GetArg("-checklevel", DEFAULT_CHECKLEVEL),
+                    if (!CVerifyDB().VerifyDB(&g_chainstate_manager.ActiveChainstate().CoinsDB(), gArgs.GetArg("-checklevel", DEFAULT_CHECKLEVEL),
                                   gArgs.GetArg("-checkblocks", DEFAULT_CHECKBLOCKS))) {
                         strLoadError = _("Corrupted block database detected");
                         break;
@@ -1610,7 +1589,7 @@ bool AppInitMain(NodeContext& node)
 
     // Either install a handler to notify us when genesis activates, or set fHaveGenesis directly.
     // No locking, as this happens before any background thread is started.
-    if (chainActive.Tip() == nullptr) {
+    if (g_chainstate_manager.ActiveChain().Tip() == nullptr) {
         uiInterface.NotifyBlockTip.connect(&BlockNotifyGenesisWait);
     } else {
         fHaveGenesis = true;
@@ -1650,7 +1629,7 @@ bool AppInitMain(NodeContext& node)
     {
         LOCK(cs_main);
         LogPrintf("mapBlockIndex.size() = %u\n", blockIndex.mapBlockIndex.size());
-        chain_active_height = chainActive.Height();
+        chain_active_height = g_chainstate_manager.ActiveChain().Height();
     }
     LogPrintf("nBestHeight = %d\n", chain_active_height);
 

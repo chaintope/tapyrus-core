@@ -4,6 +4,8 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <policy/packages.h>
+
+#include <chainstatemanager.h>
 #include <policy/policy.h>
 #include <primitives/transaction.h>
 #include <txmempool.h>
@@ -165,7 +167,8 @@ bool SubmitPackageToMempool(const Package& package,
     // owns the pointer and its destructor deletes it; CCoinsView has a virtual dtor.
     if (opt.flags == MempoolAcceptanceFlags::TEST_ONLY) {
         delete opt.mempool_view;
-        opt.mempool_view = new CCoinsViewVirtualMemPool(pcoinsTip.get(), mempool);
+        LOCK(::cs_main);
+        opt.mempool_view = new CCoinsViewVirtualMemPool(&g_chainstate_manager.ActiveChainstate().CoinsTip(), mempool);
     }
     CCoinsViewVirtualMemPool* virtualView =
         dynamic_cast<CCoinsViewVirtualMemPool*>(opt.mempool_view);

@@ -7,7 +7,7 @@
 // Adaptations for Tapyrus:
 //   - No Chainstate class / GetCoinsCacheSizeState(): threshold logic inlined
 //     from FlushStateToDisk() in file_io.cpp (fCacheLarge / fCacheCritical).
-//   - Uses global pcoinsTip and the nCoinCacheUsage option of ChainstateManager.
+//   - Uses the active chainstate's coins tip and the nCoinCacheUsage option of ChainstateManager.
 //   - AddTestCoin() reimplemented using COutPoint(uint256, n) directly.
 //   - InsecureRand256() / InsecureRand32() replace FastRandomContext helpers.
 
@@ -58,11 +58,11 @@ BOOST_FIXTURE_TEST_SUITE(validation_flush_tests, TestingSetup)
 //!   fCacheLarge   = cacheSize > LargeCacheSizeThreshold(nTotalSpace)
 //!   fCacheCritical= cacheSize > nTotalSpace
 //! This test exercises the same state-machine by controlling nCoinCacheUsage
-//! and filling pcoinsTip until each threshold is crossed.
+//! and filling the coins tip until each threshold is crossed.
 BOOST_AUTO_TEST_CASE(getcoinscachesizestate)
 {
     LOCK(cs_main);
-    CCoinsViewCache& view = *pcoinsTip;
+    CCoinsViewCache& view = g_chainstate_manager.ActiveChainstate().CoinsTip();
 
     // An empty cache should occupy well under one pool chunk (~256 KiB).
     BOOST_CHECK_LT(view.DynamicMemoryUsage() / (256.0 * 1024), 1.1);

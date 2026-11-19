@@ -55,8 +55,6 @@ class ConnectTrace;
 
 extern RecursiveMutex cs_main;
 
-CChain& chainActive = g_chainstate.chainActive;
-CBlockIndex *pindexBestHeader = nullptr;
 
 CBlockPolicyEstimator feeEstimator;
 CTxMemPool mempool(&feeEstimator);
@@ -64,8 +62,6 @@ std::atomic_bool g_is_mempool_loaded{false};
 
 /** Constant stuff for coinbase transactions we create: */
 CScript COINBASE_FLAGS;
-
-CBlockIndex *&pindexBestInvalid = g_chainstate.pindexBestInvalid;
 
 
 
@@ -80,11 +76,11 @@ static constexpr int64_t MIN_CHAIN_TX_WINDOW = 100;
  * becomes more stable as the chain grows. Triggered by height modulo so no
  * extra state is needed; rate is computed via pprev walk over the window.
  *
- * nTxCount is estimated using pindexBestHeader (the furthest header known from
+ * nTxCount is estimated using the best header (the furthest header known from
  * peers) so that during IBD, progress = nChainTx / nTxCount tracks
  * height / bestHeaderHeight rather than extrapolating years of empty time.
  */
-void RefreshChainTxDataFromTip(const CBlockIndex* pindexNew)
+void RefreshChainTxDataFromTip(const CBlockIndex* pindexNew) EXCLUSIVE_LOCKS_REQUIRED(cs_main)
 {
     if (!pindexNew || pindexNew->nHeight == 0)
         return;
@@ -107,8 +103,8 @@ void RefreshChainTxDataFromTip(const CBlockIndex* pindexNew)
         static_cast<int64_t>(pindexNew->nChainTx) - static_cast<int64_t>(pWindow->nChainTx)) / dt;
 
     const int64_t bestHeight =
-        (pindexBestHeader && pindexBestHeader->nHeight > pindexNew->nHeight)
-        ? static_cast<int64_t>(pindexBestHeader->nHeight)
+        (g_chainstate_manager.BestHeader() && g_chainstate_manager.BestHeader()->nHeight > pindexNew->nHeight)
+        ? static_cast<int64_t>(g_chainstate_manager.BestHeader()->nHeight)
         : static_cast<int64_t>(pindexNew->nHeight);
 
     const double txPerBlock = static_cast<double>(pindexNew->nChainTx) /
@@ -141,8 +137,6 @@ CBlockIndex* FindForkInGlobalIndex(const CChain& chain, const CBlockLocator& loc
     return chain.Genesis();
 }
 
-std::unique_ptr<CCoinsViewDB> pcoinsdbview;
-std::unique_ptr<CCoinsViewCache> pcoinsTip;
 
 const CBlockIndex* GetLastCheckpointIfEnabled()
 {
@@ -162,13 +156,13 @@ bool CheckFinalTx(const CTransaction &tx, int flags)
     // scheduled, so no flags are set.
     flags = std::max(flags, 0);
 
-    // CheckFinalTx() uses chainActive.Height()+1 to evaluate
+    // CheckFinalTx() uses the active chain height + 1 to evaluate
     // nLockTime because when IsFinalTx() is called within
     // CBlock::AcceptBlock(), the height of the block *being*
     // evaluated is what is used. Thus if we want to know if a
     // transaction can be part of the *next* block, we need to call
-    // IsFinalTx() with one more than chainActive.Height().
-    const int nBlockHeight = chainActive.Height() + 1;
+    // IsFinalTx() with one more than the active chain height.
+    const int nBlockHeight = g_chainstate_manager.ActiveChain().Height() + 1;
 
     // BIP113 requires that time-locked transactions have nLockTime set to
     // less than the median time of the previous block they're contained in.
@@ -176,7 +170,7 @@ bool CheckFinalTx(const CTransaction &tx, int flags)
     // chain tip, so we use that to calculate the median time passed to
     // IsFinalTx() if LOCKTIME_MEDIAN_TIME_PAST is set.
     const int64_t nBlockTime = (flags & ConsensusConstants::LOCKTIME_MEDIAN_TIME_PAST)
-                             ? chainActive.Tip()->GetMedianTimePast()
+                             ? g_chainstate_manager.ActiveChain().Tip()->GetMedianTimePast()
                              : GetAdjustedTime();
 
     return IsFinalTx(tx, nBlockHeight, nBlockTime);
@@ -189,9 +183,9 @@ bool TestLockPointValidity(const LockPoints* lp)
     // If there are relative lock times then the maxInputBlock will be set
     // If there are no relative lock times, the LockPoints don't depend on the chain
     if (lp->maxInputBlock) {
-        // Check whether chainActive is an extension of the block at which the LockPoints
+        // Check whether the active chain is an extension of the block at which the LockPoints
         // calculation was valid.  If not LockPoints are no longer valid
-        if (!chainActive.Contains(lp->maxInputBlock)) {
+        if (!g_chainstate_manager.ActiveChain().Contains(lp->maxInputBlock)) {
             return false;
         }
     }
@@ -205,17 +199,17 @@ bool CheckSequenceLocks(const CTransaction &tx, int flags, CCoinsViewMemPool& vi
     AssertLockHeld(cs_main);
     AssertLockHeld(mempool.cs);
 
-    CBlockIndex* tip = chainActive.Tip();
+    CBlockIndex* tip = g_chainstate_manager.ActiveChain().Tip();
     assert(tip != nullptr);
 
     CBlockIndex index;
     index.pprev = tip;
-    // CheckSequenceLocks() uses chainActive.Height()+1 to evaluate
+    // CheckSequenceLocks() uses the active chain height + 1 to evaluate
     // height based locks because when SequenceLocks() is called within
     // ConnectBlock(), the height of the block *being*
     // evaluated is what is used.
     // Thus if we want to know if a transaction can be part of the
-    // *next* block, we need to use one more than chainActive.Height()
+    // *next* block, we need to use one more than the active chain height
     index.nHeight = tip->nHeight + 1;
 
     std::pair<int, int64_t> lockPair;
@@ -225,7 +219,7 @@ bool CheckSequenceLocks(const CTransaction &tx, int flags, CCoinsViewMemPool& vi
         lockPair.second = lp->time;
     }
     else {
-        // pcoinsTip contains the UTXO set for chainActive.Tip()
+        // The coins tip contains the UTXO set for the active tip
         std::vector<int> prevheights;
         prevheights.resize(tx.vin.size());
         for (size_t txinIndex = 0; txinIndex < tx.vin.size(); txinIndex++) {
@@ -279,7 +273,7 @@ void LimitMempoolSize(CTxMemPool& pool, size_t limit, unsigned long age) {
     std::vector<COutPoint> vNoSpendsRemaining;
     pool.TrimToSize(limit, &vNoSpendsRemaining);
     for (const COutPoint& removed : vNoSpendsRemaining)
-        pcoinsTip->Uncache(removed);
+        g_chainstate_manager.ActiveChainstate().CoinsTip().Uncache(removed);
 }
 
 /** Convert CValidationState to a human-readable message for logging */
@@ -291,9 +285,9 @@ static bool IsCurrentForFeeEstimation()
     AssertLockHeld(cs_main);
     if (IsInitialBlockDownload())
         return false;
-    if (chainActive.Tip()->GetBlockTime() < (GetTime() - MAX_FEE_ESTIMATION_TIP_AGE))
+    if (g_chainstate_manager.ActiveChain().Tip()->GetBlockTime() < (GetTime() - MAX_FEE_ESTIMATION_TIP_AGE))
         return false;
-    if (chainActive.Height() < pindexBestHeader->nHeight - 1)
+    if (g_chainstate_manager.ActiveChain().Height() < g_chainstate_manager.BestHeader()->nHeight - 1)
         return false;
     return true;
 }
@@ -325,7 +319,7 @@ static bool CheckInputsFromMempoolAndCache(ValidationContext context, const CTra
             assert(txFrom->vout.size() > txin.prevout.n);
             assert(txFrom->vout[txin.prevout.n] == coin.out);
         } else if(context != ValidationContext::PACKAGE) { //transactions in a package are not expected to be present in the disk
-                const Coin& coinFromDisk = pcoinsTip->AccessCoin(txin.prevout);
+                const Coin& coinFromDisk = g_chainstate_manager.ActiveChainstate().CoinsTip().AccessCoin(txin.prevout);
                 assert(!coinFromDisk.IsSpent());
                 assert(coinFromDisk.out == coin.out);
         }
@@ -379,17 +373,17 @@ static bool CheckConflictsInMempool(const CTransaction& tx, std::set<uint256>& s
     return true;
 }
 
-static bool DoAllInputsExist(const CTransaction& tx, CValidationState& state, CTxMempoolAcceptanceOptions& opt, CCoinsViewCache &view)
+static bool DoAllInputsExist(const CTransaction& tx, CValidationState& state, CTxMempoolAcceptanceOptions& opt, CCoinsViewCache &view) EXCLUSIVE_LOCKS_REQUIRED(cs_main)
 {
     for (const CTxIn& txin : tx.vin) {
-        if (!pcoinsTip->HaveCoinInCache(txin.prevout)) {
+        if (!g_chainstate_manager.ActiveChainstate().CoinsTip().HaveCoinInCache(txin.prevout)) {
             opt.coins_to_uncache.push_back(txin.prevout);
         }
         if (!view.HaveCoin(txin.prevout)) {
             // Are inputs missing because we already have the tx?
             for (size_t out = 0; out < tx.vout.size(); out++) {
                 // Optimistically just do efficient check of cache for outputs
-                if (pcoinsTip->HaveCoinInCache(COutPoint(tx.GetHashMalFix(), out))) {
+                if (g_chainstate_manager.ActiveChainstate().CoinsTip().HaveCoinInCache(COutPoint(tx.GetHashMalFix(), out))) {
                     return state.Invalid(false, REJECT_DUPLICATE, "txn-already-known");
                 }
             }
@@ -460,7 +454,7 @@ static bool AcceptToMemoryPoolWorker(const CTransactionRef &ptx, CTxMempoolAccep
 
         // Read once here; the balance check below reuses it after the view
         // is switched away from the mempool.
-        PrecomputedColorData colorData(tx, view, chainActive.Tip()->nHeight + 1);
+        PrecomputedColorData colorData(tx, view, g_chainstate_manager.ActiveChain().Tip()->nHeight + 1);
         colorData.SetIssued(g_chainstate_manager.IssuedColorIds());
         const TransactionColorChecker colorChecker(colorData);
         if (!colorChecker.CheckOutputColorIds(state))
@@ -508,7 +502,7 @@ static bool AcceptToMemoryPoolWorker(const CTransactionRef &ptx, CTxMempoolAccep
             }
         }
 
-        CTxMemPoolEntry entry(ptx, nFees, opt.nAcceptTime, chainActive.Height(),
+        CTxMemPoolEntry entry(ptx, nFees, opt.nAcceptTime, g_chainstate_manager.ActiveChain().Height(),
                               fSpendsCoinbase, nSigOps, lp);
         unsigned int nSize = entry.GetTxSize();
 
@@ -688,7 +682,7 @@ static bool AcceptToMemoryPoolWorker(const CTransactionRef &ptx, CTxMempoolAccep
         // activation at height H is enforced by the mempool at tip == H-1.
         // Using tip height here would admit txs that are valid pre-activation but
         // invalid post-activation, producing an invalid block at height H.
-        const unsigned int tipScriptFlags = g_chainstate_manager.Settings().ScriptFlagsAt(chainActive.Tip()->nHeight + 1);
+        const unsigned int tipScriptFlags = g_chainstate_manager.Settings().ScriptFlagsAt(g_chainstate_manager.ActiveChain().Tip()->nHeight + 1);
         const unsigned int mempoolScriptFlags = PolicyConstants::STANDARD_SCRIPT_VERIFY_FLAGS | tipScriptFlags;
         // Pass tipScriptFlags as mandatoryFlags so that softfork flags active at
         // nextBlockHeight are treated as mandatory even when they also appear in
@@ -759,12 +753,16 @@ static bool AcceptToMemoryPoolWorker(const CTransactionRef &ptx, CTxMempoolAccep
 /** (try to) add transaction to memory pool with a specified acceptance time **/
 bool AcceptToMemoryPool(const CTransactionRef &tx, CTxMempoolAcceptanceOptions& opt)
 {
+    AssertLockHeld(cs_main);
+    if (!opt.mempool_view) {
+        opt.mempool_view = new CCoinsViewMemPool(&g_chainstate_manager.ActiveChainstate().CoinsTip(), mempool);
+    }
     opt.nAcceptTime = GetTime();
     bool res = AcceptToMemoryPoolWorker(tx, opt);
     if (!res) {
         for (const COutPoint& hashTx : opt.coins_to_uncache)
         {
-            pcoinsTip->Uncache(hashTx);
+            g_chainstate_manager.ActiveChainstate().CoinsTip().Uncache(hashTx);
             TRACE2(mempool, rejected,
                 tx->GetHashMalFix().begin(),
                 opt.state.GetRejectReason().c_str());
@@ -801,8 +799,8 @@ bool GetTransaction(const uint256& hash, CTransactionRef& txOut, uint256& hashBl
         }
 
         if (fAllowSlow) { // use coin database to locate block that contains transaction, and scan it
-            const Coin& coin = AccessByTxid(*pcoinsTip, hash);
-            if (!coin.IsSpent()) pindexSlow = chainActive[coin.nHeight];
+            const Coin& coin = AccessByTxid(g_chainstate_manager.ActiveChainstate().CoinsTip(), hash);
+            if (!coin.IsSpent()) pindexSlow = g_chainstate_manager.ActiveChain()[coin.nHeight];
         }
     }
 
@@ -840,9 +838,9 @@ bool IsInitialBlockDownload()
         return false;
     if (g_chainstate_manager.LoadingBlocks())
         return true;
-    if (chainActive.Tip() == nullptr)
+    if (g_chainstate_manager.ActiveChain().Tip() == nullptr)
         return true;
-    if (chainActive.Tip()->GetBlockTime() < (GetTime() - g_chainstate_manager.GetOptions().nMaxTipAge))
+    if (g_chainstate_manager.ActiveChain().Tip()->GetBlockTime() < (GetTime() - g_chainstate_manager.GetOptions().nMaxTipAge))
         return true;
     LogPrintf("Leaving InitialBlockDownload (latching to false)\n");
     latchToFalse.store(true, std::memory_order_relaxed);
@@ -988,7 +986,7 @@ bool CheckInputs(const CTransaction& tx, CValidationState &state, const CCoinsVi
 
 void StartScriptCheckWorkerThreads(int threads_num)
 {
-    g_chainstate.scriptcheckqueue = std::make_unique< CCheckQueue<CScriptCheck> >(128, threads_num);
+    g_chainstate_manager.ActiveChainstate().scriptcheckqueue = std::make_unique< CCheckQueue<CScriptCheck> >(128, threads_num);
 }
 
 void FlushStateToDisk() {
@@ -1016,19 +1014,19 @@ void PruneBlockFilesManual(int nManualPruneHeight)
 }
 
 bool ActivateBestChain(CValidationState &state, std::shared_ptr<const CBlock> pblock) {
-    return g_chainstate.ActivateBestChain(state, std::move(pblock));
+    return g_chainstate_manager.ActiveChainstate().ActivateBestChain(state, std::move(pblock));
 }
 
 bool PreciousBlock(CValidationState& state, CBlockIndex *pindex) {
-    return g_chainstate.PreciousBlock(state, pindex);
+    return g_chainstate_manager.ActiveChainstate().PreciousBlock(state, pindex);
 }
 
 bool InvalidateBlock(CValidationState& state, CBlockIndex *pindex) {
-    return g_chainstate.InvalidateBlock(state, pindex);
+    return g_chainstate_manager.ActiveChainstate().InvalidateBlock(state, pindex);
 }
 
 void ResetBlockFailureFlags(CBlockIndex *pindex) {
-    return g_chainstate.ResetBlockFailureFlags(pindex);
+    return g_chainstate_manager.ActiveChainstate().ResetBlockFailureFlags(pindex);
 }
 
 // Exposed wrapper for AcceptBlockHeader
@@ -1041,7 +1039,7 @@ bool ProcessNewBlockHeaders(const std::vector<CBlockHeader>& headers, CValidatio
         LOCK(cs_main);
         for (const CBlockHeader& header : headers) {
             CBlockIndex *pindex = nullptr; // Use a temp pindex instead of ppindex to avoid a const_cast
-            if (!g_chainstate.AcceptBlockHeader(header, state, &pindex, &tempFieldHistory)) {
+            if (!g_chainstate_manager.ActiveChainstate().AcceptBlockHeader(header, state, &pindex, &tempFieldHistory)) {
                 if (first_invalid) *first_invalid = header;
                 return false;
             }
@@ -1070,7 +1068,7 @@ bool ProcessNewBlock(const std::shared_ptr<const CBlock> pblock, bool fForceProc
 
         if (ret) {
             // Store to disk
-            ret = g_chainstate.AcceptBlock(pblock, state, &pindex, fForceProcessing, nullptr, fNewBlock);
+            ret = g_chainstate_manager.ActiveChainstate().AcceptBlock(pblock, state, &pindex, fForceProcessing, nullptr, fNewBlock);
         }
         if (!ret) {
             GetMainSignals().BlockChecked(*pblock, state);
@@ -1081,7 +1079,7 @@ bool ProcessNewBlock(const std::shared_ptr<const CBlock> pblock, bool fForceProc
     NotifyHeaderTip();
 
     CValidationState state; // Only used to report errors, not invalidity - ignore it
-    if (!g_chainstate.ActivateBestChain(state, pblock))
+    if (!g_chainstate_manager.ActiveChainstate().ActivateBestChain(state, pblock))
         return error("%s: ActivateBestChain failed (%s)", __func__, FormatStateMessage(state));
 
     return true;
@@ -1090,8 +1088,8 @@ bool ProcessNewBlock(const std::shared_ptr<const CBlock> pblock, bool fForceProc
 bool TestBlockValidity(CValidationState& state, const CBlock& block, CBlockIndex* pindexPrev, bool fCheckPOW, bool fCheckMerkleRoot)
 {
     AssertLockHeld(cs_main);
-    assert(pindexPrev && pindexPrev == chainActive.Tip());
-    CCoinsViewCache viewNew(pcoinsTip.get());
+    assert(pindexPrev && pindexPrev == g_chainstate_manager.ActiveChain().Tip());
+    CCoinsViewCache viewNew(&g_chainstate_manager.ActiveChainstate().CoinsTip());
     uint256 block_hash(block.GetHash());
     CBlockIndex indexDummy(block);
     indexDummy.pprev = pindexPrev;
@@ -1105,7 +1103,7 @@ bool TestBlockValidity(CValidationState& state, const CBlock& block, CBlockIndex
         return error("%s: Consensus::CheckBlock: %s", __func__, FormatStateMessage(state));
     if (!ContextualConsensusRules::ContextualCheckBlock(block, state, *pindexPrev))
         return error("%s: Consensus::ContextualCheckBlock: %s", __func__, FormatStateMessage(state));
-    if (!g_chainstate.ConnectBlock(block, state, &indexDummy, viewNew, g_chainstate_manager.IssuedColorIds(), true))
+    if (!g_chainstate_manager.ActiveChainstate().ConnectBlock(block, state, &indexDummy, viewNew, g_chainstate_manager.IssuedColorIds(), true))
         return false;
     assert(state.IsValid());
 
@@ -1114,7 +1112,7 @@ bool TestBlockValidity(CValidationState& state, const CBlock& block, CBlockIndex
 
 bool static LoadBlockIndexDB() EXCLUSIVE_LOCKS_REQUIRED(cs_main)
 {
-    if (!g_chainstate.LoadBlockIndex())
+    if (!g_chainstate_manager.ActiveChainstate().LoadBlockIndex())
         return false;
 
     if (!g_chainstate_manager.GetBlockFileManager().LoadBlockFileInfo())
@@ -1128,11 +1126,11 @@ bool LoadChainTip()
     BlockIndexMap& blockIndex = g_chainstate_manager.BlockIndex();
     AssertLockHeld(cs_main);
 
-    if (chainActive.Tip() && chainActive.Tip()->GetBlockHash() == pcoinsTip->GetBestBlock()) return true;
+    if (g_chainstate_manager.ActiveChain().Tip() && g_chainstate_manager.ActiveChain().Tip()->GetBlockHash() == g_chainstate_manager.ActiveChainstate().CoinsTip().GetBestBlock()) return true;
 
-    if (pcoinsTip->GetBestBlock().IsNull() && blockIndex.mapBlockIndex.size() == 1) {
+    if (g_chainstate_manager.ActiveChainstate().CoinsTip().GetBestBlock().IsNull() && blockIndex.mapBlockIndex.size() == 1) {
         // In case we just added the genesis block, connect it now, so
-        // that we always have a chainActive.Tip() when we return.
+        // that we always have an active tip when we return.
         LogPrintf("%s: Connecting genesis block...\n", __func__);
         CValidationState state;
         if (!ActivateBestChain(state)) {
@@ -1142,32 +1140,32 @@ bool LoadChainTip()
     }
 
     // Load pointer to end of best chain
-    CBlockIndex* pindex = blockIndex.LookupBlockIndex(pcoinsTip->GetBestBlock());
+    CBlockIndex* pindex = blockIndex.LookupBlockIndex(g_chainstate_manager.ActiveChainstate().CoinsTip().GetBestBlock());
     if (!pindex) {
         return false;
     }
-    chainActive.SetTip(pindex);
+    g_chainstate_manager.ActiveChain().SetTip(pindex);
 
-    g_chainstate.PruneBlockIndexCandidates();
+    g_chainstate_manager.ActiveChainstate().PruneBlockIndexCandidates();
 
     LogPrintf("Loaded best chain: hashBestChain=%s height=%d date=%s progress=%f\n",
-        chainActive.Tip()->GetBlockHash().ToString(), chainActive.Height(),
-        FormatISO8601DateTime(chainActive.Tip()->GetBlockTime()),
-        GuessVerificationProgress(Params().TxData(), chainActive.Tip()));
+        g_chainstate_manager.ActiveChain().Tip()->GetBlockHash().ToString(), g_chainstate_manager.ActiveChain().Height(),
+        FormatISO8601DateTime(g_chainstate_manager.ActiveChain().Tip()->GetBlockTime()),
+        GuessVerificationProgress(Params().TxData(), g_chainstate_manager.ActiveChain().Tip()));
     return true;
 }
 
 bool ReplayBlocks(CCoinsView* view, CIssuedColorIds& issuedColorIds) {
-    return g_chainstate.ReplayBlocks(view, issuedColorIds);
+    return g_chainstate_manager.ActiveChainstate().ReplayBlocks(view, issuedColorIds);
 }
 
 bool RewindBlockIndex() {
-    if (!g_chainstate.RewindBlockIndex()) {
+    if (!g_chainstate_manager.ActiveChainstate().RewindBlockIndex()) {
         return false;
     }
 
-    if (chainActive.Tip() != nullptr) {
-        // FlushStateToDisk can possibly read chainActive. Be conservative
+    if (g_chainstate_manager.ActiveChain().Tip() != nullptr) {
+        // FlushStateToDisk can possibly read the active chain. Be conservative
         // and skip it here, we're about to -reindex-chainstate anyway, so
         // it'll get called a bunch real soon.
         CValidationState state;
@@ -1186,15 +1184,15 @@ bool RewindBlockIndex() {
 void UnloadBlockIndex()
 {
     LOCK(cs_main);
-    chainActive.SetTip(nullptr);
-    pindexBestInvalid = nullptr;
-    pindexBestHeader = nullptr;
+    g_chainstate_manager.ActiveChain().SetTip(nullptr);
+    g_chainstate_manager.BestInvalid() = nullptr;
+    g_chainstate_manager.BestHeader() = nullptr;
     mempool.clear();
     g_chainstate_manager.BlockIndex().Unload();
     g_chainstate_manager.GetBlockFileManager().Unload();
     g_chainstate_manager.UnloadPersistentFlags();
 
-    g_chainstate.UnloadBlockIndex();
+    g_chainstate_manager.ActiveChainstate().UnloadBlockIndex();
 }
 
 bool LoadBlockIndex()
@@ -1222,7 +1220,7 @@ bool LoadBlockIndex()
 
 bool LoadGenesisBlock()
 {
-    return g_chainstate.LoadGenesisBlock();
+    return g_chainstate_manager.ActiveChainstate().LoadGenesisBlock();
 }
 std::string CBlockFileInfo::ToString() const
 {

@@ -191,11 +191,11 @@ bool RESTHandler::rest_headers(HTTPRequest* req,
     {
         LOCK(cs_main);
         const CBlockIndex* pindex = blockIndex.LookupBlockIndex(hash);
-        while (pindex != nullptr && chainActive.Contains(pindex)) {
+        while (pindex != nullptr && g_chainstate_manager.ActiveChain().Contains(pindex)) {
             headers.push_back(pindex);
             if (headers.size() == (unsigned long)count)
                 break;
-            pindex = chainActive.Next(pindex);
+            pindex = g_chainstate_manager.ActiveChain().Next(pindex);
         }
     }
 
@@ -563,16 +563,16 @@ bool RESTHandler::rest_getutxos(HTTPRequest* req, const std::string& strURIPart)
         if (fCheckMemPool) {
             // use db+mempool as cache backend in case user likes to query mempool
             LOCK2(cs_main, mempool.cs);
-            CCoinsViewCache& viewChain = *pcoinsTip;
+            CCoinsViewCache& viewChain = g_chainstate_manager.ActiveChainstate().CoinsTip();
             CCoinsViewMemPool viewMempool(&viewChain, mempool);
             process_utxos(viewMempool, mempool);
-            chainHeight = chainActive.Height();
-            chainTip = chainActive.Tip()->GetBlockHash();
+            chainHeight = g_chainstate_manager.ActiveChain().Height();
+            chainTip = g_chainstate_manager.ActiveChain().Tip()->GetBlockHash();
         } else {
             LOCK(cs_main);  // no need to lock mempool!
-            process_utxos(*pcoinsTip, CTxMemPool());
-            chainHeight = chainActive.Height();
-            chainTip = chainActive.Tip()->GetBlockHash();
+            process_utxos(g_chainstate_manager.ActiveChainstate().CoinsTip(), CTxMemPool());
+            chainHeight = g_chainstate_manager.ActiveChain().Height();
+            chainTip = g_chainstate_manager.ActiveChain().Tip()->GetBlockHash();
         }
 
         for (size_t i = 0; i < hits.size(); ++i) {

@@ -9,6 +9,7 @@
 
 #include <amount.h>
 #include <consensusconstants.h>
+#include <cs_main.h>
 #include <outputtype.h>
 #include <policy/feerate.h>
 #include <streams.h>
@@ -462,10 +463,10 @@ public:
     int64_t GetTxTime() const;
 
     // RelayWalletTransaction may only be called if fBroadcastTransactions!
-    bool RelayWalletTransaction(CConnman* connman);
+    bool RelayWalletTransaction(CConnman* connman) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 
     /** Pass this transaction to the mempool. Fails if absolute fee exceeds absurd fee. */
-    bool AcceptToMemoryPool(const CAmount& nAbsurdFee, CValidationState& state);
+    bool AcceptToMemoryPool(const CAmount& nAbsurdFee, CValidationState& state) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 
     std::set<uint256> GetConflicts() const;
 };
@@ -934,7 +935,7 @@ public:
     void ReacceptWalletTransactions();
     void ResendWalletTransactions(int64_t nBestBlockTime, CConnman* connman) override;
     // ResendWalletTransactionsBefore may only be called if fBroadcastTransactions!
-    std::vector<uint256> ResendWalletTransactionsBefore(int64_t nTime, CConnman* connman);
+    std::vector<uint256> ResendWalletTransactionsBefore(int64_t nTime, CConnman* connman) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
     TxColoredCoinBalancesMap GetBalance(const isminefilter& filter=ISMINE_SPENDABLE, const int min_depth=0) const;
     TxColoredCoinBalancesMap GetUnconfirmedBalance() const;
     TxColoredCoinBalancesMap GetUnconfirmedWatchOnlyBalance() const;

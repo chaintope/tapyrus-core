@@ -404,7 +404,7 @@ UniValue importprunedfunds(const JSONRPCRequest& request)
 
         LOCK(cs_main);
         const CBlockIndex* pindex = blockIndex.LookupBlockIndex(merkleBlock.header.GetHash());
-        if (!pindex || !chainActive.Contains(pindex)) {
+        if (!pindex || !g_chainstate_manager.ActiveChain().Contains(pindex)) {
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Block not found in chain");
         }
 
@@ -584,7 +584,7 @@ UniValue importwallet(const JSONRPCRequest& request)
         if (!file.is_open()) {
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Cannot open wallet dump file");
         }
-        nTimeBegin = chainActive.Tip()->GetBlockTime();
+        nTimeBegin = g_chainstate_manager.ActiveChain().Tip()->GetBlockTime();
 
         int64_t nFilesize = std::max((int64_t)1, (int64_t)file.tellg());
         file.seekg(0, file.beg);
@@ -797,8 +797,8 @@ UniValue dumpwallet(const JSONRPCRequest& request)
     // produce output
     file << strprintf("# Wallet dump created by Tapyrus %s\n", FormatFullVersion());
     file << strprintf("# * Created on %s\n", FormatISO8601DateTime(GetTime()));
-    file << strprintf("# * Best block at time of backup was %i (%s),\n", chainActive.Height(), chainActive.Tip()->GetBlockHash().ToString());
-    file << strprintf("#   mined on %s\n", FormatISO8601DateTime(chainActive.Tip()->GetBlockTime()));
+    file << strprintf("# * Best block at time of backup was %i (%s),\n", g_chainstate_manager.ActiveChain().Height(), g_chainstate_manager.ActiveChain().Tip()->GetBlockHash().ToString());
+    file << strprintf("#   mined on %s\n", FormatISO8601DateTime(g_chainstate_manager.ActiveChain().Tip()->GetBlockTime()));
     file << "\n";
 
     // add the base58check encoded extended master if the wallet uses HD
@@ -1260,15 +1260,15 @@ UniValue importmulti(const JSONRPCRequest& mainRequest)
         EnsureWalletIsUnlocked(pwallet);
 
         // Verify all timestamps are present before importing any keys.
-        now = chainActive.Tip() ? chainActive.Tip()->GetMedianTimePast() : 0;
+        now = g_chainstate_manager.ActiveChain().Tip() ? g_chainstate_manager.ActiveChain().Tip()->GetMedianTimePast() : 0;
         for (const UniValue& data : requests.getValues()) {
             GetImportTimestamp(data, now);
         }
 
         const int64_t minimumTimestamp = 1;
 
-        if (fRescan && chainActive.Tip()) {
-            nLowestTimestamp = chainActive.Tip()->GetBlockTime();
+        if (fRescan && g_chainstate_manager.ActiveChain().Tip()) {
+            nLowestTimestamp = g_chainstate_manager.ActiveChain().Tip()->GetBlockTime();
         } else {
             fRescan = false;
         }

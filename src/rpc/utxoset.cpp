@@ -146,7 +146,12 @@ static UniValue gettxoutsetinfo(const JSONRPCRequest& request)
 
     CCoinsStats stats;
     FlushStateToDisk();
-    if (GetUTXOStats(pcoinsdbview.get(), stats)) {
+    CCoinsViewDB* coinsdb;
+    {
+        LOCK(cs_main);
+        coinsdb = &g_chainstate_manager.ActiveChainstate().CoinsDB();
+    }
+    if (GetUTXOStats(coinsdb, stats)) {
         ret.pushKV("height", (int64_t)stats.nHeight);
         ret.pushKV("bestblock", stats.hashBlock.GetHex());
         ret.pushKV("transactions", (int64_t)stats.nTransactions);
@@ -345,7 +350,7 @@ UniValue scantxoutset(const JSONRPCRequest& request)
         {
             LOCK(cs_main);
             FlushStateToDisk();
-            pcursor = std::unique_ptr<CCoinsViewCursor>(pcoinsdbview->Cursor());
+            pcursor = std::unique_ptr<CCoinsViewCursor>(g_chainstate_manager.ActiveChainstate().CoinsDB().Cursor());
             assert(pcursor);
         }
         bool res = FindScriptPubKey(g_scan_progress, g_should_abort_scan, count, pcursor.get(), needles, coins);
@@ -409,12 +414,12 @@ static void CreateUTXOSnapshot(
 
         FlushStateToDisk();
 
-        auto success = GetUTXOStats(pcoinsdbview.get(), maybe_stats);
+        auto success = GetUTXOStats(&g_chainstate_manager.ActiveChainstate().CoinsDB(), maybe_stats);
         if (!success) {
             throw JSONRPCError(RPC_INTERNAL_ERROR, "Unable to read UTXO set");
         }
 
-        pcursor = std::unique_ptr<CCoinsViewCursor>(pcoinsdbview.get()->Cursor());
+        pcursor = std::unique_ptr<CCoinsViewCursor>(g_chainstate_manager.ActiveChainstate().CoinsDB().Cursor());
         tip = blockIndex.LookupBlockIndex(maybe_stats.hashBlock);
     }
 

@@ -70,7 +70,7 @@ public:
     static constexpr uint32_t STORAGE_HEADER_BYTES{CMessageHeader::MESSAGE_START_SIZE + sizeof(unsigned int)};
     /** Minimum disk space required - used in CheckDiskSpace() */
     static constexpr uint64_t nMinDiskSpace{52428800};
-    /** Block files containing a block-height within MIN_BLOCKS_TO_KEEP of chainActive.Tip() will not be pruned. */
+    /** Block files containing a block-height within MIN_BLOCKS_TO_KEEP of the active tip will not be pruned. */
     static constexpr uint32_t MIN_BLOCKS_TO_KEEP{288};
     // Require that user allocate at least 550MB for block & undo files (blk???.dat and rev???.dat)
     // At 1MB per block, 288 blocks = 288MB.
