@@ -3,8 +3,9 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 //
 
+#include <notificationhub.h>
 #include <timeoffsets.h>
-#include <test_tapyrus.h>
+#include <test/test_tapyrus.h>
 
 #include <boost/test/unit_test.hpp>
 
@@ -24,7 +25,7 @@ BOOST_FIXTURE_TEST_SUITE(timeoffsets_tests, BasicTestingSetup)
 
 BOOST_AUTO_TEST_CASE(timeoffsets)
 {
-    TimeOffsets offsets{};
+    TimeOffsets offsets{m_node.notifications};
     BOOST_CHECK(offsets.Median() == 0s);
 
     AddMulti(offsets, {{0s, -1s, -2s, -3s}});
@@ -50,7 +51,8 @@ BOOST_AUTO_TEST_CASE(timeoffsets)
 
 static bool IsWarningRaised(const std::vector<std::chrono::seconds>& check_offsets)
 {
-    TimeOffsets offsets{};
+    NotificationHub notifications;
+    TimeOffsets offsets{notifications};
     AddMulti(offsets, check_offsets);
     return offsets.WarnIfOutOfSync();
 }
