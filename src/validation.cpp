@@ -9,6 +9,7 @@
 #include <contextualconsensusrules.h>
 #include <checkblock.h>
 #include <consensus/tx_check.h>
+#include <mempoolaccept.h>
 #include <validation.h>
 #include <validationcache.h>
 #include <cs_main.h>
@@ -228,7 +229,7 @@ static bool IsCurrentForFeeEstimation()
 
 // Used to avoid mempool polluting consensus critical paths if CCoinsViewMempool
 // were somehow broken and returning the wrong scriptPubKeys
-static bool CheckInputsFromMempoolAndCache(ValidationContext context, const CTransaction& tx, CValidationState& state, const CCoinsViewCache& view, const CTxMemPool& pool,
+static bool CheckInputsFromMempoolAndCache(bool in_package, const CTransaction& tx, CValidationState& state, const CCoinsViewCache& view, const CTxMemPool& pool,
                  unsigned int flags, bool cacheSigStore) {
     AssertLockHeld(cs_main);
 
@@ -252,7 +253,7 @@ static bool CheckInputsFromMempoolAndCache(ValidationContext context, const CTra
             assert(txFrom->GetHashMalFix() == txin.prevout.hashMalFix);
             assert(txFrom->vout.size() > txin.prevout.n);
             assert(txFrom->vout[txin.prevout.n] == coin.out);
-        } else if(context != ValidationContext::PACKAGE) { //transactions in a package are not expected to be present in the disk
+        } else if (!in_package) { //transactions in a package are not expected to be present in the disk
                 const Coin& coinFromDisk = g_chainstate_manager.ActiveChainstate().CoinsTip().AccessCoin(txin.prevout);
                 assert(!coinFromDisk.IsSpent());
                 assert(coinFromDisk.out == coin.out);
@@ -307,11 +308,11 @@ static bool CheckConflictsInMempool(const CTxMemPool& pool, const CTransaction& 
     return true;
 }
 
-static bool DoAllInputsExist(const CTransaction& tx, CValidationState& state, CTxMempoolAcceptanceOptions& opt, CCoinsViewCache &view) EXCLUSIVE_LOCKS_REQUIRED(cs_main)
+static bool DoAllInputsExist(const CTransaction& tx, CValidationState& state, std::vector<COutPoint>& coins_to_uncache, std::vector<COutPoint>& missing_inputs, CCoinsViewCache &view) EXCLUSIVE_LOCKS_REQUIRED(cs_main)
 {
     for (const CTxIn& txin : tx.vin) {
         if (!g_chainstate_manager.ActiveChainstate().CoinsTip().HaveCoinInCache(txin.prevout)) {
-            opt.coins_to_uncache.push_back(txin.prevout);
+            coins_to_uncache.push_back(txin.prevout);
         }
         if (!view.HaveCoin(txin.prevout)) {
             // Are inputs missing because we already have the tx?
@@ -322,7 +323,7 @@ static bool DoAllInputsExist(const CTransaction& tx, CValidationState& state, CT
                 }
             }
             // Otherwise assume this might be an orphan tx for which we just haven't seen parents yet
-            opt.missingInputs.push_back(txin.prevout);
+            missing_inputs.push_back(txin.prevout);
 
             return false; // fMissingInputs and !state.IsInvalid() is used to detect this condition, don't set state.Invalid()
         }
@@ -330,18 +331,15 @@ static bool DoAllInputsExist(const CTransaction& tx, CValidationState& state, CT
     return true;
 }
 
-static bool AcceptToMemoryPoolWorker(CTxMemPool& pool, const CTransactionRef &ptx, CTxMempoolAcceptanceOptions& opt)
+static bool AcceptToMemoryPoolWorker(CTxMemPool& pool, const CTransactionRef &ptx, const MempoolAcceptOptions& options, CCoinsViewMemPool& mempool_view, bool in_package,
+                                     std::vector<COutPoint>& coins_to_uncache, MempoolAcceptResult& result)
 {
     const CTransaction& tx = *ptx;
     const uint256 hash = tx.GetHashMalFix();
     AssertLockHeld(cs_main);
 
-    //ref to variables in opt
-    CValidationState& state = opt.state;
+    CValidationState& state = result.state;
     LOCK(pool.cs); // mempool "read lock" (held through GetMainSignals().TransactionAddedToMempool())
-
-    // missing inputs is a vector for package validation
-    opt.missingInputs.clear();
 
     if (!CheckTransaction(tx, state, g_chainstate_manager.XFieldHistory().GetCurrentMaxBlockSize()))
         return false; // state filled in by CheckTransaction
@@ -379,10 +377,10 @@ static bool AcceptToMemoryPoolWorker(CTxMemPool& pool, const CTransactionRef &pt
         CCoinsView dummy;
         CCoinsViewCache view(&dummy);
 
-        view.SetBackend(*opt.mempool_view);
+        view.SetBackend(mempool_view);
 
         // do all inputs exist?
-        if(!DoAllInputsExist(tx, state, opt, view))
+        if(!DoAllInputsExist(tx, state, coins_to_uncache, result.missing_inputs, view))
             return false;
 
         // Read once here; the balance check below reuses it after the view
@@ -405,7 +403,7 @@ static bool AcceptToMemoryPoolWorker(CTxMemPool& pool, const CTransactionRef &pt
         // Must keep pool.cs for this unless we change CheckSequenceLocks to take a
         // CoinsViewCache instead of create its own
         LockPoints lp;
-        if (!CheckSequenceLocks(pool, tx, PolicyConstants::STANDARD_LOCKTIME_VERIFY_FLAGS, *opt.mempool_view, &lp))
+        if (!CheckSequenceLocks(pool, tx, PolicyConstants::STANDARD_LOCKTIME_VERIFY_FLAGS, mempool_view, &lp))
             return state.DoS(0, false, REJECT_NONSTANDARD, "non-BIP68-final");
 
         CAmount nFees = 0;
@@ -435,27 +433,27 @@ static bool AcceptToMemoryPoolWorker(CTxMemPool& pool, const CTransactionRef &pt
             }
         }
 
-        CTxMemPoolEntry entry(ptx, nFees, opt.nAcceptTime, g_chainstate_manager.ActiveChain().Height(),
+        CTxMemPoolEntry entry(ptx, nFees, options.accept_time, g_chainstate_manager.ActiveChain().Height(),
                               fSpendsCoinbase, nSigOps, lp);
         unsigned int nSize = entry.GetTxSize();
 
         CAmount mempoolRejectFee = pool.GetMinFee().GetFee(nSize);
-        if (opt.flags != MempoolAcceptanceFlags::BYPASSS_LIMITS
+        if (!options.bypass_limits
           && mempoolRejectFee > 0
           && nModifiedFees < mempoolRejectFee) {
             return state.DoS(0, false, REJECT_INSUFFICIENTFEE, "mempool min fee not met", false, strprintf("%d < %d", nModifiedFees, mempoolRejectFee));
         }
 
         // No transactions are allowed below minRelayTxFee except from disconnected blocks
-        if (opt.flags != MempoolAcceptanceFlags::BYPASSS_LIMITS
+        if (!options.bypass_limits
           && nModifiedFees < g_policy_settings->minRelayTxFee.GetFee(nSize)) {
             return state.DoS(0, false, REJECT_INSUFFICIENTFEE, "min relay fee not met", false, strprintf("%d < %d", nModifiedFees, g_policy_settings->minRelayTxFee.GetFee(nSize)));
         }
 
-        if (opt.nAbsurdFee && nFees > opt.nAbsurdFee)
+        if (options.max_tx_fee && nFees > options.max_tx_fee)
             return state.Invalid(false,
                 REJECT_HIGHFEE, "absurdly-high-fee",
-                strprintf("%d > %d", nFees, opt.nAbsurdFee));
+                strprintf("%d > %d", nFees, options.max_tx_fee));
 
         // Calculate in-mempool ancestors, up to a limit.
         CTxMemPool::setEntries setAncestors;
@@ -626,15 +624,15 @@ static bool AcceptToMemoryPoolWorker(CTxMemPool& pool, const CTransactionRef &pt
 
         // Cache script execution results using the same next-block flags so the
         // cache entries are valid when ConnectBlock runs at height nextBlockHeight.
-        if (!CheckInputsFromMempoolAndCache(opt.context, tx, opt.state, view, pool, tipScriptFlags, true)) {
+        if (!CheckInputsFromMempoolAndCache(in_package, tx, state, view, pool, tipScriptFlags, true)) {
             return error("%s: BUG! PLEASE REPORT THIS! CheckInputs failed against latest-block but not STANDARD flags %s, %s",
                     __func__, hash.ToString(), FormatStateMessage(state));
         }
 
-        if (!colorChecker.CheckTokenBalances(opt.state, g_policy_settings->minRelayTxFee.GetFee(nSize)))
+        if (!colorChecker.CheckTokenBalances(state, g_policy_settings->minRelayTxFee.GetFee(nSize)))
             return false;
 
-        if (opt.flags == MempoolAcceptanceFlags::TEST_ONLY) {
+        if (options.test_only) {
             // Tx was accepted, but not added
             return true;
         }
@@ -656,7 +654,7 @@ static bool AcceptToMemoryPoolWorker(CTxMemPool& pool, const CTransactionRef &pt
                 tx.GetTotalSize(),
                 nConflictingFees
             );
-            opt.txnReplaced.push_back(it->GetSharedTx());
+            result.replaced.push_back(it->GetSharedTx());
         }
         pool.RemoveStaged(allConflicting, false, MemPoolRemovalReason::REPLACED);
 
@@ -665,13 +663,13 @@ static bool AcceptToMemoryPoolWorker(CTxMemPool& pool, const CTransactionRef &pt
         // - it's not being re-added during a reorg which bypasses typical mempool fee limits
         // - the node is not behind
         // - the transaction is not dependent on any other transactions in the mempool
-        bool validForFeeEstimation = !fReplacementTransaction && (opt.flags != MempoolAcceptanceFlags::BYPASSS_LIMITS) && IsCurrentForFeeEstimation() && pool.HasNoInputsOf(tx);
+        bool validForFeeEstimation = !fReplacementTransaction && !options.bypass_limits && IsCurrentForFeeEstimation() && pool.HasNoInputsOf(tx);
 
         // Store transaction in memory
         pool.addUnchecked(hash, entry, setAncestors, validForFeeEstimation);
 
         // trim mempool and check if tx was trimmed
-        if (opt.flags != MempoolAcceptanceFlags::BYPASSS_LIMITS) {
+        if (!options.bypass_limits) {
             LimitMempoolSize(pool);
             if (!pool.exists(hash))
                 return state.DoS(0, false, REJECT_INSUFFICIENTFEE, "mempool full");
@@ -683,26 +681,31 @@ static bool AcceptToMemoryPoolWorker(CTxMemPool& pool, const CTransactionRef &pt
     return true;
 }
 
-bool Chainstate::AcceptToMemoryPool(const CTransactionRef &tx, CTxMempoolAcceptanceOptions& opt)
+bool Chainstate::AcceptToMemoryPool(const CTransactionRef& tx, const MempoolAcceptOptions& options, MempoolAcceptResult& result)
 {
     AssertLockHeld(cs_main);
-    if (!opt.mempool_view) {
-        opt.mempool_view = new CCoinsViewMemPool(&CoinsTip(), m_mempool);
-    }
-    opt.nAcceptTime = GetTime();
-    bool res = AcceptToMemoryPoolWorker(m_mempool, tx, opt);
+    CCoinsViewMemPool view(&CoinsTip(), m_mempool);
+    return AcceptSingleTransaction(tx, options, view, /*in_package=*/false, result);
+}
+
+bool Chainstate::AcceptSingleTransaction(const CTransactionRef& tx, const MempoolAcceptOptions& options, CCoinsViewMemPool& view, bool in_package, MempoolAcceptResult& result)
+{
+    AssertLockHeld(cs_main);
+    // TODO: options.accept_time is not used; the entry records the current time.
+    MempoolAcceptOptions stamped{options};
+    stamped.accept_time = GetTime();
+    std::vector<COutPoint> coins_to_uncache;
+    bool res = AcceptToMemoryPoolWorker(m_mempool, tx, stamped, view, in_package, coins_to_uncache, result);
+    result.state.missingInputs = !result.missing_inputs.empty();
     if (!res) {
-        for (const COutPoint& hashTx : opt.coins_to_uncache)
+        for (const COutPoint& hashTx : coins_to_uncache)
         {
             CoinsTip().Uncache(hashTx);
             TRACE2(mempool, rejected,
                 tx->GetHashMalFix().begin(),
-                opt.state.GetRejectReason().c_str());
+                result.state.GetRejectReason().c_str());
         }
     }
-    // Always clear after consuming so callers that reuse opt across multiple calls
-    // (e.g. SubmitPackageToMempool) never see stale entries from a previous iteration.
-    opt.coins_to_uncache.clear();
     // After we've (potentially) uncached entries, ensure our coins cache is still within its size limits
     CValidationState stateDummy;
     g_chainstate_manager.ActiveChainstate().FlushStateToDisk(stateDummy, FlushStateMode::PERIODIC);
@@ -712,23 +715,16 @@ bool Chainstate::AcceptToMemoryPool(const CTransactionRef &tx, CTxMempoolAccepta
 bool Chainstate::SubmitPackageToMempool(const Package& package,
                                         CValidationState& state,
                                         PackageValidationState& results,
-                                        CTxMempoolAcceptanceOptions& opt)
+                                        const MempoolAcceptOptions& options)
 {
     if(!CheckPackage(package, state))
         return false;
 
-    // For TEST_ONLY (testmempoolaccept dry-run), install a virtual-mempool view
-    // so each tx in a chained package can resolve its inputs against outputs of
-    // earlier package txs that passed validation but were not admitted.
-    // Replacing mempool_view with the subclass is safe: CTxMempoolAcceptanceOptions
-    // owns the pointer and its destructor deletes it; CCoinsView has a virtual dtor.
-    if (opt.flags == MempoolAcceptanceFlags::TEST_ONLY) {
-        delete opt.mempool_view;
-        LOCK(::cs_main);
-        opt.mempool_view = new CCoinsViewVirtualMemPool(&CoinsTip(), m_mempool);
-    }
-    CCoinsViewVirtualMemPool* virtualView =
-        dynamic_cast<CCoinsViewVirtualMemPool*>(opt.mempool_view);
+    // A test-only dry run reads inputs through a virtual mempool, so each tx in a
+    // chained package can spend outputs of earlier package txs that passed but
+    // were not admitted.
+    std::unique_ptr<CCoinsViewMemPool> view;
+    CCoinsViewVirtualMemPool* virtualView = nullptr;
 
     bool all_admitted = false;
     Package relay;
@@ -736,22 +732,30 @@ bool Chainstate::SubmitPackageToMempool(const Package& package,
         // Held for the whole package so no block connects mid-package and the
         // results below describe only what the package itself did to the mempool.
         LOCK(::cs_main);
+        if (options.test_only) {
+            auto virtual_view = std::make_unique<CCoinsViewVirtualMemPool>(&CoinsTip(), m_mempool);
+            virtualView = virtual_view.get();
+            view = std::move(virtual_view);
+        } else {
+            view = std::make_unique<CCoinsViewMemPool>(&CoinsTip(), m_mempool);
+        }
+        std::set<uint256> replaced;
         for(auto &tx : package)
         {
-            opt.state = CValidationState();
-            opt.coins_to_uncache.clear();
-            AcceptToMemoryPool(tx, opt);
-
-            opt.state.missingInputs = opt.missingInputs.size() > 0;
-            results.emplace(tx->GetHashMalFix(), opt.state);
+            MempoolAcceptResult result;
+            AcceptSingleTransaction(tx, options, *view, /*in_package=*/true, result);
+            for (const auto& replaced_tx : result.replaced) {
+                replaced.insert(replaced_tx->GetHashMalFix());
+            }
+            results.emplace(tx->GetHashMalFix(), result.state);
 
             // Only add to the virtual overlay if the tx was TRULY accepted.
             // IsValid() returns true even when missingInputs is set (DoAllInputsExist
             // deliberately avoids calling state.Invalid() so callers can distinguish
             // orphans from consensus failures).  Adding a missing-inputs tx to the
             // overlay would let its outputs be found by downstream txs, causing them
-            // to spuriously pass TEST_ONLY validation.
-            if (virtualView && opt.state.IsValid() && !opt.state.missingInputs) {
+            // to spuriously pass test-only validation.
+            if (virtualView && result.state.IsValid() && !result.state.missingInputs) {
                 virtualView->AddVirtualTx(*tx);
             }
         }
@@ -771,11 +775,7 @@ bool Chainstate::SubmitPackageToMempool(const Package& package,
 
         // A later package tx can trim or replace one accepted before it, so report
         // and relay what the mempool holds now instead of what each tx saw on entry.
-        if (opt.flags != MempoolAcceptanceFlags::TEST_ONLY) {
-            std::set<uint256> replaced;
-            for (const auto& tx : opt.txnReplaced) {
-                replaced.insert(tx->GetHashMalFix());
-            }
+        if (!options.test_only) {
             for (const auto& tx : package) {
                 const uint256 hash = tx->GetHashMalFix();
                 if (m_mempool.exists(hash)) {
@@ -803,12 +803,12 @@ bool Chainstate::SubmitPackageToMempool(const Package& package,
     // Relay only after every tx in the package has been admitted, and only the
     // txs still in the mempool. Relaying per-tx inside the loop would gossip the
     // admitted prefix of a partially-failed package, enabling free relay
-    // amplification attacks. A TEST_ONLY dry run never relays.
+    // amplification attacks. A test-only dry run never relays.
     // Goes through PackageTransactionsRelay() rather than calling into net
     // directly -- tapyrus_chainstate (this file) has no business linking
     // tapyrus_peer. See the comment on CValidationInterface::
     // PackageTransactionsRelay() and PeerManager's override of it.
-    if (opt.flags != MempoolAcceptanceFlags::TEST_ONLY && all_admitted && !relay.empty()) {
+    if (!options.test_only && all_admitted && !relay.empty()) {
         GetMainSignals().PackageTransactionsRelay(relay);
     }
 

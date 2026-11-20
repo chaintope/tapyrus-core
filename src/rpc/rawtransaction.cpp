@@ -15,6 +15,7 @@
 #include <consensussettings.h>
 #include <index/txindex.h>
 #include <keystore.h>
+#include <mempoolaccept.h>
 #include <script/transactionsignaturechecker.h>
 #include <validation.h>
 #include <validationinterface.h>
@@ -1207,16 +1208,17 @@ static UniValue sendrawtransaction(const JSONRPCRequest& request)
     bool fHaveMempool = mempool.exists(hashTx);
     if (!fHaveMempool && !fHaveChain) {
         // push to local node and sync with wallets
-        CTxMempoolAcceptanceOptions opt;
-        opt.nAbsurdFee = nMaxRawTxFee;
-        if (!g_chainstate_manager.ActiveChainstate().AcceptToMemoryPool(std::move(tx), opt)) {
-            if (opt.state.IsInvalid()) {
-                throw JSONRPCError(RPC_TRANSACTION_REJECTED, FormatStateMessage(opt.state));
+        MempoolAcceptOptions options;
+        options.max_tx_fee = nMaxRawTxFee;
+        MempoolAcceptResult result;
+        if (!g_chainstate_manager.ActiveChainstate().AcceptToMemoryPool(std::move(tx), options, result)) {
+            if (result.state.IsInvalid()) {
+                throw JSONRPCError(RPC_TRANSACTION_REJECTED, FormatStateMessage(result.state));
             } else {
-                if (opt.missingInputs.size()) {
+                if (result.missing_inputs.size()) {
                     throw JSONRPCError(RPC_TRANSACTION_ERROR, "Missing inputs");
                 }
-                throw JSONRPCError(RPC_TRANSACTION_ERROR, FormatStateMessage(opt.state));
+                throw JSONRPCError(RPC_TRANSACTION_ERROR, FormatStateMessage(result.state));
             }
         } else {
             // If wallet is enabled, ensure that the wallet has been made aware

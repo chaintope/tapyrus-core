@@ -3,6 +3,7 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
+#include <mempoolaccept.h>
 #include <validation.h>
 #include <txmempool.h>
 #include <amount.h>
@@ -47,21 +48,22 @@ BOOST_FIXTURE_TEST_CASE(tx_mempool_reject_coinbase, TestChainSetup)
     CTxMemPool& mempool = *m_node.mempool;
     unsigned int initialPoolSize = mempool.size();
 
-    CTxMempoolAcceptanceOptions opt;
-    opt.flags = MempoolAcceptanceFlags::BYPASSS_LIMITS;
+    MempoolAcceptOptions opt;
+    opt.bypass_limits = true;
+    MempoolAcceptResult accept_result;
     BOOST_CHECK_EQUAL(
             false,
-            g_chainstate_manager.ActiveChainstate().AcceptToMemoryPool(MakeTransactionRef(coinbaseTx), opt));
+            g_chainstate_manager.ActiveChainstate().AcceptToMemoryPool(MakeTransactionRef(coinbaseTx), opt, accept_result));
 
     // Check that the transaction hasn't been added to mempool.
     BOOST_CHECK_EQUAL(mempool.size(), initialPoolSize);
 
     // Check that the validation state reflects the unsuccessful attempt.
-    BOOST_CHECK(opt.state.IsInvalid());
-    BOOST_CHECK_EQUAL(opt.state.GetRejectReason(), "coinbase");
+    BOOST_CHECK(accept_result.state.IsInvalid());
+    BOOST_CHECK_EQUAL(accept_result.state.GetRejectReason(), "coinbase");
 
     int nDoS;
-    BOOST_CHECK_EQUAL(opt.state.IsInvalid(nDoS), true);
+    BOOST_CHECK_EQUAL(accept_result.state.IsInvalid(nDoS), true);
     BOOST_CHECK_EQUAL(nDoS, 100);
 }
 namespace
@@ -89,31 +91,32 @@ namespace
 void testTx(TestChainSetup* setup, const CTransactionRef tx, bool success, std::string errStr="")
 {
     CTxMemPool& mempool = *setup->m_node.mempool;
-    CTxMempoolAcceptanceOptions opt;
-    opt.flags = MempoolAcceptanceFlags::BYPASSS_LIMITS;
+    MempoolAcceptOptions opt;
+    opt.bypass_limits = true;
+    MempoolAcceptResult accept_result;
     {
         LOCK(cs_main);
 
         BOOST_CHECK_EQUAL(
             success,
-            g_chainstate_manager.ActiveChainstate().AcceptToMemoryPool(tx, opt));
+            g_chainstate_manager.ActiveChainstate().AcceptToMemoryPool(tx, opt, accept_result));
     }
 
     if(success)
     {
-        BOOST_CHECK(opt.state.IsValid());
+        BOOST_CHECK(accept_result.state.IsValid());
         std::vector<CMutableTransaction> txs;
         txs.push_back(CMutableTransaction(*tx));
         setup->CreateAndProcessBlock(txs, CScript() <<  ToByteVector(setup->coinbaseKey.GetPubKey()) << OP_CHECKSIG);
     }
-    else if(opt.missingInputs.size())
+    else if(accept_result.missing_inputs.size())
     {
-        BOOST_CHECK(!opt.state.IsInvalid());
+        BOOST_CHECK(!accept_result.state.IsInvalid());
     }
     else
     {
-        BOOST_CHECK(opt.state.IsInvalid());
-        BOOST_CHECK_EQUAL(opt.state.GetRejectReason(), errStr);
+        BOOST_CHECK(accept_result.state.IsInvalid());
+        BOOST_CHECK_EQUAL(accept_result.state.GetRejectReason(), errStr);
     }
 }
 
@@ -124,10 +127,11 @@ void testTx(TestChainSetup* setup, const CTransactionRef tx, bool success, std::
 // the companion post-activation test can reuse it.
 static void checkMempoolAdmitted(CTxMemPool& pool, const CTransactionRef& tx)
 {
-    CTxMempoolAcceptanceOptions opt;
-    opt.flags = MempoolAcceptanceFlags::BYPASSS_LIMITS;
-    { LOCK(cs_main); BOOST_CHECK(g_chainstate_manager.ActiveChainstate().AcceptToMemoryPool(tx, opt)); }
-    BOOST_CHECK(opt.state.IsValid());
+    MempoolAcceptOptions opt;
+    opt.bypass_limits = true;
+    MempoolAcceptResult accept_result;
+    { LOCK(cs_main); BOOST_CHECK(g_chainstate_manager.ActiveChainstate().AcceptToMemoryPool(tx, opt, accept_result)); }
+    BOOST_CHECK(accept_result.state.IsValid());
 }
 
 // Fixture that extends TestChainSetup by mining empty blocks until the chain

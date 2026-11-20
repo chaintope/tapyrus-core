@@ -6,6 +6,7 @@
 #include <chainstatemanager.h>
 #include <core_io.h>
 #include <consensus/validation.h>
+#include <mempoolaccept.h>
 #include <nodecontext.h>
 #include <policy/packages.h>
 #include <policy/policy.h>
@@ -122,12 +123,11 @@ static UniValue testmempoolaccept(const JSONRPCRequest& request)
     mempool.FilterDuplicates(transactions, package, pkg_results);
 
     bool success = false;
-    CTxMempoolAcceptanceOptions opt;
-    opt.context = ValidationContext::PACKAGE;
-    opt.nAbsurdFee = max_raw_tx_fee;
-    opt.flags = MempoolAcceptanceFlags::TEST_ONLY;
+    MempoolAcceptOptions options;
+    options.max_tx_fee = max_raw_tx_fee;
+    options.test_only = true;
 
-    success = g_chainstate_manager.ActiveChainstate().SubmitPackageToMempool(package, state, pkg_results, opt);
+    success = g_chainstate_manager.ActiveChainstate().SubmitPackageToMempool(package, state, pkg_results, options);
 
     UniValue result(UniValue::VOBJ);
 
@@ -195,11 +195,10 @@ static UniValue submitpackage(const JSONRPCRequest& request)
 
     mempool.FilterDuplicates(transactions, package, pkg_results);
 
-    CTxMempoolAcceptanceOptions opt;
-    opt.context = ValidationContext::PACKAGE;
-    opt.nAbsurdFee = max_raw_tx_fee;
+    MempoolAcceptOptions options;
+    options.max_tx_fee = max_raw_tx_fee;
 
-    bool success = g_chainstate_manager.ActiveChainstate().SubmitPackageToMempool(package, state, pkg_results, opt);
+    bool success = g_chainstate_manager.ActiveChainstate().SubmitPackageToMempool(package, state, pkg_results, options);
 
     UniValue result(UniValue::VOBJ);
 

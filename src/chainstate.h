@@ -30,7 +30,9 @@ class CCoinsViewDB;
 class ChainstateManager;
 class CIssuedColorIds;
 class CTxMemPool;
-struct CTxMempoolAcceptanceOptions;
+class CCoinsViewMemPool;
+struct MempoolAcceptOptions;
+struct MempoolAcceptResult;
 struct DisconnectedBlockTransactions;
 
 
@@ -150,9 +152,9 @@ public:
     /** Bytes the mempool uses; FlushStateToDisk lends the rest of -maxmempool to the coins cache. */
     size_t MempoolUsage() const;
 
-    /** (Try to) add a transaction to this chainstate's mempool. Transactions it
-     *  replaces are appended to opt.txnReplaced. */
-    bool AcceptToMemoryPool(const CTransactionRef& tx, CTxMempoolAcceptanceOptions& opt) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
+    /** (Try to) add a transaction to this chainstate's mempool; result says why not, or what it replaced.
+     *  Returns false also when only its inputs are missing, with a valid state. */
+    bool AcceptToMemoryPool(const CTransactionRef& tx, const MempoolAcceptOptions& options, MempoolAcceptResult& result) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
     /**
      * Submits the package to this chainstate's mempool after validation checks.
      * It gives granular results with the state of each transaction in the package and
@@ -169,10 +171,10 @@ public:
      * @param package The package of transactions to be submitted.
      * @param state A reference to the validation state that tracks the package validation results.
      * @param results A reference to the package validation state that records the validation outcome of each transaction.
-     * @param opt Options that control how the mempool accepts transactions.
+     * @param options How the mempool accepts each transaction.
      * @return True if all transactions in the package were successfully accepted, false otherwise.
      */
-    bool SubmitPackageToMempool(const Package& package, CValidationState& state, PackageValidationState& results, CTxMempoolAcceptanceOptions& opt);
+    bool SubmitPackageToMempool(const Package& package, CValidationState& state, PackageValidationState& results, const MempoolAcceptOptions& options);
 
     CChain m_chain;
 
@@ -233,6 +235,9 @@ public:
 
 
 private:
+    /** AcceptToMemoryPool reading inputs through view; a package shares one view across its transactions,
+     *  whose inputs need not be on disk yet. */
+    bool AcceptSingleTransaction(const CTransactionRef& tx, const MempoolAcceptOptions& options, CCoinsViewMemPool& view, bool in_package, MempoolAcceptResult& result) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
     void UpdateTip(const CBlockIndex* pindexNew) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
     void UpdateMempoolForReorg(DisconnectedBlockTransactions& disconnectpool, bool fAddToMempool) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
     bool ActivateBestChainStep(CValidationState& state, CBlockIndex* pindexMostWork, const std::shared_ptr<const CBlock>& pblock, bool& fInvalidFound, ConnectTrace& connectTrace);

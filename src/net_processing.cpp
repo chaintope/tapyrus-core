@@ -15,6 +15,7 @@
 #include <federationparams.h>
 #include <hash.h>
 #include <localaddress.h>
+#include <mempoolaccept.h>
 #include <validation.h>
 #include <merkleblock.h>
 #include <netmessagemaker.h>
@@ -1292,17 +1293,17 @@ void PeerManager::ProcessOrphanTx(std::set<uint256>& orphan_work_set)
         NodeId fromPeer = orphan->fromPeer;
 
         if (setMisbehaving.count(fromPeer)) continue;
-        CTxMempoolAcceptanceOptions opt;
+        MempoolAcceptResult result;
 
-        if (g_chainstate_manager.ActiveChainstate().AcceptToMemoryPool(porphanTx, opt)) {
+        if (g_chainstate_manager.ActiveChainstate().AcceptToMemoryPool(porphanTx, MempoolAcceptOptions{}, result)) {
             LogPrint(BCLog::MEMPOOL, "   accepted orphan tx %s\n", orphanHash.ToString());
             RelayTransaction(orphanTx, &m_connman);
             m_orphan_tx_pool.AddChildrenToWorkSet(orphanTx, orphan_work_set);
             m_orphan_tx_pool.EraseOrphanTx(orphanHash);
             done = true;
-        } else if (!opt.missingInputs.size()) {
+        } else if (!result.missing_inputs.size()) {
             int nDos = 0;
-            if (opt.state.IsInvalid(nDos) && nDos > 0) {
+            if (result.state.IsInvalid(nDos) && nDos > 0) {
                 // Punish peer that gave us an invalid orphan tx
                 Misbehaving(fromPeer, nDos);
                 setMisbehaving.insert(fromPeer);
@@ -1311,7 +1312,7 @@ void PeerManager::ProcessOrphanTx(std::set<uint256>& orphan_work_set)
             // Has inputs but not accepted to mempool
             // Probably non-standard or insufficient fee
             LogPrint(BCLog::MEMPOOL, "   removed orphan tx %s\n", orphanHash.ToString());
-            if (!opt.state.CorruptionPossible()) {
+            if (!result.state.CorruptionPossible()) {
                 assert(recentRejects);
                 recentRejects->insert(orphanHash);
             }
@@ -1320,7 +1321,7 @@ void PeerManager::ProcessOrphanTx(std::set<uint256>& orphan_work_set)
         }
         m_mempool.check(&g_chainstate_manager.ActiveChainstate().CoinsTip());
 
-        for(auto& tx:opt.txnReplaced) {
+        for(auto& tx:result.replaced) {
             AddToCompactExtraTransactions(tx);
         }
     }
@@ -2003,9 +2004,9 @@ bool PeerManager::ProcessMessage(CNode* pfrom, const std::string& strCommand, CD
         pfrom->setAskFor.erase(inv.hash);
         mapAlreadyAskedFor.erase(inv.hash);
 
-        CTxMempoolAcceptanceOptions opt;
+        MempoolAcceptResult result;
         if (!AlreadyHave(inv) &&
-            g_chainstate_manager.ActiveChainstate().AcceptToMemoryPool(ptx, opt)) {
+            g_chainstate_manager.ActiveChainstate().AcceptToMemoryPool(ptx, MempoolAcceptOptions{}, result)) {
             m_mempool.check(&g_chainstate_manager.ActiveChainstate().CoinsTip());
             RelayTransaction(tx, &m_connman);
             m_orphan_tx_pool.AddChildrenToWorkSet(tx, pfrom->orphan_work_set);
@@ -2020,7 +2021,7 @@ bool PeerManager::ProcessMessage(CNode* pfrom, const std::string& strCommand, CD
             // Recursively process any orphan transactions that depended on this one
             ProcessOrphanTx(pfrom->orphan_work_set);
         }
-        else if (opt.missingInputs.size())
+        else if (result.missing_inputs.size())
         {
             bool fRejectedParents = false; // It may be the case that the orphans parents have all been rejected
             for (const CTxIn& txin : tx.vin) {
@@ -2050,7 +2051,7 @@ bool PeerManager::ProcessMessage(CNode* pfrom, const std::string& strCommand, CD
                 recentRejects->insert(tx.GetHashMalFix());
             }
         } else {
-            if (!opt.state.CorruptionPossible()) {
+            if (!result.state.CorruptionPossible()) {
                 assert(recentRejects);
                 recentRejects->insert(tx.GetHashMalFix());
                 if (RecursiveDynamicUsage(*ptx) < 100000) {
@@ -2068,24 +2069,24 @@ bool PeerManager::ProcessMessage(CNode* pfrom, const std::string& strCommand, CD
                 // score for, as we expect peers to do the same with us in that
                 // case.
                 int nDoS = 0;
-                if (!opt.state.IsInvalid(nDoS) || nDoS == 0) {
+                if (!result.state.IsInvalid(nDoS) || nDoS == 0) {
                     LogPrintf("Force relaying tx %s from whitelisted peer=%d\n", tx.GetHashMalFix().ToString(), pfrom->GetId());
                     RelayTransaction(tx, &m_connman);
                 } else {
-                    LogPrintf("Not relaying invalid transaction %s from whitelisted peer=%d (%s)\n", tx.GetHashMalFix().ToString(), pfrom->GetId(), FormatStateMessage(opt.state));
+                    LogPrintf("Not relaying invalid transaction %s from whitelisted peer=%d (%s)\n", tx.GetHashMalFix().ToString(), pfrom->GetId(), FormatStateMessage(result.state));
                 }
             }
         }
 
         int nDoS = 0;
-        if (opt.state.IsInvalid(nDoS))
+        if (result.state.IsInvalid(nDoS))
         {
             LogPrint(BCLog::MEMPOOLREJ, "%s from peer=%d was not accepted: %s\n", tx.GetHashMalFix().ToString(),
                 pfrom->GetId(),
-                FormatStateMessage(opt.state));
-            if (opt.state.GetRejectCode() > 0 && opt.state.GetRejectCode() < REJECT_INTERNAL) { // Never send AcceptToMemoryPool's internal codes over P2P
-                m_connman.PushMessage(pfrom, msgMaker.Make(NetMsgType::REJECT, strCommand, (unsigned char)opt.state.GetRejectCode(),
-                                   opt.state.GetRejectReason().substr(0, MAX_REJECT_MESSAGE_LENGTH), inv.hash));
+                FormatStateMessage(result.state));
+            if (result.state.GetRejectCode() > 0 && result.state.GetRejectCode() < REJECT_INTERNAL) { // Never send AcceptToMemoryPool's internal codes over P2P
+                m_connman.PushMessage(pfrom, msgMaker.Make(NetMsgType::REJECT, strCommand, (unsigned char)result.state.GetRejectCode(),
+                                   result.state.GetRejectReason().substr(0, MAX_REJECT_MESSAGE_LENGTH), inv.hash));
             }
             if (nDoS > 0) {
                 Misbehaving(pfrom->GetId(), nDoS);

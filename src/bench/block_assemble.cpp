@@ -12,6 +12,7 @@
 #include <consensus/validation.h>
 #include <consensussettings.h>
 #include <genesisfile.h>
+#include <mempoolaccept.h>
 #include <miner.h>
 #include <notificationhub.h>
 #include <policy/fees.h>
@@ -148,9 +149,10 @@ static void AssembleBlock(benchmark::State& state)
         LOCK(::cs_main); // Required for ::AcceptToMemoryPool.
 
         for (const auto& txr : txs) {
-            CTxMempoolAcceptanceOptions opt;
-            opt.flags = MempoolAcceptanceFlags::BYPASSS_LIMITS;
-            bool ret{g_chainstate_manager.ActiveChainstate().AcceptToMemoryPool(txr, opt)};
+            MempoolAcceptOptions options;
+            options.bypass_limits = true;
+            MempoolAcceptResult result;
+            bool ret{g_chainstate_manager.ActiveChainstate().AcceptToMemoryPool(txr, options, result)};
             assert(ret);
         }
     }
