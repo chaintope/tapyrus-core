@@ -15,6 +15,7 @@
 #include <genesisblock.h>
 #include <issuedcolorids.h>
 #include <notificationhub.h>
+#include <policy/fees.h>
 #include <validation.h>
 #include <miner.h>
 #include <net_processing.h>
@@ -197,6 +198,8 @@ TestingSetup::TestingSetup(const std::string& chainName) : BasicTestingSetup(cha
         CScheduler::Function serviceLoop = std::bind(&CScheduler::serviceQueue, &scheduler);
         scheduler.m_service_thread = std::thread(&TraceThread, "scheduler", serviceLoop);
         GetMainSignals().RegisterBackgroundSignalScheduler(scheduler);
+        GetMainSignals().RegisterWithMempoolSignals(::mempool);
+        RegisterValidationInterface(&::feeEstimator);
 
         try {
             mempool.setSanityCheck(1.0);
@@ -239,6 +242,8 @@ void TestingSetup::TearDown()
         BlockIndexMap& blockIndex = g_chainstate_manager.BlockIndex();
         scheduler.stop();
         GetMainSignals().FlushBackgroundCallbacks();
+        UnregisterValidationInterface(&::feeEstimator);
+        GetMainSignals().UnregisterWithMempoolSignals(::mempool);
         GetMainSignals().UnregisterBackgroundSignalScheduler();
         m_node.peerman.reset();
         m_node.connman.reset();

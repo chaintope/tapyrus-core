@@ -14,6 +14,7 @@
 #include <genesisfile.h>
 #include <miner.h>
 #include <notificationhub.h>
+#include <policy/fees.h>
 #include <policy/policy.h>
 #include <scheduler.h>
 #include <txdb.h>
@@ -117,6 +118,8 @@ static void AssembleBlock(benchmark::State& state)
         }
 
         GetMainSignals().RegisterBackgroundSignalScheduler(scheduler);
+        GetMainSignals().RegisterWithMempoolSignals(mempool);
+        RegisterValidationInterface(&::feeEstimator);
 
         LoadGenesisBlock();
         CValidationState state;
@@ -158,6 +161,8 @@ static void AssembleBlock(benchmark::State& state)
     if(thread.joinable())
         thread.join();
     GetMainSignals().FlushBackgroundCallbacks();
+    UnregisterValidationInterface(&::feeEstimator);
+    GetMainSignals().UnregisterWithMempoolSignals(mempool);
     GetMainSignals().UnregisterBackgroundSignalScheduler();
 }
 
