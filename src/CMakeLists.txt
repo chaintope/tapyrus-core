@@ -358,6 +358,7 @@ add_library(tapyrus_chainstate STATIC EXCLUDE_FROM_ALL
   index/txindex.cpp
   issuedcolorids.cpp
   mempoolentry.cpp
+  mempoolremovalreason.cpp
   miner.cpp
   policy/fees.cpp
   policy/packages.cpp

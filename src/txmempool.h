@@ -21,6 +21,7 @@
 #include <hasher.h>
 #include <indirectmap.h>
 #include <mempoolentry.h>
+#include <mempoolremovalreason.h>
 #include <policy/packages.h>
 #include <policy/feerate.h>
 #include <primitives/transaction.h>
@@ -235,21 +236,6 @@ struct TxMempoolInfo
     /** The fee delta. */
     int64_t nFeeDelta;
 };
-
-/** Reason why a transaction was removed from the mempool,
- * this is passed to the notification signal.
- */
-enum class MemPoolRemovalReason {
-    UNKNOWN = 0, //! Manually removed or unknown reason
-    EXPIRY,      //! Expired from mempool
-    SIZELIMIT,   //! Removed in size limiting
-    REORG,       //! Removed for reorganization
-    BLOCK,       //! Removed for block
-    CONFLICT,    //! Removed for conflict with in-block transaction
-    REPLACED     //! Removed for replacement
-};
-
-std::string RemovalReasonToString(const MemPoolRemovalReason& r) noexcept;
 
 /**
  * CTxMemPool stores valid-according-to-the-current-best-chain transactions
