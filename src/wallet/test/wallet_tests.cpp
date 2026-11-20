@@ -952,4 +952,15 @@ BOOST_FIXTURE_TEST_CASE(wallet_tx_getchange, TestChainSetup)
     BOOST_CHECK_EQUAL(wtx.GetChange(colorId), 100 * CENT);
 }
 
+BOOST_FIXTURE_TEST_CASE(a_wallet_without_a_node_cannot_submit, TestChainSetup)
+{
+    CWallet wallet(nullptr, "dummy", WalletDatabase::CreateDummy());
+    CWalletTx wtx(&wallet, m_coinbase_txns[0]);
+    CValidationState state;
+    LOCK(cs_main);
+    BOOST_CHECK(!wtx.SubmitMemoryPoolAndRelay(state, false));
+    BOOST_CHECK_EQUAL(state.GetRejectReason(), "no node to submit the transaction to");
+    BOOST_CHECK(!wtx.InMempool());
+}
+
 BOOST_AUTO_TEST_SUITE_END()

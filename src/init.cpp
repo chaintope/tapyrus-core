@@ -288,6 +288,8 @@ void Shutdown(NodeContext& node)
     GetMainSignals().UnregisterBackgroundSignalScheduler();
     GetMainSignals().UnregisterWithMempoolSignals(mempool);
     g_wallet_init_interface.Close();
+    // The lookup reads the NodeContext, which the caller destroys after this.
+    g_wallet_init_interface.SetNodeContextLookup(nullptr);
     globalVerifyHandle.reset();
     ECC_Stop();
     LogPrintf("%s: done\n", __func__);

@@ -70,9 +70,8 @@
 #   tapyrus_types       -- tapyrus_crypto
 #
 # tapyrus_rpc links tapyrus_wallet, one-directionally: wallet/rpcwallet.cpp,
-# wallet/rpcdump.cpp and WalletInit (wallet/init.cpp, wallet/walletinit_rpc.cpp)
-# compile into tapyrus_rpc, not tapyrus_wallet, since WalletInit registers the
-# wallet RPCs.
+# wallet/rpcdump.cpp and WalletInit (wallet/init.cpp) compile into tapyrus_rpc,
+# not tapyrus_wallet, since WalletInit registers the wallet RPCs.
 
 include(AddWindowsResources)
 
@@ -466,7 +465,6 @@ if(ENABLE_WALLET)
     wallet/init.cpp
     wallet/rpcdump.cpp
     wallet/rpcwallet.cpp
-    wallet/walletinit_rpc.cpp
   )
 endif()
 add_library(tapyrus_rpc STATIC EXCLUDE_FROM_ALL ${TAPYRUS_RPC_SOURCES})
