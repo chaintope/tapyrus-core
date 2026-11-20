@@ -101,11 +101,11 @@ public:
      */
     boost::signals2::signal<void (const std::string &title, int nProgress, bool resume_possible)> ShowProgress;
 
-    /** New block has been accepted */
-    boost::signals2::signal<void (bool, const CBlockIndex *)> NotifyBlockTip;
+    /** New block has been accepted; the progress is read under cs_main by the sender. */
+    boost::signals2::signal<void (bool, const CBlockIndex *, double verification_progress)> NotifyBlockTip;
 
-    /** Best header has changed */
-    boost::signals2::signal<void (bool, const CBlockIndex *)> NotifyHeaderTip;
+    /** Best header has changed; the progress is read under cs_main by the sender. */
+    boost::signals2::signal<void (bool, const CBlockIndex *, double verification_progress)> NotifyHeaderTip;
 
     /** Banlist did change. */
     boost::signals2::signal<void (void)> BannedListChanged;

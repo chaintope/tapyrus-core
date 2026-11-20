@@ -10,9 +10,8 @@ export LC_ALL=C
 
 EXPECTED_CIRCULAR_DEPENDENCIES=(
     "chainstate -> chainstatemanager -> chainstate"
-    "chainstate -> file_io -> validation -> chainstate"
+    "chainstate -> index/txindex -> validation -> chainstate"
     "checkpoints -> validation -> checkpoints"
-    "file_io -> validation -> file_io"
     "index/txindex -> validation -> index/txindex"
     "policy/fees -> txmempool -> policy/fees"
     "policy/fees -> txmempool -> validation -> policy/fees"

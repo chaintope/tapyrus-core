@@ -42,11 +42,11 @@ class CInv;
 class CIssuedColorIds;
 class CConnman;
 class CScriptCheck;
+class ValidationCache;
 class CBlockPolicyEstimator;
 class CTxMemPool;
 class CValidationState;
 class HeightDerivedConsensusRules;
-struct ChainTxData;
 struct XFieldChange;
 
 struct LockPoints;
@@ -107,13 +107,10 @@ static const bool DEFAULT_PEERBLOOMFILTERS = true;
 /** Default for -stopatheight */
 static const int DEFAULT_STOPATHEIGHT = 0;
 
-extern CScript COINBASE_FLAGS;
 extern RecursiveMutex cs_main;
 extern CBlockPolicyEstimator feeEstimator;
 extern CTxMemPool mempool;
 extern std::atomic_bool g_is_mempool_loaded;
-extern uint64_t nLastBlockTx;
-extern uint64_t nLastBlockSize;
 
 /** Minimum blocks required to signal NODE_NETWORK_LIMITED */
 static const unsigned int NODE_NETWORK_LIMITED_MIN_BLOCKS = 288;
@@ -179,9 +176,6 @@ bool GetTransaction(const uint256& hash, CTransactionRef& tx, uint256& hashBlock
  */
 bool ActivateBestChain(CValidationState& state, std::shared_ptr<const CBlock> pblock = std::shared_ptr<const CBlock>());
 
-/** Guess verification progress (as a fraction between 0.0=genesis and 1.0=current tip). */
-double GuessVerificationProgress(const ChainTxData& data, const CBlockIndex* pindex);
-
 /** Flush all state, indexes and buffers to disk. */
 void FlushStateToDisk();
 /** Prune block files and flush state to disk. */
@@ -243,10 +237,8 @@ bool CheckSequenceLocks(const CTransaction &tx, int flags,  CCoinsViewMemPool& v
  * Setting cacheSigStore/cacheFullScriptStore to false will remove elements from the corresponding cache
  * which are matched. This is useful for checking blocks where we will likely never need the cache
  * entry again.
- *
- * Non-static (and re-declared) in src/test/txvalidationcache_tests.cpp
  */
-bool CheckInputs(const CTransaction& tx, CValidationState &state, const CCoinsViewCache &inputs, bool fScriptChecks, unsigned int flags, bool cacheSigStore, bool cacheFullScriptStore, std::vector<CScriptCheck> *pvChecks = nullptr, unsigned int mandatoryFlags = 0);
+bool CheckInputs(const CTransaction& tx, CValidationState &state, const CCoinsViewCache &inputs, bool fScriptChecks, unsigned int flags, bool cacheSigStore, bool cacheFullScriptStore, ValidationCache& validation_cache, std::vector<CScriptCheck> *pvChecks = nullptr, unsigned int mandatoryFlags = 0);
 
 
 /** Functions for validating blocks and updating the block tree */

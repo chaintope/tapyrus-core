@@ -10,6 +10,10 @@
 class CScheduler;
 class CRPCTable;
 
+namespace interfaces {
+class NodeContextLookup;
+} // namespace interfaces
+
 class WalletInitInterface {
 public:
     /** Get wallet help string */
@@ -20,6 +24,10 @@ public:
     virtual void RegisterRPC(CRPCTable &) const = 0;
     /** Verify wallets */
     virtual bool Verify() const = 0;
+    /** Set the node the wallets read from; null when they run without one. Must outlive the wallets. */
+    virtual void SetNodeContextLookup(interfaces::NodeContextLookup* node_lookup) const = 0;
+    /** The node set above, for wallets loaded later */
+    virtual interfaces::NodeContextLookup* GetNodeContextLookup() const = 0;
     /** Open wallets*/
     virtual bool Open() const = 0;
     /** Start wallets*/

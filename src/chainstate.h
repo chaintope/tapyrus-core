@@ -26,8 +26,16 @@
 
 class CBlockTreeDB;
 class CCoinsViewDB;
+class ChainstateManager;
 class CIssuedColorIds;
 
+
+enum class FlushStateMode {
+    NONE,
+    IF_NEEDED,
+    PERIODIC,
+    ALWAYS
+};
 
 enum DisconnectResult
 {
@@ -73,6 +81,8 @@ struct CBlockIndexWorkComparator
  */
 class Chainstate {
 private:
+    ChainstateManager& m_chainman;
+
     /**
      * The set of all CBlockIndex entries with BLOCK_VALID_TRANSACTIONS (for itself and all ancestors) and
      * as good as our current tip or better. Entries may be failed, though, and pruning nodes may be
@@ -121,7 +131,13 @@ private:
     //! The coins views; null until InitCoinsDB().
     std::unique_ptr<CoinsViews> m_coins_views;
 
+    //! When FlushStateToDisk last wrote the block index and flushed the coins, in microseconds.
+    int64_t m_last_write GUARDED_BY(cs_main){0};
+    int64_t m_last_flush GUARDED_BY(cs_main){0};
+
 public:
+    explicit Chainstate(ChainstateManager& chainman) : m_chainman(chainman) {}
+
     CChain m_chain;
 
     std::unique_ptr< CCheckQueue<CScriptCheck> >scriptcheckqueue;
@@ -139,6 +155,17 @@ public:
     bool LoadBlockIndex() EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 
     bool ActivateBestChain(CValidationState &state, std::shared_ptr<const CBlock> pblock);
+
+    /**
+     * Update the on-disk chain state.
+     * The caches and indexes are flushed depending on the mode we're called with
+     * if they're too large, if it's been a while since the last write,
+     * or always and in all cases if we're in prune mode and are deleting files.
+     *
+     * If FlushStateMode::NONE is used, then FlushStateToDisk() won't do anything
+     * besides checking if we need to prune.
+     */
+    bool FlushStateToDisk(CValidationState& state, FlushStateMode mode, int nManualPruneHeight = 0);
 
     /**
      * If a block header hasn't already been seen, call CheckBlockHeader on it, ensure

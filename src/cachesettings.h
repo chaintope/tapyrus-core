@@ -6,6 +6,7 @@
 #ifndef TAPYRUS_CACHESETTINGS_H
 #define TAPYRUS_CACHESETTINGS_H
 
+#include <cstddef>
 #include <cstdint>
 
 class ArgsManager;
@@ -27,7 +28,8 @@ static const int64_t nMaxCoinsDBCache = 8;
 //! -txindex default
 static const bool DEFAULT_TXINDEX = false;
 
-/** How -dbcache is split between the databases' own caches and the in-memory coins cache, as Core's CacheSizes. */
+/** How -dbcache is split between the databases' own caches and the in-memory coins cache, as Core's CacheSizes,
+ *  and how much each of the two validation caches may use under -maxsigcachesize. */
 class CacheSettings
 {
 public:
@@ -38,6 +40,8 @@ public:
     int64_t nCoinDBCache;
     //! What is left after the databases: the in-memory coins cache.
     int64_t nCoinCacheUsage;
+    //! Bytes for each of the signature and script execution caches: half of -maxsigcachesize.
+    size_t nValidationCacheBytes;
 };
 
 #endif // TAPYRUS_CACHESETTINGS_H

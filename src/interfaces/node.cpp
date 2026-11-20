@@ -23,6 +23,7 @@
 #include <nodecontext.h>
 #include <netaddress.h>
 #include <netbase.h>
+#include <notificationhub.h>
 #include <policy/feerate.h>
 #include <policy/fees.h>
 #include <policy/policy.h>
@@ -37,7 +38,6 @@
 #include <ui_interface.h>
 #include <util.h>
 #include <validation.h>
-#include <warnings.h>
 
 #include <tapyrus-config.h>
 #if ENABLE_WALLET
@@ -71,7 +71,10 @@ public:
     std::string getNetwork() override { return FederationParams().NetworkIDString(); }
     void initLogging() override { InitLogging(); }
     void initParameterInteraction() override { InitParameterInteraction(); }
-    std::string getWarnings(const std::string& type) override { return GetWarnings(type); }
+    std::string getWarnings(const std::string& type) override
+    {
+        return m_context.notifications.GetWarnings(type);
+    }
     uint32_t getLogCategories() override { return LogInstance().GetCategoryMask(); }
     bool baseInitialize() override
     {
@@ -191,7 +194,7 @@ public:
             LOCK(::cs_main);
             tip = g_chainstate_manager.ActiveChain().Tip();
         }
-        return GuessVerificationProgress(Params().TxData(), tip);
+        return g_chainstate_manager.Progress().Guess(tip);
     }
     bool isInitialBlockDownload() override { return IsInitialBlockDownload(); }
     bool getReindex() override { return g_chainstate_manager.IsReindexing(); }
@@ -236,7 +239,7 @@ public:
 #if ENABLE_WALLET
         std::vector<std::unique_ptr<Wallet>> wallets;
         for (const std::shared_ptr<CWallet>& wallet : GetWallets()) {
-            wallets.emplace_back(MakeWallet(wallet, m_context.connman));
+            wallets.emplace_back(MakeWallet(wallet));
         }
         return wallets;
 #else
@@ -262,7 +265,7 @@ public:
     std::unique_ptr<Handler> handleLoadWallet(LoadWalletFn fn) override
     {
         CHECK_WALLET(
-            return MakeHandler(::uiInterface.LoadWallet.connect([this, fn](std::shared_ptr<CWallet> wallet) { fn(MakeWallet(wallet, m_context.connman)); })));
+            return MakeHandler(::uiInterface.LoadWallet.connect([fn](std::shared_ptr<CWallet> wallet) { fn(MakeWallet(wallet)); })));
     }
     std::unique_ptr<Handler> handleNotifyNumConnectionsChanged(NotifyNumConnectionsChangedFn fn) override
     {
@@ -282,17 +285,15 @@ public:
     }
     std::unique_ptr<Handler> handleNotifyBlockTip(NotifyBlockTipFn fn) override
     {
-        return MakeHandler(::uiInterface.NotifyBlockTip.connect([fn](bool initial_download, const CBlockIndex* block) {
-            fn(initial_download, block->nHeight, block->GetBlockTime(),
-                GuessVerificationProgress(Params().TxData(), block));
+        return MakeHandler(::uiInterface.NotifyBlockTip.connect([fn](bool initial_download, const CBlockIndex* block, double verification_progress) {
+            fn(initial_download, block->nHeight, block->GetBlockTime(), verification_progress);
         }));
     }
     std::unique_ptr<Handler> handleNotifyHeaderTip(NotifyHeaderTipFn fn) override
     {
         return MakeHandler(
-            ::uiInterface.NotifyHeaderTip.connect([fn](bool initial_download, const CBlockIndex* block) {
-                fn(initial_download, block->nHeight, block->GetBlockTime(),
-                    GuessVerificationProgress(Params().TxData(), block));
+            ::uiInterface.NotifyHeaderTip.connect([fn](bool initial_download, const CBlockIndex* block, double verification_progress) {
+                fn(initial_download, block->nHeight, block->GetBlockTime(), verification_progress);
             }));
     }
 

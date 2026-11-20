@@ -112,6 +112,8 @@ add_executable(test_tapyrus
         multisig_tests.cpp
         net_tests.cpp
         netbase_tests.cpp
+        nodecontextlookup_tests.cpp
+        notificationhub_tests.cpp
         pmt_tests.cpp
         policyestimator_tests.cpp
         policysettings_tests.cpp
@@ -134,6 +136,7 @@ add_executable(test_tapyrus
         skiplist_tests.cpp
         streams_tests.cpp
         test_tapyrus_main.cpp
+        timeoffsets_tests.cpp
         torcontrol_tests.cpp
         transaction_tests.cpp
         transactioncolorchecker_tests.cpp
@@ -146,6 +149,7 @@ add_executable(test_tapyrus
         util_tests.cpp
         validation_block_tests.cpp
         validation_flush_tests.cpp
+        verificationprogress_tests.cpp
         xfieldhistory_tests.cpp
         xfield_tests.cpp
         zmq_tests.cpp
@@ -216,6 +220,7 @@ target_link_libraries(test_tapyrus
         $<TARGET_NAME_IF_EXISTS:tapyrus_wallet>
         tapyrus_cli
         tapyrus_rpc
+        tapyrus_wallet_interface
         tapyrus_peer
         tapyrus_chainstate
         tapyrus_codec
@@ -318,7 +323,7 @@ endfunction()
 #   dozens of CWallet methods, CConnman's full API, libevent's C interface
 #   -- none of it reachable from ParsePsttInputEntries/decodepstt either.
 #   fuzz/rpc_glue_stub.cpp defines just those three functions,
-#   which avoids tapyrus_wallet, tapyrus_zmq, and their init-time glue
+#   which avoids tapyrus_wallet, tapyrus_zmq, and their start-up code
 #   (wallet/init.cpp's g_wallet_init_interface = WalletInit() static
 #   initializer in particular) entirely.
 function(add_pstt_fuzz_target_with_rpc_glue name source)

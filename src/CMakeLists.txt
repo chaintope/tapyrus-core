@@ -30,7 +30,8 @@
 #
 # Per-executable direct library links:
 #   tapyrusd               -- tapyrus_chainstate, tapyrus_peer, tapyrus_rpc, tapyrus_util,
-#                              tapyrus_wallet (cond., ENABLE_WALLET), tapyrus_zmq (cond., ENABLE_ZMQ)
+#                              tapyrus_wallet_interface, tapyrus_wallet (cond., ENABLE_WALLET),
+#                              tapyrus_zmq (cond., ENABLE_ZMQ)
 #   tapyrus-qt              -- same as tapyrusd minus tapyrus_util, plus its own compiled-in
 #                              copy of interfaces/node.cpp (see the comment on tapyrus_util's
 #                              add_library() below)
@@ -68,10 +69,9 @@
 #   tapyrus_consensus   -- tapyrus_types, tapyrus_crypto
 #   tapyrus_types       -- tapyrus_crypto
 #
-# tapyrus_rpc links tapyrus_wallet, one-directionally: wallet/rpcwallet.cpp
-# and wallet/rpcdump.cpp compile into tapyrus_rpc, not tapyrus_wallet.
-# wallet/init.cpp and wallet/walletinit_rpc.cpp compile into neither library
-# -- see the WalletInit glue note on tapyrusd's add_executable() below.
+# tapyrus_rpc links tapyrus_wallet, one-directionally: wallet/rpcwallet.cpp,
+# wallet/rpcdump.cpp and WalletInit (wallet/init.cpp) compile into tapyrus_rpc,
+# not tapyrus_wallet, since WalletInit registers the wallet RPCs.
 
 include(AddWindowsResources)
 
@@ -266,13 +266,13 @@ target_link_libraries(tapyrus_global
 )
 
 # Genuinely shared, no single theme: netaddress/netbase (network address
-# types), protocol (P2P message framing), warnings (generic warning-state
-# utility).
+# types), protocol (P2P message framing), notificationhub (what the node's
+# components publish to).
 add_library(tapyrus_netbase STATIC EXCLUDE_FROM_ALL
   netaddress.cpp
   netbase.cpp
+  notificationhub.cpp
   protocol.cpp
-  warnings.cpp
 )
 target_link_libraries(tapyrus_netbase
   PUBLIC
@@ -341,7 +341,6 @@ include(InstallBinaryComponent)
 # Blockchain/mempool consensus-application state: chain index, UTXO set,
 # block/tx validation, mempool, block-storage indexes (leveldb-backed).
 add_library(tapyrus_chainstate STATIC EXCLUDE_FROM_ALL
-  abortnode.cpp
   blockfilemanager.cpp
   blockindexmap.cpp
   cachesettings.cpp
@@ -370,7 +369,9 @@ add_library(tapyrus_chainstate STATIC EXCLUDE_FROM_ALL
   txmempool.cpp
   utxo_snapshot.cpp
   validation.cpp
+  validationcache.cpp
   validationinterface.cpp
+  verificationprogress.cpp
   verifydb.cpp
 )
 target_link_libraries(tapyrus_chainstate
@@ -441,9 +442,9 @@ if(ENABLE_WALLET)
 endif()
 
 # JSON-RPC and REST server functionality used by `tapyrusd` and
-# `tapyrus-qt`. wallet/rpcwallet.cpp and wallet/rpcdump.cpp compile here,
-# not into tapyrus_wallet. wallet/walletinit_rpc.cpp does not compile here
-# -- see the WalletInit glue note on tapyrusd's add_executable() below.
+# `tapyrus-qt`. The wallet RPCs and WalletInit compile here, not into
+# tapyrus_wallet: WalletInit registers the wallet RPCs, and the wallet RPCs
+# load wallets through WalletInit.
 set(TAPYRUS_RPC_SOURCES
   httprpc.cpp
   httpserver.cpp
@@ -461,6 +462,7 @@ set(TAPYRUS_RPC_SOURCES
 )
 if(ENABLE_WALLET)
   list(APPEND TAPYRUS_RPC_SOURCES
+    wallet/init.cpp
     wallet/rpcdump.cpp
     wallet/rpcwallet.cpp
   )
@@ -491,6 +493,20 @@ target_link_libraries(tapyrus_rpc
 )
 
 
+# The node-side implementation of the interfaces its clients (the wallet, and
+# later the GUI) reach it through. The clients' own libraries never link it;
+# the executables that create a node do.
+add_library(tapyrus_wallet_interface STATIC EXCLUDE_FROM_ALL
+  interfaces/nodecontextlookupimpl.cpp
+)
+target_link_libraries(tapyrus_wallet_interface
+  PRIVATE
+    core_interface
+    tapyrus_chainstate
+    tapyrus_peer
+    Boost::headers
+)
+
 # tapyrus Core tapyrusd. init.cpp and noui.cpp wire the libraries together
 # at start-up and shutdown, and debuglogfile.cpp is the debug.log writer
 # init.cpp installs; none of them has a use outside this executable.
@@ -501,16 +517,6 @@ if(BUILD_DAEMON)
     init.cpp
     noui.cpp
   )
-  if(ENABLE_WALLET)
-    # WalletInit glue: g_wallet_init_interface is used only from init.cpp
-    # above. Compiled directly into every executable that compiles
-    # init.cpp (also tapyrus-qt and test-tapyrus-qt -- see their own
-    # CMakeLists.txt), not into a library.
-    target_sources(tapyrusd PRIVATE
-      wallet/init.cpp
-      wallet/walletinit_rpc.cpp
-    )
-  endif()
   add_windows_resources(tapyrusd "${TAPYRUSD_RC_FILE}")
   target_link_libraries(tapyrusd PRIVATE
     core_interface
@@ -518,6 +524,7 @@ if(BUILD_DAEMON)
     tapyrus_peer
     tapyrus_rpc
     tapyrus_util
+    tapyrus_wallet_interface
     $<TARGET_NAME_IF_EXISTS:tapyrus_zmq>
     $<TARGET_NAME_IF_EXISTS:tapyrus_wallet>
     univalue

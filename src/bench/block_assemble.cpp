@@ -5,6 +5,7 @@
 
 #include <bench/bench.h>
 #include <chainparams.h>
+#include <cachesettings.h>
 #include <chainstatemanager.h>
 #include <coinsviewcache.h>
 #include <consensus/merkle.h>
@@ -12,6 +13,7 @@
 #include <consensussettings.h>
 #include <genesisfile.h>
 #include <miner.h>
+#include <notificationhub.h>
 #include <policy/policy.h>
 #include <scheduler.h>
 #include <txdb.h>
@@ -25,7 +27,6 @@
 #include <script/sign.h>
 #include <script/signaturecreator.h>
 #include <script/signaturedata.h>
-#include <script/sigcache.h>
 #include <xfieldhistory.h>
 
 #include <list>
@@ -35,10 +36,13 @@
 
 static std::shared_ptr<CBlock> PrepareBlock(const CScript& coinbase_scriptPubKey)
 {
-    auto block = std::make_shared<CBlock>(
-        BlockAssembler{Params()}
-            .CreateNewBlock(coinbase_scriptPubKey)
-            ->block);
+    std::shared_ptr<CBlock> block;
+    {
+        // Held across both, so the template builds on the tip the options read.
+        LOCK(cs_main);
+        const BlockAssembler::Options options(*g_policy_settings, gArgs, g_chainstate_manager);
+        block = std::make_shared<CBlock>(BlockAssembler(g_chainstate_manager, options).CreateNewBlock(coinbase_scriptPubKey)->block);
+    }
 
     block->nTime = g_chainstate_manager.ActiveChain().Tip()->GetMedianTimePast() + 1;
     block->hashMerkleRoot = BlockMerkleRoot(*block);
@@ -82,7 +86,10 @@ static void AssembleBlock(benchmark::State& state)
     // No script-check worker threads are started, so -par=1 checks scripts on the connecting thread.
     gArgs.ForceSetArg("-par", "1");
     g_chainstate_manager.InitOptions(ChainstateManager::Options(gArgs, /*defaultConsistencyChecks=*/false, /*coinCacheUsage=*/size_t{5000} * 300));
-    g_chainstate_manager.InitBlockFileManager(BlockFileManager::Options(gArgs, Params().PruneAfterHeight()));
+    // Static: the global block files and coins views keep referring to it after this returns.
+    static NotificationHub notifications;
+    g_chainstate_manager.SetNotifications(&notifications);
+    g_chainstate_manager.InitBlockFileManager(BlockFileManager::Options(gArgs, Params().PruneAfterHeight()), notifications);
     BlockIndexMap& blockIndex = g_chainstate_manager.BlockIndex();
     g_chainstate_manager.InitializeChainstate();
 
@@ -93,8 +100,10 @@ static void AssembleBlock(benchmark::State& state)
     CBasicKeyStore tempKeystore;
     tempKeystore.AddKey(privKey);
 
-    InitSignatureCache();
-    InitScriptExecutionCache();
+    {
+        LOCK(cs_main);
+        g_chainstate_manager.ValidationCaches().Resize(CacheSettings(gArgs).nValidationCacheBytes);
+    }
 
     CScheduler scheduler;
     std::thread thread(std::bind(&CScheduler::serviceQueue, &scheduler));

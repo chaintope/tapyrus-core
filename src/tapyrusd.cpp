@@ -12,6 +12,7 @@
 #include <compat.h>
 #include <fs.h>
 #include <init.h>
+#include <interfaces/nodecontextlookupimpl.h>
 #include <nodecontext.h>
 #include <noui.h>
 #include <shutdown.h>
@@ -58,6 +59,8 @@ static void WaitForShutdown(NodeContext& node)
 static bool AppInit(int argc, char* argv[])
 {
     NodeContext node;
+    NodeContextLookupImpl node_lookup(node);
+    g_wallet_init_interface.SetNodeContextLookup(&node_lookup);
 
     bool fRet = false;
 
