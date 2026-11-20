@@ -112,6 +112,7 @@ add_executable(test_tapyrus
         multisig_tests.cpp
         net_tests.cpp
         netbase_tests.cpp
+        nodecontextlookup_tests.cpp
         notificationhub_tests.cpp
         pmt_tests.cpp
         policyestimator_tests.cpp

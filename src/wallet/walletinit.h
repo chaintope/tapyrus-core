@@ -8,8 +8,6 @@
 
 #include <walletinitinterface.h>
 
-// Defined in wallet/init.cpp, except RegisterRPC(), which is in
-// wallet/walletinit_rpc.cpp beside the other code that needs the wallet RPCs.
 class WalletInit : public WalletInitInterface {
 public:
 

@@ -12,6 +12,7 @@
 #include <util.h>
 #include <utilmoneystr.h>
 #include <validation.h>
+#include <wallet/rpcwallet.h>
 #include <wallet/walletinit.h>
 #include <wallet/wallet.h>
 #include <wallet/walletutil.h>
@@ -108,8 +109,14 @@ bool WalletInit::ParameterInteraction() const
     return true;
 }
 
-// WalletInit::RegisterRPC() is defined in wallet/walletinit_rpc.cpp, not
-// here -- see the comment on the class declaration in wallet/walletinit.h.
+void WalletInit::RegisterRPC(CRPCTable &t) const
+{
+    if (gArgs.GetBoolArg("-disablewallet", DEFAULT_DISABLE_WALLET)) {
+        return;
+    }
+
+    RegisterWalletRPCCommands(t);
+}
 
 bool WalletInit::Verify() const
 {
