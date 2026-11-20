@@ -10,6 +10,7 @@
 
 #include <memory>
 
+class CBlockPolicyEstimator;
 class CacheSettings;
 class CConnman;
 class PeerManager;
@@ -28,6 +29,9 @@ struct NodeContext {
     //! them before this is destroyed.
     NotificationHub notifications;
     std::unique_ptr<const CacheSettings> cache;
+    //! Listens to the mempool through the validation interface; Shutdown()
+    //! unregisters it before this is destroyed.
+    std::unique_ptr<CBlockPolicyEstimator> fee_estimator;
     std::unique_ptr<CConnman> connman;
     std::unique_ptr<PeerManager> peerman;
 

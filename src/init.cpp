@@ -223,11 +223,11 @@ void Shutdown(NodeContext& node)
 
     if (fFeeEstimatesInitialized)
     {
-        ::feeEstimator.FlushUnconfirmed();
+        node.fee_estimator->FlushUnconfirmed();
         fs::path est_path = GetDataDir() / FEE_ESTIMATES_FILENAME;
         CAutoFile est_fileout(fsbridge::fopen(est_path, "wb"), SER_DISK, CLIENT_VERSION);
         if (!est_fileout.IsNull())
-            ::feeEstimator.Write(est_fileout);
+            node.fee_estimator->Write(est_fileout);
         else
             LogPrintf("%s: Failed to write fee estimates to %s\n", __func__, est_path.string());
         fFeeEstimatesInitialized = false;
@@ -1017,6 +1017,7 @@ bool AppInitParameterInteraction(NodeContext& node)
         InitWarning("Unsupported argument -blockminsize ignored.");
 
     // Checkmempool and checkblockindex default to true in dev mode
+    node.fee_estimator = std::make_unique<CBlockPolicyEstimator>();
     int ratio = std::min<int>(std::max<int>(gArgs.GetArg("-checkmempool", chainparams.DefaultConsistencyChecks() ? 1 : 0), 0), 1000000);
     if (ratio != 0) {
         mempool.setSanityCheck(1.0 / ratio);
@@ -1208,7 +1209,7 @@ bool AppInitMain(NodeContext& node)
 
     GetMainSignals().RegisterBackgroundSignalScheduler(scheduler);
     GetMainSignals().RegisterWithMempoolSignals(mempool);
-    RegisterValidationInterface(&::feeEstimator);
+    RegisterValidationInterface(node.fee_estimator.get());
 
     /* Register RPC commands regardless of -server setting so they will be
      * available in the GUI RPC console even if external calls are disabled.
@@ -1568,7 +1569,7 @@ bool AppInitMain(NodeContext& node)
     CAutoFile est_filein(fsbridge::fopen(est_path, "rb"), SER_DISK, CLIENT_VERSION);
     // Allowed to fail as this file IS missing on first startup.
     if (!est_filein.IsNull())
-        ::feeEstimator.Read(est_filein);
+        node.fee_estimator->Read(est_filein);
     fFeeEstimatesInitialized = true;
 
     // ********************************************************* Step 8: start indexers

@@ -25,12 +25,12 @@ public:
 
     CFeeRate estimateSmartFee(int num_blocks, bool conservative, FeeCalculation* calc) const override
     {
-        return ::feeEstimator.estimateSmartFee(num_blocks, calc, conservative);
+        return m_node.fee_estimator->estimateSmartFee(num_blocks, calc, conservative);
     }
 
     unsigned int estimateMaxBlocks() const override
     {
-        return ::feeEstimator.HighestTargetTracked(FeeEstimateHorizon::LONG_HALFLIFE);
+        return m_node.fee_estimator->HighestTargetTracked(FeeEstimateHorizon::LONG_HALFLIFE);
     }
 
     CFeeRate mempoolMinFee() const override
