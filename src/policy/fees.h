@@ -308,7 +308,4 @@ private:
     FastRandomContext insecure_rand;
 };
 
-/** The node's fee estimator. */
-extern CBlockPolicyEstimator feeEstimator;
-
 #endif // BITCOIN_POLICY_FEES_H

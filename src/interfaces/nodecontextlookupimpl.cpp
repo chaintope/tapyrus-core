@@ -18,12 +18,12 @@ NodeContextLookupImpl::NodeContextLookupImpl(NodeContext& node) : m_node(node) {
 
 CFeeRate NodeContextLookupImpl::estimateSmartFee(int num_blocks, bool conservative, FeeCalculation* calc) const
 {
-    return ::feeEstimator.estimateSmartFee(num_blocks, calc, conservative);
+    return m_node.fee_estimator->estimateSmartFee(num_blocks, calc, conservative);
 }
 
 unsigned int NodeContextLookupImpl::estimateMaxBlocks() const
 {
-    return ::feeEstimator.HighestTargetTracked(FeeEstimateHorizon::LONG_HALFLIFE);
+    return m_node.fee_estimator->HighestTargetTracked(FeeEstimateHorizon::LONG_HALFLIFE);
 }
 
 CFeeRate NodeContextLookupImpl::mempoolMinFee() const

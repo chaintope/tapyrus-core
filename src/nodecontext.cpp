@@ -10,6 +10,7 @@
 #include <connman.h>
 #include <net_processing.h>
 #include <notificationhub.h>
+#include <policy/fees.h>
 #include <policy/policysettings.h>
 
 NodeContext::NodeContext() = default;

@@ -33,6 +33,9 @@ std::shared_ptr<CWallet> GetWalletForJSONRPCRequest(const JSONRPCRequest& reques
 
 std::string HelpRequiringPassphrase(CWallet *);
 void EnsureWalletIsUnlocked(CWallet *);
+//! A confirmation target, checked against the longest the wallet's node can estimate for;
+//! throws without a node, as there is then no fee estimation.
+unsigned int ParseConfirmTarget(const CWallet& wallet, const UniValue& value);
 bool EnsureWalletIsAvailable(CWallet *, bool avoidException);
 
 UniValue getaddressinfo(const JSONRPCRequest& request);

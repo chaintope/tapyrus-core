@@ -101,6 +101,7 @@ BasicTestingSetup::BasicTestingSetup(const std::string& chainName)
         pxFieldHistory = &g_chainstate_manager.XFieldHistory();
         g_chainstate_manager.InitOptions(ChainstateOptionsOverride::TestOptions({}));
         g_chainstate_manager.InitBlockFileManager(BlockFileManager::Options(gArgs, Params().PruneAfterHeight()), m_node.notifications);
+        m_node.fee_estimator = std::make_unique<CBlockPolicyEstimator>();
         // Created once per test binary, as the global chainstate it replaces was.
         if (!g_chainstate_manager.HasChainstate()) g_chainstate_manager.InitializeChainstate();
         {
@@ -199,7 +200,7 @@ TestingSetup::TestingSetup(const std::string& chainName) : BasicTestingSetup(cha
         scheduler.m_service_thread = std::thread(&TraceThread, "scheduler", serviceLoop);
         GetMainSignals().RegisterBackgroundSignalScheduler(scheduler);
         GetMainSignals().RegisterWithMempoolSignals(::mempool);
-        RegisterValidationInterface(&::feeEstimator);
+        RegisterValidationInterface(m_node.fee_estimator.get());
 
         try {
             mempool.setSanityCheck(1.0);
@@ -242,7 +243,7 @@ void TestingSetup::TearDown()
         BlockIndexMap& blockIndex = g_chainstate_manager.BlockIndex();
         scheduler.stop();
         GetMainSignals().FlushBackgroundCallbacks();
-        UnregisterValidationInterface(&::feeEstimator);
+        UnregisterValidationInterface(m_node.fee_estimator.get());
         GetMainSignals().UnregisterWithMempoolSignals(::mempool);
         GetMainSignals().UnregisterBackgroundSignalScheduler();
         m_node.peerman.reset();
