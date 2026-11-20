@@ -18,6 +18,7 @@
 #include <coin.h>
 #include <coinsview.h>
 #include <coinsviewcache.h>
+#include <hasher.h>
 #include <indirectmap.h>
 #include <policy/feerate.h>
 #include <primitives/transaction.h>
@@ -355,20 +356,6 @@ enum class MemPoolRemovalReason {
 };
 
 std::string RemovalReasonToString(const MemPoolRemovalReason& r) noexcept;
-
-class SaltedTxidHasher
-{
-private:
-    /** Salt */
-    const uint64_t k0, k1;
-
-public:
-    SaltedTxidHasher();
-
-    size_t operator()(const uint256& txid) const {
-        return SipHashUint256(k0, k1, txid);
-    }
-};
 
 /**
  * CTxMemPool stores valid-according-to-the-current-best-chain transactions
