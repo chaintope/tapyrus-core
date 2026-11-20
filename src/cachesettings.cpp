@@ -5,6 +5,7 @@
 
 #include <cachesettings.h>
 
+#include <script/sigcache.h>
 #include <util.h>
 
 #include <algorithm>
@@ -22,4 +23,6 @@ CacheSettings::CacheSettings(const ArgsManager& args)
     nCoinDBCache = std::min(nCoinDBCache, nMaxCoinsDBCache << 20); // cap total coins db cache
     nTotalCache -= nCoinDBCache;
     nCoinCacheUsage = nTotalCache; // the rest goes to in-memory cache
+    // If -maxsigcachesize is zero, each cache still gets the minimum of 2 elements.
+    nValidationCacheBytes = std::min(std::max(int64_t{0}, args.GetArg("-maxsigcachesize", DEFAULT_MAX_SIG_CACHE_SIZE) / 2), MAX_MAX_SIG_CACHE_SIZE) * (size_t{1} << 20);
 }

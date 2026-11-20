@@ -7,7 +7,6 @@
 
 #include <primitives/transaction.h>
 
-class CConnman;
 class CWallet;
 class CWalletTx;
 class uint256;
@@ -51,7 +50,6 @@ bool SignTransaction(CWallet* wallet, CMutableTransaction& mtx);
 Result CommitTransaction(CWallet* wallet,
                          const uint256& txid,
                          CMutableTransaction&& mtx,
-                         CConnman* connman,
                          std::vector<std::string>& errors,
                          uint256& bumped_txid);
 

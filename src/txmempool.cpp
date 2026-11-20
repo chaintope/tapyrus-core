@@ -23,44 +23,6 @@
 #include <utiltime.h>
 
 
-CTxMemPoolEntry::CTxMemPoolEntry(const CTransactionRef& _tx, const CAmount& _nFee,
-                                 int64_t _nTime, unsigned int _entryHeight,
-                                 bool _spendsCoinbase, int32_t _sigOpsCost, LockPoints lp):
-    tx(_tx), nFee(_nFee), nTime(_nTime), entryHeight(_entryHeight),
-    spendsCoinbase(_spendsCoinbase), sigOpCost(_sigOpsCost), lockPoints(lp)
-{
-    nTxSize = GetSerializeSize(tx, SER_NETWORK, PROTOCOL_VERSION);
-    nUsageSize = RecursiveDynamicUsage(tx);
-
-    nCountWithDescendants = 1;
-    nSizeWithDescendants = GetTxSize();
-    nModFeesWithDescendants = nFee;
-
-    feeDelta = 0;
-
-    nCountWithAncestors = 1;
-    nSizeWithAncestors = GetTxSize();
-    nModFeesWithAncestors = nFee;
-    nSigOpCostWithAncestors = sigOpCost;
-}
-
-void CTxMemPoolEntry::UpdateFeeDelta(int64_t newFeeDelta)
-{
-    nModFeesWithDescendants += newFeeDelta - feeDelta;
-    nModFeesWithAncestors += newFeeDelta - feeDelta;
-    feeDelta = newFeeDelta;
-}
-
-void CTxMemPoolEntry::UpdateLockPoints(const LockPoints& lp)
-{
-    lockPoints = lp;
-}
-
-int32_t CTxMemPoolEntry::GetTxSize() const
-{
-    return GetTransactionSize(nTxSize, sigOpCost);
-}
-
 // Update the given tx for any in-mempool descendants.
 // Assumes that setMemPoolChildren is correct for the given tx and all
 // descendants.
@@ -312,26 +274,6 @@ void CTxMemPool::UpdateForRemoveFromMempool(const setEntries &entriesToRemove, b
     }
 }
 
-void CTxMemPoolEntry::UpdateDescendantState(int32_t modifySize, CAmount modifyFee, int64_t modifyCount)
-{
-    nSizeWithDescendants += modifySize;
-    assert(nSizeWithDescendants > 0);
-    nModFeesWithDescendants += modifyFee;
-    nCountWithDescendants += uint64_t(modifyCount);
-    assert(int64_t(nCountWithDescendants) > 0);
-}
-
-void CTxMemPoolEntry::UpdateAncestorState(int32_t modifySize, CAmount modifyFee, int64_t modifyCount, int32_t modifySigOps)
-{
-    nSizeWithAncestors += modifySize;
-    assert(nSizeWithAncestors > 0);
-    nModFeesWithAncestors += modifyFee;
-    nCountWithAncestors += uint64_t(modifyCount);
-    assert(int64_t(nCountWithAncestors) > 0);
-    nSigOpCostWithAncestors += modifySigOps;
-    assert(int(nSigOpCostWithAncestors) >= 0);
-}
-
 CTxMemPool::CTxMemPool(CBlockPolicyEstimator* estimator) :
     nTransactionsUpdated(0), minerPolicyEstimator(estimator)
 {
@@ -517,6 +459,19 @@ void CTxMemPool::removeRecursive(const CTransaction &origTx, MemPoolRemovalReaso
     }
 }
 
+void CTxMemPool::FilterDuplicates(const std::vector<CTransaction>& txns, Package& package, PackageValidationState& results) const
+{
+    for (const auto& tx : txns) {
+        if (exists(tx.GetHashMalFix())) {
+            CValidationState state;
+            state.Invalid(false, REJECT_DUPLICATE, "txn-already-in-mempool");
+            results.emplace(tx.GetHashMalFix(), state);
+        } else {
+            package.emplace_back(MakeTransactionRef(tx));
+        }
+    }
+}
+
 void CTxMemPool::removeForReorg(const CCoinsViewCache *pcoins, unsigned int nMemPoolHeight, int flags)
 {
     // Remove transactions spending a coinbase which are now immature and no-longer-final transactions
@@ -637,7 +592,7 @@ void CTxMemPool::removeForScriptFlagChange(unsigned int newMempoolScriptFlags, i
         // was admitted under it and will pass here.  For any future softfork
         // whose flag is NOT pre-added to STANDARD, this correctly evicts txs
         // that would be invalid under the new consensus rules.
-        if (!CheckInputs(tx, state, view, true, newMempoolScriptFlags, false, false)) {
+        if (!CheckInputs(tx, state, view, true, newMempoolScriptFlags, false, false, g_chainstate_manager.ValidationCaches())) {
             txToRemove.insert(it);
             continue;
         }
@@ -1166,19 +1121,4 @@ void CTxMemPool::GetTransactionAncestry(const uint256& txid, size_t& ancestors, 
     }
 }
 
-SaltedTxidHasher::SaltedTxidHasher() : k0(GetRand(std::numeric_limits<uint64_t>::max())), k1(GetRand(std::numeric_limits<uint64_t>::max())) {}
-
-std::string RemovalReasonToString(const MemPoolRemovalReason& r) noexcept
-{
-    switch (r) {
-        case MemPoolRemovalReason::EXPIRY: return "expiry";
-        case MemPoolRemovalReason::SIZELIMIT: return "sizelimit";
-        case MemPoolRemovalReason::REORG: return "reorg";
-        case MemPoolRemovalReason::BLOCK: return "block";
-        case MemPoolRemovalReason::CONFLICT: return "conflict";
-        case MemPoolRemovalReason::REPLACED: return "replaced";
-        case MemPoolRemovalReason::UNKNOWN:
-        default:return "unknown";
-    }
-}
 CTxMempoolAcceptanceOptions:: CTxMempoolAcceptanceOptions():context(ValidationContext::TRANSACTION), flags(MempoolAcceptanceFlags::NONE), nAbsurdFee(0), nAcceptTime(0), mempool_view(nullptr){}

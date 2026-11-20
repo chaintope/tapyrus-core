@@ -38,7 +38,7 @@ namespace {
 class PendingWalletTxImpl : public PendingWalletTx
 {
 public:
-    PendingWalletTxImpl(CWallet& wallet, const std::unique_ptr<CConnman>& connman) : m_wallet(wallet), m_connman(connman), m_key(&wallet) {}
+    explicit PendingWalletTxImpl(CWallet& wallet) : m_wallet(wallet), m_key(&wallet) {}
 
     const CTransaction& get() override { return *m_tx; }
 
@@ -51,7 +51,7 @@ public:
     {
         LOCK2(cs_main, m_wallet.cs_wallet);
         CValidationState state;
-        if (!m_wallet.CommitTransaction(m_tx, std::move(value_map), std::move(order_form), m_key, m_connman.get(), state)) {
+        if (!m_wallet.CommitTransaction(m_tx, std::move(value_map), std::move(order_form), m_key, state)) {
             reject_reason = state.GetRejectReason();
             return false;
         }
@@ -60,7 +60,6 @@ public:
 
     CTransactionRef m_tx;
     CWallet& m_wallet;
-    const std::unique_ptr<CConnman>& m_connman;
     CReserveKey m_key;
 };
 
@@ -136,7 +135,7 @@ WalletTxOut MakeWalletTxOut(CWallet& wallet, const CWalletTx& wtx, int n, int de
 class WalletImpl : public Wallet
 {
 public:
-    WalletImpl(const std::shared_ptr<CWallet>& wallet, const std::unique_ptr<CConnman>& connman) : m_shared_wallet(wallet), m_wallet(*wallet.get()), m_connman(connman) {}
+    explicit WalletImpl(const std::shared_ptr<CWallet>& wallet) : m_shared_wallet(wallet), m_wallet(*wallet.get()) {}
 
     bool encryptWallet(const SecureString& wallet_passphrase) override
     {
@@ -242,7 +241,7 @@ public:
         std::string& fail_reason) override
     {
         LOCK2(cs_main, m_wallet.cs_wallet);
-        auto pending = MakeUnique<PendingWalletTxImpl>(m_wallet, m_connman);
+        auto pending = MakeUnique<PendingWalletTxImpl>(m_wallet);
         CWallet::ChangePosInOut mapChangePosInOut;
         mapChangePosInOut[ColorIdentifier()] = change_pos;
         if (!m_wallet.CreateTransaction(recipients, pending->m_tx, pending->m_key, fee, mapChangePosInOut,
@@ -280,7 +279,7 @@ public:
         std::vector<std::string>& errors,
         uint256& bumped_txid) override
     {
-        return feebumper::CommitTransaction(&m_wallet, txid, std::move(mtx), m_connman.get(), errors, bumped_txid) ==
+        return feebumper::CommitTransaction(&m_wallet, txid, std::move(mtx), errors, bumped_txid) ==
                feebumper::Result::OK;
     }
     CTransactionRef getTx(const uint256& txid) override
@@ -398,7 +397,7 @@ public:
             CCoinControl coin_control;
             coin_control.m_colorId = ColorIdentifier(script);
 
-            UniValue rv = IssueReissuableToken(&m_wallet, scriptHex, value, coin_control, m_connman.get());
+            UniValue rv = IssueReissuableToken(&m_wallet, scriptHex, value, coin_control);
 
             result.ok = true;
             result.color = rv["color"].get_str();
@@ -443,7 +442,7 @@ public:
             coin_control.m_colorTxType = ColoredTxType::ISSUE;
             coin_control.Select(tpcUtxo);
 
-            UniValue rv = IssueToken(&m_wallet, value, coin_control, m_connman.get());
+            UniValue rv = IssueToken(&m_wallet, value, coin_control);
 
             result.ok = true;
             result.color = rv["color"].get_str();
@@ -479,7 +478,7 @@ public:
             CCoinControl coin_control;
             coin_control.m_colorId = colorId;
 
-            UniValue rv = IssueReissuableToken(&m_wallet, HexStr(script.begin(), script.end()), value, coin_control, m_connman.get());
+            UniValue rv = IssueReissuableToken(&m_wallet, HexStr(script.begin(), script.end()), value, coin_control);
 
             result.ok = true;
             result.color = rv["color"].get_str();
@@ -508,7 +507,7 @@ public:
                 }
             }
 
-            CTransactionRef tx = BurnToken(&m_wallet, colorId, value, m_connman.get());
+            CTransactionRef tx = BurnToken(&m_wallet, colorId, value);
 
             result.ok = true;
             result.txids.push_back(tx->GetHashMalFix().GetHex());
@@ -579,7 +578,7 @@ public:
     {
         FeeCalculation fee_calc;
         CAmount result;
-        result = GetMinimumFee(m_wallet, tx_bytes, coin_control, ::mempool, ::feeEstimator, &fee_calc);
+        result = GetMinimumFee(m_wallet, tx_bytes, coin_control, &fee_calc);
         if (returned_target) *returned_target = fee_calc.returnedTarget;
         if (reason) *reason = fee_calc.reason;
         return result;
@@ -619,13 +618,10 @@ public:
 
     std::shared_ptr<CWallet> m_shared_wallet;
     CWallet& m_wallet;
-    //! The NodeContext's connman slot, read at each commit. The slot is not
-    //! locked: no commit may run while Shutdown() resets it.
-    const std::unique_ptr<CConnman>& m_connman;
 };
 
 } // namespace
 
-std::unique_ptr<Wallet> MakeWallet(const std::shared_ptr<CWallet>& wallet, const std::unique_ptr<CConnman>& connman) { return MakeUnique<WalletImpl>(wallet, connman); }
+std::unique_ptr<Wallet> MakeWallet(const std::shared_ptr<CWallet>& wallet) { return MakeUnique<WalletImpl>(wallet); }
 
 } // namespace interfaces

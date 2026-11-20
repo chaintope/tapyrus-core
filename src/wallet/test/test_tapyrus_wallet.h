@@ -5,6 +5,7 @@
 #ifndef TAPYRUS_WALLET_TEST_TEST_TAPYRUS_WALLET_H
 #define TAPYRUS_WALLET_TEST_TEST_TAPYRUS_WALLET_H
 
+#include <interfaces/nodecontextlookupimpl.h>
 #include <test/test_tapyrus.h>
 #include <wallet/wallet.h>
 
@@ -18,6 +19,7 @@ public:
         wallet.reset();
     }
 
+    NodeContextLookupImpl m_node_lookup{m_node};
     std::unique_ptr<CWallet> wallet;
 
     bool ImportCoin(const CAmount amount);

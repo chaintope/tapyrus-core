@@ -10,6 +10,7 @@
 #include <checkblock.h>
 #include <consensus/tx_check.h>
 #include <validation.h>
+#include <validationcache.h>
 #include <cs_main.h>
 #include <issuedcolorids.h>
 #include <chainstatemanager.h>
@@ -17,7 +18,6 @@
 #include <checkqueue.h>
 #include <consensus/merkle.h>
 #include <consensus/validation.h>
-#include <cuckoocache.h>
 #include <federationparams.h>
 #include <hash.h>
 #include <index/txindex.h>
@@ -38,14 +38,11 @@
 #include <trace.h>
 #include <ui_interface.h>
 #include <utilmoneystr.h>
-#include <warnings.h>
 #include <tempxfieldhistory.h>
 
 #include <future>
 #include <thread>
 #include <sstream>
-
-#include <file_io.h>
 
 #if defined(NDEBUG)
 # error "Tapyrus cannot be compiled without assertions."
@@ -59,63 +56,6 @@ extern RecursiveMutex cs_main;
 CBlockPolicyEstimator feeEstimator;
 CTxMemPool mempool(&feeEstimator);
 std::atomic_bool g_is_mempool_loaded{false};
-
-/** Constant stuff for coinbase transactions we create: */
-CScript COINBASE_FLAGS;
-
-
-
-// Minimum number of blocks in the sampling window for ChainTxData refresh.
-static constexpr int64_t MIN_CHAIN_TX_WINDOW = 100;
-
-/**
- * Refresh ChainTxData with the observed tx rate from recently connected blocks.
- * Called from UpdateTip every windowSize blocks.
- *
- * Window size is 1% of chain height (minimum 100 blocks), so the rate estimate
- * becomes more stable as the chain grows. Triggered by height modulo so no
- * extra state is needed; rate is computed via pprev walk over the window.
- *
- * nTxCount is estimated using the best header (the furthest header known from
- * peers) so that during IBD, progress = nChainTx / nTxCount tracks
- * height / bestHeaderHeight rather than extrapolating years of empty time.
- */
-void RefreshChainTxDataFromTip(const CBlockIndex* pindexNew) EXCLUSIVE_LOCKS_REQUIRED(cs_main)
-{
-    if (!pindexNew || pindexNew->nHeight == 0)
-        return;
-
-    const int64_t windowSize = std::max(MIN_CHAIN_TX_WINDOW,
-        static_cast<int64_t>(pindexNew->nHeight) / 100);
-
-    if (pindexNew->nHeight % windowSize != 0)
-        return;
-
-    const CBlockIndex* pWindow = pindexNew;
-    for (int64_t i = 0; i < windowSize && pWindow->pprev; i++)
-        pWindow = pWindow->pprev;
-
-    const int64_t dt = pindexNew->GetBlockTime() - pWindow->GetBlockTime();
-    if (dt <= 0)
-        return;
-
-    const double rate = static_cast<double>(
-        static_cast<int64_t>(pindexNew->nChainTx) - static_cast<int64_t>(pWindow->nChainTx)) / dt;
-
-    const int64_t bestHeight =
-        (g_chainstate_manager.BestHeader() && g_chainstate_manager.BestHeader()->nHeight > pindexNew->nHeight)
-        ? static_cast<int64_t>(g_chainstate_manager.BestHeader()->nHeight)
-        : static_cast<int64_t>(pindexNew->nHeight);
-
-    const double txPerBlock = static_cast<double>(pindexNew->nChainTx) /
-        pindexNew->nHeight;
-
-    const int64_t nTxCount = std::max(
-        static_cast<int64_t>(pindexNew->nChainTx),
-        static_cast<int64_t>(txPerBlock * bestHeight));
-
-    UpdateChainTxData({time(nullptr), nTxCount, rate});
-}
 
 CBlockIndex* FindForkInGlobalIndex(const CChain& chain, const CBlockLocator& locator)
 {
@@ -325,7 +265,7 @@ static bool CheckInputsFromMempoolAndCache(ValidationContext context, const CTra
         }
     }
 
-    return CheckInputs(tx, state, view, true, flags, cacheSigStore, true);
+    return CheckInputs(tx, state, view, true, flags, cacheSigStore, true, g_chainstate_manager.ValidationCaches());
 }
 
 static bool CheckConflictsInMempool(const CTransaction& tx, std::set<uint256>& setConflicts, CValidationState& state)
@@ -687,7 +627,7 @@ static bool AcceptToMemoryPoolWorker(const CTransactionRef &ptx, CTxMempoolAccep
         // Pass tipScriptFlags as mandatoryFlags so that softfork flags active at
         // nextBlockHeight are treated as mandatory even when they also appear in
         // PolicyConstants::STANDARD_SCRIPT_VERIFY_FLAGS (e.g. SCRIPT_VERIFY_CP2SH_COLORED).
-        if (!CheckInputs(tx, state, view, true, mempoolScriptFlags, true, false, nullptr, tipScriptFlags)) {
+        if (!CheckInputs(tx, state, view, true, mempoolScriptFlags, true, false, g_chainstate_manager.ValidationCaches(), nullptr, tipScriptFlags)) {
             return false; // state filled in by CheckInputs
         }
 
@@ -773,7 +713,7 @@ bool AcceptToMemoryPool(const CTransactionRef &tx, CTxMempoolAcceptanceOptions& 
     opt.coins_to_uncache.clear();
     // After we've (potentially) uncached entries, ensure our coins cache is still within its size limits
     CValidationState stateDummy;
-    FlushStateToDisk(stateDummy, FlushStateMode::PERIODIC);
+    g_chainstate_manager.ActiveChainstate().FlushStateToDisk(stateDummy, FlushStateMode::PERIODIC);
     return res;
 }
 
@@ -872,7 +812,7 @@ std::optional<ScriptError> CScriptCheck::operator()() {
     const CScript &scriptSig = ptxTo->vin[nIn].scriptSig;
     ScriptError error{SCRIPT_ERR_UNKNOWN_ERROR};
     if (VerifyScript(scriptSig, m_tx_out.scriptPubKey, nFlags,
-                     CachingTransactionSignatureChecker(ptxTo, nIn, m_tx_out.nValue, cacheStore),
+                     CachingTransactionSignatureChecker(ptxTo, nIn, m_tx_out.nValue, cacheStore, *m_signature_cache),
                      &error))
         return std::nullopt;
     return error;
@@ -886,19 +826,7 @@ int GetSpendHeight(const CCoinsViewCache& inputs)
     return pindexPrev->nHeight + 1;
 }
 
-static CuckooCache::cache<uint256, SignatureCacheHasher> scriptExecutionCache;
-static uint256 scriptExecutionCacheNonce(GetRandHash());
-
-void InitScriptExecutionCache() {
-    // nMaxCacheSize is unsigned. If -maxsigcachesize is set to zero,
-    // setup_bytes creates the minimum possible cache (2 elements).
-    size_t nMaxCacheSize = std::min(std::max((int64_t)0, gArgs.GetArg("-maxsigcachesize", DEFAULT_MAX_SIG_CACHE_SIZE) / 2), MAX_MAX_SIG_CACHE_SIZE) * ((size_t) 1 << 20);
-    size_t nElems = scriptExecutionCache.setup_bytes(nMaxCacheSize);
-    LogPrintf("Using %zu MiB out of %zu/2 requested for script execution cache, able to store %zu elements\n",
-            (nElems*sizeof(uint256)) >>20, (nMaxCacheSize*2)>>20, nElems);
-}
-
-bool CheckInputs(const CTransaction& tx, CValidationState &state, const CCoinsViewCache &inputs, bool fScriptChecks, unsigned int flags, bool cacheSigStore, bool cacheFullScriptStore, std::vector<CScriptCheck> *pvChecks, unsigned int mandatoryFlags)
+bool CheckInputs(const CTransaction& tx, CValidationState &state, const CCoinsViewCache &inputs, bool fScriptChecks, unsigned int flags, bool cacheSigStore, bool cacheFullScriptStore, ValidationCache& validation_cache, std::vector<CScriptCheck> *pvChecks, unsigned int mandatoryFlags)
 {
     if (!tx.IsCoinBase())
     {
@@ -920,13 +848,9 @@ bool CheckInputs(const CTransaction& tx, CValidationState &state, const CCoinsVi
             // correct (ie that the transaction hash which is in tx's prevouts
             // properly commits to the scriptPubKey in the inputs view of that
             // transaction).
-            uint256 hashCacheEntry;
-            // We only use the first 19 bytes of nonce to avoid a second SHA
-            // round - giving us 19 + 32 + 4 = 55 bytes (+ 8 + 1 = 64)
-            static_assert(55 - sizeof(flags) - 32 >= 128/8, "Want at least 128 bits of nonce for script execution cache");
-            CSHA256().Write(scriptExecutionCacheNonce.begin(), 55 - sizeof(flags) - 32).Write(tx.GetHash().begin(), 32).Write((unsigned char*)&flags, sizeof(flags)).Finalize(hashCacheEntry.begin());
+            const uint256 hashCacheEntry = validation_cache.ScriptExecutionEntry(tx.GetHash(), flags);
             AssertLockHeld(cs_main); //TODO: Remove this requirement by making CuckooCache not require external locks
-            if (scriptExecutionCache.contains(hashCacheEntry, !cacheFullScriptStore)) {
+            if (validation_cache.HasScriptExecution(hashCacheEntry, !cacheFullScriptStore)) {
                 return true;
             }
 
@@ -942,7 +866,7 @@ bool CheckInputs(const CTransaction& tx, CValidationState &state, const CCoinsVi
                 // spent being checked as a part of CScriptCheck.
 
                 // Verify signature
-                CScriptCheck check(coin.out, tx, i, flags, cacheSigStore);
+                CScriptCheck check(coin.out, tx, i, flags, cacheSigStore, validation_cache.Signatures());
                 if (pvChecks) {
                     pvChecks->emplace_back(std::move(check));
                 } else if (const auto err = check()) {
@@ -958,7 +882,7 @@ bool CheckInputs(const CTransaction& tx, CValidationState &state, const CCoinsVi
                         // → mempool rejects as non-standard without DoS.
                         // If check2 also fails, fall through to DoS.
                         CScriptCheck check2(coin.out, tx, i,
-                                flags & ~nonMandatory, cacheSigStore);
+                                flags & ~nonMandatory, cacheSigStore, validation_cache.Signatures());
                         if (!check2().has_value()) {
                             LogPrint(BCLog::MEMPOOLREJ, "%s: tx %s input %u flags=0x%08x non-mandatory script failure: %s\n",
                                 __func__, tx.GetHashMalFix().ToString(), i, flags, ScriptErrorString(*err));
@@ -976,7 +900,7 @@ bool CheckInputs(const CTransaction& tx, CValidationState &state, const CCoinsVi
             if (cacheFullScriptStore && !pvChecks) {
                 // We executed all of the provided scripts, and were told to
                 // cache the result. Do so now.
-                scriptExecutionCache.insert(hashCacheEntry);
+                validation_cache.AddScriptExecution(hashCacheEntry);
             }
         }
     }
@@ -991,7 +915,7 @@ void StartScriptCheckWorkerThreads(int threads_num)
 
 void FlushStateToDisk() {
     CValidationState state;
-    if (!FlushStateToDisk(state, FlushStateMode::ALWAYS)) {
+    if (!g_chainstate_manager.ActiveChainstate().FlushStateToDisk(state, FlushStateMode::ALWAYS)) {
         LogPrintf("%s: failed to flush state (%s)\n", __func__, FormatStateMessage(state));
     }
 }
@@ -999,7 +923,7 @@ void FlushStateToDisk() {
 void PruneAndFlush() {
     CValidationState state;
     g_chainstate_manager.GetBlockFileManager().SetCheckForPruning();
-    if (!FlushStateToDisk(state, FlushStateMode::NONE)) {
+    if (!g_chainstate_manager.ActiveChainstate().FlushStateToDisk(state, FlushStateMode::NONE)) {
         LogPrintf("%s: failed to flush state (%s)\n", __func__, FormatStateMessage(state));
     }
 }
@@ -1008,7 +932,7 @@ void PruneAndFlush() {
 void PruneBlockFilesManual(int nManualPruneHeight)
 {
     CValidationState state;
-    if (!FlushStateToDisk(state, FlushStateMode::NONE, nManualPruneHeight)) {
+    if (!g_chainstate_manager.ActiveChainstate().FlushStateToDisk(state, FlushStateMode::NONE, nManualPruneHeight)) {
         LogPrintf("%s: failed to flush state (%s)\n", __func__, FormatStateMessage(state));
     }
 }
@@ -1151,7 +1075,7 @@ bool LoadChainTip()
     LogPrintf("Loaded best chain: hashBestChain=%s height=%d date=%s progress=%f\n",
         g_chainstate_manager.ActiveChain().Tip()->GetBlockHash().ToString(), g_chainstate_manager.ActiveChain().Height(),
         FormatISO8601DateTime(g_chainstate_manager.ActiveChain().Tip()->GetBlockTime()),
-        GuessVerificationProgress(Params().TxData(), g_chainstate_manager.ActiveChain().Tip()));
+        g_chainstate_manager.Progress().Guess(g_chainstate_manager.ActiveChain().Tip()));
     return true;
 }
 
@@ -1169,7 +1093,7 @@ bool RewindBlockIndex() {
         // and skip it here, we're about to -reindex-chainstate anyway, so
         // it'll get called a bunch real soon.
         CValidationState state;
-        if (!FlushStateToDisk(state, FlushStateMode::ALWAYS)) {
+        if (!g_chainstate_manager.ActiveChainstate().FlushStateToDisk(state, FlushStateMode::ALWAYS)) {
             LogPrintf("RewindBlockIndex: unable to flush state to disk (%s)\n", FormatStateMessage(state));
             return false;
         }
@@ -1228,27 +1152,108 @@ std::string CBlockFileInfo::ToString() const
     return strprintf("CBlockFileInfo(blocks=%u, size=%u, heights=%u...%u, time=%s...%s)", nBlocks, nSize, nHeightFirst, nHeightLast, FormatISO8601Date(nTimeFirst), FormatISO8601Date(nTimeLast));
 }
 
-//! Guess how far we are in the verification process at the given block index
-//! require cs_main if pindex has not been validated yet (because nChainTx might be unset)
-double GuessVerificationProgress(const ChainTxData& data, const CBlockIndex *pindex) {
-    if (pindex == nullptr)
-        return 0.0;
+bool SubmitPackageToMempool(const Package& package,
+                                  CValidationState& state,
+                                  PackageValidationState& results,
+                                  CTxMempoolAcceptanceOptions& opt)
+{
+    if(!CheckPackage(package, state))
+        return false;
 
-    // If nChainTx is 0, the block hasn't been fully validated/connected yet.
-    // Return 0 to indicate no progress can be determined.
-    if (pindex->nChainTx == 0)
-        return 0.0;
+    // For TEST_ONLY (testmempoolaccept dry-run), install a virtual-mempool view
+    // so each tx in a chained package can resolve its inputs against outputs of
+    // earlier package txs that passed validation but were not admitted.
+    // Replacing mempool_view with the subclass is safe: CTxMempoolAcceptanceOptions
+    // owns the pointer and its destructor deletes it; CCoinsView has a virtual dtor.
+    if (opt.flags == MempoolAcceptanceFlags::TEST_ONLY) {
+        delete opt.mempool_view;
+        LOCK(::cs_main);
+        opt.mempool_view = new CCoinsViewVirtualMemPool(&g_chainstate_manager.ActiveChainstate().CoinsTip(), mempool);
+    }
+    CCoinsViewVirtualMemPool* virtualView =
+        dynamic_cast<CCoinsViewVirtualMemPool*>(opt.mempool_view);
 
-    int64_t nNow = time(nullptr);
+    bool all_admitted = false;
+    Package relay;
+    {
+        // Held for the whole package so no block connects mid-package and the
+        // results below describe only what the package itself did to the mempool.
+        LOCK(::cs_main);
+        for(auto &tx : package)
+        {
+            opt.state = CValidationState();
+            opt.coins_to_uncache.clear();
+            AcceptToMemoryPool(tx, opt);
 
-    double fTxTotal;
+            opt.state.missingInputs = opt.missingInputs.size() > 0;
+            results.emplace(tx->GetHashMalFix(), opt.state);
 
-    if (pindex->nChainTx <= data.nTxCount) {
-        fTxTotal = data.nTxCount + (nNow - data.nTime) * data.dTxRate;
-    } else {
-        fTxTotal = pindex->nChainTx + (nNow - pindex->GetBlockTime()) * data.dTxRate;
+            // Only add to the virtual overlay if the tx was TRULY accepted.
+            // IsValid() returns true even when missingInputs is set (DoAllInputsExist
+            // deliberately avoids calling state.Invalid() so callers can distinguish
+            // orphans from consensus failures).  Adding a missing-inputs tx to the
+            // overlay would let its outputs be found by downstream txs, causing them
+            // to spuriously pass TEST_ONLY validation.
+            if (virtualView && opt.state.IsValid() && !opt.state.missingInputs) {
+                virtualView->AddVirtualTx(*tx);
+            }
+        }
+
+        // Taken before the results below are rewritten, so a tx a later package tx
+        // pushed out does not stop the rest of the package from being relayed.
+        // Only the package's own txs count: results also holds the txs
+        // CTxMemPool::FilterDuplicates found already in the mempool.
+        all_admitted = true;
+        for (const auto& tx : package) {
+            const auto result = results.find(tx->GetHashMalFix());
+            if (result == results.end() || result->second.IsInvalid() || result->second.IsError() || result->second.missingInputs) {
+                all_admitted = false;
+                break;
+            }
+        }
+
+        // A later package tx can trim or replace one accepted before it, so report
+        // and relay what the mempool holds now instead of what each tx saw on entry.
+        if (opt.flags != MempoolAcceptanceFlags::TEST_ONLY) {
+            std::set<uint256> replaced;
+            for (const auto& tx : opt.txnReplaced) {
+                replaced.insert(tx->GetHashMalFix());
+            }
+            for (const auto& tx : package) {
+                const uint256 hash = tx->GetHashMalFix();
+                if (mempool.exists(hash)) {
+                    relay.push_back(tx);
+                    continue;
+                }
+                const auto result = results.find(hash);
+                if (result == results.end() || !result->second.IsValid() || result->second.missingInputs) {
+                    continue;
+                }
+                CValidationState removed;
+                if (replaced.count(hash)) {
+                    removed.Invalid(false, REJECT_PACKAGE_TX, "replaced-in-package");
+                } else {
+                    removed.DoS(0, false, REJECT_INSUFFICIENTFEE, "mempool full");
+                }
+                results.erase(result);
+                results.emplace(hash, removed);
+            }
+        }
     }
 
-    return pindex->nChainTx / fTxTotal;
-}
+    bool success = ArePackageTransactionsAccepted(results);
 
+    // Relay only after every tx in the package has been admitted, and only the
+    // txs still in the mempool. Relaying per-tx inside the loop would gossip the
+    // admitted prefix of a partially-failed package, enabling free relay
+    // amplification attacks. A TEST_ONLY dry run never relays.
+    // Goes through PackageTransactionsRelay() rather than calling into net
+    // directly -- tapyrus_chainstate (this file) has no business linking
+    // tapyrus_peer. See the comment on CValidationInterface::
+    // PackageTransactionsRelay() and PeerManager's override of it.
+    if (opt.flags != MempoolAcceptanceFlags::TEST_ONLY && all_admitted && !relay.empty()) {
+        GetMainSignals().PackageTransactionsRelay(relay);
+    }
+
+    return success;
+}

@@ -8,6 +8,7 @@
 #define TAPYRUS_BLOCKINDEXMAP_H
 
 #include <cs_main.h>
+#include <hasher.h>
 #include <sync.h>
 #include <uint256.h>
 
@@ -21,11 +22,6 @@
 class CBlockHeader;
 class CBlockIndex;
 class CBlockTreeDB;
-
-struct BlockHasher
-{
-    size_t operator()(const uint256& hash) const { return hash.GetCheapHash(); }
-};
 
 typedef std::unordered_map<uint256, CBlockIndex*, BlockHasher> BlockMap;
 

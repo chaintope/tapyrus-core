@@ -10,7 +10,6 @@
 #include <consensus/validation.h>
 #include <policy/policy.h>
 #include <primitives/transaction.h>
-#include <validation.h>
 #include <cstdint>
 #include <vector>
 
@@ -31,40 +30,6 @@ using PackageValidationState = std::map<const uint256, const CValidationState >;
  *    -limitancestorcount or -limitdescendantcount. Unrelated transactions are not limited.
  */
 bool CheckPackage(const Package& txns, CValidationState& state);
-
-/**
- * FilterMempoolDuplicates creates a package from the given list of transactions
- * after filetring those that already exist in the mempool.
- *
- * @param txns A list of transactions to check for duplicates.
- * @param package The package of transactions after filtering.
- * @param results The package validation state where results are recorded.
- */
-void FilterMempoolDuplicates(const std::vector<CTransaction>& txns, Package& package, PackageValidationState& results);
-
-/**
- * SubmitPackageToMempool is used to submit the package to mempool after validation checks.
- * It gives granular results with the state of each transaction in the package and
- * the state of the package as a whole.
- *
- * Admission is NOT atomic. Transactions are evaluated and admitted individually in
- * package order. A false return value means at least one transaction was rejected, but
- * earlier transactions in the package may already have been admitted. This is intentional:
- * packages are a submission convenience, not an all-or-nothing commit. Callers must
- * inspect per-transaction results to determine which transactions were admitted.
- * Results describe the mempool after the whole package: a transaction a later one
- * trimmed is "mempool full", and one a later one replaced is "replaced-in-package".
- *
- * @param package The package of transactions to be submitted.
- * @param state A reference to the validation state that tracks the package validation results.
- * @param results A reference to the package validation state that records the validation outcome of each transaction.
- * @param opt Options that control how the mempool accepts transactions.
- * @return True if all transactions in the package were successfully accepted, false otherwise.
- */
-bool SubmitPackageToMempool(const Package& package,
-                                  CValidationState& state,
-                                  PackageValidationState& results,
-                                  CTxMempoolAcceptanceOptions& opt);
 
 /**
  * ArePackageTransactionsAccepted checks the result of a package submit attempt and

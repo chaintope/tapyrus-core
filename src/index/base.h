@@ -13,6 +13,7 @@
 #include <validationinterface.h>
 
 class CBlockIndex;
+class IndexNotifications;
 
 /**
  * Base class for indices of blockchain data. This implements
@@ -34,6 +35,9 @@ protected:
         /// Write block locator of the chain that the txindex is in sync with.
         bool WriteBestBlock(const CBlockLocator& locator);
     };
+
+    /// What the index reports to; NodeContext owns it.
+    IndexNotifications& m_notifications;
 
 private:
     /// Whether the index is in sync with the main chain. The flag is flipped
@@ -58,6 +62,8 @@ private:
     bool WriteBestBlock(const CBlockIndex* block_index);
 
 protected:
+    explicit BaseIndex(IndexNotifications& notifications) : m_notifications(notifications) {}
+
     void BlockConnected(const std::shared_ptr<const CBlock>& block, const CBlockIndex* pindex,
                         const std::vector<CTransactionRef>& txn_conflicted) override;
 

@@ -113,7 +113,7 @@ static UniValue testmempoolaccept(const JSONRPCRequest& request)
     CValidationState state;
     PackageValidationState pkg_results;
 
-    FilterMempoolDuplicates(transactions, package, pkg_results);
+    ::mempool.FilterDuplicates(transactions, package, pkg_results);
 
     bool success = false;
     CTxMempoolAcceptanceOptions opt;
@@ -184,7 +184,7 @@ static UniValue submitpackage(const JSONRPCRequest& request)
     CValidationState state;
     PackageValidationState pkg_results;
 
-    FilterMempoolDuplicates(transactions, package, pkg_results);
+    ::mempool.FilterDuplicates(transactions, package, pkg_results);
 
     CTxMempoolAcceptanceOptions opt;
     opt.context = ValidationContext::PACKAGE;

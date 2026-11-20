@@ -6,6 +6,7 @@
 #ifndef BITCOIN_WALLET_TEST_WALLET_TEST_FIXTURE_H
 #define BITCOIN_WALLET_TEST_WALLET_TEST_FIXTURE_H
 
+#include <interfaces/nodecontextlookupimpl.h>
 #include <test/test_tapyrus.h>
 
 #include <wallet/wallet.h>
@@ -18,6 +19,7 @@ struct WalletTestingSetup: public TestingSetup {
     explicit WalletTestingSetup(const std::string& chainName = TAPYRUS_MODES::PROD);
     ~WalletTestingSetup();
 
+    NodeContextLookupImpl m_node_lookup{m_node};
     CWallet m_wallet;
 };
 

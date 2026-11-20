@@ -4,31 +4,16 @@
 
 #include <chainparams.h>
 #include <index/base.h>
-#include <shutdown.h>
-#include <tinyformat.h>
-#include <ui_interface.h>
 #include <util.h>
 #include <validation.h>
 #include <blockfilemanager.h>
 #include <chainstatemanager.h>
-#include <warnings.h>
+#include <index/indexnotifications.h>
 
 constexpr char DB_BEST_BLOCK = 'B';
 
 constexpr int64_t SYNC_LOG_INTERVAL = 30; // seconds
 constexpr int64_t SYNC_LOCATOR_WRITE_INTERVAL = 30; // seconds
-
-template<typename... Args>
-static void FatalError(const char* fmt, const Args&... args)
-{
-    std::string strMessage = tfm::format(fmt, args...);
-    SetMiscWarning(strMessage);
-    LogPrintf("*** %s\n", strMessage);
-    uiInterface.ThreadSafeMessageBox(
-        "Error: A fatal internal error occurred, see debug.log for details",
-        "", CClientUIInterface::MSG_ERROR);
-    StartShutdown();
-}
 
 BaseIndex::DB::DB(const fs::path& path, size_t n_cache_size, bool f_memory, bool f_wipe, bool f_obfuscate) :
     CDBWrapper(path, n_cache_size, f_memory, f_wipe, f_obfuscate)
@@ -122,13 +107,11 @@ void BaseIndex::ThreadSync()
 
             CBlock block;
             if (!g_chainstate_manager.ReadBlock(block, pindex)) {
-                FatalError("%s: Failed to read block %s from disk",
-                           __func__, pindex->GetBlockHash().ToString());
+                m_notifications.ReportFatalError(FatalErrorReason::INDEX_BLOCK_READ_FAILED, pindex->GetBlockHash().ToString());
                 return;
             }
             if (!WriteBlock(block, pindex)) {
-                FatalError("%s: Failed to write block %s to index database",
-                           __func__, pindex->GetBlockHash().ToString());
+                m_notifications.ReportFatalError(FatalErrorReason::INDEX_BLOCK_WRITE_FAILED, pindex->GetBlockHash().ToString());
                 return;
             }
         }
@@ -160,8 +143,7 @@ void BaseIndex::BlockConnected(const std::shared_ptr<const CBlock>& block, const
     const CBlockIndex* best_block_index = m_best_block_index.load();
     if (!best_block_index) {
         if (pindex->nHeight != 0) {
-            FatalError("%s: First block connected is not the genesis block (height=%d)",
-                       __func__, pindex->nHeight);
+            m_notifications.ReportFatalError(FatalErrorReason::INDEX_FIRST_BLOCK_NOT_GENESIS, std::to_string(pindex->nHeight));
             return;
         }
     } else {
@@ -182,8 +164,7 @@ void BaseIndex::BlockConnected(const std::shared_ptr<const CBlock>& block, const
     if (WriteBlock(*block, pindex)) {
         m_best_block_index = pindex;
     } else {
-        FatalError("%s: Failed to write block %s to index",
-                   __func__, pindex->GetBlockHash().ToString());
+        m_notifications.ReportFatalError(FatalErrorReason::INDEX_BLOCK_WRITE_FAILED, pindex->GetBlockHash().ToString());
         return;
     }
 }
@@ -203,8 +184,7 @@ void BaseIndex::ChainStateFlushed(const CBlockLocator& locator)
     }
 
     if (!locator_tip_index) {
-        FatalError("%s: First block (hash=%s) in locator was not found",
-                   __func__, locator_tip_hash.ToString());
+        m_notifications.ReportFatalError(FatalErrorReason::INDEX_LOCATOR_BLOCK_NOT_FOUND, locator_tip_hash.ToString());
         return;
     }
 
@@ -262,7 +242,7 @@ void BaseIndex::Start()
     // callbacks are not missed if Init sets m_synced to true.
     RegisterValidationInterface(this);
     if (!Init()) {
-        FatalError("%s: %s failed to initialize", __func__, GetName());
+        m_notifications.ReportFatalError(FatalErrorReason::INDEX_INIT_FAILED, GetName());
         return;
     }
 

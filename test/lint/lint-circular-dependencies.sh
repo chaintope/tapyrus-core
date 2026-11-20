@@ -10,13 +10,9 @@ export LC_ALL=C
 
 EXPECTED_CIRCULAR_DEPENDENCIES=(
     "chainstate -> chainstatemanager -> chainstate"
-    "chainstate -> file_io -> validation -> chainstate"
+    "chainstate -> validation -> chainstate"
     "checkpoints -> validation -> checkpoints"
-    "file_io -> validation -> file_io"
     "index/txindex -> validation -> index/txindex"
-    "policy/fees -> txmempool -> policy/fees"
-    "policy/fees -> txmempool -> validation -> policy/fees"
-    "policy/packages -> validation -> policy/packages"
     "policy/rbf -> txmempool -> validation -> policy/rbf"
     "qt/addressbookpage -> qt/tapyrusgui -> qt/walletview -> qt/addressbookpage"
     "qt/addressbookpage -> qt/tapyrusgui -> qt/walletview -> qt/receivecoinsdialog -> qt/addressbookpage"

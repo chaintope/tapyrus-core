@@ -16,6 +16,7 @@
 #include <nodestate.h>
 #include <orphantxpool.h>
 #include <sync.h>
+#include <timeoffsets.h>
 
 #include <atomic>
 #include <chrono>
@@ -44,7 +45,7 @@ private:
     CConnman& m_connman;
 
 public:
-    PeerManager(CConnman& connman, CScheduler& scheduler);
+    PeerManager(CConnman& connman, CScheduler& scheduler, PeerNotifications& notifications);
 
     /**
      * Overridden from CValidationInterface.
@@ -104,6 +105,9 @@ public:
 
 private:
     int64_t m_stale_tip_check_time; //! Next time to check for stale tip
+
+    /** Clock offsets reported by outbound peers; warns when the median is too large. */
+    TimeOffsets m_outbound_time_offsets;
 
     /** Number of nodes with fSyncStarted. */
     int nSyncStarted GUARDED_BY(cs_main) = 0;

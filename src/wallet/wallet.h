@@ -72,8 +72,6 @@ class CCoinControl;
 class COutput;
 class CReserveKey;
 class CScript;
-class CTxMemPool;
-class CBlockPolicyEstimator;
 class CWalletTx;
 struct FeeCalculation;
 enum class FeeEstimateMode;
@@ -463,10 +461,11 @@ public:
     int64_t GetTxTime() const;
 
     // RelayWalletTransaction may only be called if fBroadcastTransactions!
-    bool RelayWalletTransaction(CConnman* connman) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
+    bool RelayWalletTransaction() EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 
-    /** Pass this transaction to the mempool. Fails if absolute fee exceeds absurd fee. */
-    bool AcceptToMemoryPool(const CAmount& nAbsurdFee, CValidationState& state) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
+    /** Pass this transaction to the node's mempool, and announce it to peers if relay is set.
+     *  Fails if the absolute fee exceeds the wallet's maximum. */
+    bool SubmitMemoryPoolAndRelay(CValidationState& state, bool relay) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 
     std::set<uint256> GetConflicts() const;
 };
@@ -648,6 +647,10 @@ struct CoinSelectionParams
 };
 
 class WalletRescanReserver; //forward declarations for ScanForWalletTransactions/RescanFromTime
+
+namespace interfaces {
+class NodeContextLookup;
+} // namespace interfaces
 /**
  * A CWallet is an extension of a keystore, which also maintains a set of transactions and balances,
  * and provides the ability to create new transactions.
@@ -737,6 +740,8 @@ private:
      * Used in debug logs and to send RPCs to the right wallet instance when
      * more than one wallet is loaded.
      */
+    interfaces::NodeContextLookup* const m_node_lookup;
+
     std::string m_name;
 
     /** Internal database handle. */
@@ -782,6 +787,9 @@ public:
      */
     const std::string& GetName() const { return m_name; }
 
+    //! The node this wallet reads from and submits to, or null.
+    interfaces::NodeContextLookup* NodeLookup() const { return m_node_lookup; }
+
     void LoadKeyPool(int64_t nIndex, const CKeyPool &keypool) EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
     void MarkPreSplitKeys();
 
@@ -795,8 +803,10 @@ public:
     MasterKeyMap mapMasterKeys;
     unsigned int nMasterKeyMaxID = 0;
 
-    /** Construct wallet with specified name and database implementation. */
-    CWallet(std::string name, std::unique_ptr<WalletDatabase> database) : m_name(std::move(name)), database(std::move(database))
+    /** Construct wallet with specified name and database implementation. node_lookup is the node it
+     *  reads from and submits to, null when it runs without one; it must outlive the wallet. */
+    CWallet(interfaces::NodeContextLookup* node_lookup, std::string name, std::unique_ptr<WalletDatabase> database)
+        : m_node_lookup(node_lookup), m_name(std::move(name)), database(std::move(database))
     {
     }
 
@@ -931,11 +941,13 @@ public:
     void BlockDisconnected(const std::shared_ptr<const CBlock>& pblock) override;
     int64_t RescanFromTime(int64_t startTime, const WalletRescanReserver& reserver, bool update);
     CBlockIndex* ScanForWalletTransactions(CBlockIndex* pindexStart, CBlockIndex* pindexStop, const WalletRescanReserver& reserver, bool fUpdate = false);
+    //! Shows the rescan's progress in the wallet's GUI and reports it to the node.
+    void ShowRescanProgress(int percent);
     void TransactionRemovedFromMempool(const CTransactionRef &ptx) override;
     void ReacceptWalletTransactions();
-    void ResendWalletTransactions(int64_t nBestBlockTime, CConnman* connman) override;
+    void ResendWalletTransactions(int64_t nBestBlockTime) override;
     // ResendWalletTransactionsBefore may only be called if fBroadcastTransactions!
-    std::vector<uint256> ResendWalletTransactionsBefore(int64_t nTime, CConnman* connman) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
+    std::vector<uint256> ResendWalletTransactionsBefore(int64_t nTime) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
     TxColoredCoinBalancesMap GetBalance(const isminefilter& filter=ISMINE_SPENDABLE, const int min_depth=0) const;
     TxColoredCoinBalancesMap GetUnconfirmedBalance() const;
     TxColoredCoinBalancesMap GetUnconfirmedWatchOnlyBalance() const;
@@ -962,7 +974,7 @@ public:
      */
     bool CreateTransaction(const std::vector<CRecipient>& vecSend, CTransactionRef& tx, CReserveKey& reservekey, CAmount& nFeeRet, ChangePosInOut& mapChangePosInOut,
                            std::string& strFailReason, const CCoinControl& coin_control, bool sign = true);
-    bool CommitTransaction(CTransactionRef tx, mapValue_t mapValue, std::vector<std::pair<std::string, std::string>> orderForm, CReserveKey& reservekey, CConnman* connman, CValidationState& state);
+    bool CommitTransaction(CTransactionRef tx, mapValue_t mapValue, std::vector<std::pair<std::string, std::string>> orderForm, CReserveKey& reservekey, CValidationState& state);
 
     void ListAccountCreditDebit(const std::string& strAccount, std::list<CAccountingEntry>& entries);
     bool AddAccountingEntry(const CAccountingEntry&);
@@ -1120,11 +1132,11 @@ public:
     /** Mark a transaction as replaced by another transaction (e.g., BIP 125). */
     bool MarkReplaced(const uint256& originalHash, const uint256& newHash);
 
-    //! Verify wallet naming and perform salvage on the wallet if required
-    static bool Verify(std::string wallet_file, bool salvage_wallet, std::string& error_string, std::string& warning_string);
+    //! Verify wallet naming and perform salvage on the wallet if required; salvaged is set when a corrupt file was salvaged
+    static bool Verify(std::string wallet_file, bool salvage_wallet, std::string& error_string, std::optional<SalvagedWalletFile>& salvaged);
 
     /* Initializes the wallet, returns a new CWallet instance or a null pointer in case of an error */
-    static std::shared_ptr<CWallet> CreateWalletFromFile(const std::string& name, const fs::path& path, uint64_t wallet_creation_flags = 0);
+    static std::shared_ptr<CWallet> CreateWalletFromFile(interfaces::NodeContextLookup* node_lookup, const std::string& name, const fs::path& path, uint64_t wallet_creation_flags = 0);
 
     /**
      * Wallet post-init setup
