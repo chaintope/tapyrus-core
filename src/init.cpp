@@ -29,6 +29,7 @@
 #include <httprpc.h>
 #include <index/txindex.h>
 #include <key.h>
+#include <notificationhub.h>
 #include <validation.h>
 #include <miner.h>
 #include <netbase.h>
@@ -57,7 +58,6 @@
 #include <util.h>
 #include <utilmoneystr.h>
 #include <validationinterface.h>
-#include <warnings.h>
 #include <walletinitinterface.h>
 #include <stdexcept>
 #include <stdint.h>
@@ -101,6 +101,8 @@ public:
     bool ParameterInteraction() const override {return true;}
     void RegisterRPC(CRPCTable &) const override {}
     bool Verify() const override {return true;}
+    void SetNodeContextLookup(interfaces::NodeContextLookup* node_lookup) const override {}
+    interfaces::NodeContextLookup* GetNodeContextLookup() const override {return nullptr;}
     bool Open() const override {LogPrintf("No wallet support compiled in!\n"); return true;}
     void Start(CScheduler& scheduler) const override {}
     void Flush() const override {}
@@ -188,7 +190,7 @@ void Shutdown(NodeContext& node)
     /// Be sure that anything that writes files or flushes caches only does this if the respective
     /// module was initialized.
     RenameThread("tapyrus-shutoff");
-    mempool.AddTransactionsUpdated(1);
+    if (node.mempool) node.mempool->AddTransactionsUpdated(1);
 
     StopHTTPRPC();
     StopREST();
@@ -215,17 +217,17 @@ void Shutdown(NodeContext& node)
     node.connman.reset();
     g_txindex.reset();
 
-    if (g_is_mempool_loaded && node.policy && node.policy->persistMempool) {
-        DumpMempool();
+    if (node.mempool && node.mempool_loaded && node.policy && node.policy->persistMempool) {
+        DumpMempool(*node.mempool);
     }
 
     if (fFeeEstimatesInitialized)
     {
-        ::feeEstimator.FlushUnconfirmed();
+        node.fee_estimator->FlushUnconfirmed();
         fs::path est_path = GetDataDir() / FEE_ESTIMATES_FILENAME;
         CAutoFile est_fileout(fsbridge::fopen(est_path, "wb"), SER_DISK, CLIENT_VERSION);
         if (!est_fileout.IsNull())
-            ::feeEstimator.Write(est_fileout);
+            node.fee_estimator->Write(est_fileout);
         else
             LogPrintf("%s: Failed to write fee estimates to %s\n", __func__, est_path.string());
         fFeeEstimatesInitialized = false;
@@ -263,6 +265,7 @@ void Shutdown(NodeContext& node)
         }
         g_chainstate_manager.IssuedColorIds() = CIssuedColorIds();
         g_chainstate_manager.BlockIndex().pblocktreedb.reset();
+        g_chainstate_manager.ReleaseBlockFileManager();
     }
     g_wallet_init_interface.Stop();
 
@@ -283,8 +286,12 @@ void Shutdown(NodeContext& node)
 #endif
     UnregisterAllValidationInterfaces();
     GetMainSignals().UnregisterBackgroundSignalScheduler();
-    GetMainSignals().UnregisterWithMempoolSignals(mempool);
+    if (node.mempool) GetMainSignals().UnregisterWithMempoolSignals(*node.mempool);
     g_wallet_init_interface.Close();
+    // The lookup reads the NodeContext, which the caller destroys after this.
+    g_wallet_init_interface.SetNodeContextLookup(nullptr);
+    // The chainstate refers to the node's mempool, which the caller destroys after this.
+    g_chainstate_manager.ReleaseChainstate();
     globalVerifyHandle.reset();
     ECC_Stop();
     LogPrintf("%s: done\n", __func__);
@@ -565,7 +572,7 @@ std::string LicenseInfo()
            "\n";
 }
 
-static void BlockNotifyCallback(bool initialSync, const CBlockIndex *pBlockIndex)
+static void BlockNotifyCallback(bool initialSync, const CBlockIndex *pBlockIndex, double)
 {
     if (initialSync || !pBlockIndex)
         return;
@@ -582,7 +589,7 @@ static bool fHaveGenesis = false;
 static Mutex cs_GenesisWait;
 static CConditionVariable condvar_GenesisWait;
 
-static void BlockNotifyGenesisWait(bool, const CBlockIndex *pBlockIndex)
+static void BlockNotifyGenesisWait(bool, const CBlockIndex *pBlockIndex, double)
 {
     if (pBlockIndex != nullptr) {
         {
@@ -607,7 +614,7 @@ struct CImportingNow
 };
 
 
-static void ThreadImport(std::vector<fs::path> vImportFiles)
+static void ThreadImport(NodeContext& node, std::vector<fs::path> vImportFiles)
 {
     BlockIndexMap& blockIndex = g_chainstate_manager.BlockIndex();
     RenameThread("tapyrus-loadblk");
@@ -633,7 +640,7 @@ static void ThreadImport(std::vector<fs::path> vImportFiles)
             if (!file)
                 break; // This error is logged in OpenBlockFile
             LogPrintf("Reindexing block file blk%05u.dat...\n", (unsigned int)nFile);
-            LoadExternalBlockFile(file, &pos, &tempXFieldHistory);
+            g_chainstate_manager.LoadExternalBlockFile(file, &pos, &tempXFieldHistory);
             nFile++;
         }
         {
@@ -651,7 +658,7 @@ static void ThreadImport(std::vector<fs::path> vImportFiles)
         if (file) {
             fs::path pathBootstrapOld = GetDataDir() / "bootstrap.dat.old";
             LogPrintf("Importing bootstrap.dat...\n");
-            LoadExternalBlockFile(file, nullptr, &tempXFieldHistory);
+            g_chainstate_manager.LoadExternalBlockFile(file, nullptr, &tempXFieldHistory);
             RenameOver(pathBootstrap, pathBootstrapOld);
         } else {
             LogPrintf("Warning: Could not open bootstrap file %s\n", pathBootstrap.string());
@@ -663,7 +670,7 @@ static void ThreadImport(std::vector<fs::path> vImportFiles)
         FILE *file = fsbridge::fopen(path, "rb");
         if (file) {
             LogPrintf("Importing blocks file %s...\n", path.string());
-            LoadExternalBlockFile(file, nullptr, &tempXFieldHistory);
+            g_chainstate_manager.LoadExternalBlockFile(file, nullptr, &tempXFieldHistory);
         } else {
             LogPrintf("Warning: Could not open blocks file %s\n", path.string());
         }
@@ -698,9 +705,9 @@ static void ThreadImport(std::vector<fs::path> vImportFiles)
     }
     } // End scope of CImportingNow
     if (g_policy_settings->persistMempool) {
-        LoadMempool();
+        g_chainstate_manager.ActiveChainstate().LoadMempool();
     }
-    g_is_mempool_loaded = !ShutdownRequested();
+    node.mempool_loaded = !ShutdownRequested();
 }
 
 /** Sanity checks
@@ -1011,11 +1018,6 @@ bool AppInitParameterInteraction(NodeContext& node)
     if (gArgs.IsArgSet("-blockminsize"))
         InitWarning("Unsupported argument -blockminsize ignored.");
 
-    // Checkmempool and checkblockindex default to true in dev mode
-    int ratio = std::min<int>(std::max<int>(gArgs.GetArg("-checkmempool", chainparams.DefaultConsistencyChecks() ? 1 : 0), 0), 1000000);
-    if (ratio != 0) {
-        mempool.setSanityCheck(1.0 / ratio);
-    }
     nConnectTimeout = gArgs.GetArg("-timeout", DEFAULT_CONNECT_TIMEOUT);
     if (nConnectTimeout <= 0)
         nConnectTimeout = DEFAULT_CONNECT_TIMEOUT;
@@ -1037,17 +1039,27 @@ bool AppInitParameterInteraction(NodeContext& node)
 
     node.cache = std::make_unique<const CacheSettings>(gArgs);
     g_chainstate_manager.InitOptions(ChainstateManager::Options(gArgs, chainparams.DefaultConsistencyChecks(), node.cache->nCoinCacheUsage));
+    node.notifications.Subscribe(FatalErrorDialog::Instance());
+    node.notifications.Subscribe(NodeShutdown::Instance());
+    g_chainstate_manager.SetNotifications(&node.notifications);
     const uint256& hashAssumeValid = g_chainstate_manager.GetOptions().hashAssumeValid;
     if (!hashAssumeValid.IsNull())
         LogPrintf("Assuming ancestors of block %s have valid signatures.\n", hashAssumeValid.GetHex());
     else
         LogPrintf("Validating signatures for all blocks.\n");
     try {
-        g_chainstate_manager.InitBlockFileManager(BlockFileManager::Options(gArgs, Params().PruneAfterHeight()));
+        g_chainstate_manager.InitBlockFileManager(BlockFileManager::Options(gArgs, Params().PruneAfterHeight()), node.notifications);
     } catch (const std::exception& e) {
         return InitError(e.what());
     }
-    g_chainstate_manager.InitializeChainstate();
+    node.fee_estimator = std::make_unique<CBlockPolicyEstimator>();
+    CTxMemPool::Options mempool_options;
+    // Checkmempool and checkblockindex default to true in dev mode
+    mempool_options.check_ratio = std::min<int32_t>(std::max<int32_t>(gArgs.GetArg("-checkmempool", chainparams.DefaultConsistencyChecks() ? 1 : 0), 0), 1000000);
+    mempool_options.expiry = node.policy->mempoolExpiry;
+    mempool_options.max_size = node.policy->maxMempool;
+    node.mempool = std::make_unique<CTxMemPool>(mempool_options);
+    g_chainstate_manager.InitializeChainstate(*node.mempool);
 
     // Option to startup with mocktime set (used for regression testing):
     SetMockTime(gArgs.GetArg("-mocktime", 0)); // SetMockTime(0) is a no-op
@@ -1157,8 +1169,8 @@ bool AppInitMain(NodeContext& node)
     }
     LogPrintf("Genesis Block [%s] of Tapyrus network [%s] Loaded successfully\n", g_chainstate_manager.Settings().GenesisBlock().GetHash().ToString(), FederationParams().NetworkIDString());
 
-    // Initialise ChainTxData from the genesis block timestamp so that
-    // GuessVerificationProgress produces meaningful values during IBD.
+    // Seed the verification progress estimate from the genesis block timestamp
+    // so that it produces meaningful values during IBD.
     // nTime is wall-clock time (so nNow - nTime ≈ 0 and fTxTotal ≈ nTxCount),
     // and nTxCount is the expected total transactions from genesis to now.
     if (!g_chainstate_manager.Settings().GenesisBlock().vtx.empty()) {
@@ -1167,11 +1179,13 @@ bool AppInitMain(NodeContext& node)
         const int64_t nNow = time(nullptr);
         const int64_t nTxCount = std::max(int64_t(1),
             static_cast<int64_t>((nNow - genesisTime) * dTxRate));
-        UpdateChainTxData({nNow, nTxCount, dTxRate});
+        g_chainstate_manager.Progress().Set({nNow, nTxCount, dTxRate});
     }
 
-    InitSignatureCache();
-    InitScriptExecutionCache();
+    {
+        LOCK(cs_main);
+        g_chainstate_manager.ValidationCaches().Resize(node.cache->nValidationCacheBytes);
+    }
 
     const int nScriptCheckThreads = g_chainstate_manager.GetOptions().nScriptCheckThreads;
     LogPrintf("Using %u threads for script verification\n", nScriptCheckThreads);
@@ -1197,7 +1211,8 @@ bool AppInitMain(NodeContext& node)
     }
 
     GetMainSignals().RegisterBackgroundSignalScheduler(scheduler);
-    GetMainSignals().RegisterWithMempoolSignals(mempool);
+    GetMainSignals().RegisterWithMempoolSignals(*node.mempool);
+    RegisterValidationInterface(node.fee_estimator.get());
 
     /* Register RPC commands regardless of -server setting so they will be
      * available in the GUI RPC console even if external calls are disabled.
@@ -1233,7 +1248,7 @@ bool AppInitMain(NodeContext& node)
     node.connman = std::unique_ptr<CConnman>(new CConnman(GetRand(std::numeric_limits<uint64_t>::max()), GetRand(std::numeric_limits<uint64_t>::max())));
     CConnman& connman = *node.connman;
 
-    node.peerman.reset(new PeerManager(connman, scheduler));
+    node.peerman.reset(new PeerManager(connman, *node.mempool, scheduler, node.notifications));
     RegisterValidationInterface(node.peerman.get());
 
     // sanitize comments per BIP-0014, format user agent and check total size
@@ -1342,7 +1357,7 @@ bool AppInitMain(NodeContext& node)
     g_chainstate_manager.SetReindexing(gArgs.GetBoolArg("-reindex", false));
 
     const CacheSettings& cache = *node.cache;
-    int64_t nMempoolSizeMax = node.policy->maxMempool;
+    int64_t nMempoolSizeMax = node.mempool->MaxSize();
     LogPrintf("Cache configuration:\n");
     LogPrintf("* Using %.1fMiB for block index database\n", cache.nBlockTreeDBCache * (1.0 / 1024 / 1024));
     if (gArgs.GetBoolArg("-txindex", DEFAULT_TXINDEX)) {
@@ -1364,7 +1379,7 @@ bool AppInitMain(NodeContext& node)
         do {
             const int64_t load_block_index_start_time = GetTimeMillis();
             try {
-                UnloadBlockIndex();
+                UnloadBlockIndex(node.mempool.get());
                 g_chainstate_manager.ActiveChainstate().ResetCoinsViews();
                 // new CBlockTreeDB tries to delete the existing file, which
                 // fails if it's still open from the previous loop. Close it first:
@@ -1557,12 +1572,12 @@ bool AppInitMain(NodeContext& node)
     CAutoFile est_filein(fsbridge::fopen(est_path, "rb"), SER_DISK, CLIENT_VERSION);
     // Allowed to fail as this file IS missing on first startup.
     if (!est_filein.IsNull())
-        ::feeEstimator.Read(est_filein);
+        node.fee_estimator->Read(est_filein);
     fFeeEstimatesInitialized = true;
 
     // ********************************************************* Step 8: start indexers
     if (gArgs.GetBoolArg("-txindex", DEFAULT_TXINDEX)) {
-        g_txindex = MakeUnique<TxIndex>(cache.nTxIndexCache, false, g_chainstate_manager.IsReindexing());
+        g_txindex = MakeUnique<TxIndex>(node.notifications, cache.nTxIndexCache, false, g_chainstate_manager.IsReindexing());
         g_txindex->Start();
     }
 
@@ -1603,7 +1618,7 @@ bool AppInitMain(NodeContext& node)
         vImportFiles.push_back(strFile);
     }
 
-    scheduler.m_load_block = std::thread(std::bind(&ThreadImport, vImportFiles));
+    scheduler.m_load_block = std::thread(std::bind(&ThreadImport, std::ref(node), vImportFiles));
 
     // Wait for genesis block to be processed
     {

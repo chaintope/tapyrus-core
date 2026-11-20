@@ -6,8 +6,8 @@
 #include <index/txindex.h>
 #include <blockfilemanager.h>
 #include <chainstatemanager.h>
+#include <index/indexnotifications.h>
 #include <shutdown.h>
-#include <ui_interface.h>
 #include <util.h>
 #include <validation.h>
 
@@ -67,7 +67,7 @@ public:
 
     /// Migrate txindex data from the block tree DB, where it may be for older nodes that have not
     /// been upgraded yet to the new database.
-    bool MigrateData(CBlockTreeDB& block_tree_db, const CBlockLocator& best_locator);
+    bool MigrateData(CBlockTreeDB& block_tree_db, const CBlockLocator& best_locator, IndexNotifications& notifications);
 };
 
 TxIndex::DB::DB(size_t n_cache_size, bool f_memory, bool f_wipe) :
@@ -106,7 +106,7 @@ static void WriteTxIndexMigrationBatches(CDBWrapper& newdb, CDBWrapper& olddb,
     batch_olddb.Clear();
 }
 
-bool TxIndex::DB::MigrateData(CBlockTreeDB& block_tree_db, const CBlockLocator& best_locator)
+bool TxIndex::DB::MigrateData(CBlockTreeDB& block_tree_db, const CBlockLocator& best_locator, IndexNotifications& notifications)
 {
     // The prior implementation of txindex was always in sync with block index
     // and presence was indicated with a boolean DB flag. If the flag is set,
@@ -140,7 +140,7 @@ bool TxIndex::DB::MigrateData(CBlockTreeDB& block_tree_db, const CBlockLocator& 
 
     int64_t count = 0;
     LogPrintf("Upgrading txindex database... [0%%]\n");
-    uiInterface.ShowProgress(_("Upgrading txindex database"), 0, true);
+    notifications.ReportUpgradeProgress(0);
     int report_done = 0;
     const size_t batch_size = 1 << 24; // 16 MiB
 
@@ -176,7 +176,7 @@ bool TxIndex::DB::MigrateData(CBlockTreeDB& block_tree_db, const CBlockLocator& 
                 (static_cast<uint32_t>(*(txid.begin() + 1)) << 0);
             int percentage_done = (int)(high_nibble * 100.0 / 65536.0 + 0.5);
 
-            uiInterface.ShowProgress(_("Upgrading txindex database"), percentage_done, true);
+            notifications.ReportUpgradeProgress(percentage_done);
             if (report_done < percentage_done/10) {
                 LogPrintf("Upgrading txindex database... [%d%%]\n", percentage_done);
                 report_done = percentage_done/10;
@@ -219,14 +219,14 @@ bool TxIndex::DB::MigrateData(CBlockTreeDB& block_tree_db, const CBlockLocator& 
         return false;
     }
 
-    uiInterface.ShowProgress("", 100, false);
+    notifications.ReportUpgradeProgress(100);
 
     LogPrintf("[DONE].\n");
     return true;
 }
 
-TxIndex::TxIndex(size_t n_cache_size, bool f_memory, bool f_wipe)
-    : m_db(MakeUnique<TxIndex::DB>(n_cache_size, f_memory, f_wipe))
+TxIndex::TxIndex(IndexNotifications& notifications, size_t n_cache_size, bool f_memory, bool f_wipe)
+    : BaseIndex(notifications), m_db(MakeUnique<TxIndex::DB>(n_cache_size, f_memory, f_wipe))
 {}
 
 TxIndex::~TxIndex() {}
@@ -239,7 +239,7 @@ bool TxIndex::Init()
     // Attempt to migrate txindex from the old database to the new one. Even if
     // chain_tip is null, the node could be reindexing and we still want to
     // delete txindex records in the old database.
-    if (!m_db->MigrateData(*blockIndex.pblocktreedb, g_chainstate_manager.ActiveChain().GetLocator())) {
+    if (!m_db->MigrateData(*blockIndex.pblocktreedb, g_chainstate_manager.ActiveChain().GetLocator(), m_notifications)) {
         return false;
     }
 

@@ -3,13 +3,14 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <chainstate.h>
-#include <abortnode.h>
 #include <blockfilemanager.h>
 #include <contextualconsensusrules.h>
 #include <chainstatemanager.h>
 #include <chainparams.h>
 #include <checkblock.h>
 #include <consensussettings.h>
+#include <disconnectedtransactions.h>
+#include <mempoolaccept.h>
 #include <util.h>
 #include <issuedcolorids.h>
 
@@ -21,19 +22,15 @@
 #include <shutdown.h>
 #include <trace.h>
 #include <transactioncolorchecker.h>
+#include <txmempool.h>
 #include <ui_interface.h>
-#include <warnings.h>
+#include <chainnotifications.h>
+#include <validation.h>
 #include <xfieldhistory.h>
-#include <file_io.h>
 
 #include <deque>
 #include <stdexcept>
-#include <boost/algorithm/string/replace.hpp>
 
-
-// Defined in validation.cpp; declared here to avoid pulling in validation.h
-// (which includes chainstate.h, creating an indirect self-inclusion).
-void RefreshChainTxDataFromTip(const CBlockIndex* pindexNew) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 
 static int64_t nTimeCheck = 0;
 static int64_t nTimeForks = 0;
@@ -52,29 +49,14 @@ static int64_t nTimeChainState = 0;
 static int64_t nTimePostConnect = 0;
 
 
-static void AlertNotify(const std::string& strMessage)
-{
-    uiInterface.NotifyAlertChanged();
-    std::string strCmd = gArgs.GetArg("-alertnotify", "");
-    if (strCmd.empty()) return;
-
-    // Alert text should be plain ascii coming from a trusted source, but to
-    // be safe we first strip anything not in safeChars, then add single quotes around
-    // the whole string before passing it to the shell:
-    std::string singleQuote("'");
-    std::string safeStatus = SanitizeString(strMessage);
-    safeStatus = singleQuote+safeStatus+singleQuote;
-    boost::replace_all(strCmd, "%s", safeStatus);
-
-    std::thread t(runCommand, strCmd);
-    t.detach(); // thread runs free
-}
+Chainstate::Chainstate(ChainstateManager& chainman, CTxMemPool& mempool) : m_chainman(chainman), m_mempool(mempool) {}
 
 CBlockIndex *pindexBestForkTip = nullptr, *pindexBestForkBase = nullptr;
 
 static void CheckForkWarningConditions()
 {
     AssertLockHeld(cs_main);
+    ChainNotifications& notifications = g_chainstate_manager.Notifications();
     // Before we get past initial download, we cannot reliably alert about forks
     // (we assume we don't get stuck on a fork before finishing our initial sync)
     if (IsInitialBlockDownload())
@@ -87,29 +69,22 @@ static void CheckForkWarningConditions()
 
     if (pindexBestForkTip || (g_chainstate_manager.BestInvalid() && g_chainstate_manager.BestInvalid()->nHeight > g_chainstate_manager.ActiveChain().Tip()->nHeight + 6))
     {
-        if (!GetfLargeWorkForkFound() && pindexBestForkBase)
-        {
-            std::string warning = std::string("'Warning: Large-work fork detected, forking after block ") +
-                pindexBestForkBase->phashBlock->ToString() + std::string("'");
-            AlertNotify(warning);
-        }
         if (pindexBestForkTip && pindexBestForkBase)
         {
             LogPrintf("%s: Warning: Large valid fork found\n  forking the chain at height %d (%s)\n  lasting to height %d (%s).\nChain state database corruption likely.\n", __func__,
                    pindexBestForkBase->nHeight, pindexBestForkBase->phashBlock->ToString(),
                    pindexBestForkTip->nHeight, pindexBestForkTip->phashBlock->ToString());
-            SetfLargeWorkForkFound(true);
+            notifications.ReportLargeWorkFork(pindexBestForkBase->GetBlockHash());
         }
         else
         {
             LogPrintf("%s: Warning: Found invalid chain at least ~6 blocks longer than our best chain.\nChain state database corruption likely.\n", __func__);
-            SetfLargeWorkInvalidChainFound(true);
+            notifications.ReportInvalidChainAhead();
         }
     }
     else
     {
-        SetfLargeWorkForkFound(false);
-        SetfLargeWorkInvalidChainFound(false);
+        notifications.ReportForkResolved();
     }
 }
 
@@ -132,6 +107,7 @@ void NotifyHeaderTip() LOCKS_EXCLUDED(cs_main) {
     bool fInitialBlockDownload = false;
     static CBlockIndex* pindexHeaderOld = nullptr;
     CBlockIndex* pindexHeader = nullptr;
+    double verification_progress = 0.0;
     {
         LOCK(cs_main);
         pindexHeader = g_chainstate_manager.BestHeader();
@@ -140,17 +116,19 @@ void NotifyHeaderTip() LOCKS_EXCLUDED(cs_main) {
             fNotify = true;
             fInitialBlockDownload = IsInitialBlockDownload();
             pindexHeaderOld = pindexHeader;
+            // The header's block may still be connecting, which writes its nChainTx under cs_main.
+            verification_progress = g_chainstate_manager.Progress().Guess(pindexHeader);
         }
     }
     // Send block tip changed notifications without cs_main
     if (fNotify) {
-        uiInterface.NotifyHeaderTip(fInitialBlockDownload, pindexHeader);
+        uiInterface.NotifyHeaderTip(fInitialBlockDownload, pindexHeader, verification_progress);
     }
 }
 
 void Chainstate::InitCoinsDB(CIssuedColorIds& issuedColorIds, size_t cache_size_bytes, bool in_memory, bool should_wipe)
 {
-    m_coins_views = std::make_unique<CoinsViews>(issuedColorIds, cache_size_bytes, in_memory, should_wipe);
+    m_coins_views = std::make_unique<CoinsViews>(issuedColorIds, cache_size_bytes, in_memory, should_wipe, m_chainman.Notifications());
 }
 
 void Chainstate::InitCoinsCache()
@@ -305,12 +283,12 @@ DisconnectResult Chainstate::DisconnectBlock(const CBlock& block, const CBlockIn
 }
 
 /** Check warning conditions and do some notifications on new chain tip set. */
-void static UpdateTip(const CBlockIndex *pindexNew)
+void Chainstate::UpdateTip(const CBlockIndex *pindexNew)
 {
     AssertLockHeld(::cs_main);
 
     // New best block
-    mempool.AddTransactionsUpdated(1);
+    m_mempool.AddTransactionsUpdated(1);
 
     {
         UniqueLock lock(g_chainstate_manager.m_best_block_mutex);
@@ -318,13 +296,13 @@ void static UpdateTip(const CBlockIndex *pindexNew)
         g_chainstate_manager.m_best_block_cv.notify_all();
     }
 
-    RefreshChainTxDataFromTip(pindexNew);
+    g_chainstate_manager.Progress().Refresh(pindexNew, g_chainstate_manager.BestHeader());
 
     LogPrintf("%s: new best=%s height=%d version=0x%08x xfield=%s tx=%lu date='%s' progress=%f cache=%.1fMiB(%utxo)", __func__, /* Continued */
       pindexNew->GetBlockHash().ToString(), pindexNew->nHeight, pindexNew->nFeatures,
       pindexNew->xfield.ToString(),
       (unsigned long)pindexNew->nChainTx, FormatISO8601DateTime(pindexNew->GetBlockTime()),
-      GuessVerificationProgress(Params().TxData(), pindexNew), g_chainstate_manager.ActiveChainstate().CoinsTip().DynamicMemoryUsage() * (1.0 / (1<<20)), g_chainstate_manager.ActiveChainstate().CoinsTip().GetCacheSize());
+      g_chainstate_manager.Progress().Guess(pindexNew), CoinsTip().DynamicMemoryUsage() * (1.0 / (1<<20)), CoinsTip().GetCacheSize());
     LogPrintf("\n");
 
 }
@@ -376,7 +354,52 @@ static void CheckForkWarningConditionsOnNewFork(CBlockIndex* pindexNewForkTip)
  * and instead just erase from the mempool as needed.
  */
 
-static void UpdateMempoolForReorg(DisconnectedBlockTransactions &disconnectpool, bool fAddToMempool)
+size_t Chainstate::MempoolUsage() const
+{
+    return m_mempool.DynamicMemoryUsage();
+}
+
+void Chainstate::RemoveForScriptFlagChange(unsigned int newMempoolScriptFlags, int32_t newBlockHeight)
+{
+    AssertLockHeld(cs_main); // coins tip access
+    LOCK(m_mempool.cs);
+    // Wrap CCoinsViewMemPool in a CCoinsViewCache so it satisfies CheckInputs's
+    // parameter type while still resolving intra-mempool dependencies.
+    CCoinsViewMemPool viewMemPool(&CoinsTip(), m_mempool);
+    CCoinsViewCache view(&viewMemPool);
+    m_mempool.removeIf([&](CTxMemPool::txiter it) EXCLUSIVE_LOCKS_REQUIRED(::cs_main, m_mempool.cs) {
+        const CTransaction& tx = it->GetTx();
+        if (tx.IsCoinBase())
+            return false;
+        // Evict txs that break colour rules now active at newBlockHeight (e.g.
+        // bad-txns-nonstandard-opcolor); CheckInputs does not cover them.
+        // Colour checks run before the scripts, as in mempool acceptance.
+        PrecomputedColorData colorData(tx, view, newBlockHeight);
+        colorData.SetIssued(g_chainstate_manager.IssuedColorIds());
+        const TransactionColorChecker colorChecker(colorData);
+        CValidationState colorState;
+        if (!colorChecker.CheckOutputColorIds(colorState)) {
+            return true;
+        }
+        CValidationState state;
+        // For SCRIPT_VERIFY_CP2SH_COLORED this call is a no-op: the flag is
+        // already in PolicyConstants::STANDARD_SCRIPT_VERIFY_FLAGS, so every tx in the mempool
+        // was admitted under it and will pass here.  For any future softfork
+        // whose flag is NOT pre-added to STANDARD, this correctly evicts txs
+        // that would be invalid under the new consensus rules.
+        if (!CheckInputs(tx, state, view, true, newMempoolScriptFlags, false, false, g_chainstate_manager.ValidationCaches())) {
+            return true;
+        }
+        CValidationState balanceState;
+        const CAmount minFee = g_policy_settings->minRelayTxFee.GetFee(it->GetTxSize());
+        if (!colorChecker.CheckTokenBalances(balanceState, minFee)) {
+            return true;
+        }
+        return false;
+    }, MemPoolRemovalReason::REORG);
+}
+
+void Chainstate::UpdateMempoolForReorg(DisconnectedBlockTransactions &disconnectpool, bool fAddToMempool)
 {
     AssertLockHeld(cs_main);
     std::vector<uint256> vHashUpdate;
@@ -389,14 +412,15 @@ static void UpdateMempoolForReorg(DisconnectedBlockTransactions &disconnectpool,
     auto it = disconnectpool.queuedTx.get<insertion_order>().rbegin();
     while (it != disconnectpool.queuedTx.get<insertion_order>().rend()) {
         // ignore validation errors in resurrected transactions
-        CTxMempoolAcceptanceOptions opt;
-        opt.flags = MempoolAcceptanceFlags::BYPASSS_LIMITS;
+        MempoolAcceptOptions options;
+        options.bypass_limits = true;
+        MempoolAcceptResult result;
         if (!fAddToMempool || (*it)->IsCoinBase() ||
-            !AcceptToMemoryPool(*it, opt) ){
+            !AcceptToMemoryPool(*it, options, result) ){
             // If the transaction doesn't make it in to the mempool, remove any
             // transactions that depend on it (which would now be orphans).
-            mempool.removeRecursive(**it, MemPoolRemovalReason::REORG);
-        } else if (mempool.exists((*it)->GetHashMalFix())) {
+            m_mempool.removeRecursive(**it, MemPoolRemovalReason::REORG);
+        } else if (m_mempool.exists((*it)->GetHashMalFix())) {
             vHashUpdate.push_back((*it)->GetHashMalFix());
         }
         ++it;
@@ -407,12 +431,26 @@ static void UpdateMempoolForReorg(DisconnectedBlockTransactions &disconnectpool,
     // previously-confirmed transactions back to the mempool.
     // UpdateTransactionsFromBlock finds descendants of any transactions in
     // the disconnectpool that were added back and cleans up the mempool state.
-    mempool.UpdateTransactionsFromBlock(vHashUpdate);
+    m_mempool.UpdateTransactionsFromBlock(vHashUpdate);
 
     // We also need to remove any now-immature transactions
-    mempool.removeForReorg(&g_chainstate_manager.ActiveChainstate().CoinsTip(), g_chainstate_manager.ActiveChain().Tip()->nHeight + 1, PolicyConstants::STANDARD_LOCKTIME_VERIFY_FLAGS);
+    CCoinsViewMemPool viewMemPool(&CoinsTip(), m_mempool);
+    const int flags = PolicyConstants::STANDARD_LOCKTIME_VERIFY_FLAGS;
+    const auto is_final = [&](CTxMemPool::txiter it) EXCLUSIVE_LOCKS_REQUIRED(m_mempool.cs) {
+        const CTransaction& tx = it->GetTx();
+        LockPoints lp = it->GetLockPoints();
+        const bool validLP = TestLockPointValidity(&lp);
+        // If CheckSequenceLocks fails the LockPoints may still be invalid,
+        // so the transaction must be removed, not kept on those LockPoints.
+        const bool final = CheckFinalTx(tx, flags) && CheckSequenceLocks(m_mempool, tx, flags, viewMemPool, &lp, validLP);
+        if (!validLP) {
+            m_mempool.mapTx.modify(it, update_lock_points(lp));
+        }
+        return final;
+    };
+    m_mempool.removeForReorg(&CoinsTip(), is_final);
     // Re-limit mempool size, in case we added any transactions
-    LimitMempoolSize(mempool, g_policy_settings->maxMempool, g_policy_settings->mempoolExpiry);
+    LimitMempoolSize(m_mempool);
 }
 
 /** Apply the effects of this block (with given index) on the UTXO set represented by coins.
@@ -448,7 +486,8 @@ bool Chainstate::ConnectBlock(const CBlock& block, CValidationState& state, CBlo
             // We don't write down blocks to disk if they may have been
             // corrupted, so this should be impossible unless we're having hardware
             // problems.
-            return AbortNode(state, "Corrupt block found indicating potential hardware failure; shutting down");
+            m_chainman.Notifications().ReportFatalError(FatalErrorReason::CORRUPT_BLOCK, "");
+            return state.Error("Corrupt block found indicating potential hardware failure; shutting down");
         }
         return error("%s: Consensus::CheckBlock: %s", __func__, FormatStateMessage(state));
     }
@@ -572,7 +611,7 @@ bool Chainstate::ConnectBlock(const CBlock& block, CValidationState& state, CBlo
         {
             std::vector<CScriptCheck> vChecks;
             bool fCacheResults = fJustCheck; /* Don't cache results if we're actually connecting blocks (still consult the cache, though) */
-            if (!CheckInputs(tx, state, view, fScriptChecks, consensusAtHeight.ScriptFlags(), fCacheResults, fCacheResults, g_chainstate_manager.GetOptions().nScriptCheckThreads ? &vChecks : nullptr, consensusAtHeight.ScriptFlags()))
+            if (!CheckInputs(tx, state, view, fScriptChecks, consensusAtHeight.ScriptFlags(), fCacheResults, fCacheResults, g_chainstate_manager.ValidationCaches(), g_chainstate_manager.GetOptions().nScriptCheckThreads ? &vChecks : nullptr, consensusAtHeight.ScriptFlags()))
                 // FormatStateMessage is evaluated before DoS() re-sets state, preserving
                 // the per-input detail in the log.  state.GetRejectReason() already holds
                 // the specific error string set by CheckInputs, so it is propagated as-is.
@@ -610,7 +649,7 @@ bool Chainstate::ConnectBlock(const CBlock& block, CValidationState& state, CBlo
         if (i > 0) {
             blockundo.vtxundo.push_back(CTxUndo());
         }
-        UpdateCoins(tx, view, i == 0 ? undoDummy : blockundo.vtxundo.back(), pindex->nHeight);
+        view.UpdateCoins(tx, i == 0 ? undoDummy : blockundo.vtxundo.back(), pindex->nHeight);
     }
     int64_t nTime3 = GetTimeMicros(); nTimeConnect += nTime3 - nTime2;
     LogPrint(BCLog::BENCH, "      - Connect %u transactions: %.2fms (%.3fms/tx, %.3fms/txin) [%.2fs (%.2fms/blk)]\n", (unsigned)block.vtx.size(), MILLI * (nTime3 - nTime2), MILLI * (nTime3 - nTime2) / block.vtx.size(), nInputs <= 1 ? 0 : MILLI * (nTime3 - nTime2) / (nInputs-1), nTimeConnect * MICRO, nTimeConnect * MILLI / nBlocksTotal);
@@ -694,8 +733,10 @@ bool Chainstate::DisconnectTip(CValidationState& state, DisconnectedBlockTransac
     // Read block from disk.
     std::shared_ptr<CBlock> pblock = std::make_shared<CBlock>();
     CBlock& block = *pblock;
-    if (!g_chainstate_manager.ReadBlock(block, pindexDelete))
-        return AbortNode(state, "Failed to read block");
+    if (!g_chainstate_manager.ReadBlock(block, pindexDelete)) {
+        m_chainman.Notifications().ReportFatalError(FatalErrorReason::BLOCK_READ_FAILED, "");
+        return state.Error("Failed to read block");
+    }
     // Apply the block atomically to the chain state.
     int64_t nStart = GetTimeMicros();
     {
@@ -719,7 +760,7 @@ bool Chainstate::DisconnectTip(CValidationState& state, DisconnectedBlockTransac
         while (disconnectpool->DynamicMemoryUsage() > MAX_DISCONNECTED_TX_POOL_SIZE * 1000) {
             // Drop the earliest entry, and remove its children from the mempool.
             auto it = disconnectpool->queuedTx.get<insertion_order>().begin();
-            mempool.removeRecursive(**it, MemPoolRemovalReason::REORG);
+            m_mempool.removeRecursive(**it, MemPoolRemovalReason::REORG);
             disconnectpool->removeEntry(it);
         }
     }
@@ -761,8 +802,10 @@ bool Chainstate::ConnectTip(CValidationState& state, CBlockIndex* pindexNew, con
     std::shared_ptr<const CBlock> pthisBlock;
     if (!pblock) {
         std::shared_ptr<CBlock> pblockNew = std::make_shared<CBlock>();
-        if (!g_chainstate_manager.ReadBlock(*pblockNew, pindexNew))
-            return AbortNode(state, "Failed to read block");
+        if (!g_chainstate_manager.ReadBlock(*pblockNew, pindexNew)) {
+            m_chainman.Notifications().ReportFatalError(FatalErrorReason::BLOCK_READ_FAILED, "");
+            return state.Error("Failed to read block");
+        }
         pthisBlock = pblockNew;
     } else {
         pthisBlock = pblock;
@@ -814,7 +857,7 @@ bool Chainstate::ConnectTip(CValidationState& state, CBlockIndex* pindexNew, con
     int64_t nTime5 = GetTimeMicros(); nTimeChainState += nTime5 - nTime4;
     LogPrint(BCLog::BENCH, "  - Writing chainstate: %.2fms [%.2fs (%.2fms/blk)]\n", (nTime5 - nTime4) * MILLI, nTimeChainState * MICRO, nTimeChainState * MILLI / nBlocksTotal);
     // Remove conflicting transactions from the mempool.;
-    mempool.removeForBlock(blockConnecting.vtx, pindexNew->nHeight);
+    m_mempool.removeForBlock(blockConnecting.vtx, pindexNew->nHeight);
     disconnectpool.removeForBlock(blockConnecting.vtx);
 
     // If this block crossed a softfork activation boundary, evict mempool entries
@@ -823,7 +866,7 @@ bool Chainstate::ConnectTip(CValidationState& state, CBlockIndex* pindexNew, con
         const unsigned int newSoftforkFlags = g_chainstate_manager.Settings().ActivationFlagsChange(
             pindexNew->nHeight, pindexNew->nHeight + 1);
         if (newSoftforkFlags) {
-            mempool.removeForScriptFlagChange(PolicyConstants::STANDARD_SCRIPT_VERIFY_FLAGS | newSoftforkFlags, pindexNew->nHeight + 1);
+            RemoveForScriptFlagChange(PolicyConstants::STANDARD_SCRIPT_VERIFY_FLAGS | newSoftforkFlags, pindexNew->nHeight + 1);
         }
     }
 
@@ -988,7 +1031,7 @@ bool Chainstate::ActivateBestChainStep(CValidationState& state, CBlockIndex* pin
         // any disconnected transactions back to the mempool.
         UpdateMempoolForReorg(disconnectpool, true);
     }
-    mempool.check(&CoinsTip());
+    m_mempool.check(&CoinsTip(), m_chain.Height() + 1);
 
     // Callbacks/notifications for a new best chain.
     if (fInvalidFound)
@@ -1043,7 +1086,7 @@ bool Chainstate::ActivateBestChain(CValidationState &state, std::shared_ptr<cons
             do {
                 // We absolutely may not unlock cs_main until we've made forward progress
                 // (with the exception of shutdown due to hardware issues, low disk space, etc).
-                ConnectTrace connectTrace(mempool); // Destructed before cs_main is unlocked
+                ConnectTrace connectTrace(m_mempool); // Destructed before cs_main is unlocked
 
                 if (pindexMostWork == nullptr) {
                     pindexMostWork = FindMostWorkChain();
@@ -1083,12 +1126,14 @@ bool Chainstate::ActivateBestChain(CValidationState &state, std::shared_ptr<cons
                 GetMainSignals().UpdatedBlockTip(pindexNewTip, pindexFork, fInitialDownload);
 
                 // Always notify the UI if a new block tip was connected
-                uiInterface.NotifyBlockTip(fInitialDownload, pindexNewTip);
+                uiInterface.NotifyBlockTip(fInitialDownload, pindexNewTip, g_chainstate_manager.Progress().Guess(pindexNewTip));
             }
         }
         // When we reach this point, we switched to a new tip (stored in pindexNewTip).
 
-        if (nStopAtHeight && pindexNewTip && pindexNewTip->nHeight >= nStopAtHeight) StartShutdown();
+        if (nStopAtHeight && pindexNewTip && pindexNewTip->nHeight >= nStopAtHeight && !ShutdownRequested()) {
+            m_chainman.Notifications().ReportStopHeightReached(nStopAtHeight);
+        }
 
         // We check shutdown only after giving ActivateBestChainStep a chance to run once so that we
         // never shutdown before connecting the genesis block during LoadChainTip(). Previously this
@@ -1166,7 +1211,7 @@ bool Chainstate::InvalidateBlock(CValidationState& state, CBlockIndex *pindex)
 
     // Only notify about a new block tip if the active chain was modified.
     if (pindex_was_in_chain) {
-        uiInterface.NotifyBlockTip(IsInitialBlockDownload(), pindex->pprev);
+        uiInterface.NotifyBlockTip(IsInitialBlockDownload(), pindex->pprev, g_chainstate_manager.Progress().Guess(pindex->pprev));
     }
     return true;
 }
@@ -1406,7 +1451,8 @@ bool Chainstate::AcceptBlock(const std::shared_ptr<const CBlock>& pblock, CValid
         }
         ReceivedBlockTransactions(block, pindex, blockPos);
     } catch (const std::runtime_error& e) {
-        return AbortNode(state, std::string("System error: ") + e.what());
+        m_chainman.Notifications().ReportFatalError(FatalErrorReason::SYSTEM_ERROR, e.what());
+        return state.Error(std::string("System error: ") + e.what());
     }
 
     FlushStateToDisk(state, FlushStateMode::NONE);

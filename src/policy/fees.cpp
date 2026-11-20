@@ -8,10 +8,10 @@
 #include <policy/policy.h>
 
 #include <clientversion.h>
+#include <mempoolentry.h>
 #include <primitives/transaction.h>
 #include <stdexcept>
 #include <streams.h>
-#include <txmempool.h>
 #include <util.h>
 
 static constexpr double INF_FEERATE = 1e99;
@@ -615,7 +615,7 @@ bool CBlockPolicyEstimator::processBlockTx(unsigned int nBlockHeight, const CTxM
 }
 
 void CBlockPolicyEstimator::processBlock(unsigned int nBlockHeight,
-                                         std::vector<const CTxMemPoolEntry*>& entries)
+                                         const std::vector<const CTxMemPoolEntry*>& entries)
 {
     LOCK(cs_feeEstimator);
     if (nBlockHeight <= nBestSeenHeight) {

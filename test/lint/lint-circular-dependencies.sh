@@ -10,14 +10,9 @@ export LC_ALL=C
 
 EXPECTED_CIRCULAR_DEPENDENCIES=(
     "chainstate -> chainstatemanager -> chainstate"
-    "chainstate -> file_io -> validation -> chainstate"
+    "chainstate -> validation -> chainstate"
     "checkpoints -> validation -> checkpoints"
-    "file_io -> validation -> file_io"
     "index/txindex -> validation -> index/txindex"
-    "policy/fees -> txmempool -> policy/fees"
-    "policy/fees -> txmempool -> validation -> policy/fees"
-    "policy/packages -> validation -> policy/packages"
-    "policy/rbf -> txmempool -> validation -> policy/rbf"
     "qt/addressbookpage -> qt/tapyrusgui -> qt/walletview -> qt/addressbookpage"
     "qt/addressbookpage -> qt/tapyrusgui -> qt/walletview -> qt/receivecoinsdialog -> qt/addressbookpage"
     "qt/addressbookpage -> qt/tapyrusgui -> qt/walletview -> qt/sendcoinsdialog -> qt/sendcoinsentry -> qt/addressbookpage"
@@ -36,7 +31,6 @@ EXPECTED_CIRCULAR_DEPENDENCIES=(
     "qt/transactiontablemodel -> qt/walletmodel -> qt/transactiontablemodel"
     "qt/walletmodel -> qt/walletmodeltransaction -> qt/walletmodel"
     "rpc/rawtransaction -> wallet/rpcwallet -> rpc/rawtransaction"
-    "txmempool -> validation -> txmempool"
     "wallet/coincontrol -> wallet/wallet -> wallet/coincontrol"
     "wallet/fees -> wallet/wallet -> wallet/fees"
     "wallet/wallet -> wallet/walletdb -> wallet/wallet"

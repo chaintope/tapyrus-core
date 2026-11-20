@@ -8,58 +8,14 @@
 #include <contextualconsensusrules.h>
 
 #include <consensusconstants.h>
-#include <chainstatemanager.h>
 #include <consensus/validation.h>
-#include <validation.h>
-#include <issuedcolorids.h>
 #include <policy/policy.h>
-#include <policy/fees.h>
-#include <precomputedcolordata.h>
 #include <streams.h>
 #include <trace.h>
-#include <transactioncolorchecker.h>
 #include <util.h>
 #include <utilmoneystr.h>
 #include <utiltime.h>
 
-
-CTxMemPoolEntry::CTxMemPoolEntry(const CTransactionRef& _tx, const CAmount& _nFee,
-                                 int64_t _nTime, unsigned int _entryHeight,
-                                 bool _spendsCoinbase, int32_t _sigOpsCost, LockPoints lp):
-    tx(_tx), nFee(_nFee), nTime(_nTime), entryHeight(_entryHeight),
-    spendsCoinbase(_spendsCoinbase), sigOpCost(_sigOpsCost), lockPoints(lp)
-{
-    nTxSize = GetSerializeSize(tx, SER_NETWORK, PROTOCOL_VERSION);
-    nUsageSize = RecursiveDynamicUsage(tx);
-
-    nCountWithDescendants = 1;
-    nSizeWithDescendants = GetTxSize();
-    nModFeesWithDescendants = nFee;
-
-    feeDelta = 0;
-
-    nCountWithAncestors = 1;
-    nSizeWithAncestors = GetTxSize();
-    nModFeesWithAncestors = nFee;
-    nSigOpCostWithAncestors = sigOpCost;
-}
-
-void CTxMemPoolEntry::UpdateFeeDelta(int64_t newFeeDelta)
-{
-    nModFeesWithDescendants += newFeeDelta - feeDelta;
-    nModFeesWithAncestors += newFeeDelta - feeDelta;
-    feeDelta = newFeeDelta;
-}
-
-void CTxMemPoolEntry::UpdateLockPoints(const LockPoints& lp)
-{
-    lockPoints = lp;
-}
-
-int32_t CTxMemPoolEntry::GetTxSize() const
-{
-    return GetTransactionSize(nTxSize, sigOpCost);
-}
 
 // Update the given tx for any in-mempool descendants.
 // Assumes that setMemPoolChildren is correct for the given tx and all
@@ -312,35 +268,15 @@ void CTxMemPool::UpdateForRemoveFromMempool(const setEntries &entriesToRemove, b
     }
 }
 
-void CTxMemPoolEntry::UpdateDescendantState(int32_t modifySize, CAmount modifyFee, int64_t modifyCount)
-{
-    nSizeWithDescendants += modifySize;
-    assert(nSizeWithDescendants > 0);
-    nModFeesWithDescendants += modifyFee;
-    nCountWithDescendants += uint64_t(modifyCount);
-    assert(int64_t(nCountWithDescendants) > 0);
-}
+CTxMemPool::CTxMemPool() : CTxMemPool(Options{}) {}
 
-void CTxMemPoolEntry::UpdateAncestorState(int32_t modifySize, CAmount modifyFee, int64_t modifyCount, int32_t modifySigOps)
-{
-    nSizeWithAncestors += modifySize;
-    assert(nSizeWithAncestors > 0);
-    nModFeesWithAncestors += modifyFee;
-    nCountWithAncestors += uint64_t(modifyCount);
-    assert(int64_t(nCountWithAncestors) > 0);
-    nSigOpCostWithAncestors += modifySigOps;
-    assert(int(nSigOpCostWithAncestors) >= 0);
-}
-
-CTxMemPool::CTxMemPool(CBlockPolicyEstimator* estimator) :
-    nTransactionsUpdated(0), minerPolicyEstimator(estimator)
+CTxMemPool::CTxMemPool(const Options& options) :
+    // Sanity checks are off unless asked for, because they make accepting
+    // transactions O(N^2) where N is the number of transactions in the pool.
+    nCheckFrequency(options.check_ratio == 0 ? 0 : static_cast<uint32_t>(1.0 / options.check_ratio * 4294967295.0)),
+    nTransactionsUpdated(0), m_expiry(options.expiry), m_max_size(options.max_size)
 {
     _clear(); //lock free clear
-
-    // Sanity checks off by default for performance, because otherwise
-    // accepting transactions becomes O(N^2) where N is the number
-    // of transactions in the pool
-    nCheckFrequency = 0;
 }
 
 bool CTxMemPool::isSpent(const COutPoint& outpoint) const
@@ -411,7 +347,7 @@ void CTxMemPool::addUnchecked(const uint256& hash, const CTxMemPoolEntry &entry,
 
     nTransactionsUpdated++;
     totalTxSize += entry.GetTxSize();
-    if (minerPolicyEstimator) {minerPolicyEstimator->processTransaction(entry, validFeeEstimate);}
+    NotifyEntryAddedForFees(entry, validFeeEstimate);
 
     vTxHashes.emplace_back(tx.GetHashMalFix(), newit);
     newit->vTxHashesIdx = vTxHashes.size() - 1;
@@ -453,7 +389,7 @@ void CTxMemPool::removeUnchecked(txiter it, MemPoolRemovalReason reason)
     mapLinks.erase(it);
     mapTx.erase(it);
     nTransactionsUpdated++;
-    if (minerPolicyEstimator) {minerPolicyEstimator->removeTx(hash, false);}
+    NotifyEntryErasedForFees(hash);
 }
 
 // Calculates descendants of entry that are not already in setDescendants, and adds to
@@ -517,21 +453,28 @@ void CTxMemPool::removeRecursive(const CTransaction &origTx, MemPoolRemovalReaso
     }
 }
 
-void CTxMemPool::removeForReorg(const CCoinsViewCache *pcoins, unsigned int nMemPoolHeight, int flags)
+void CTxMemPool::FilterDuplicates(const std::vector<CTransaction>& txns, Package& package, PackageValidationState& results) const
+{
+    for (const auto& tx : txns) {
+        if (exists(tx.GetHashMalFix())) {
+            CValidationState state;
+            state.Invalid(false, REJECT_DUPLICATE, "txn-already-in-mempool");
+            results.emplace(tx.GetHashMalFix(), state);
+        } else {
+            package.emplace_back(MakeTransactionRef(tx));
+        }
+    }
+}
+
+void CTxMemPool::removeForReorg(const CCoinsViewCache *pcoins, const std::function<bool(txiter)>& is_final)
 {
     // Remove transactions spending a coinbase which are now immature and no-longer-final transactions
     AssertLockHeld(cs_main); // coins tip access
     LOCK(cs);
-    CCoinsViewCache& coins_tip = g_chainstate_manager.ActiveChainstate().CoinsTip();
-    CCoinsViewMemPool viewMemPool(&coins_tip, mempool);
     setEntries txToRemove;
     for (indexed_transaction_set::const_iterator it = mapTx.begin(); it != mapTx.end(); it++) {
         const CTransaction& tx = it->GetTx();
-        LockPoints lp = it->GetLockPoints();
-        bool validLP =  TestLockPointValidity(&lp);
-        if (!CheckFinalTx(tx, flags) || !CheckSequenceLocks(tx, flags, viewMemPool, &lp, validLP)) {
-            // Note if CheckSequenceLocks fails the LockPoints may still be invalid
-            // So it's critical that we remove the tx and not depend on the LockPoints.
+        if (!is_final(it)) {
             txToRemove.insert(it);
         } else if (it->GetSpendsCoinbase()) {
             for (const CTxIn& txin : tx.vin) {
@@ -545,9 +488,6 @@ void CTxMemPool::removeForReorg(const CCoinsViewCache *pcoins, unsigned int nMem
                     break;
                 }
             }
-        }
-        if (!validLP) {
-            mapTx.modify(it, update_lock_points(lp));
         }
     }
     setEntries setAllRemoves;
@@ -575,7 +515,7 @@ void CTxMemPool::removeConflicts(const CTransaction &tx)
 }
 
 /**
- * Called when a block is connected. Removes from mempool and updates the miner fee estimator.
+ * Called when a block is connected. Removes from mempool and tells the fee estimator through its signal.
  */
 void CTxMemPool::removeForBlock(const std::vector<CTransactionRef>& vtx, unsigned int nBlockHeight)
 {
@@ -590,7 +530,7 @@ void CTxMemPool::removeForBlock(const std::vector<CTransactionRef>& vtx, unsigne
             entries.push_back(&*i);
     }
     // Before the txs in the new block have been removed from the mempool, update policy estimates
-    if (minerPolicyEstimator) {minerPolicyEstimator->processBlock(nBlockHeight, entries);}
+    NotifyBlockForFees(nBlockHeight, entries);
     for (const auto& tx : vtx)
     {
         txiter it = mapTx.find(tx->GetHashMalFix());
@@ -606,52 +546,18 @@ void CTxMemPool::removeForBlock(const std::vector<CTransactionRef>& vtx, unsigne
     blockSinceLastRollingFeeBump = true;
 }
 
-void CTxMemPool::removeForScriptFlagChange(unsigned int newMempoolScriptFlags, int32_t newBlockHeight)
+void CTxMemPool::removeIf(const std::function<bool(txiter)>& should_remove, MemPoolRemovalReason reason)
 {
-    AssertLockHeld(cs_main); // coins tip access
     LOCK(cs);
-    // Wrap CCoinsViewMemPool in a CCoinsViewCache so it satisfies CheckInputs's
-    // parameter type while still resolving intra-mempool dependencies.
-    CCoinsViewMemPool viewMemPool(&g_chainstate_manager.ActiveChainstate().CoinsTip(), *this);
-    CCoinsViewCache view(&viewMemPool);
-
     setEntries txToRemove;
     for (indexed_transaction_set::const_iterator it = mapTx.begin(); it != mapTx.end(); ++it) {
-        const CTransaction& tx = it->GetTx();
-        if (tx.IsCoinBase())
-            continue;
-        // Evict txs that break colour rules now active at newBlockHeight (e.g.
-        // bad-txns-nonstandard-opcolor); CheckInputs does not cover them.
-        // Colour checks run before the scripts, as in mempool acceptance.
-        PrecomputedColorData colorData(tx, view, newBlockHeight);
-        colorData.SetIssued(g_chainstate_manager.IssuedColorIds());
-        const TransactionColorChecker colorChecker(colorData);
-        CValidationState colorState;
-        if (!colorChecker.CheckOutputColorIds(colorState)) {
-            txToRemove.insert(it);
-            continue;
-        }
-        CValidationState state;
-        // For SCRIPT_VERIFY_CP2SH_COLORED this call is a no-op: the flag is
-        // already in PolicyConstants::STANDARD_SCRIPT_VERIFY_FLAGS, so every tx in the mempool
-        // was admitted under it and will pass here.  For any future softfork
-        // whose flag is NOT pre-added to STANDARD, this correctly evicts txs
-        // that would be invalid under the new consensus rules.
-        if (!CheckInputs(tx, state, view, true, newMempoolScriptFlags, false, false)) {
-            txToRemove.insert(it);
-            continue;
-        }
-        CValidationState balanceState;
-        const CAmount minFee = g_policy_settings->minRelayTxFee.GetFee(it->GetTxSize());
-        if (!colorChecker.CheckTokenBalances(balanceState, minFee)) {
-            txToRemove.insert(it);
-        }
+        if (should_remove(it)) txToRemove.insert(it);
     }
     setEntries setAllRemoves;
     for (txiter it : txToRemove) {
         CalculateDescendants(it, setAllRemoves);
     }
-    RemoveStaged(setAllRemoves, false, MemPoolRemovalReason::REORG);
+    RemoveStaged(setAllRemoves, false, reason);
 }
 
 void CTxMemPool::_clear()
@@ -679,10 +585,10 @@ static void CheckInputsAndUpdateCoins(const CTransaction& tx, CCoinsViewCache& m
     CAmount txfee = 0;
     bool fCheckResult = tx.IsCoinBase() || ContextualConsensusRules::CheckTxInputs(tx, state, mempoolDuplicate, spendheight, txfee);
     assert(fCheckResult);
-    UpdateCoins(tx, mempoolDuplicate, 1000000);
+    mempoolDuplicate.UpdateCoins(tx, 1000000);
 }
 
-void CTxMemPool::check(const CCoinsViewCache *pcoins) const
+void CTxMemPool::check(const CCoinsViewCache *pcoins, int64_t spendheight) const
 {
     LOCK(cs);
     if (nCheckFrequency == 0)
@@ -697,7 +603,6 @@ void CTxMemPool::check(const CCoinsViewCache *pcoins) const
     uint64_t innerUsage = 0;
 
     CCoinsViewCache mempoolDuplicate(const_cast<CCoinsViewCache*>(pcoins));
-    const int32_t spendheight = GetSpendHeight(mempoolDuplicate);
 
     std::list<const CTxMemPoolEntry*> waitingOnDependants;
     for (indexed_transaction_set::const_iterator it = mapTx.begin(); it != mapTx.end(); it++) {
@@ -1166,19 +1071,3 @@ void CTxMemPool::GetTransactionAncestry(const uint256& txid, size_t& ancestors, 
     }
 }
 
-SaltedTxidHasher::SaltedTxidHasher() : k0(GetRand(std::numeric_limits<uint64_t>::max())), k1(GetRand(std::numeric_limits<uint64_t>::max())) {}
-
-std::string RemovalReasonToString(const MemPoolRemovalReason& r) noexcept
-{
-    switch (r) {
-        case MemPoolRemovalReason::EXPIRY: return "expiry";
-        case MemPoolRemovalReason::SIZELIMIT: return "sizelimit";
-        case MemPoolRemovalReason::REORG: return "reorg";
-        case MemPoolRemovalReason::BLOCK: return "block";
-        case MemPoolRemovalReason::CONFLICT: return "conflict";
-        case MemPoolRemovalReason::REPLACED: return "replaced";
-        case MemPoolRemovalReason::UNKNOWN:
-        default:return "unknown";
-    }
-}
-CTxMempoolAcceptanceOptions:: CTxMempoolAcceptanceOptions():context(ValidationContext::TRANSACTION), flags(MempoolAcceptanceFlags::NONE), nAbsurdFee(0), nAcceptTime(0), mempool_view(nullptr){}

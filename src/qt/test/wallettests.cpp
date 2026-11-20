@@ -5,6 +5,7 @@
 #include <qt/test/util.h>
 
 #include <interfaces/node.h>
+#include <interfaces/nodecontextlookupimpl.h>
 #include <qt/tapyrusamountfield.h>
 #include <base58.h>
 #include <qt/callback.h>
@@ -149,7 +150,8 @@ void TestGUI()
     for (int i = 0; i < 5; ++i) {
         test.CreateAndProcessBlock({}, GetScriptForRawPubKey(test.coinbaseKey.GetPubKey()));
     }
-    std::shared_ptr<CWallet> wallet = std::make_shared<CWallet>("mock", WalletDatabase::CreateMock());
+    NodeContextLookupImpl node_lookup(test.m_node);
+    std::shared_ptr<CWallet> wallet = std::make_shared<CWallet>(&node_lookup, "mock", WalletDatabase::CreateMock());
     bool firstRun;
     wallet->LoadWallet(firstRun);
     {
@@ -267,8 +269,9 @@ void TestGUI_coloredCoin()
     for (int i = 0; i < 5; ++i)
         test.CreateAndProcessBlock({}, GetScriptForRawPubKey(test.coinbaseKey.GetPubKey()));
 
+    NodeContextLookupImpl node_lookup(test.m_node);
     std::shared_ptr<CWallet> wallet =
-        std::make_shared<CWallet>("mock", WalletDatabase::CreateMock());
+        std::make_shared<CWallet>(&node_lookup, "mock", WalletDatabase::CreateMock());
     bool firstRun;
     wallet->LoadWallet(firstRun);
     {
@@ -322,8 +325,8 @@ void TestGUI_coloredCoin()
     auto mineAndUpdate = [&]() {
         std::vector<CMutableTransaction> mempoolTxns;
         {
-            LOCK(mempool.cs);
-            for (const CTxMemPoolEntry& e : mempool.mapTx)
+            LOCK(test.m_node.mempool->cs);
+            for (const CTxMemPoolEntry& e : test.m_node.mempool->mapTx)
                 mempoolTxns.emplace_back(*e.GetSharedTx());
         }
         test.CreateAndProcessBlock(mempoolTxns, GetScriptForRawPubKey(test.coinbaseKey.GetPubKey()));

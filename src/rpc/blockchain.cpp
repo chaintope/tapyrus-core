@@ -17,10 +17,12 @@
 #include <checkpoints.h>
 #include <coin.h>
 #include <consensus/validation.h>
+#include <notificationhub.h>
 #include <validation.h>
 #include <core_io.h>
 #include <index/txindex.h>
 #include <key_io.h>
+#include <nodecontext.h>
 #include <policy/feerate.h>
 #include <policy/packages.h>
 #include <primitives/transaction.h>
@@ -35,7 +37,6 @@
 #include <util.h>
 #include <utilstrencodings.h>
 #include <validationinterface.h>
-#include <warnings.h>
 #include <xfieldhistory.h>
 #include <verifydb.h>
 #include <blockfilemanager.h>
@@ -168,7 +169,7 @@ static UniValue getbestblockhash(const JSONRPCRequest& request)
     return g_chainstate_manager.ActiveChain().Tip()->GetBlockHash().GetHex();
 }
 
-void RPCNotifyBlockChange(bool ibd, const CBlockIndex * pindex)
+void RPCNotifyBlockChange(bool ibd, const CBlockIndex * pindex, double)
 {
     if(pindex) {
         LOCK(cs_blockchange);
@@ -618,6 +619,8 @@ UniValue gettxout(const JSONRPCRequest& request)
 
     Coin coin;
     if (fMempool) {
+        assert(request.context.mempool);
+        CTxMemPool& mempool = *request.context.mempool;
         LOCK(mempool.cs);
         CCoinsViewMemPool view(&g_chainstate_manager.ActiveChainstate().CoinsTip(), mempool);
         if (!view.GetCoin(out, coin) || mempool.isSpent(out)) {
@@ -728,7 +731,7 @@ UniValue getblockchaininfo(const JSONRPCRequest& request)
     obj.pushKV("headers",               g_chainstate_manager.BestHeader() ? g_chainstate_manager.BestHeader()->nHeight : -1);
     obj.pushKV("bestblockhash",         g_chainstate_manager.ActiveChain().Tip()->GetBlockHash().GetHex());
     obj.pushKV("mediantime",            (int64_t)g_chainstate_manager.ActiveChain().Tip()->GetMedianTimePast());
-    obj.pushKV("verificationprogress",  GuessVerificationProgress(Params().TxData(), g_chainstate_manager.ActiveChain().Tip()));
+    obj.pushKV("verificationprogress",  g_chainstate_manager.Progress().Guess(g_chainstate_manager.ActiveChain().Tip()));
     obj.pushKV("initialblockdownload",  IsInitialBlockDownload());
     obj.pushKV("size_on_disk",          g_chainstate_manager.GetBlockFileManager().CalculateCurrentUsage());
     obj.pushKV("pruned",                g_chainstate_manager.GetBlockFileManager().GetOptions().fPruneMode);
@@ -757,7 +760,7 @@ UniValue getblockchaininfo(const JSONRPCRequest& request)
         obj.pushKV(GetXFieldNameForRpc(x), xfieldChanges);
     }
 
-    obj.pushKV("warnings", GetWarnings("statusbar"));
+    obj.pushKV("warnings", request.context.notifications.GetWarnings("statusbar"));
     return obj;
 }
 
@@ -1298,7 +1301,7 @@ static UniValue getblockstats(const JSONRPCRequest& request)
             for (const CTxIn& in : tx->vin) {
                 CTransactionRef tx_in;
                 uint256 hashBlock;
-                if (!GetTransaction(in.prevout.hashMalFix, tx_in, hashBlock, false)) {
+                if (!GetTransaction(request.context.mempool.get(), in.prevout.hashMalFix, tx_in, hashBlock, false)) {
                     throw JSONRPCError(RPC_INTERNAL_ERROR, std::string("Unexpected internal error (tx index seems corrupt)"));
                 }
 
@@ -1448,7 +1451,7 @@ static UniValue getcolor(const JSONRPCRequest& request)
         // Check that the transaction id is valid
         CTransactionRef tx;
         uint256 hashBlock;
-        if (!GetTransaction(txid, tx, hashBlock, true)) {
+        if (!GetTransaction(request.context.mempool.get(), txid, tx, hashBlock, true)) {
             throw JSONRPCError(RPC_INVALID_PARAMETER, std::string("Invalid transaction id :") + request.params[1].get_str());
         }
 

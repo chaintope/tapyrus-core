@@ -109,9 +109,9 @@ HeightDerivedConsensusRules ChainstateManager::BuildRules(std::optional<int32_t>
     return HeightDerivedConsensusRules(height, maxBlockSize.data, aggregatePubKey.getPubKey(), Settings().ScriptFlagsAt(flagsHeight));
 }
 
-void ChainstateManager::InitBlockFileManager(const BlockFileManager::Options& options)
+void ChainstateManager::InitBlockFileManager(const BlockFileManager::Options& options, ChainNotifications& notifications)
 {
-    m_block_file_manager = std::make_unique<BlockFileManager>(options, m_block_index);
+    m_block_file_manager = std::make_unique<BlockFileManager>(options, m_block_index, notifications);
 }
 
 bool ChainstateManager::ShouldWipeBlockTree()
@@ -157,9 +157,14 @@ void ChainstateManager::LoadPersistentFlags()
     if (fReindexing) m_reindexing = true;
 }
 
-void ChainstateManager::InitializeChainstate()
+void ChainstateManager::InitializeChainstate(CTxMemPool& mempool)
 {
-    m_active_chainstate = std::make_unique<Chainstate>();
+    m_active_chainstate = std::make_unique<Chainstate>(*this, mempool);
+}
+
+void ChainstateManager::ReleaseChainstate()
+{
+    m_active_chainstate.reset();
 }
 
 Chainstate& ChainstateManager::ActiveChainstate() const

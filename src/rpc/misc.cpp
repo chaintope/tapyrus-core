@@ -22,7 +22,6 @@
 #include <wallet/wallet.h>
 #include <wallet/walletdb.h>
 #endif
-#include <warnings.h>
 
 #include <stdexcept>
 #include <stdint.h>

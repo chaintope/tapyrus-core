@@ -26,14 +26,15 @@
 #include <qt/walletmodel.h>
 #endif
 
+#include <init.h>
 #include <interfaces/handler.h>
 #include <interfaces/node.h>
+#include <interfaces/nodecontextlookupimpl.h>
 #include <nodecontext.h>
 #include <ui_interface.h>
 #include <uint256.h>
 #include <threadnames.h>
 #include <util.h>
-#include <warnings.h>
 
 #include <walletinitinterface.h>
 
@@ -597,6 +598,8 @@ int main(int argc, char *argv[])
     SetupEnvironment();
 
     NodeContext node_context;
+    NodeContextLookupImpl node_lookup(node_context);
+    g_wallet_init_interface.SetNodeContextLookup(&node_lookup);
     std::unique_ptr<interfaces::Node> node = interfaces::MakeNode(node_context);
 
     // Do not refer to data directory yet, this can be overridden by Intro::pickDataDirectory

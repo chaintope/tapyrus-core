@@ -17,6 +17,9 @@
 #include <stdint.h>
 
 /** CCoinsView that adds a memory cache for transactions to another CCoinsView */
+class CTransaction;
+class CTxUndo;
+
 class CCoinsViewCache : public CCoinsViewBacked
 {
 protected:
@@ -89,6 +92,11 @@ public:
      * has no effect.
      */
     bool SpendCoin(const COutPoint &outpoint, Coin* moveto = nullptr);
+
+    /** Applies tx: spends its inputs, keeping the spent coins in txundo, and adds its outputs at nHeight. */
+    void UpdateCoins(const CTransaction& tx, CTxUndo& txundo, int nHeight);
+    /** As above, without keeping the spent coins. */
+    void UpdateCoins(const CTransaction& tx, int nHeight);
 
     /**
      * Push the modifications applied to this cache to its base and wipe local state.

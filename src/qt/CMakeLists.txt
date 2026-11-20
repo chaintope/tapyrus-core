@@ -295,21 +295,13 @@ target_sources(tapyrus-qt PRIVATE
   ../interfaces/node.cpp
 )
 
-if(ENABLE_WALLET)
-  # WalletInit glue -- see the note on tapyrusd's add_executable() in the
-  # top-level src/CMakeLists.txt.
-  target_sources(tapyrus-qt PRIVATE
-    ../wallet/init.cpp
-    ../wallet/walletinit_rpc.cpp
-  )
-endif()
-
 target_link_libraries(tapyrus-qt
   core_interface
   tapyrusqt
   tapyrus_chainstate
   tapyrus_peer
   tapyrus_rpc
+  tapyrus_wallet_interface
   $<TARGET_NAME_IF_EXISTS:tapyrus_wallet>
   $<TARGET_NAME_IF_EXISTS:tapyrus_zmq>
 )

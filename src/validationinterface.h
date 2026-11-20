@@ -11,18 +11,19 @@
 
 #include <functional>
 #include <memory>
+#include <vector>
 
 class CBlock;
 class CBlockIndex;
 struct CBlockLocator;
 class CBlockIndex;
-class CConnman;
 class CReserveScript;
 class CValidationInterface;
 class CValidationState;
 class uint256;
 class CScheduler;
 class CTxMemPool;
+class CTxMemPoolEntry;
 enum class MemPoolRemovalReason;
 
 // These functions dispatch to one or all registered wallets
@@ -104,6 +105,15 @@ protected:
      */
     virtual void TransactionRemovedFromMempool(const CTransactionRef &ptx) {}
     /**
+     * For the fee estimator: a mempool entry was added, and whether fee estimation may use it;
+     * an entry was erased; and the entries a block confirms, before they leave the mempool.
+     *
+     * Called synchronously, with the mempool lock held.
+     */
+    virtual void MempoolEntryAdded(const CTxMemPoolEntry& entry, bool validFeeEstimate) {}
+    virtual void MempoolEntryErased(const uint256& txid) {}
+    virtual void MempoolEntriesConfirmed(unsigned int nBlockHeight, const std::vector<const CTxMemPoolEntry*>& entries) {}
+    /**
      * Notifies listeners of a block being connected.
      * Provides a vector of transactions evicted from the mempool as a result.
      *
@@ -134,7 +144,7 @@ protected:
      */
     virtual void ChainStateFlushed(const CBlockLocator &locator) {}
     /** Tells listeners to broadcast their data. */
-    virtual void ResendWalletTransactions(int64_t nBestBlockTime, CConnman* connman) {}
+    virtual void ResendWalletTransactions(int64_t nBestBlockTime) {}
     /**
      * Notifies listeners of a block validation result.
      * If the provided CValidationState IsValid, the provided block
@@ -181,6 +191,9 @@ private:
     friend void ::CallFunctionInValidationInterfaceQueue(std::function<void ()> func);
 
     void MempoolEntryRemoved(CTransactionRef tx, MemPoolRemovalReason reason);
+    void MempoolEntryAdded(const CTxMemPoolEntry& entry, bool validFeeEstimate);
+    void MempoolEntryErased(const uint256& txid);
+    void MempoolEntriesConfirmed(unsigned int nBlockHeight, const std::vector<const CTxMemPoolEntry*>& entries);
 
 public:
     /** Register a CScheduler to give callbacks which should run in the background (may only be called once) */
@@ -202,7 +215,7 @@ public:
     void BlockConnected(const std::shared_ptr<const CBlock> &, const CBlockIndex *pindex, const std::shared_ptr<const std::vector<CTransactionRef>> &);
     void BlockDisconnected(const std::shared_ptr<const CBlock> &);
     void ChainStateFlushed(const CBlockLocator &);
-    void Broadcast(int64_t nBestBlockTime, CConnman* connman);
+    void Broadcast(int64_t nBestBlockTime);
     void BlockChecked(const CBlock&, const CValidationState&);
     void NewValidBlock(const CBlockIndex *, const std::shared_ptr<const CBlock>&);
     void PackageTransactionsRelay(const std::vector<CTransactionRef>& txns);

@@ -68,6 +68,7 @@ target_link_libraries(test-tapyrus-qt
 	tapyrus_chainstate
 	tapyrus_peer
 	tapyrus_rpc
+	tapyrus_wallet_interface
 	$<TARGET_NAME_IF_EXISTS:tapyrus_zmq>
 	Qt6::Test
 )
@@ -83,16 +84,10 @@ if(ENABLE_WALLET)
 	# link with -DENABLE_WALLET=OFF, same as wallettests.cpp already did.
 	# This was a real pre-existing gap, just never exercised until GUI +
 	# no-wallet were tried together.
-	#
-	# wallet/init.cpp/wallet/walletinit_rpc.cpp are WalletInit glue -- see
-	# the note on tapyrusd's add_executable() in the top-level
-	# src/CMakeLists.txt.
 	target_sources(test-tapyrus-qt
 		PRIVATE
 			addressbooktests.cpp
 			wallettests.cpp
-			../../wallet/init.cpp
-			../../wallet/walletinit_rpc.cpp
 			../../wallet/test/wallet_test_fixture.cpp
 	)
 

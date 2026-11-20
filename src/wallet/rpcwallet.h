@@ -15,7 +15,6 @@
 #include <string>
 #include <vector>
 
-class CConnman;
 class CRPCTable;
 class CWallet;
 class CCoinControl;
@@ -34,14 +33,17 @@ std::shared_ptr<CWallet> GetWalletForJSONRPCRequest(const JSONRPCRequest& reques
 
 std::string HelpRequiringPassphrase(CWallet *);
 void EnsureWalletIsUnlocked(CWallet *);
+//! A confirmation target, checked against the longest the wallet's node can estimate for;
+//! throws without a node, as there is then no fee estimation.
+unsigned int ParseConfirmTarget(const CWallet& wallet, const UniValue& value);
 bool EnsureWalletIsAvailable(CWallet *, bool avoidException);
 
 UniValue getaddressinfo(const JSONRPCRequest& request);
 UniValue signrawtransactionwithwallet(const JSONRPCRequest& request);
 
 // Token operation helpers — also called from interfaces/wallet.cpp (GUI layer).
-UniValue IssueReissuableToken(CWallet* const pwallet, const std::string& script, CAmount tokenValue, CCoinControl& coin_control, CConnman* connman);
-UniValue IssueToken(CWallet* const pwallet, CAmount tokenValue, CCoinControl& coin_control, CConnman* connman);
-CTransactionRef BurnToken(CWallet* const pwallet, const ColorIdentifier& colorId, CAmount nValue, CConnman* connman);
+UniValue IssueReissuableToken(CWallet* const pwallet, const std::string& script, CAmount tokenValue, CCoinControl& coin_control);
+UniValue IssueToken(CWallet* const pwallet, CAmount tokenValue, CCoinControl& coin_control);
+CTransactionRef BurnToken(CWallet* const pwallet, const ColorIdentifier& colorId, CAmount nValue);
 
 #endif //BITCOIN_WALLET_RPCWALLET_H

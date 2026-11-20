@@ -13,10 +13,9 @@ else()
   find_package(BerkeleyDB 4.8...5.99 REQUIRED)
 endif()
 
-# rpcwallet.cpp and rpcdump.cpp compile into tapyrus_rpc instead of here.
-# init.cpp and walletinit_rpc.cpp compile directly into whichever
-# executables need WalletInit -- see the WalletInit glue note on
-# tapyrusd's add_executable() in the top-level src/CMakeLists.txt.
+# rpcwallet.cpp, rpcdump.cpp and WalletInit (init.cpp)
+# compile into tapyrus_rpc instead of here -- see the note on tapyrus_rpc
+# in the top-level src/CMakeLists.txt.
 add_library(tapyrus_wallet STATIC
         coincontrol.cpp
         coinselection.cpp

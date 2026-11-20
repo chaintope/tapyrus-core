@@ -6,13 +6,18 @@
 #include <nodecontext.h>
 
 #include <cachesettings.h>
+#include <chainstatemanager.h>
 #include <connman.h>
 #include <net_processing.h>
+#include <notificationhub.h>
+#include <policy/fees.h>
 #include <policy/policysettings.h>
+#include <txmempool.h>
 
 NodeContext::NodeContext() = default;
 
 NodeContext::~NodeContext()
 {
     if (g_policy_settings == policy.get()) g_policy_settings = nullptr;
+    if (g_chainstate_manager.ReportsTo(notifications)) g_chainstate_manager.SetNotifications(nullptr);
 }

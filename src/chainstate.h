@@ -18,6 +18,7 @@
 #include <diskblockpos.h>
 #include <xfieldhistorymap.h>
 #include <undo.h>
+#include <policy/packages.h>
 #include <scriptcheck.h>
 #include <cassert>
 #include <map>
@@ -26,8 +27,21 @@
 
 class CBlockTreeDB;
 class CCoinsViewDB;
+class ChainstateManager;
 class CIssuedColorIds;
+class CTxMemPool;
+class CCoinsViewMemPool;
+struct MempoolAcceptOptions;
+struct MempoolAcceptResult;
+struct DisconnectedBlockTransactions;
 
+
+enum class FlushStateMode {
+    NONE,
+    IF_NEEDED,
+    PERIODIC,
+    ALWAYS
+};
 
 enum DisconnectResult
 {
@@ -73,6 +87,8 @@ struct CBlockIndexWorkComparator
  */
 class Chainstate {
 private:
+    ChainstateManager& m_chainman;
+
     /**
      * The set of all CBlockIndex entries with BLOCK_VALID_TRANSACTIONS (for itself and all ancestors) and
      * as good as our current tip or better. Entries may be failed, though, and pruning nodes may be
@@ -121,7 +137,45 @@ private:
     //! The coins views; null until InitCoinsDB().
     std::unique_ptr<CoinsViews> m_coins_views;
 
+    //! When FlushStateToDisk last wrote the block index and flushed the coins, in microseconds.
+    int64_t m_last_write GUARDED_BY(cs_main){0};
+    int64_t m_last_flush GUARDED_BY(cs_main){0};
+
+    //! Updated as blocks connect and disconnect; NodeContext owns it.
+    CTxMemPool& m_mempool;
+
 public:
+    Chainstate(ChainstateManager& chainman, CTxMemPool& mempool);
+
+    /** Loads mempool.dat into this chainstate's mempool. */
+    bool LoadMempool();
+    /** Bytes the mempool uses; FlushStateToDisk lends the rest of -maxmempool to the coins cache. */
+    size_t MempoolUsage() const;
+
+    /** (Try to) add a transaction to this chainstate's mempool; result says why not, or what it replaced.
+     *  Returns false also when only its inputs are missing, with a valid state. */
+    bool AcceptToMemoryPool(const CTransactionRef& tx, const MempoolAcceptOptions& options, MempoolAcceptResult& result) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
+    /**
+     * Submits the package to this chainstate's mempool after validation checks.
+     * It gives granular results with the state of each transaction in the package and
+     * the state of the package as a whole.
+     *
+     * Admission is NOT atomic. Transactions are evaluated and admitted individually in
+     * package order. A false return value means at least one transaction was rejected, but
+     * earlier transactions in the package may already have been admitted. This is intentional:
+     * packages are a submission convenience, not an all-or-nothing commit. Callers must
+     * inspect per-transaction results to determine which transactions were admitted.
+     * Results describe the mempool after the whole package: a transaction a later one
+     * trimmed is "mempool full", and one a later one replaced is "replaced-in-package".
+     *
+     * @param package The package of transactions to be submitted.
+     * @param state A reference to the validation state that tracks the package validation results.
+     * @param results A reference to the package validation state that records the validation outcome of each transaction.
+     * @param options How the mempool accepts each transaction.
+     * @return True if all transactions in the package were successfully accepted, false otherwise.
+     */
+    bool SubmitPackageToMempool(const Package& package, CValidationState& state, PackageValidationState& results, const MempoolAcceptOptions& options);
+
     CChain m_chain;
 
     std::unique_ptr< CCheckQueue<CScriptCheck> >scriptcheckqueue;
@@ -139,6 +193,17 @@ public:
     bool LoadBlockIndex() EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 
     bool ActivateBestChain(CValidationState &state, std::shared_ptr<const CBlock> pblock);
+
+    /**
+     * Update the on-disk chain state.
+     * The caches and indexes are flushed depending on the mode we're called with
+     * if they're too large, if it's been a while since the last write,
+     * or always and in all cases if we're in prune mode and are deleting files.
+     *
+     * If FlushStateMode::NONE is used, then FlushStateToDisk() won't do anything
+     * besides checking if we need to prune.
+     */
+    bool FlushStateToDisk(CValidationState& state, FlushStateMode mode, int nManualPruneHeight = 0);
 
     /**
      * If a block header hasn't already been seen, call CheckBlockHeader on it, ensure
@@ -168,7 +233,16 @@ public:
 
     void UnloadBlockIndex();
 
+
 private:
+    /** AcceptToMemoryPool reading inputs through view; a package shares one view across its transactions,
+     *  whose inputs need not be on disk yet. */
+    bool AcceptSingleTransaction(const CTransactionRef& tx, const MempoolAcceptOptions& options, CCoinsViewMemPool& view, bool in_package, MempoolAcceptResult& result) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
+    void UpdateTip(const CBlockIndex* pindexNew) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
+    void UpdateMempoolForReorg(DisconnectedBlockTransactions& disconnectpool, bool fAddToMempool) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
+    /** Evicts the mempool transactions that fail the script checks or colored-coin rules
+     *  in force at newBlockHeight, once a soft fork activates there. */
+    void RemoveForScriptFlagChange(unsigned int newMempoolScriptFlags, int32_t newBlockHeight) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
     bool ActivateBestChainStep(CValidationState& state, CBlockIndex* pindexMostWork, const std::shared_ptr<const CBlock>& pblock, bool& fInvalidFound, ConnectTrace& connectTrace);
     bool ConnectTip(CValidationState& state, CBlockIndex* pindexNew, const std::shared_ptr<const CBlock>& pblock, ConnectTrace& connectTrace, DisconnectedBlockTransactions &disconnectpool);
 

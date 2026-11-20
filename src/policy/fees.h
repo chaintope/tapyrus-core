@@ -11,6 +11,7 @@
 #include <uint256.h>
 #include <random.h>
 #include <sync.h>
+#include <validationinterface.h>
 
 #include <map>
 #include <memory>
@@ -20,7 +21,6 @@
 class CAutoFile;
 class CFeeRate;
 class CTxMemPoolEntry;
-class CTxMemPool;
 class TxConfirmStats;
 
 /** class CBlockPolicyEstimator
@@ -142,7 +142,7 @@ struct FeeCalculation
  * a certain number of blocks.  Every time a block is added to the best chain, this class records
  * stats on the transactions included in that block
  */
-class CBlockPolicyEstimator
+class CBlockPolicyEstimator : public CValidationInterface
 {
 private:
     /** Track confirm delays up to 12 blocks for short horizon */
@@ -200,7 +200,7 @@ public:
 
     /** Process all the transactions that have been included in a block */
     void processBlock(unsigned int nBlockHeight,
-                      std::vector<const CTxMemPoolEntry*>& entries);
+                      const std::vector<const CTxMemPoolEntry*>& entries);
 
     /** Process a transaction accepted to the mempool*/
     void processTransaction(const CTxMemPoolEntry& entry, bool validFeeEstimate);
@@ -235,6 +235,12 @@ public:
 
     /** Calculation of highest target that estimates are tracked for */
     unsigned int HighestTargetTracked(FeeEstimateHorizon horizon) const;
+
+protected:
+    // The mempool's changes, through the validation interface.
+    void MempoolEntryAdded(const CTxMemPoolEntry& entry, bool validFeeEstimate) override { processTransaction(entry, validFeeEstimate); }
+    void MempoolEntryErased(const uint256& txid) override { removeTx(txid, false); }
+    void MempoolEntriesConfirmed(unsigned int nBlockHeight, const std::vector<const CTxMemPoolEntry*>& entries) override { processBlock(nBlockHeight, entries); }
 
 private:
     unsigned int nBestSeenHeight;

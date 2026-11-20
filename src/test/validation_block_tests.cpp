@@ -12,15 +12,30 @@
 #include <consensus/validation.h>
 #include <consensussettings.h>
 #include <miner.h>
+#include <notificationhub.h>
 #include <random.h>
 #include <test/test_tapyrus.h>
+#include <utiltime.h>
 #include <validation.h>
 #include <validationinterface.h>
 #include <xfieldhistory.h>
 
+#include <algorithm>
+#include <string>
+#include <vector>
+
+namespace validation_block_tests {
+/** Builds the test's blocks from its own mempool. */
 struct RegtestingSetup : public TestingSetup {
     RegtestingSetup() : TestingSetup(TAPYRUS_MODES::DEV) {}
+
+    std::shared_ptr<CBlock> Block(const uint256& prev_hash, int height);
+    std::shared_ptr<CBlock> FinalizeBlock(std::shared_ptr<CBlock> pblock);
+    const std::shared_ptr<const CBlock> GoodBlock(const uint256& prev_hash, const int height);
+    const std::shared_ptr<const CBlock> BadBlock(const uint256& prev_hash, const int height);
+    void BuildChain(const uint256& root, int height, const unsigned int invalid_rate, const unsigned int branch_rate, const unsigned int max_size, std::vector<std::shared_ptr<const CBlock>>& blocks);
 };
+} // namespace validation_block_tests
 
 BOOST_FIXTURE_TEST_SUITE(validation_block_tests, RegtestingSetup)
 
@@ -50,7 +65,7 @@ struct TestSubscriber : public CValidationInterface {
     }
 };
 
-std::shared_ptr<CBlock> Block(const uint256& prev_hash, int height)
+std::shared_ptr<CBlock> RegtestingSetup::Block(const uint256& prev_hash, int height)
 {
     static int i = 0;
     static uint64_t time = g_chainstate_manager.Settings().GenesisBlock().nTime;
@@ -58,7 +73,13 @@ std::shared_ptr<CBlock> Block(const uint256& prev_hash, int height)
     CScript pubKey;
     pubKey << i++ << OP_TRUE;
 
-    auto ptemplate = BlockAssembler(Params()).CreateNewBlock(pubKey, false);
+    std::unique_ptr<CBlockTemplate> ptemplate;
+    {
+        // Held across both, so the template builds on the tip the options read.
+        LOCK(cs_main);
+        const BlockAssembler::Options options(*g_policy_settings, gArgs, g_chainstate_manager);
+        ptemplate = BlockAssembler(g_chainstate_manager, *m_node.mempool, options).CreateNewBlock(pubKey, false);
+    }
     auto pblock = std::make_shared<CBlock>(ptemplate->block);
     pblock->hashPrevBlock = prev_hash;
     pblock->nTime = ++time;
@@ -72,7 +93,7 @@ std::shared_ptr<CBlock> Block(const uint256& prev_hash, int height)
     return pblock;
 }
 
-std::shared_ptr<CBlock> FinalizeBlock(std::shared_ptr<CBlock> pblock)
+std::shared_ptr<CBlock> RegtestingSetup::FinalizeBlock(std::shared_ptr<CBlock> pblock)
 {
     pblock->hashMerkleRoot = BlockMerkleRoot(*pblock);
     pblock->hashImMerkleRoot = BlockMerkleRoot(*pblock, nullptr, true);
@@ -88,13 +109,13 @@ std::shared_ptr<CBlock> FinalizeBlock(std::shared_ptr<CBlock> pblock)
 }
 
 // construct a valid block
-const std::shared_ptr<const CBlock> GoodBlock(const uint256& prev_hash, const int height)
+const std::shared_ptr<const CBlock> RegtestingSetup::GoodBlock(const uint256& prev_hash, const int height)
 {
     return FinalizeBlock(Block(prev_hash, height));
 }
 
 // construct an invalid block (but with a valid header)
-const std::shared_ptr<const CBlock> BadBlock(const uint256& prev_hash, const int height)
+const std::shared_ptr<const CBlock> RegtestingSetup::BadBlock(const uint256& prev_hash, const int height)
 {
     auto pblock = Block(prev_hash, height);
 
@@ -109,7 +130,7 @@ const std::shared_ptr<const CBlock> BadBlock(const uint256& prev_hash, const int
     return ret;
 }
 
-void BuildChain(const uint256& root, int height, const unsigned int invalid_rate, const unsigned int branch_rate, const unsigned int max_size, std::vector<std::shared_ptr<const CBlock>>& blocks)
+void RegtestingSetup::BuildChain(const uint256& root, int height, const unsigned int invalid_rate, const unsigned int branch_rate, const unsigned int max_size, std::vector<std::shared_ptr<const CBlock>>& blocks)
 {
     if (blocks.size() >= max_size) return;
 
@@ -126,6 +147,106 @@ void BuildChain(const uint256& root, int height, const unsigned int invalid_rate
         blocks.push_back(GoodBlock(root, height));
         BuildChain(blocks.back()->GetHash(), height + 1, invalid_rate, branch_rate, max_size, blocks);
     }
+}
+
+//! Records the fork reports the chain makes.
+class ForkReports : public Notifications
+{
+public:
+    void ReportLargeWorkFork(const uint256& fork_base) override { m_reports.push_back("fork"); }
+    void ReportInvalidChainAhead() override { m_reports.push_back("invalid chain"); }
+    void ReportForkResolved() override { m_reports.push_back("resolved"); }
+
+    size_t Count(const std::string& report) const { return std::count(m_reports.begin(), m_reports.end(), report); }
+    const std::vector<std::string>& Reports() const { return m_reports; }
+
+private:
+    std::vector<std::string> m_reports;
+};
+
+//! Builds chains on genesis out of initial download, recording what the chain reports.
+class ForkReportSetup : public RegtestingSetup
+{
+public:
+    const std::string INVALID_CHAIN_WARNING{"Warning: We do not appear to fully agree with our peers! You may need to upgrade, or other nodes may need to upgrade."};
+
+    ForkReportSetup()
+    {
+        bool ignored;
+        ProcessNewBlock(std::make_shared<CBlock>(g_chainstate_manager.Settings().GenesisBlock()), true, &ignored);
+        m_node.notifications.Subscribe(m_reports);
+    }
+    ~ForkReportSetup()
+    {
+        m_node.notifications.Unsubscribe(m_reports);
+        SetMockTime(0);
+    }
+
+    //! An invalid block on genesis with length - 1 valid blocks on it; the invalid one is processed last,
+    //! so the whole chain is tried.
+    void ProcessInvalidChain(int32_t length)
+    {
+        std::vector<std::shared_ptr<const CBlock>> blocks{BadBlock(g_chainstate_manager.Settings().GenesisBlock().GetHash(), 1)};
+        for (int32_t height = 2; height <= length; ++height) blocks.push_back(GoodBlock(blocks.back()->GetHash(), height));
+        Process(blocks, std::vector<std::shared_ptr<const CBlock>>(blocks.rbegin(), blocks.rend()));
+    }
+
+    //! length valid blocks on genesis.
+    void ProcessValidChain(int32_t length)
+    {
+        std::vector<std::shared_ptr<const CBlock>> blocks{GoodBlock(g_chainstate_manager.Settings().GenesisBlock().GetHash(), 1)};
+        for (int32_t height = 2; height <= length; ++height) blocks.push_back(GoodBlock(blocks.back()->GetHash(), height));
+        Process(blocks, blocks);
+    }
+
+    ForkReports m_reports;
+
+private:
+    void Process(const std::vector<std::shared_ptr<const CBlock>>& blocks, const std::vector<std::shared_ptr<const CBlock>>& order)
+    {
+        // The chain reports forks only once the tip is recent.
+        SetMockTime(blocks.back()->GetBlockTime());
+        CValidationState state;
+        std::vector<CBlockHeader> headers;
+        for (const auto& block : blocks) headers.push_back(block->GetBlockHeader());
+        BOOST_REQUIRE(ProcessNewBlockHeaders(headers, state));
+        bool ignored;
+        for (const auto& block : order) ProcessNewBlock(block, true, &ignored);
+    }
+};
+
+BOOST_FIXTURE_TEST_CASE(an_invalid_chain_seven_blocks_ahead_is_reported, ForkReportSetup)
+{
+    ProcessInvalidChain(7);
+    BOOST_CHECK_GE(m_reports.Count("invalid chain"), 1U);
+    BOOST_CHECK_EQUAL(m_reports.Count("fork"), 0U);
+    BOOST_CHECK_EQUAL(m_node.notifications.GetWarnings("statusbar"), INVALID_CHAIN_WARNING);
+}
+
+BOOST_FIXTURE_TEST_CASE(catching_up_with_an_invalid_chain_resolves_it, ForkReportSetup)
+{
+    ProcessInvalidChain(7);
+    ProcessValidChain(1);
+    BOOST_REQUIRE(!m_reports.Reports().empty());
+    BOOST_CHECK_EQUAL(m_reports.Reports().back(), "resolved");
+    BOOST_CHECK(m_node.notifications.GetWarnings("statusbar") != INVALID_CHAIN_WARNING);
+}
+
+// Negative cases: what the chain must not report.
+
+BOOST_FIXTURE_TEST_CASE(an_invalid_chain_six_blocks_ahead_is_not_reported, ForkReportSetup)
+{
+    ProcessInvalidChain(6);
+    BOOST_CHECK_EQUAL(m_reports.Count("invalid chain"), 0U);
+    BOOST_CHECK_GE(m_reports.Count("resolved"), 1U);
+    BOOST_CHECK(m_node.notifications.GetWarnings("statusbar") != INVALID_CHAIN_WARNING);
+}
+
+BOOST_FIXTURE_TEST_CASE(a_valid_chain_reports_no_fork, ForkReportSetup)
+{
+    ProcessValidChain(10);
+    BOOST_CHECK_EQUAL(m_reports.Count("invalid chain"), 0U);
+    BOOST_CHECK_EQUAL(m_reports.Count("fork"), 0U);
 }
 
 BOOST_AUTO_TEST_CASE(processnewblock_signals_ordering)

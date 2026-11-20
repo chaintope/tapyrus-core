@@ -10,6 +10,7 @@
 #include <chainstatemanager.h>
 #include <consensus/validation.h>
 #include <core_io.h>
+#include <notificationhub.h>
 #include <validation.h>
 #include <key_io.h>
 #include <miner.h>
@@ -29,7 +30,6 @@
 #include <util.h>
 #include <utilstrencodings.h>
 #include <validationinterface.h>
-#include <warnings.h>
 #include <xfieldhistory.h>
 
 #include <memory>
@@ -40,17 +40,16 @@
 #include <stdint.h>
 #include <policy/policy.h>
 
-unsigned int ParseConfirmTarget(const UniValue& value)
+unsigned int ParseConfirmTarget(const UniValue& value, unsigned int max_target)
 {
     int target = value.get_int();
-    unsigned int max_target = ::feeEstimator.HighestTargetTracked(FeeEstimateHorizon::LONG_HALFLIFE);
     if (target < 1 || (unsigned int)target > max_target) {
         throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Invalid conf_target, must be between %u - %u", 1, max_target));
     }
     return (unsigned int)target;
 }
 
-UniValue generateBlocks(std::shared_ptr<CReserveScript> coinbaseScript, int nGenerate, bool keepScript, const CKey& privKey)
+UniValue generateBlocks(const CTxMemPool& mempool, std::shared_ptr<CReserveScript> coinbaseScript, int nGenerate, bool keepScript, const CKey& privKey)
 {
     uint32_t nHeightEnd = 0;
     uint32_t nHeight = 0;
@@ -64,7 +63,13 @@ UniValue generateBlocks(std::shared_ptr<CReserveScript> coinbaseScript, int nGen
     UniValue blockHashes(UniValue::VARR);
     while (nHeight < nHeightEnd && !ShutdownRequested())
     {
-        std::unique_ptr<CBlockTemplate> pblocktemplate(BlockAssembler(Params()).CreateNewBlock(coinbaseScript->reserveScript));
+        std::unique_ptr<CBlockTemplate> pblocktemplate;
+        {
+            // Held across both, so the template builds on the tip the options read.
+            LOCK(cs_main);
+            const BlockAssembler::Options options(*g_policy_settings, gArgs, g_chainstate_manager);
+            pblocktemplate = BlockAssembler(g_chainstate_manager, mempool, options).CreateNewBlock(coinbaseScript->reserveScript);
+        }
         if (!pblocktemplate.get())
             throw JSONRPCError(RPC_INTERNAL_ERROR, "Couldn't create new block");
         CBlock *pblock = &pblocktemplate->block;
@@ -142,7 +147,8 @@ static UniValue generatetoaddress(const JSONRPCRequest& request)
     if(cPrivKey.GetPubKey() != aggpubkeyChange.getPubKey())
         throw JSONRPCError(RPC_WALLET_INVALID_AGGREGATE_KEY, "Given private key doesn't correspond to the Aggregate Key.");
 
-    return generateBlocks(coinbaseScript, nGenerate, false, cPrivKey);
+    assert(request.context.mempool);
+    return generateBlocks(*request.context.mempool, coinbaseScript, nGenerate, false, cPrivKey);
 }
 
 UniValue getnewblock(const JSONRPCRequest& request)
@@ -238,7 +244,14 @@ UniValue getnewblock(const JSONRPCRequest& request)
     }
     CScript coinbaseScript {GetScriptForDestination(destination)};
 
-    std::unique_ptr<CBlockTemplate> pblocktemplate(BlockAssembler(Params()).CreateNewBlock(coinbaseScript, true, &xfield));
+    assert(request.context.mempool);
+    std::unique_ptr<CBlockTemplate> pblocktemplate;
+    {
+        // Held across both, so the template builds on the tip the options read.
+        LOCK(cs_main);
+        const BlockAssembler::Options options(*request.context.policy, gArgs, g_chainstate_manager);
+        pblocktemplate = BlockAssembler(g_chainstate_manager, *request.context.mempool, options).CreateNewBlock(coinbaseScript, true, &xfield);
+    }
     if (!pblocktemplate.get())
         throw JSONRPCError(RPC_INTERNAL_ERROR, "Wallet keypool empty");
     {
@@ -278,12 +291,13 @@ static UniValue getmininginfo(const JSONRPCRequest& request)
 
     UniValue obj(UniValue::VOBJ);
     obj.pushKV("blocks",           (int)g_chainstate_manager.ActiveChain().Height());
-    obj.pushKV("currentblocksize", (uint64_t)nLastBlockSize);
-    obj.pushKV("currentblocktx",   (uint64_t)nLastBlockTx);
+    obj.pushKV("currentblocksize", BlockAssembler::m_last_block_size.load());
+    obj.pushKV("currentblocktx",   BlockAssembler::m_last_block_tx.load());
     // TODO: push signed block multisig condition
-    obj.pushKV("pooledtx",         (uint64_t)mempool.size());
+    assert(request.context.mempool);
+    obj.pushKV("pooledtx",         (uint64_t)request.context.mempool->size());
     obj.pushKV("chain",            FederationParams().NetworkIDString());
-    obj.pushKV("warnings",         GetWarnings("statusbar"));
+    obj.pushKV("warnings",         request.context.notifications.GetWarnings("statusbar"));
     return obj;
 }
 
@@ -361,7 +375,7 @@ static UniValue getblocktemplate(const JSONRPCRequest& request)
             "      ,...\n"
             "  ],\n"
             "  \"coinbaseaux\" : {                 (json object) data that should be included in the coinbase's scriptSig content\n"
-            "      \"flags\" : \"xx\"                  (string) key name is to be ignored, and value included in scriptSig\n"
+            "      \"flags\" : \"\"                    (string) always empty: Tapyrus adds nothing to the coinbase scriptSig\n"
             "  },\n"
             "  \"coinbasevalue\" : n,              (numeric) maximum allowable input to coinbase transaction, including the generation award and transaction fees (in tapyrus)\n"
             "  \"coinbasetxn\" : { ... },          (json object) information for coinbase transaction\n"
@@ -384,6 +398,8 @@ static UniValue getblocktemplate(const JSONRPCRequest& request)
             + HelpExampleRpc("getblocktemplate", "")
          );
 
+    assert(request.context.mempool);
+    const CTxMemPool& mempool = *request.context.mempool;
     LOCK(cs_main);
 
     std::string strMode = "template";
@@ -518,7 +534,9 @@ static UniValue getblocktemplate(const JSONRPCRequest& request)
 
         // Create new block
         CScript scriptDummy = CScript() << OP_TRUE;
-        pblocktemplate = BlockAssembler(Params()).CreateNewBlock(scriptDummy);
+        const BlockAssembler::Options options(*request.context.policy, gArgs, g_chainstate_manager);
+        BlockAssembler assembler(g_chainstate_manager, mempool, options);
+        pblocktemplate = assembler.CreateNewBlock(scriptDummy);
         if (!pblocktemplate)
             throw JSONRPCError(RPC_OUT_OF_MEMORY, "Out of memory");
 
@@ -567,7 +585,8 @@ static UniValue getblocktemplate(const JSONRPCRequest& request)
     }
 
     UniValue aux(UniValue::VOBJ);
-    aux.pushKV("flags", HexStr(COINBASE_FLAGS.begin(), COINBASE_FLAGS.end()));
+    // Tapyrus adds nothing to the coinbase scriptSig; the key stays so the output keeps its shape.
+    aux.pushKV("flags", "");
 
     UniValue aMutable(UniValue::VARR);
     aMutable.push_back("time");
@@ -720,7 +739,9 @@ static UniValue estimatesmartfee(const JSONRPCRequest& request)
 
     RPCTypeCheck(request.params, {UniValue::VNUM, UniValue::VSTR});
     RPCTypeCheckArgument(request.params[0], UniValue::VNUM);
-    unsigned int conf_target = ParseConfirmTarget(request.params[0]);
+    assert(request.context.fee_estimator);
+    const CBlockPolicyEstimator& fee_estimator = *request.context.fee_estimator;
+    unsigned int conf_target = ParseConfirmTarget(request.params[0], fee_estimator.HighestTargetTracked(FeeEstimateHorizon::LONG_HALFLIFE));
     bool conservative = true;
     if (!request.params[1].isNull()) {
         FeeEstimateMode fee_mode;
@@ -733,7 +754,7 @@ static UniValue estimatesmartfee(const JSONRPCRequest& request)
     UniValue result(UniValue::VOBJ);
     UniValue errors(UniValue::VARR);
     FeeCalculation feeCalc;
-    CFeeRate feeRate = ::feeEstimator.estimateSmartFee(conf_target, &feeCalc, conservative);
+    CFeeRate feeRate = fee_estimator.estimateSmartFee(conf_target, &feeCalc, conservative);
     if (feeRate != CFeeRate(0)) {
         result.pushKV("feerate", ValueFromAmount(feeRate.GetFeePerK()));
     } else {
@@ -788,7 +809,9 @@ static UniValue estimaterawfee(const JSONRPCRequest& request)
 
     RPCTypeCheck(request.params, {UniValue::VNUM, UniValue::VNUM}, true);
     RPCTypeCheckArgument(request.params[0], UniValue::VNUM);
-    unsigned int conf_target = ParseConfirmTarget(request.params[0]);
+    assert(request.context.fee_estimator);
+    const CBlockPolicyEstimator& fee_estimator = *request.context.fee_estimator;
+    unsigned int conf_target = ParseConfirmTarget(request.params[0], fee_estimator.HighestTargetTracked(FeeEstimateHorizon::LONG_HALFLIFE));
     double threshold = 0.95;
     if (!request.params[1].isNull()) {
         threshold = request.params[1].get_real();
@@ -804,9 +827,9 @@ static UniValue estimaterawfee(const JSONRPCRequest& request)
         EstimationResult buckets;
 
         // Only output results for horizons which track the target
-        if (conf_target > ::feeEstimator.HighestTargetTracked(horizon)) continue;
+        if (conf_target > fee_estimator.HighestTargetTracked(horizon)) continue;
 
-        feeRate = ::feeEstimator.estimateRawFee(conf_target, threshold, horizon, &buckets);
+        feeRate = fee_estimator.estimateRawFee(conf_target, threshold, horizon, &buckets);
         UniValue horizon_result(UniValue::VOBJ);
         UniValue errors(UniValue::VARR);
         UniValue passbucket(UniValue::VOBJ);

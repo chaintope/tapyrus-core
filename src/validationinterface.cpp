@@ -6,12 +6,12 @@
 
 #include <validationinterface.h>
 
+#include <cs_main.h>
 #include <primitives/block.h>
 #include <scheduler.h>
 #include <sync.h>
 #include <txmempool.h>
 #include <util.h>
-#include <validation.h>
 
 #include <list>
 #include <atomic>
@@ -30,6 +30,9 @@ struct ValidationInterfaceConnections {
     boost::signals2::scoped_connection BlockChecked;
     boost::signals2::scoped_connection NewPoWValidBlock;
     boost::signals2::scoped_connection PackageTransactionsRelay;
+    boost::signals2::scoped_connection MempoolEntryAdded;
+    boost::signals2::scoped_connection MempoolEntryErased;
+    boost::signals2::scoped_connection MempoolEntriesConfirmed;
 };
 
 struct MainSignalsInstance {
@@ -39,10 +42,13 @@ struct MainSignalsInstance {
     boost::signals2::signal<void (const std::shared_ptr<const CBlock> &)> BlockDisconnected;
     boost::signals2::signal<void (const CTransactionRef &)> TransactionRemovedFromMempool;
     boost::signals2::signal<void (const CBlockLocator &)> ChainStateFlushed;
-    boost::signals2::signal<void (int64_t nBestBlockTime, CConnman* connman)> Broadcast;
+    boost::signals2::signal<void (int64_t nBestBlockTime)> Broadcast;
     boost::signals2::signal<void (const CBlock&, const CValidationState&)> BlockChecked;
     boost::signals2::signal<void (const CBlockIndex *, const std::shared_ptr<const CBlock>&)> NewValidBlock;
     boost::signals2::signal<void (const std::vector<CTransactionRef>&)> PackageTransactionsRelay;
+    boost::signals2::signal<void (const CTxMemPoolEntry&, bool)> MempoolEntryAdded;
+    boost::signals2::signal<void (const uint256&)> MempoolEntryErased;
+    boost::signals2::signal<void (unsigned int, const std::vector<const CTxMemPoolEntry*>&)> MempoolEntriesConfirmed;
 
     // We are not allowed to assume the scheduler only runs in one thread,
     // but must ensure all callbacks happen in-order, so we end up creating
@@ -57,7 +63,14 @@ static CMainSignals g_signals;
 // This map has to a separate global instead of a member of MainSignalsInstance,
 // because RegisterWithMempoolSignals is currently called before RegisterBackgroundSignalScheduler,
 // so MainSignalsInstance hasn't been created yet.
-static std::unordered_map<CTxMemPool*, boost::signals2::scoped_connection> g_connNotifyEntryRemoved;
+struct MempoolConnections {
+    boost::signals2::scoped_connection EntryRemoved;
+    boost::signals2::scoped_connection EntryAddedForFees;
+    boost::signals2::scoped_connection EntryErasedForFees;
+    boost::signals2::scoped_connection BlockForFees;
+};
+
+static std::unordered_map<CTxMemPool*, MempoolConnections> g_connNotifyEntryRemoved;
 
 void CMainSignals::RegisterBackgroundSignalScheduler(CScheduler& scheduler) {
     assert(!m_internals);
@@ -80,7 +93,11 @@ size_t CMainSignals::CallbacksPending() {
 }
 
 void CMainSignals::RegisterWithMempoolSignals(CTxMemPool& pool) {
-    g_connNotifyEntryRemoved.emplace(&pool, pool.NotifyEntryRemoved.connect(std::bind(&CMainSignals::MempoolEntryRemoved, this, std::placeholders::_1, std::placeholders::_2)));
+    MempoolConnections& conns = g_connNotifyEntryRemoved[&pool];
+    conns.EntryRemoved = pool.NotifyEntryRemoved.connect(std::bind(&CMainSignals::MempoolEntryRemoved, this, std::placeholders::_1, std::placeholders::_2));
+    conns.EntryAddedForFees = pool.NotifyEntryAddedForFees.connect(std::bind(&CMainSignals::MempoolEntryAdded, this, std::placeholders::_1, std::placeholders::_2));
+    conns.EntryErasedForFees = pool.NotifyEntryErasedForFees.connect(std::bind(&CMainSignals::MempoolEntryErased, this, std::placeholders::_1));
+    conns.BlockForFees = pool.NotifyBlockForFees.connect(std::bind(&CMainSignals::MempoolEntriesConfirmed, this, std::placeholders::_1, std::placeholders::_2));
 }
 
 void CMainSignals::UnregisterWithMempoolSignals(CTxMemPool& pool) {
@@ -100,10 +117,13 @@ void RegisterValidationInterface(CValidationInterface* pwalletIn) {
     conns.BlockDisconnected = g_signals.m_internals->BlockDisconnected.connect(std::bind(&CValidationInterface::BlockDisconnected, pwalletIn, std::placeholders::_1));
     conns.TransactionRemovedFromMempool = g_signals.m_internals->TransactionRemovedFromMempool.connect(std::bind(&CValidationInterface::TransactionRemovedFromMempool, pwalletIn, std::placeholders::_1));
     conns.ChainStateFlushed = g_signals.m_internals->ChainStateFlushed.connect(std::bind(&CValidationInterface::ChainStateFlushed, pwalletIn, std::placeholders::_1));
-    conns.Broadcast = g_signals.m_internals->Broadcast.connect(std::bind(&CValidationInterface::ResendWalletTransactions, pwalletIn, std::placeholders::_1, std::placeholders::_2));
+    conns.Broadcast = g_signals.m_internals->Broadcast.connect(std::bind(&CValidationInterface::ResendWalletTransactions, pwalletIn, std::placeholders::_1));
     conns.BlockChecked = g_signals.m_internals->BlockChecked.connect(std::bind(&CValidationInterface::BlockChecked, pwalletIn, std::placeholders::_1, std::placeholders::_2));
     conns.NewPoWValidBlock = g_signals.m_internals->NewValidBlock.connect(std::bind(&CValidationInterface::NewValidBlock, pwalletIn, std::placeholders::_1, std::placeholders::_2));
     conns.PackageTransactionsRelay = g_signals.m_internals->PackageTransactionsRelay.connect(std::bind(&CValidationInterface::PackageTransactionsRelay, pwalletIn, std::placeholders::_1));
+    conns.MempoolEntryAdded = g_signals.m_internals->MempoolEntryAdded.connect(std::bind(&CValidationInterface::MempoolEntryAdded, pwalletIn, std::placeholders::_1, std::placeholders::_2));
+    conns.MempoolEntryErased = g_signals.m_internals->MempoolEntryErased.connect(std::bind(&CValidationInterface::MempoolEntryErased, pwalletIn, std::placeholders::_1));
+    conns.MempoolEntriesConfirmed = g_signals.m_internals->MempoolEntriesConfirmed.connect(std::bind(&CValidationInterface::MempoolEntriesConfirmed, pwalletIn, std::placeholders::_1, std::placeholders::_2));
 }
 
 void UnregisterValidationInterface(CValidationInterface* pwalletIn) {
@@ -137,6 +157,19 @@ void CMainSignals::MempoolEntryRemoved(CTransactionRef ptx, MemPoolRemovalReason
             m_internals->TransactionRemovedFromMempool(ptx);
         });
     }
+}
+
+// Synchronous: the fee estimator reads the entries while the mempool still holds them.
+void CMainSignals::MempoolEntryAdded(const CTxMemPoolEntry& entry, bool validFeeEstimate) {
+    if (m_internals) m_internals->MempoolEntryAdded(entry, validFeeEstimate);
+}
+
+void CMainSignals::MempoolEntryErased(const uint256& txid) {
+    if (m_internals) m_internals->MempoolEntryErased(txid);
+}
+
+void CMainSignals::MempoolEntriesConfirmed(unsigned int nBlockHeight, const std::vector<const CTxMemPoolEntry*>& entries) {
+    if (m_internals) m_internals->MempoolEntriesConfirmed(nBlockHeight, entries);
 }
 
 void CMainSignals::UpdatedBlockTip(const CBlockIndex *pindexNew, const CBlockIndex *pindexFork, bool fInitialDownload) {
@@ -173,8 +206,8 @@ void CMainSignals::ChainStateFlushed(const CBlockLocator &locator) {
     });
 }
 
-void CMainSignals::Broadcast(int64_t nBestBlockTime, CConnman* connman) {
-    m_internals->Broadcast(nBestBlockTime, connman);
+void CMainSignals::Broadcast(int64_t nBestBlockTime) {
+    m_internals->Broadcast(nBestBlockTime);
 }
 
 void CMainSignals::BlockChecked(const CBlock& block, const CValidationState& state) {

@@ -2,6 +2,7 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
+#include <mempoolaccept.h>
 #include <script/transactionsignatureserializer.h>
 #include <wallet/test/test_tapyrus_wallet.h>
 
@@ -55,16 +56,17 @@ void TestWalletSetup::initWallet()
     CHash160().Write(coinbasePubKey.data(), coinbasePubKey.size()).Finalize(
             coinbasePubKeyHash.data());
 
-    wallet = MakeUnique<CWallet>("mock", WalletDatabase::CreateMock());
+    wallet = MakeUnique<CWallet>(&m_node_lookup, "mock", WalletDatabase::CreateMock());
     bool firstRun;
     wallet->LoadWallet(firstRun);
 }
 
 bool TestWalletSetup::ProcessBlockAndScanForWalletTxns(const CTransactionRef tx) {
-    CTxMempoolAcceptanceOptions opt;
+    MempoolAcceptOptions opt;
+    MempoolAcceptResult accept_result;
     {
         LOCK(cs_main);
-        if(!AcceptToMemoryPool(tx, opt)) {
+        if(!g_chainstate_manager.ActiveChainstate().AcceptToMemoryPool(tx, opt, accept_result)) {
             return false;
         }
     }

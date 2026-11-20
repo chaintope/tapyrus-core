@@ -42,11 +42,10 @@ class CInv;
 class CIssuedColorIds;
 class CConnman;
 class CScriptCheck;
-class CBlockPolicyEstimator;
+class ValidationCache;
 class CTxMemPool;
 class CValidationState;
 class HeightDerivedConsensusRules;
-struct ChainTxData;
 struct XFieldChange;
 
 struct LockPoints;
@@ -107,13 +106,7 @@ static const bool DEFAULT_PEERBLOOMFILTERS = true;
 /** Default for -stopatheight */
 static const int DEFAULT_STOPATHEIGHT = 0;
 
-extern CScript COINBASE_FLAGS;
 extern RecursiveMutex cs_main;
-extern CBlockPolicyEstimator feeEstimator;
-extern CTxMemPool mempool;
-extern std::atomic_bool g_is_mempool_loaded;
-extern uint64_t nLastBlockTx;
-extern uint64_t nLastBlockSize;
 
 /** Minimum blocks required to signal NODE_NETWORK_LIMITED */
 static const unsigned int NODE_NETWORK_LIMITED_MIN_BLOCKS = 288;
@@ -163,14 +156,14 @@ bool LoadGenesisBlock();
 bool LoadBlockIndex() EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 /** Update the chain tip based on database information. */
 bool LoadChainTip();
-/** Unload database information */
-void UnloadBlockIndex();
+/** Unload database information, and clear the mempool if one is given */
+void UnloadBlockIndex(CTxMemPool* mempool);
 /** Run instances of script checking worker threads */
 void StartScriptCheckWorkerThreads(int threads_num);
 /** Check whether we are doing an initial block download (synchronizing from disk or network) */
 bool IsInitialBlockDownload();
-/** Retrieve a transaction (from memory pool, or from disk, if possible) */
-bool GetTransaction(const uint256& hash, CTransactionRef& tx, uint256& hashBlock, bool fAllowSlow = false, CBlockIndex* blockIndex = nullptr);
+/** Retrieve a transaction (from the mempool if one is given, or from disk, if possible) */
+bool GetTransaction(const CTxMemPool* mempool, const uint256& hash, CTransactionRef& tx, uint256& hashBlock, bool fAllowSlow = false, CBlockIndex* blockIndex = nullptr);
 /**
  * Find the best known block, and make it the tip of the block chain
  *
@@ -179,9 +172,6 @@ bool GetTransaction(const uint256& hash, CTransactionRef& tx, uint256& hashBlock
  */
 bool ActivateBestChain(CValidationState& state, std::shared_ptr<const CBlock> pblock = std::shared_ptr<const CBlock>());
 
-/** Guess verification progress (as a fraction between 0.0=genesis and 1.0=current tip). */
-double GuessVerificationProgress(const ChainTxData& data, const CBlockIndex* pindex);
-
 /** Flush all state, indexes and buffers to disk. */
 void FlushStateToDisk();
 /** Prune block files and flush state to disk. */
@@ -189,17 +179,8 @@ void PruneAndFlush();
 /** Prune block files up to a given height */
 void PruneBlockFilesManual(int nManualPruneHeight);
 
-/** (try to) add transaction to memory pool
- * plTxnReplaced will be appended to with all transactions replaced from mempool **/
-bool AcceptToMemoryPool(const CTransactionRef &tx, CTxMempoolAcceptanceOptions &opt) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
-
-/** remove old transactions from mempool based on age to keep it within size limits*/
-void LimitMempoolSize(CTxMemPool& pool, size_t limit, unsigned long age) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
-
-/** Apply the effects of this transaction on the UTXO set represented by view */
-void UpdateCoins(const CTransaction& tx, CCoinsViewCache& inputs, int nHeight);
-
-void UpdateCoins(const CTransaction& tx, CCoinsViewCache& inputs, CTxUndo &txundo, int nHeight);
+/** Expires transactions older than the pool's expiry, then trims the pool to its max size. */
+void LimitMempoolSize(CTxMemPool& pool) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 
 /** Transaction validation functions */
 
@@ -230,7 +211,7 @@ bool CheckFinalTx(const CTransaction &tx, int flags = -1);
  *
  * The LOCKTIME_* flags are defined in ConsensusConstants.
  */
-bool CheckSequenceLocks(const CTransaction &tx, int flags,  CCoinsViewMemPool& viewMemPool, LockPoints* lp = nullptr, bool useExistingLockPoints = false);
+bool CheckSequenceLocks(const CTxMemPool& pool, const CTransaction &tx, int flags,  CCoinsViewMemPool& viewMemPool, LockPoints* lp = nullptr, bool useExistingLockPoints = false);
 
 /**
  * Check whether all inputs of this transaction are valid (no double spends, scripts & sigs, amounts)
@@ -243,10 +224,8 @@ bool CheckSequenceLocks(const CTransaction &tx, int flags,  CCoinsViewMemPool& v
  * Setting cacheSigStore/cacheFullScriptStore to false will remove elements from the corresponding cache
  * which are matched. This is useful for checking blocks where we will likely never need the cache
  * entry again.
- *
- * Non-static (and re-declared) in src/test/txvalidationcache_tests.cpp
  */
-bool CheckInputs(const CTransaction& tx, CValidationState &state, const CCoinsViewCache &inputs, bool fScriptChecks, unsigned int flags, bool cacheSigStore, bool cacheFullScriptStore, std::vector<CScriptCheck> *pvChecks = nullptr, unsigned int mandatoryFlags = 0);
+bool CheckInputs(const CTransaction& tx, CValidationState &state, const CCoinsViewCache &inputs, bool fScriptChecks, unsigned int flags, bool cacheSigStore, bool cacheFullScriptStore, ValidationCache& validation_cache, std::vector<CScriptCheck> *pvChecks = nullptr, unsigned int mandatoryFlags = 0);
 
 
 /** Functions for validating blocks and updating the block tree */

@@ -5,6 +5,7 @@
 #include <amount.h>
 #include <core_io.h>
 #include <key_io.h>
+#include <mempoolaccept.h>
 #include <nodecontext.h>
 #include <pstt.h>
 #include <rpc/client.h>
@@ -213,10 +214,11 @@ BOOST_FIXTURE_TEST_CASE(pstt_rpc_walletsignpstt_completes_after_update, PsttWall
     BOOST_REQUIRE(!signedPstt.inputs[0].final_script_sig.empty());
 
     CTransactionRef finalTx = MakeTransactionRef(ExtractPSTT(signedPstt));
-    CTxMempoolAcceptanceOptions opt;
-    opt.flags = MempoolAcceptanceFlags::BYPASSS_LIMITS;
+    MempoolAcceptOptions opt;
+    opt.bypass_limits = true;
+    MempoolAcceptResult accept_result;
     LOCK(cs_main);
-    BOOST_CHECK(AcceptToMemoryPool(finalTx, opt));
+    BOOST_CHECK(g_chainstate_manager.ActiveChainstate().AcceptToMemoryPool(finalTx, opt, accept_result));
 }
 
 BOOST_FIXTURE_TEST_CASE(pstt_rpc_walletprocesspstt_updates_and_signs_in_one_call, PsttWalletTestingSetup)

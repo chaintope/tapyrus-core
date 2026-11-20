@@ -5,8 +5,8 @@
 //
 // Ported from Bitcoin Core src/test/validation_flush_tests.cpp.
 // Adaptations for Tapyrus:
-//   - No Chainstate class / GetCoinsCacheSizeState(): threshold logic inlined
-//     from FlushStateToDisk() in file_io.cpp (fCacheLarge / fCacheCritical).
+//   - No GetCoinsCacheSizeState(): threshold logic inlined
+//     from Chainstate::FlushStateToDisk() (fCacheLarge / fCacheCritical).
 //   - Uses the active chainstate's coins tip and the nCoinCacheUsage option of ChainstateManager.
 //   - AddTestCoin() reimplemented using COutPoint(uint256, n) directly.
 //   - InsecureRand256() / InsecureRand32() replace FastRandomContext helpers.
@@ -26,7 +26,7 @@
 #include <algorithm>
 
 //! Mirrors LargeCoinsCacheThreshold() from Bitcoin Core validation.h.
-//! In Tapyrus this threshold is inlined in FlushStateToDisk() (file_io.cpp:436):
+//! In Tapyrus this threshold is inlined in Chainstate::FlushStateToDisk():
 //!   max((9 * nTotalSpace) / 10, nTotalSpace - MAX_BLOCK_COINSDB_USAGE * 1024 * 1024)
 static int64_t LargeCacheSizeThreshold(int64_t total_space)
 {
@@ -53,7 +53,7 @@ BOOST_FIXTURE_TEST_SUITE(validation_flush_tests, TestingSetup)
 //! from "OK" → "LARGE" → "CRITICAL" at the expected utilisation levels.
 //!
 //! Bitcoin Core tests Chainstate::GetCoinsCacheSizeState().  Tapyrus does not
-//! have that method; instead FlushStateToDisk() (file_io.cpp) computes
+//! have that method; instead Chainstate::FlushStateToDisk() computes
 //!   nTotalSpace = nCoinCacheUsage + max(nMempoolSizeMax - nMempoolUsage, 0)
 //!   fCacheLarge   = cacheSize > LargeCacheSizeThreshold(nTotalSpace)
 //!   fCacheCritical= cacheSize > nTotalSpace
