@@ -7,6 +7,7 @@
 #include <blockfilemanager.h>
 #include <chainstatemanager.h>
 #include <interfaces/nodecontextlookupimpl.h>
+#include <notificationhub.h>
 #include <wallet/wallet.h>
 
 #include <memory>
@@ -950,6 +951,55 @@ BOOST_FIXTURE_TEST_CASE(wallet_tx_getchange, TestChainSetup)
 
     BOOST_CHECK_EQUAL(wtx.GetChange(defaultColorId), 50 * ConsensusConstants::COIN);
     BOOST_CHECK_EQUAL(wtx.GetChange(colorId), 100 * CENT);
+}
+
+//! Records the rescan progress and transaction changes the wallets report to the node.
+class WalletReports : public Notifications
+{
+public:
+    void ReportRescanProgress(const std::string& wallet_name, int percent) override { m_rescan.push_back(percent); }
+    void ReportTransactionChanged(const std::string& wallet_name, const uint256& txid) override { m_changed.push_back(txid); }
+
+    std::vector<int> m_rescan;
+    std::vector<uint256> m_changed;
+};
+
+BOOST_FIXTURE_TEST_CASE(a_rescanning_wallet_reports_its_progress_and_transactions, TestChainSetup)
+{
+    WalletReports reports;
+    m_node.notifications.Subscribe(reports);
+    NodeContextLookupImpl node_lookup(m_node);
+    CWallet wallet(&node_lookup, "dummy", WalletDatabase::CreateDummy());
+    AddKey(wallet, coinbaseKey);
+    {
+        LOCK(cs_main);
+        WalletRescanReserver reserver(&wallet);
+        reserver.reserve();
+        wallet.ScanForWalletTransactions(g_chainstate_manager.ActiveChain().Genesis(), nullptr, reserver);
+    }
+    m_node.notifications.Unsubscribe(reports);
+    BOOST_REQUIRE(!reports.m_rescan.empty());
+    BOOST_CHECK_EQUAL(reports.m_rescan.front(), 0);
+    BOOST_CHECK_EQUAL(reports.m_rescan.back(), 100);
+    BOOST_CHECK_EQUAL(reports.m_changed.size(), m_coinbase_txns.size());
+}
+
+BOOST_FIXTURE_TEST_CASE(a_wallet_without_a_node_reports_nothing, TestChainSetup)
+{
+    WalletReports reports;
+    m_node.notifications.Subscribe(reports);
+    CWallet wallet(nullptr, "dummy", WalletDatabase::CreateDummy());
+    AddKey(wallet, coinbaseKey);
+    {
+        LOCK(cs_main);
+        WalletRescanReserver reserver(&wallet);
+        reserver.reserve();
+        wallet.ScanForWalletTransactions(g_chainstate_manager.ActiveChain().Genesis(), nullptr, reserver);
+    }
+    m_node.notifications.Unsubscribe(reports);
+    BOOST_CHECK(wallet.GetBalance()[ColorIdentifier()] > 0);
+    BOOST_CHECK(reports.m_rescan.empty());
+    BOOST_CHECK(reports.m_changed.empty());
 }
 
 BOOST_FIXTURE_TEST_CASE(a_wallet_without_a_node_cannot_submit, TestChainSetup)

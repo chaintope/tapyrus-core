@@ -76,3 +76,8 @@ bool NodeContextLookupImpl::broadcastTransaction(const CTransactionRef& tx, CAmo
     }
     return true;
 }
+
+WalletNotifications& NodeContextLookupImpl::notifications() const
+{
+    return m_node.notifications;
+}

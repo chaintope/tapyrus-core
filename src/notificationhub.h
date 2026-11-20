@@ -40,6 +40,15 @@ public:
     void ReportStopHeightReached(int height) override;
     /** Shows the upgrade's progress in the GUI. */
     void ReportUpgradeProgress(int percent) override;
+    /** Each of the four below shows its warning to the user as a start-up warning. */
+    void ReportFeeSettingHigh(WalletFeeSetting setting) override;
+    void ReportWalletFileSalvaged(const std::string& wallet_file, const std::string& backup_file, const std::string& wallet_dir) override;
+    void ReportTransactionDataUnreadable(const std::string& wallet_file) override;
+    void ReportPrivateKeysInDisabledWallet(const std::string& wallet_file) override;
+    /** Shows nothing: the wallet's own progress signal drives its GUI dialog. */
+    void ReportRescanProgress(const std::string& wallet_name, int percent) override;
+    /** Runs the -walletnotify command with the transaction id. */
+    void ReportTransactionChanged(const std::string& wallet_name, const uint256& txid) override;
 
     /** Format a string that describes several potential problems detected by the core.
      * @param[in] strFor can have the following values:
@@ -51,6 +60,8 @@ public:
 
     /** What the log and the warnings say about the fatal error. */
     static std::string FatalErrorMessage(FatalErrorReason reason, const std::string& detail);
+    /** What the warning says about a salvaged wallet file; loadwallet returns it too. */
+    static std::string WalletFileSalvagedMessage(const std::string& wallet_file, const std::string& backup_file, const std::string& wallet_dir);
 
 private:
     //! What a warning is about; each has at most one current message.

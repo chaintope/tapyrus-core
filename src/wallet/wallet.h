@@ -941,6 +941,8 @@ public:
     void BlockDisconnected(const std::shared_ptr<const CBlock>& pblock) override;
     int64_t RescanFromTime(int64_t startTime, const WalletRescanReserver& reserver, bool update);
     CBlockIndex* ScanForWalletTransactions(CBlockIndex* pindexStart, CBlockIndex* pindexStop, const WalletRescanReserver& reserver, bool fUpdate = false);
+    //! Shows the rescan's progress in the wallet's GUI and reports it to the node.
+    void ShowRescanProgress(int percent);
     void TransactionRemovedFromMempool(const CTransactionRef &ptx) override;
     void ReacceptWalletTransactions();
     void ResendWalletTransactions(int64_t nBestBlockTime) override;
@@ -1130,8 +1132,8 @@ public:
     /** Mark a transaction as replaced by another transaction (e.g., BIP 125). */
     bool MarkReplaced(const uint256& originalHash, const uint256& newHash);
 
-    //! Verify wallet naming and perform salvage on the wallet if required
-    static bool Verify(std::string wallet_file, bool salvage_wallet, std::string& error_string, std::string& warning_string);
+    //! Verify wallet naming and perform salvage on the wallet if required; salvaged is set when a corrupt file was salvaged
+    static bool Verify(std::string wallet_file, bool salvage_wallet, std::string& error_string, std::optional<SalvagedWalletFile>& salvaged);
 
     /* Initializes the wallet, returns a new CWallet instance or a null pointer in case of an error */
     static std::shared_ptr<CWallet> CreateWalletFromFile(interfaces::NodeContextLookup* node_lookup, const std::string& name, const fs::path& path, uint64_t wallet_creation_flags = 0);

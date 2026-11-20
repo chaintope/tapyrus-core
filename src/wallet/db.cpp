@@ -336,7 +336,7 @@ bool BerkeleyBatch::VerifyEnvironment(const fs::path& file_path, std::string& er
     return true;
 }
 
-bool BerkeleyBatch::VerifyDatabaseFile(const fs::path& file_path, std::string& warningStr, std::string& errorStr, BerkeleyEnvironment::recoverFunc_type recoverFunc)
+bool BerkeleyBatch::VerifyDatabaseFile(const fs::path& file_path, std::optional<SalvagedWalletFile>& salvaged, std::string& errorStr, BerkeleyEnvironment::recoverFunc_type recoverFunc)
 {
     fs::path walletFile;
     BerkeleyEnvironment* env = GetWalletEnv(file_path, walletFile);
@@ -348,11 +348,7 @@ bool BerkeleyBatch::VerifyDatabaseFile(const fs::path& file_path, std::string& w
         BerkeleyEnvironment::VerifyResult r = env->Verify(walletFile.string(), recoverFunc, backup_filename);
         if (r == BerkeleyEnvironment::VerifyResult::RECOVER_OK)
         {
-            warningStr = strprintf(_("Warning: Wallet file corrupt, data salvaged!"
-                                     " Original %s saved as %s in %s; if"
-                                     " your balance or transactions are incorrect you should"
-                                     " restore from a backup."),
-                                   walletFile, backup_filename, walletDir);
+            salvaged = SalvagedWalletFile{strprintf("%s", walletFile), backup_filename, strprintf("%s", walletDir)};
         }
         if (r == BerkeleyEnvironment::VerifyResult::RECOVER_FAIL)
         {
