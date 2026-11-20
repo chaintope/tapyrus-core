@@ -394,7 +394,7 @@ void Chainstate::UpdateMempoolForReorg(DisconnectedBlockTransactions &disconnect
     // We also need to remove any now-immature transactions
     m_mempool.removeForReorg(&g_chainstate_manager.ActiveChainstate().CoinsTip(), g_chainstate_manager.ActiveChain().Tip()->nHeight + 1, PolicyConstants::STANDARD_LOCKTIME_VERIFY_FLAGS);
     // Re-limit mempool size, in case we added any transactions
-    LimitMempoolSize(m_mempool, g_policy_settings->maxMempool, g_policy_settings->mempoolExpiry);
+    LimitMempoolSize(m_mempool);
 }
 
 /** Apply the effects of this block (with given index) on the UTXO set represented by coins.

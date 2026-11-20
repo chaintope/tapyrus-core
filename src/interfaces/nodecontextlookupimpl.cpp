@@ -30,7 +30,7 @@ unsigned int NodeContextLookupImpl::estimateMaxBlocks() const
 
 CFeeRate NodeContextLookupImpl::mempoolMinFee() const
 {
-    return m_node.mempool->GetMinFee(g_policy_settings->maxMempool);
+    return m_node.mempool->GetMinFee();
 }
 
 bool NodeContextLookupImpl::hasDescendantsInMempool(const uint256& txid) const

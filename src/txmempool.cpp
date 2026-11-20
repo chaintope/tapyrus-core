@@ -273,15 +273,15 @@ void CTxMemPool::UpdateForRemoveFromMempool(const setEntries &entriesToRemove, b
     }
 }
 
-CTxMemPool::CTxMemPool() :
-    nTransactionsUpdated(0)
+CTxMemPool::CTxMemPool() : CTxMemPool(Options{}) {}
+
+CTxMemPool::CTxMemPool(const Options& options) :
+    // Sanity checks are off unless asked for, because they make accepting
+    // transactions O(N^2) where N is the number of transactions in the pool.
+    nCheckFrequency(options.check_ratio == 0 ? 0 : static_cast<uint32_t>(1.0 / options.check_ratio * 4294967295.0)),
+    nTransactionsUpdated(0), m_expiry(options.expiry), m_max_size(options.max_size)
 {
     _clear(); //lock free clear
-
-    // Sanity checks off by default for performance, because otherwise
-    // accepting transactions becomes O(N^2) where N is the number
-    // of transactions in the pool
-    nCheckFrequency = 0;
 }
 
 bool CTxMemPool::isSpent(const COutPoint& outpoint) const

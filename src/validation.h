@@ -179,8 +179,8 @@ void PruneAndFlush();
 /** Prune block files up to a given height */
 void PruneBlockFilesManual(int nManualPruneHeight);
 
-/** remove old transactions from mempool based on age to keep it within size limits*/
-void LimitMempoolSize(CTxMemPool& pool, size_t limit, unsigned long age) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
+/** Expires transactions older than the pool's expiry, then trims the pool to its max size. */
+void LimitMempoolSize(CTxMemPool& pool) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 
 /** Apply the effects of this transaction on the UTXO set represented by view */
 void UpdateCoins(const CTransaction& tx, CCoinsViewCache& inputs, int nHeight);

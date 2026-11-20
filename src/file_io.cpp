@@ -22,7 +22,7 @@ static const uint64_t MEMPOOL_DUMP_VERSION = 1;
 bool Chainstate::LoadMempool()
 {
     CTxMemPool& pool = m_mempool;
-    int64_t nExpiryTimeout = g_policy_settings->mempoolExpiry;
+    int64_t nExpiryTimeout = pool.Expiry();
     FILE* filestr = fsbridge::fopen(GetDataDir() / "mempool.dat", "rb");
     CAutoFile file(filestr, SER_DISK, CLIENT_VERSION);
     if (file.IsNull()) {
@@ -321,7 +321,7 @@ bool Chainstate::FlushStateToDisk(CValidationState& state, FlushStateMode mode, 
         if (m_last_flush == 0) {
             m_last_flush = nNow;
         }
-        int64_t nMempoolSizeMax = g_policy_settings->maxMempool;
+        int64_t nMempoolSizeMax = m_mempool.MaxSize();
         int64_t cacheSize = CoinsTip().DynamicMemoryUsage();
         int64_t nTotalSpace = m_chainman.GetOptions().nCoinCacheUsage + std::max<int64_t>(nMempoolSizeMax - nMempoolUsage, 0);
         // The cache is large and we're within 10% and 10 MiB of the limit, but we have time now (not in the middle of a block processing).
