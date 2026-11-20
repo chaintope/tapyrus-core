@@ -10,8 +10,10 @@
 
 #include <univalue.h>
 
+class CTxMemPool;
+
 /** Generate blocks (mine) */
-UniValue generateBlocks(std::shared_ptr<CReserveScript> coinbaseScript, int nGenerate, bool keepScript, const CKey& vecPrivKeys);
+UniValue generateBlocks(const CTxMemPool& mempool, std::shared_ptr<CReserveScript> coinbaseScript, int nGenerate, bool keepScript, const CKey& vecPrivKeys);
 
 /** Check bounds on a command line confirm target; max_target is the longest the fee estimator tracks */
 unsigned int ParseConfirmTarget(const UniValue& value, unsigned int max_target);

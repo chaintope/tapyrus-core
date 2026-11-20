@@ -157,9 +157,14 @@ void ChainstateManager::LoadPersistentFlags()
     if (fReindexing) m_reindexing = true;
 }
 
-void ChainstateManager::InitializeChainstate()
+void ChainstateManager::InitializeChainstate(CTxMemPool& mempool)
 {
-    m_active_chainstate = std::make_unique<Chainstate>(*this);
+    m_active_chainstate = std::make_unique<Chainstate>(*this, mempool);
+}
+
+void ChainstateManager::ReleaseChainstate()
+{
+    m_active_chainstate.reset();
 }
 
 Chainstate& ChainstateManager::ActiveChainstate() const

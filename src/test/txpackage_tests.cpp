@@ -239,6 +239,7 @@ BOOST_FIXTURE_TEST_CASE(package_sanitization_tests, PackageTestSetup)
 
 BOOST_FIXTURE_TEST_CASE(package_validation_tests, PackageTestSetup)
 {
+    CTxMemPool& mempool = *m_node.mempool;
     PackageValidationState validationState;
     CValidationState state;
     CTxMempoolAcceptanceOptions opt;
@@ -267,7 +268,7 @@ BOOST_FIXTURE_TEST_CASE(package_validation_tests, PackageTestSetup)
 
         Package package_parent_child{MakeTransactionRef(mtx_parent), MakeTransactionRef(mtx_child)};
 
-        auto result_parent_child = SubmitPackageToMempool(package_parent_child, state, validationState, opt);
+        auto result_parent_child = g_chainstate_manager.ActiveChainstate().SubmitPackageToMempool(package_parent_child, state, validationState, opt);
         
         BOOST_CHECK(!result_parent_child);
         BOOST_CHECK_EQUAL(state.GetRejectCode(), 0);
@@ -300,7 +301,7 @@ BOOST_FIXTURE_TEST_CASE(package_validation_tests, PackageTestSetup)
         Package package_parent_child{MakeTransactionRef(mtx_parent), MakeTransactionRef(mtx_child)};
         validationState.clear();
 
-        auto result_parent_child = SubmitPackageToMempool(package_parent_child, state, validationState, opt);
+        auto result_parent_child = g_chainstate_manager.ActiveChainstate().SubmitPackageToMempool(package_parent_child, state, validationState, opt);
 
         BOOST_CHECK(result_parent_child);
         BOOST_CHECK_EQUAL(state.GetRejectCode(), 0);
@@ -333,7 +334,7 @@ BOOST_FIXTURE_TEST_CASE(package_validation_tests, PackageTestSetup)
         Package package_parent_child{MakeTransactionRef(mtx_parent), MakeTransactionRef(mtx_child)};
         validationState.clear();
 
-        auto result_parent_child = SubmitPackageToMempool(package_parent_child, state, validationState, opt);
+        auto result_parent_child = g_chainstate_manager.ActiveChainstate().SubmitPackageToMempool(package_parent_child, state, validationState, opt);
 
         BOOST_CHECK(!result_parent_child);
         BOOST_CHECK_EQUAL(state.GetRejectCode(), 0);
@@ -353,6 +354,7 @@ BOOST_FIXTURE_TEST_CASE(package_validation_tests, PackageTestSetup)
 // that the mempool is unchanged afterwards.
 BOOST_FIXTURE_TEST_CASE(testmempoolaccept_chained_package, PackageTestSetup)
 {
+    CTxMemPool& mempool = *m_node.mempool;
     PackageValidationState validationState;
     CValidationState state;
     CTxMempoolAcceptanceOptions opt;
@@ -392,7 +394,7 @@ BOOST_FIXTURE_TEST_CASE(testmempoolaccept_chained_package, PackageTestSetup)
         mtx3.vout.push_back(CTxOut(CAmount(1 * ConsensusConstants::COIN), child_locking_script));
 
     Package package{MakeTransactionRef(mtx1), MakeTransactionRef(mtx2), MakeTransactionRef(mtx3)};
-    auto result = SubmitPackageToMempool(package, state, validationState, opt);
+    auto result = g_chainstate_manager.ActiveChainstate().SubmitPackageToMempool(package, state, validationState, opt);
 
     BOOST_CHECK(result);
     BOOST_CHECK_EQUAL(validationState[mtx1.GetHashMalFix()].GetRejectCode(), 0);
@@ -408,6 +410,7 @@ BOOST_FIXTURE_TEST_CASE(testmempoolaccept_chained_package, PackageTestSetup)
 
 BOOST_FIXTURE_TEST_CASE(package_orphan_tx_tests, PackageTestSetup)
 {
+    CTxMemPool& mempool = *m_node.mempool;
     PackageValidationState validationState;
     CValidationState state, state2;
     CTxMempoolAcceptanceOptions opt;
@@ -442,7 +445,7 @@ BOOST_FIXTURE_TEST_CASE(package_orphan_tx_tests, PackageTestSetup)
         {
             LOCK(cs_main);
             CTxMempoolAcceptanceOptions opt;
-            BOOST_CHECK(!AcceptToMemoryPool(tx_orphan, opt));
+            BOOST_CHECK(!g_chainstate_manager.ActiveChainstate().AcceptToMemoryPool(tx_orphan, opt));
             BOOST_CHECK_EQUAL(opt.missingInputs.size(), 1);
         }
 
@@ -456,7 +459,7 @@ BOOST_FIXTURE_TEST_CASE(package_orphan_tx_tests, PackageTestSetup)
         // orphan is in the package as parent transaction
         Package package_parent_child{tx_orphan, tx_gchild};
 
-        bool success = SubmitPackageToMempool(package_parent_child, state, validationState, opt);
+        bool success = g_chainstate_manager.ActiveChainstate().SubmitPackageToMempool(package_parent_child, state, validationState, opt);
 
         BOOST_CHECK(success == false);
 
@@ -499,7 +502,7 @@ BOOST_FIXTURE_TEST_CASE(package_orphan_tx_tests, PackageTestSetup)
             LOCK(cs_main);
             auto tx_orphan{MakeTransactionRef(mtx_orphan)};
             CTxMempoolAcceptanceOptions opt;
-            BOOST_CHECK(!AcceptToMemoryPool(tx_orphan, opt));
+            BOOST_CHECK(!g_chainstate_manager.ActiveChainstate().AcceptToMemoryPool(tx_orphan, opt));
             BOOST_CHECK_EQUAL(opt.missingInputs.size(), 1);
         }
 
@@ -508,7 +511,7 @@ BOOST_FIXTURE_TEST_CASE(package_orphan_tx_tests, PackageTestSetup)
         Package package_parent_child{MakeTransactionRef(mtx_parent), MakeTransactionRef(mtx_child), MakeTransactionRef(mtx_orphan)};
         validationState.clear();
 
-        bool success = SubmitPackageToMempool(package_parent_child, state, validationState, opt);
+        bool success = g_chainstate_manager.ActiveChainstate().SubmitPackageToMempool(package_parent_child, state, validationState, opt);
 
         BOOST_CHECK(success == true);
         BOOST_CHECK_EQUAL(state.GetRejectCode(), 0);
@@ -529,6 +532,7 @@ BOOST_FIXTURE_TEST_CASE(package_orphan_tx_tests, PackageTestSetup)
 }
 BOOST_FIXTURE_TEST_CASE(noncontextual_package_tests, PackageTestSetup)
 {
+    CTxMemPool& mempool = *m_node.mempool;
     // The signatures won't be verified so we can just use a placeholder
     CKey placeholder_key;
     placeholder_key.MakeNewKey(true);
@@ -641,6 +645,7 @@ BOOST_FIXTURE_TEST_CASE(noncontextual_package_tests, PackageTestSetup)
 
 BOOST_FIXTURE_TEST_CASE(package_submission_tests, PackageTestSetup)
 {
+    CTxMemPool& mempool = *m_node.mempool;
     CKey parent_key;
     parent_key.MakeNewKey(true);
     CScript parent_locking_script = GetScriptForDestination(parent_key.GetPubKey().GetID());
@@ -668,7 +673,7 @@ BOOST_FIXTURE_TEST_CASE(package_submission_tests, PackageTestSetup)
 
     }
     packageState.clear();
-    auto result_unrelated = SubmitPackageToMempool(package_unrelated, state, packageState, opt);
+    auto result_unrelated = g_chainstate_manager.ActiveChainstate().SubmitPackageToMempool(package_unrelated, state, packageState, opt);
 
     // We don't expect m_tx_results for each transaction when basic sanity checks haven't passed.
     BOOST_CHECK(result_unrelated);
@@ -715,7 +720,7 @@ BOOST_FIXTURE_TEST_CASE(package_submission_tests, PackageTestSetup)
     // 3 Generations is allowed.
     {
         packageState.clear();
-        auto result_3gen_submit = SubmitPackageToMempool(package_3gen, state, packageState, opt);
+        auto result_3gen_submit = g_chainstate_manager.ActiveChainstate().SubmitPackageToMempool(package_3gen, state, packageState, opt);
         BOOST_CHECK(result_3gen_submit);
         BOOST_CHECK(state.IsValid());
         BOOST_CHECK_EQUAL(state.GetRejectCode(), 0);
@@ -731,7 +736,7 @@ BOOST_FIXTURE_TEST_CASE(package_submission_tests, PackageTestSetup)
 
     {
         packageState.clear();
-        const auto result_missing_parent = SubmitPackageToMempool(package_parent_child, state, packageState, opt);
+        const auto result_missing_parent = g_chainstate_manager.ActiveChainstate().SubmitPackageToMempool(package_parent_child, state, packageState, opt);
         BOOST_CHECK(!result_missing_parent);
         BOOST_CHECK(state.IsValid());
         BOOST_CHECK_EQUAL(state.GetRejectCode(), 0);
@@ -749,7 +754,7 @@ BOOST_FIXTURE_TEST_CASE(package_submission_tests, PackageTestSetup)
         CTransactionRef tx_parent_invalid{MakeTransactionRef(mtx_parent_invalid)};
         Package package_invalid_parent{tx_parent_invalid, tx_child};
         packageState.clear();
-        auto result_quit_early = SubmitPackageToMempool(package_invalid_parent, state, packageState, opt);
+        auto result_quit_early = g_chainstate_manager.ActiveChainstate().SubmitPackageToMempool(package_invalid_parent, state, packageState, opt);
         BOOST_CHECK(!result_quit_early);
         BOOST_CHECK(state.IsValid());
         BOOST_CHECK_EQUAL(state.GetRejectCode(), 0);
@@ -781,7 +786,7 @@ BOOST_FIXTURE_TEST_CASE(package_submission_tests, PackageTestSetup)
         Package package_high_fee{tx_parent, tx_child2};
         packageState.clear();
 
-        const auto result_missing_parent = SubmitPackageToMempool(package_high_fee, state, packageState, opt);
+        const auto result_missing_parent = g_chainstate_manager.ActiveChainstate().SubmitPackageToMempool(package_high_fee, state, packageState, opt);
 
         BOOST_CHECK(!result_missing_parent);
         BOOST_CHECK(state.IsValid());
@@ -803,6 +808,7 @@ BOOST_FIXTURE_TEST_CASE(package_submission_tests, PackageTestSetup)
 // child was spuriously reported as "allowed".
 BOOST_FIXTURE_TEST_CASE(testmempoolaccept_missing_inputs_no_overlay_leak, PackageTestSetup)
 {
+    CTxMemPool& mempool = *m_node.mempool;
     PackageValidationState validationState;
     CValidationState state;
     CTxMempoolAcceptanceOptions opt;
@@ -823,7 +829,7 @@ BOOST_FIXTURE_TEST_CASE(testmempoolaccept_missing_inputs_no_overlay_leak, Packag
         mtx_child.vout.push_back(CTxOut(CAmount(1 * ConsensusConstants::COIN), op_true_eq2));
 
     Package package{MakeTransactionRef(mtx_orphan), MakeTransactionRef(mtx_child)};
-    auto result = SubmitPackageToMempool(package, state, validationState, opt);
+    auto result = g_chainstate_manager.ActiveChainstate().SubmitPackageToMempool(package, state, validationState, opt);
 
     // The package must be rejected.
     BOOST_CHECK(!result);

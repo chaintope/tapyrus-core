@@ -196,7 +196,7 @@ static UniValue getrawtransaction(const JSONRPCRequest& request)
 
     CTransactionRef tx;
     uint256 hash_block;
-    if (!GetTransaction(hash, tx, hash_block, true, blockindex)) {
+    if (!GetTransaction(request.context.mempool.get(), hash, tx, hash_block, true, blockindex)) {
         std::string errmsg;
         if (blockindex) {
             if (!(blockindex->nStatus & BLOCK_HAVE_DATA)) {
@@ -292,7 +292,7 @@ static UniValue gettxoutproof(const JSONRPCRequest& request)
     if (pblockindex == nullptr)
     {
         CTransactionRef tx;
-        if (!GetTransaction(oneTxid, tx, hashBlock, false) || hashBlock.IsNull())
+        if (!GetTransaction(request.context.mempool.get(), oneTxid, tx, hashBlock, false) || hashBlock.IsNull())
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Transaction not yet in block");
         pblockindex = blockIndex.LookupBlockIndex(hashBlock);
         if (!pblockindex) {
@@ -771,6 +771,8 @@ static UniValue combinerawtransaction(const JSONRPCRequest& request)
     CCoinsView viewDummy;
     CCoinsViewCache view(&viewDummy);
     {
+        assert(request.context.mempool);
+        const CTxMemPool& mempool = *request.context.mempool;
         LOCK(cs_main);
         LOCK(mempool.cs);
         CCoinsViewCache &viewChain = g_chainstate_manager.ActiveChainstate().CoinsTip();
@@ -812,7 +814,7 @@ static UniValue combinerawtransaction(const JSONRPCRequest& request)
     return EncodeHexTx(mergedTx);
 }
 
-UniValue SignTransaction(CMutableTransaction& mtx, const UniValue& prevTxsUnival, CBasicKeyStore *keystore, bool is_temp_keystore, const UniValue& hashType, const SignatureScheme sigScheme)
+UniValue SignTransaction(const CTxMemPool& mempool, CMutableTransaction& mtx, const UniValue& prevTxsUnival, CBasicKeyStore *keystore, bool is_temp_keystore, const UniValue& hashType, const SignatureScheme sigScheme)
 {
     // Fetch previous transactions (inputs):
     CCoinsView viewDummy;
@@ -1043,7 +1045,8 @@ static UniValue signrawtransactionwithkey(const JSONRPCRequest& request)
 
     SignatureScheme sigScheme = ParseSigSchemeString(request.params[4]);
 
-    return SignTransaction(mtx, request.params[2], &keystore, true, request.params[3], sigScheme);
+    assert(request.context.mempool);
+    return SignTransaction(*request.context.mempool, mtx, request.params[2], &keystore, true, request.params[3], sigScheme);
 }
 
 UniValue signrawtransaction(const JSONRPCRequest& request)
@@ -1192,6 +1195,8 @@ static UniValue sendrawtransaction(const JSONRPCRequest& request)
         nMaxRawTxFee = 0;
 
     { // cs_main scope
+    assert(request.context.mempool);
+    CTxMemPool& mempool = *request.context.mempool;
     LOCK(cs_main);
     CCoinsViewCache &view = g_chainstate_manager.ActiveChainstate().CoinsTip();
     bool fHaveChain = false;
@@ -1204,7 +1209,7 @@ static UniValue sendrawtransaction(const JSONRPCRequest& request)
         // push to local node and sync with wallets
         CTxMempoolAcceptanceOptions opt;
         opt.nAbsurdFee = nMaxRawTxFee;
-        if (!AcceptToMemoryPool(std::move(tx), opt)) {
+        if (!g_chainstate_manager.ActiveChainstate().AcceptToMemoryPool(std::move(tx), opt)) {
             if (opt.state.IsInvalid()) {
                 throw JSONRPCError(RPC_TRANSACTION_REJECTED, FormatStateMessage(opt.state));
             } else {

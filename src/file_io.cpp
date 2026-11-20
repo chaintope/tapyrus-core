@@ -19,8 +19,9 @@
 
 static const uint64_t MEMPOOL_DUMP_VERSION = 1;
 
-bool LoadMempool(void)
+bool Chainstate::LoadMempool()
 {
+    CTxMemPool& pool = m_mempool;
     int64_t nExpiryTimeout = g_policy_settings->mempoolExpiry;
     FILE* filestr = fsbridge::fopen(GetDataDir() / "mempool.dat", "rb");
     CAutoFile file(filestr, SER_DISK, CLIENT_VERSION);
@@ -53,7 +54,7 @@ bool LoadMempool(void)
 
             CAmount amountdelta = nFeeDelta;
             if (amountdelta) {
-                mempool.PrioritiseTransaction(tx->GetHashMalFix(), amountdelta);
+                pool.PrioritiseTransaction(tx->GetHashMalFix(), amountdelta);
             }
             CTxMempoolAcceptanceOptions opt;
             if (nTime + nExpiryTimeout > nNow) {
@@ -67,7 +68,7 @@ bool LoadMempool(void)
                     // wallet(s) having loaded it while we were processing
                     // mempool transactions; consider these as valid, instead of
                     // failed, but mark them as 'already there'
-                    if (mempool.exists(tx->GetHashMalFix())) {
+                    if (pool.exists(tx->GetHashMalFix())) {
                         ++already_there;
                     } else {
                         ++failed;
@@ -83,7 +84,7 @@ bool LoadMempool(void)
         file >> mapDeltas;
 
         for (const auto& i : mapDeltas) {
-            mempool.PrioritiseTransaction(i.first, i.second);
+            pool.PrioritiseTransaction(i.first, i.second);
         }
     } catch (const std::exception& e) {
         LogPrintf("Failed to deserialize mempool data on disk: %s. Continuing anyway.\n", e.what());
@@ -94,7 +95,7 @@ bool LoadMempool(void)
     return true;
 }
 
-bool DumpMempool(void)
+bool DumpMempool(const CTxMemPool& pool)
 {
     int64_t start = GetTimeMicros();
 
@@ -102,11 +103,11 @@ bool DumpMempool(void)
     std::vector<TxMempoolInfo> vinfo;
 
     {
-        LOCK(mempool.cs);
-        for (const auto &i : mempool.mapDeltas) {
+        LOCK(pool.cs);
+        for (const auto &i : pool.mapDeltas) {
             mapDeltas[i.first] = i.second;
         }
-        vinfo = mempool.infoAll();
+        vinfo = pool.infoAll();
     }
 
     int64_t mid = GetTimeMicros();
@@ -295,7 +296,7 @@ bool ChainstateManager::LoadExternalBlockFile(FILE* fileIn, CDiskBlockPos *dbp, 
 
 bool Chainstate::FlushStateToDisk(CValidationState& state, FlushStateMode mode, int nManualPruneHeight)
 {
-    int64_t nMempoolUsage = mempool.DynamicMemoryUsage();
+    int64_t nMempoolUsage = MempoolUsage();
     LOCK(cs_main);
     std::set<int> setFilesToPrune;
     bool full_flush_completed = false;

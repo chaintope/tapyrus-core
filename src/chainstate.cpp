@@ -21,6 +21,7 @@
 #include <shutdown.h>
 #include <trace.h>
 #include <transactioncolorchecker.h>
+#include <txmempool.h>
 #include <ui_interface.h>
 #include <chainnotifications.h>
 #include <validation.h>
@@ -46,6 +47,8 @@ static int64_t nTimeFlush = 0;
 static int64_t nTimeChainState = 0;
 static int64_t nTimePostConnect = 0;
 
+
+Chainstate::Chainstate(ChainstateManager& chainman, CTxMemPool& mempool) : m_chainman(chainman), m_mempool(mempool) {}
 
 CBlockIndex *pindexBestForkTip = nullptr, *pindexBestForkBase = nullptr;
 
@@ -279,12 +282,12 @@ DisconnectResult Chainstate::DisconnectBlock(const CBlock& block, const CBlockIn
 }
 
 /** Check warning conditions and do some notifications on new chain tip set. */
-void static UpdateTip(const CBlockIndex *pindexNew)
+void Chainstate::UpdateTip(const CBlockIndex *pindexNew)
 {
     AssertLockHeld(::cs_main);
 
     // New best block
-    mempool.AddTransactionsUpdated(1);
+    m_mempool.AddTransactionsUpdated(1);
 
     {
         UniqueLock lock(g_chainstate_manager.m_best_block_mutex);
@@ -298,7 +301,7 @@ void static UpdateTip(const CBlockIndex *pindexNew)
       pindexNew->GetBlockHash().ToString(), pindexNew->nHeight, pindexNew->nFeatures,
       pindexNew->xfield.ToString(),
       (unsigned long)pindexNew->nChainTx, FormatISO8601DateTime(pindexNew->GetBlockTime()),
-      g_chainstate_manager.Progress().Guess(pindexNew), g_chainstate_manager.ActiveChainstate().CoinsTip().DynamicMemoryUsage() * (1.0 / (1<<20)), g_chainstate_manager.ActiveChainstate().CoinsTip().GetCacheSize());
+      g_chainstate_manager.Progress().Guess(pindexNew), CoinsTip().DynamicMemoryUsage() * (1.0 / (1<<20)), CoinsTip().GetCacheSize());
     LogPrintf("\n");
 
 }
@@ -350,7 +353,12 @@ static void CheckForkWarningConditionsOnNewFork(CBlockIndex* pindexNewForkTip)
  * and instead just erase from the mempool as needed.
  */
 
-static void UpdateMempoolForReorg(DisconnectedBlockTransactions &disconnectpool, bool fAddToMempool)
+size_t Chainstate::MempoolUsage() const
+{
+    return m_mempool.DynamicMemoryUsage();
+}
+
+void Chainstate::UpdateMempoolForReorg(DisconnectedBlockTransactions &disconnectpool, bool fAddToMempool)
 {
     AssertLockHeld(cs_main);
     std::vector<uint256> vHashUpdate;
@@ -369,8 +377,8 @@ static void UpdateMempoolForReorg(DisconnectedBlockTransactions &disconnectpool,
             !AcceptToMemoryPool(*it, opt) ){
             // If the transaction doesn't make it in to the mempool, remove any
             // transactions that depend on it (which would now be orphans).
-            mempool.removeRecursive(**it, MemPoolRemovalReason::REORG);
-        } else if (mempool.exists((*it)->GetHashMalFix())) {
+            m_mempool.removeRecursive(**it, MemPoolRemovalReason::REORG);
+        } else if (m_mempool.exists((*it)->GetHashMalFix())) {
             vHashUpdate.push_back((*it)->GetHashMalFix());
         }
         ++it;
@@ -381,12 +389,12 @@ static void UpdateMempoolForReorg(DisconnectedBlockTransactions &disconnectpool,
     // previously-confirmed transactions back to the mempool.
     // UpdateTransactionsFromBlock finds descendants of any transactions in
     // the disconnectpool that were added back and cleans up the mempool state.
-    mempool.UpdateTransactionsFromBlock(vHashUpdate);
+    m_mempool.UpdateTransactionsFromBlock(vHashUpdate);
 
     // We also need to remove any now-immature transactions
-    mempool.removeForReorg(&g_chainstate_manager.ActiveChainstate().CoinsTip(), g_chainstate_manager.ActiveChain().Tip()->nHeight + 1, PolicyConstants::STANDARD_LOCKTIME_VERIFY_FLAGS);
+    m_mempool.removeForReorg(&g_chainstate_manager.ActiveChainstate().CoinsTip(), g_chainstate_manager.ActiveChain().Tip()->nHeight + 1, PolicyConstants::STANDARD_LOCKTIME_VERIFY_FLAGS);
     // Re-limit mempool size, in case we added any transactions
-    LimitMempoolSize(mempool, g_policy_settings->maxMempool, g_policy_settings->mempoolExpiry);
+    LimitMempoolSize(m_mempool, g_policy_settings->maxMempool, g_policy_settings->mempoolExpiry);
 }
 
 /** Apply the effects of this block (with given index) on the UTXO set represented by coins.
@@ -696,7 +704,7 @@ bool Chainstate::DisconnectTip(CValidationState& state, DisconnectedBlockTransac
         while (disconnectpool->DynamicMemoryUsage() > MAX_DISCONNECTED_TX_POOL_SIZE * 1000) {
             // Drop the earliest entry, and remove its children from the mempool.
             auto it = disconnectpool->queuedTx.get<insertion_order>().begin();
-            mempool.removeRecursive(**it, MemPoolRemovalReason::REORG);
+            m_mempool.removeRecursive(**it, MemPoolRemovalReason::REORG);
             disconnectpool->removeEntry(it);
         }
     }
@@ -793,7 +801,7 @@ bool Chainstate::ConnectTip(CValidationState& state, CBlockIndex* pindexNew, con
     int64_t nTime5 = GetTimeMicros(); nTimeChainState += nTime5 - nTime4;
     LogPrint(BCLog::BENCH, "  - Writing chainstate: %.2fms [%.2fs (%.2fms/blk)]\n", (nTime5 - nTime4) * MILLI, nTimeChainState * MICRO, nTimeChainState * MILLI / nBlocksTotal);
     // Remove conflicting transactions from the mempool.;
-    mempool.removeForBlock(blockConnecting.vtx, pindexNew->nHeight);
+    m_mempool.removeForBlock(blockConnecting.vtx, pindexNew->nHeight);
     disconnectpool.removeForBlock(blockConnecting.vtx);
 
     // If this block crossed a softfork activation boundary, evict mempool entries
@@ -802,7 +810,7 @@ bool Chainstate::ConnectTip(CValidationState& state, CBlockIndex* pindexNew, con
         const unsigned int newSoftforkFlags = g_chainstate_manager.Settings().ActivationFlagsChange(
             pindexNew->nHeight, pindexNew->nHeight + 1);
         if (newSoftforkFlags) {
-            mempool.removeForScriptFlagChange(PolicyConstants::STANDARD_SCRIPT_VERIFY_FLAGS | newSoftforkFlags, pindexNew->nHeight + 1);
+            m_mempool.removeForScriptFlagChange(PolicyConstants::STANDARD_SCRIPT_VERIFY_FLAGS | newSoftforkFlags, pindexNew->nHeight + 1);
         }
     }
 
@@ -967,7 +975,7 @@ bool Chainstate::ActivateBestChainStep(CValidationState& state, CBlockIndex* pin
         // any disconnected transactions back to the mempool.
         UpdateMempoolForReorg(disconnectpool, true);
     }
-    mempool.check(&CoinsTip());
+    m_mempool.check(&CoinsTip());
 
     // Callbacks/notifications for a new best chain.
     if (fInvalidFound)
@@ -1022,7 +1030,7 @@ bool Chainstate::ActivateBestChain(CValidationState &state, std::shared_ptr<cons
             do {
                 // We absolutely may not unlock cs_main until we've made forward progress
                 // (with the exception of shutdown due to hardware issues, low disk space, etc).
-                ConnectTrace connectTrace(mempool); // Destructed before cs_main is unlocked
+                ConnectTrace connectTrace(m_mempool); // Destructed before cs_main is unlocked
 
                 if (pindexMostWork == nullptr) {
                     pindexMostWork = FindMostWorkChain();

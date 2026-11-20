@@ -619,6 +619,8 @@ UniValue gettxout(const JSONRPCRequest& request)
 
     Coin coin;
     if (fMempool) {
+        assert(request.context.mempool);
+        CTxMemPool& mempool = *request.context.mempool;
         LOCK(mempool.cs);
         CCoinsViewMemPool view(&g_chainstate_manager.ActiveChainstate().CoinsTip(), mempool);
         if (!view.GetCoin(out, coin) || mempool.isSpent(out)) {
@@ -1299,7 +1301,7 @@ static UniValue getblockstats(const JSONRPCRequest& request)
             for (const CTxIn& in : tx->vin) {
                 CTransactionRef tx_in;
                 uint256 hashBlock;
-                if (!GetTransaction(in.prevout.hashMalFix, tx_in, hashBlock, false)) {
+                if (!GetTransaction(request.context.mempool.get(), in.prevout.hashMalFix, tx_in, hashBlock, false)) {
                     throw JSONRPCError(RPC_INTERNAL_ERROR, std::string("Unexpected internal error (tx index seems corrupt)"));
                 }
 
@@ -1449,7 +1451,7 @@ static UniValue getcolor(const JSONRPCRequest& request)
         // Check that the transaction id is valid
         CTransactionRef tx;
         uint256 hashBlock;
-        if (!GetTransaction(txid, tx, hashBlock, true)) {
+        if (!GetTransaction(request.context.mempool.get(), txid, tx, hashBlock, true)) {
             throw JSONRPCError(RPC_INVALID_PARAMETER, std::string("Invalid transaction id :") + request.params[1].get_str());
         }
 

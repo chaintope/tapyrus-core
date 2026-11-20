@@ -3194,7 +3194,8 @@ UniValue signrawtransactionwithwallet(const JSONRPCRequest& request)
 
     // Sign the transaction
     LOCK2(cs_main, pwallet->cs_wallet);
-    return SignTransaction(mtx, request.params[1], pwallet, false, request.params[2], sigScheme);
+    assert(request.context.mempool);
+    return SignTransaction(*request.context.mempool, mtx, request.params[1], pwallet, false, request.params[2], sigScheme);
 }
 
 static UniValue bumpfee(const JSONRPCRequest& request)
@@ -3433,7 +3434,8 @@ UniValue generate(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_INTERNAL_ERROR, "No coinbase script available");
     }
 
-    return generateBlocks(coinbase_script, num_generate, true, cPrivKey);
+    assert(request.context.mempool);
+    return generateBlocks(*request.context.mempool, coinbase_script, num_generate, true, cPrivKey);
 }
 
 UniValue rescanblockchain(const JSONRPCRequest& request)
@@ -4404,7 +4406,7 @@ UniValue walletfundpsttfee(const JSONRPCRequest& request)
         // no-wallet-required Signer path.
         CTransactionRef feeTx;
         uint256 hashBlock;
-        if (!GetTransaction(txid, feeTx, hashBlock, true)) {
+        if (!GetTransaction(request.context.mempool.get(), txid, feeTx, hashBlock, true)) {
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "fee_input's txid not found");
         }
         if ((unsigned int)nOutput >= feeTx->vout.size()) {

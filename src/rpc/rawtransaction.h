@@ -12,13 +12,14 @@
 
 class CBasicKeyStore;
 class CTxIn;
+class CTxMemPool;
 class CTxOut;
 struct CMutableTransaction;
 class UniValue;
 enum class SignatureScheme;
 
 /** Sign a transaction with the given keystore and previous transactions */
-UniValue SignTransaction(CMutableTransaction& mtx, const UniValue& prevTxs, CBasicKeyStore *keystore, bool tempKeystore, const UniValue& hashType, const SignatureScheme sigScheme);
+UniValue SignTransaction(const CTxMemPool& mempool, CMutableTransaction& mtx, const UniValue& prevTxs, CBasicKeyStore *keystore, bool tempKeystore, const UniValue& hashType, const SignatureScheme sigScheme);
 
 /** Build the output for one destination and amount; shared by ConstructTransaction and the PSTT output RPCs */
 CTxOut BuildDestinationTxOut(const CTxDestination& destination, const UniValue& value);

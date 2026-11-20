@@ -18,6 +18,7 @@
 #include <diskblockpos.h>
 #include <xfieldhistorymap.h>
 #include <undo.h>
+#include <policy/packages.h>
 #include <scriptcheck.h>
 #include <cassert>
 #include <map>
@@ -28,6 +29,8 @@ class CBlockTreeDB;
 class CCoinsViewDB;
 class ChainstateManager;
 class CIssuedColorIds;
+class CTxMemPool;
+struct CTxMempoolAcceptanceOptions;
 struct DisconnectedBlockTransactions;
 
 
@@ -136,8 +139,40 @@ private:
     int64_t m_last_write GUARDED_BY(cs_main){0};
     int64_t m_last_flush GUARDED_BY(cs_main){0};
 
+    //! Updated as blocks connect and disconnect; NodeContext owns it.
+    CTxMemPool& m_mempool;
+
 public:
-    explicit Chainstate(ChainstateManager& chainman) : m_chainman(chainman) {}
+    Chainstate(ChainstateManager& chainman, CTxMemPool& mempool);
+
+    /** Loads mempool.dat into this chainstate's mempool. */
+    bool LoadMempool();
+    /** Bytes the mempool uses; FlushStateToDisk lends the rest of -maxmempool to the coins cache. */
+    size_t MempoolUsage() const;
+
+    /** (Try to) add a transaction to this chainstate's mempool. Transactions it
+     *  replaces are appended to opt.txnReplaced. */
+    bool AcceptToMemoryPool(const CTransactionRef& tx, CTxMempoolAcceptanceOptions& opt) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
+    /**
+     * Submits the package to this chainstate's mempool after validation checks.
+     * It gives granular results with the state of each transaction in the package and
+     * the state of the package as a whole.
+     *
+     * Admission is NOT atomic. Transactions are evaluated and admitted individually in
+     * package order. A false return value means at least one transaction was rejected, but
+     * earlier transactions in the package may already have been admitted. This is intentional:
+     * packages are a submission convenience, not an all-or-nothing commit. Callers must
+     * inspect per-transaction results to determine which transactions were admitted.
+     * Results describe the mempool after the whole package: a transaction a later one
+     * trimmed is "mempool full", and one a later one replaced is "replaced-in-package".
+     *
+     * @param package The package of transactions to be submitted.
+     * @param state A reference to the validation state that tracks the package validation results.
+     * @param results A reference to the package validation state that records the validation outcome of each transaction.
+     * @param opt Options that control how the mempool accepts transactions.
+     * @return True if all transactions in the package were successfully accepted, false otherwise.
+     */
+    bool SubmitPackageToMempool(const Package& package, CValidationState& state, PackageValidationState& results, CTxMempoolAcceptanceOptions& opt);
 
     CChain m_chain;
 
@@ -196,7 +231,10 @@ public:
 
     void UnloadBlockIndex();
 
+
 private:
+    void UpdateTip(const CBlockIndex* pindexNew) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
+    void UpdateMempoolForReorg(DisconnectedBlockTransactions& disconnectpool, bool fAddToMempool) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
     bool ActivateBestChainStep(CValidationState& state, CBlockIndex* pindexMostWork, const std::shared_ptr<const CBlock>& pblock, bool& fInvalidFound, ConnectTrace& connectTrace);
     bool ConnectTip(CValidationState& state, CBlockIndex* pindexNew, const std::shared_ptr<const CBlock>& pblock, ConnectTrace& connectTrace, DisconnectedBlockTransactions &disconnectpool);
 

@@ -216,7 +216,7 @@ BOOST_FIXTURE_TEST_CASE(pstt_rpc_walletsignpstt_completes_after_update, PsttWall
     CTxMempoolAcceptanceOptions opt;
     opt.flags = MempoolAcceptanceFlags::BYPASSS_LIMITS;
     LOCK(cs_main);
-    BOOST_CHECK(AcceptToMemoryPool(finalTx, opt));
+    BOOST_CHECK(g_chainstate_manager.ActiveChainstate().AcceptToMemoryPool(finalTx, opt));
 }
 
 BOOST_FIXTURE_TEST_CASE(pstt_rpc_walletprocesspstt_updates_and_signs_in_one_call, PsttWalletTestingSetup)

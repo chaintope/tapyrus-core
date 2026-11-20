@@ -477,13 +477,13 @@ void CTxMemPool::removeForReorg(const CCoinsViewCache *pcoins, unsigned int nMem
     AssertLockHeld(cs_main); // coins tip access
     LOCK(cs);
     CCoinsViewCache& coins_tip = g_chainstate_manager.ActiveChainstate().CoinsTip();
-    CCoinsViewMemPool viewMemPool(&coins_tip, mempool);
+    CCoinsViewMemPool viewMemPool(&coins_tip, *this);
     setEntries txToRemove;
     for (indexed_transaction_set::const_iterator it = mapTx.begin(); it != mapTx.end(); it++) {
         const CTransaction& tx = it->GetTx();
         LockPoints lp = it->GetLockPoints();
         bool validLP =  TestLockPointValidity(&lp);
-        if (!CheckFinalTx(tx, flags) || !CheckSequenceLocks(tx, flags, viewMemPool, &lp, validLP)) {
+        if (!CheckFinalTx(tx, flags) || !CheckSequenceLocks(*this, tx, flags, viewMemPool, &lp, validLP)) {
             // Note if CheckSequenceLocks fails the LockPoints may still be invalid
             // So it's critical that we remove the tx and not depend on the LockPoints.
             txToRemove.insert(it);

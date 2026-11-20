@@ -24,9 +24,18 @@
 #include <string>
 #include <vector>
 
+namespace validation_block_tests {
+/** Builds the test's blocks from its own mempool. */
 struct RegtestingSetup : public TestingSetup {
     RegtestingSetup() : TestingSetup(TAPYRUS_MODES::DEV) {}
+
+    std::shared_ptr<CBlock> Block(const uint256& prev_hash, int height);
+    std::shared_ptr<CBlock> FinalizeBlock(std::shared_ptr<CBlock> pblock);
+    const std::shared_ptr<const CBlock> GoodBlock(const uint256& prev_hash, const int height);
+    const std::shared_ptr<const CBlock> BadBlock(const uint256& prev_hash, const int height);
+    void BuildChain(const uint256& root, int height, const unsigned int invalid_rate, const unsigned int branch_rate, const unsigned int max_size, std::vector<std::shared_ptr<const CBlock>>& blocks);
 };
+} // namespace validation_block_tests
 
 BOOST_FIXTURE_TEST_SUITE(validation_block_tests, RegtestingSetup)
 
@@ -56,7 +65,7 @@ struct TestSubscriber : public CValidationInterface {
     }
 };
 
-std::shared_ptr<CBlock> Block(const uint256& prev_hash, int height)
+std::shared_ptr<CBlock> RegtestingSetup::Block(const uint256& prev_hash, int height)
 {
     static int i = 0;
     static uint64_t time = g_chainstate_manager.Settings().GenesisBlock().nTime;
@@ -69,7 +78,7 @@ std::shared_ptr<CBlock> Block(const uint256& prev_hash, int height)
         // Held across both, so the template builds on the tip the options read.
         LOCK(cs_main);
         const BlockAssembler::Options options(*g_policy_settings, gArgs, g_chainstate_manager);
-        ptemplate = BlockAssembler(g_chainstate_manager, options).CreateNewBlock(pubKey, false);
+        ptemplate = BlockAssembler(g_chainstate_manager, *m_node.mempool, options).CreateNewBlock(pubKey, false);
     }
     auto pblock = std::make_shared<CBlock>(ptemplate->block);
     pblock->hashPrevBlock = prev_hash;
@@ -84,7 +93,7 @@ std::shared_ptr<CBlock> Block(const uint256& prev_hash, int height)
     return pblock;
 }
 
-std::shared_ptr<CBlock> FinalizeBlock(std::shared_ptr<CBlock> pblock)
+std::shared_ptr<CBlock> RegtestingSetup::FinalizeBlock(std::shared_ptr<CBlock> pblock)
 {
     pblock->hashMerkleRoot = BlockMerkleRoot(*pblock);
     pblock->hashImMerkleRoot = BlockMerkleRoot(*pblock, nullptr, true);
@@ -100,13 +109,13 @@ std::shared_ptr<CBlock> FinalizeBlock(std::shared_ptr<CBlock> pblock)
 }
 
 // construct a valid block
-const std::shared_ptr<const CBlock> GoodBlock(const uint256& prev_hash, const int height)
+const std::shared_ptr<const CBlock> RegtestingSetup::GoodBlock(const uint256& prev_hash, const int height)
 {
     return FinalizeBlock(Block(prev_hash, height));
 }
 
 // construct an invalid block (but with a valid header)
-const std::shared_ptr<const CBlock> BadBlock(const uint256& prev_hash, const int height)
+const std::shared_ptr<const CBlock> RegtestingSetup::BadBlock(const uint256& prev_hash, const int height)
 {
     auto pblock = Block(prev_hash, height);
 
@@ -121,7 +130,7 @@ const std::shared_ptr<const CBlock> BadBlock(const uint256& prev_hash, const int
     return ret;
 }
 
-void BuildChain(const uint256& root, int height, const unsigned int invalid_rate, const unsigned int branch_rate, const unsigned int max_size, std::vector<std::shared_ptr<const CBlock>>& blocks)
+void RegtestingSetup::BuildChain(const uint256& root, int height, const unsigned int invalid_rate, const unsigned int branch_rate, const unsigned int max_size, std::vector<std::shared_ptr<const CBlock>>& blocks)
 {
     if (blocks.size() >= max_size) return;
 
