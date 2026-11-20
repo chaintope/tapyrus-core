@@ -285,17 +285,15 @@ public:
     }
     std::unique_ptr<Handler> handleNotifyBlockTip(NotifyBlockTipFn fn) override
     {
-        return MakeHandler(::uiInterface.NotifyBlockTip.connect([fn](bool initial_download, const CBlockIndex* block) {
-            fn(initial_download, block->nHeight, block->GetBlockTime(),
-                g_chainstate_manager.Progress().Guess(block));
+        return MakeHandler(::uiInterface.NotifyBlockTip.connect([fn](bool initial_download, const CBlockIndex* block, double verification_progress) {
+            fn(initial_download, block->nHeight, block->GetBlockTime(), verification_progress);
         }));
     }
     std::unique_ptr<Handler> handleNotifyHeaderTip(NotifyHeaderTipFn fn) override
     {
         return MakeHandler(
-            ::uiInterface.NotifyHeaderTip.connect([fn](bool initial_download, const CBlockIndex* block) {
-                fn(initial_download, block->nHeight, block->GetBlockTime(),
-                    g_chainstate_manager.Progress().Guess(block));
+            ::uiInterface.NotifyHeaderTip.connect([fn](bool initial_download, const CBlockIndex* block, double verification_progress) {
+                fn(initial_download, block->nHeight, block->GetBlockTime(), verification_progress);
             }));
     }
 
