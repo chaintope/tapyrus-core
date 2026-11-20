@@ -25,6 +25,7 @@ class CBlock;
 class CBlockIndex;
 class CBlockUndo;
 class CValidationState;
+class ChainNotifications;
 class HeightDerivedConsensusRules;
 
 /**
@@ -82,7 +83,8 @@ public:
     // Setting the target to > than 550MB will make it likely we can respect the target.
     static constexpr uint64_t MIN_DISK_SPACE_FOR_BLOCK_FILES{550 * 1024 * 1024};
 
-    BlockFileManager(const Options& options, BlockIndexMap& blockIndex);
+    /** notifications receives fatal file errors. */
+    BlockFileManager(const Options& options, BlockIndexMap& blockIndex, ChainNotifications& notifications);
 
     const Options& GetOptions() const { return m_options; }
 
@@ -192,6 +194,7 @@ private:
     //! Read by the network thread while the import thread sets it.
     std::atomic_bool m_importing{false};
     BlockIndexMap& m_block_index;
+    ChainNotifications& m_notifications;
 
     std::vector<CBlockFileInfo> vinfoBlockFile GUARDED_BY(cs_LastBlockFile);
     int nLastBlockFile GUARDED_BY(cs_LastBlockFile) = 0;
