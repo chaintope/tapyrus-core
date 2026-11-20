@@ -21,7 +21,6 @@
 #include <federationparams.h>
 #include <hash.h>
 #include <index/txindex.h>
-#include <policy/fees.h>
 #include <policy/packages.h>
 #include <policy/policy.h>
 #include <policy/policyconstants.h>
@@ -53,8 +52,7 @@ class ConnectTrace;
 extern RecursiveMutex cs_main;
 
 
-CBlockPolicyEstimator feeEstimator;
-CTxMemPool mempool(&feeEstimator);
+CTxMemPool mempool;
 std::atomic_bool g_is_mempool_loaded{false};
 
 CBlockIndex* FindForkInGlobalIndex(const CChain& chain, const CBlockLocator& locator)

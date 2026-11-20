@@ -11,6 +11,7 @@
 
 #include <functional>
 #include <memory>
+#include <vector>
 
 class CBlock;
 class CBlockIndex;
@@ -22,6 +23,7 @@ class CValidationState;
 class uint256;
 class CScheduler;
 class CTxMemPool;
+class CTxMemPoolEntry;
 enum class MemPoolRemovalReason;
 
 // These functions dispatch to one or all registered wallets
@@ -103,6 +105,15 @@ protected:
      */
     virtual void TransactionRemovedFromMempool(const CTransactionRef &ptx) {}
     /**
+     * For the fee estimator: a mempool entry was added, and whether fee estimation may use it;
+     * an entry was erased; and the entries a block confirms, before they leave the mempool.
+     *
+     * Called synchronously, with the mempool lock held.
+     */
+    virtual void MempoolEntryAdded(const CTxMemPoolEntry& entry, bool validFeeEstimate) {}
+    virtual void MempoolEntryErased(const uint256& txid) {}
+    virtual void MempoolEntriesConfirmed(unsigned int nBlockHeight, const std::vector<const CTxMemPoolEntry*>& entries) {}
+    /**
      * Notifies listeners of a block being connected.
      * Provides a vector of transactions evicted from the mempool as a result.
      *
@@ -180,6 +191,9 @@ private:
     friend void ::CallFunctionInValidationInterfaceQueue(std::function<void ()> func);
 
     void MempoolEntryRemoved(CTransactionRef tx, MemPoolRemovalReason reason);
+    void MempoolEntryAdded(const CTxMemPoolEntry& entry, bool validFeeEstimate);
+    void MempoolEntryErased(const uint256& txid);
+    void MempoolEntriesConfirmed(unsigned int nBlockHeight, const std::vector<const CTxMemPoolEntry*>& entries);
 
 public:
     /** Register a CScheduler to give callbacks which should run in the background (may only be called once) */

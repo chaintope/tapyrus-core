@@ -216,7 +216,6 @@ struct descendant_score {};
 struct entry_time {};
 struct ancestor_score {};
 
-class CBlockPolicyEstimator;
 
 /**
  * Information about a mempool transaction.
@@ -313,7 +312,6 @@ class CTxMemPool
 private:
     uint32_t nCheckFrequency GUARDED_BY(cs); //!< Value n means that n times in 2^32 we check.
     unsigned int nTransactionsUpdated; //!< Used by getblocktemplate to trigger CreateNewBlock() invocation
-    CBlockPolicyEstimator* minerPolicyEstimator;
 
     uint64_t totalTxSize GUARDED_BY(cs);      //!< sum of all mempool tx's serialized sizes.
     uint64_t cachedInnerUsage; //!< sum of dynamic memory usage of all the map elements (NOT the maps themselves)
@@ -391,7 +389,7 @@ public:
 
     /** Create a new CTxMemPool.
      */
-    explicit CTxMemPool(CBlockPolicyEstimator* estimator = nullptr);
+    CTxMemPool();
 
     /**
      * If sanity-checking is turned on, check makes sure the pool is
@@ -526,6 +524,11 @@ public:
 
     boost::signals2::signal<void (CTransactionRef)> NotifyEntryAdded;
     boost::signals2::signal<void (CTransactionRef, MemPoolRemovalReason)> NotifyEntryRemoved;
+    /** Raised under cs for the fee estimator: an entry was added (and whether fee estimation
+     *  may use it), an entry was erased, and the entries a block confirms, before they are removed. */
+    boost::signals2::signal<void (const CTxMemPoolEntry&, bool validFeeEstimate)> NotifyEntryAddedForFees;
+    boost::signals2::signal<void (const uint256& txid)> NotifyEntryErasedForFees;
+    boost::signals2::signal<void (unsigned int nBlockHeight, const std::vector<const CTxMemPoolEntry*>& entries)> NotifyBlockForFees;
 
 private:
     /** UpdateForDescendants is used by UpdateTransactionsFromBlock to update

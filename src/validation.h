@@ -44,7 +44,6 @@ class CIssuedColorIds;
 class CConnman;
 class CScriptCheck;
 class ValidationCache;
-class CBlockPolicyEstimator;
 class CTxMemPool;
 class CValidationState;
 class HeightDerivedConsensusRules;
@@ -109,7 +108,6 @@ static const bool DEFAULT_PEERBLOOMFILTERS = true;
 static const int DEFAULT_STOPATHEIGHT = 0;
 
 extern RecursiveMutex cs_main;
-extern CBlockPolicyEstimator feeEstimator;
 extern CTxMemPool mempool;
 extern std::atomic_bool g_is_mempool_loaded;
 
