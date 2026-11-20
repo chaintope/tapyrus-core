@@ -9,6 +9,7 @@
 #include <chainparams.h>
 #include <checkblock.h>
 #include <consensussettings.h>
+#include <disconnectedtransactions.h>
 #include <util.h>
 #include <issuedcolorids.h>
 
