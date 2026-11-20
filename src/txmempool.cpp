@@ -1166,8 +1166,6 @@ void CTxMemPool::GetTransactionAncestry(const uint256& txid, size_t& ancestors, 
     }
 }
 
-SaltedTxidHasher::SaltedTxidHasher() : k0(GetRand(std::numeric_limits<uint64_t>::max())), k1(GetRand(std::numeric_limits<uint64_t>::max())) {}
-
 std::string RemovalReasonToString(const MemPoolRemovalReason& r) noexcept
 {
     switch (r) {

@@ -8,7 +8,7 @@
 #define BITCOIN_COINS_H
 
 #include <coin.h>
-#include <hash.h>
+#include <hasher.h>
 #include <memusage.h>
 #include <primitives/outpoint.h>
 #include <uint256.h>
@@ -19,25 +19,6 @@
 #include <support/allocators/pool.h>
 
 #include <unordered_map>
-
-class SaltedOutpointHasher
-{
-private:
-    /** Salt */
-    const uint64_t k0, k1;
-
-public:
-    SaltedOutpointHasher();
-
-    /**
-     * This *must* return size_t. With Boost 1.46 on 32-bit systems the
-     * unordered_map will behave unpredictably if the custom hasher returns a
-     * uint64_t, resulting in failures when syncing the chain (#4634).
-     */
-    size_t operator()(const COutPoint& id) const {
-        return SipHashUint256Extra(k0, k1, id.hashMalFix, id.n);
-    }
-};
 
 // Forward-declare CCoinsCacheEntry so CoinsCachePair can be defined before
 // CCoinsCacheEntry is complete. The linked-list pointers in CCoinsCacheEntry
