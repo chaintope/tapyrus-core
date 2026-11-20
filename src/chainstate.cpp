@@ -22,6 +22,7 @@
 #include <transactioncolorchecker.h>
 #include <ui_interface.h>
 #include <chainnotifications.h>
+#include <validation.h>
 #include <xfieldhistory.h>
 
 #include <deque>
