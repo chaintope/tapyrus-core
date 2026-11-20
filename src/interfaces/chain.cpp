@@ -4,6 +4,8 @@
 
 #include <interfaces/chain.h>
 
+#include <chainstate.h>
+#include <chainstatemanager.h>
 #include <connman.h>
 #include <consensus/validation.h>
 #include <net_processing.h>
@@ -35,19 +37,19 @@ public:
 
     CFeeRate mempoolMinFee() const override
     {
-        return ::mempool.GetMinFee(g_policy_settings->maxMempool);
+        return m_node.mempool->GetMinFee(g_policy_settings->maxMempool);
     }
 
     bool hasDescendantsInMempool(const uint256& txid) const override
     {
-        LOCK(::mempool.cs);
-        auto it = ::mempool.mapTx.find(txid);
-        return it != ::mempool.mapTx.end() && it->GetCountWithDescendants() > 1;
+        LOCK(m_node.mempool->cs);
+        auto it = m_node.mempool->mapTx.find(txid);
+        return it != m_node.mempool->mapTx.end() && it->GetCountWithDescendants() > 1;
     }
 
     void getTransactionAncestry(const uint256& txid, size_t& ancestors, size_t& descendants) const override
     {
-        ::mempool.GetTransactionAncestry(txid, ancestors, descendants);
+        m_node.mempool->GetTransactionAncestry(txid, ancestors, descendants);
     }
 
     bool checkChainLimits(const CTransactionRef& tx) const override
@@ -56,24 +58,24 @@ public:
         CTxMemPoolEntry entry(tx, 0, 0, 0, false, 0, lp);
         CTxMemPool::setEntries ancestors;
         std::string error;
-        LOCK(::mempool.cs);
-        return ::mempool.CalculateMemPoolAncestors(entry, ancestors, g_policy_settings->ancestorLimit, g_policy_settings->ancestorSizeLimit,
-                                                   g_policy_settings->descendantLimit, g_policy_settings->descendantSizeLimit, error);
+        LOCK(m_node.mempool->cs);
+        return m_node.mempool->CalculateMemPoolAncestors(entry, ancestors, g_policy_settings->ancestorLimit, g_policy_settings->ancestorSizeLimit,
+                                                         g_policy_settings->descendantLimit, g_policy_settings->descendantSizeLimit, error);
     }
 
     RBFTransactionState isRBFOptIn(const CTransaction& tx) const override
     {
-        LOCK(::mempool.cs);
-        return IsRBFOptIn(tx, ::mempool);
+        LOCK(m_node.mempool->cs);
+        return IsRBFOptIn(tx, *m_node.mempool);
     }
 
     bool broadcastTransaction(const CTransactionRef& tx, CAmount max_tx_fee, bool relay, CValidationState& state) override
     {
         LOCK(::cs_main);
-        if (!::mempool.exists(tx->GetHashMalFix())) {
+        if (!m_node.mempool->exists(tx->GetHashMalFix())) {
             CTxMempoolAcceptanceOptions opt;
             opt.nAbsurdFee = max_tx_fee;
-            if (!AcceptToMemoryPool(tx, opt)) {
+            if (!g_chainstate_manager.ActiveChainstate().AcceptToMemoryPool(tx, opt)) {
                 state = opt.state;
                 return false;
             }

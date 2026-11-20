@@ -37,15 +37,18 @@ class CBlock;
 class CBlockHeader;
 class CBlockHeaderAndShortTxIDs;
 class CChainParams;
+class CTxMemPool;
 struct CNodeStateStats;
 
 
 class PeerManager final : public CValidationInterface, public NetEventsInterface {
 private:
     CConnman& m_connman;
+    //! Transactions peers send are accepted into it and relayed from it.
+    CTxMemPool& m_mempool;
 
 public:
-    PeerManager(CConnman& connman, CScheduler& scheduler, PeerNotifications& notifications);
+    PeerManager(CConnman& connman, CTxMemPool& mempool, CScheduler& scheduler, PeerNotifications& notifications);
 
     /**
      * Overridden from CValidationInterface.

@@ -12,6 +12,7 @@
 #include <notificationhub.h>
 #include <policy/fees.h>
 #include <policy/policysettings.h>
+#include <txmempool.h>
 
 NodeContext::NodeContext() = default;
 

@@ -325,8 +325,8 @@ void TestGUI_coloredCoin()
     auto mineAndUpdate = [&]() {
         std::vector<CMutableTransaction> mempoolTxns;
         {
-            LOCK(mempool.cs);
-            for (const CTxMemPoolEntry& e : mempool.mapTx)
+            LOCK(test.m_node.mempool->cs);
+            for (const CTxMemPoolEntry& e : test.m_node.mempool->mapTx)
                 mempoolTxns.emplace_back(*e.GetSharedTx());
         }
         test.CreateAndProcessBlock(mempoolTxns, GetScriptForRawPubKey(test.coinbaseKey.GetPubKey()));

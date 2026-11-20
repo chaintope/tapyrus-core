@@ -526,7 +526,7 @@ public:
         CTxMempoolAcceptanceOptions opt;
         {
             LOCK(cs_main);
-            AcceptToMemoryPool(tx, opt);
+            g_chainstate_manager.ActiveChainstate().AcceptToMemoryPool(tx, opt);
         }
         CreateAndProcessBlock({ CMutableTransaction(*tx) }, CScript() <<  ToByteVector(coinbaseKey.GetPubKey()) << OP_CHECKSIG);
 

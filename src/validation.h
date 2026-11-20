@@ -15,7 +15,6 @@
 #include <coinsviewcache.h>
 #include <fs.h>
 #include <policy/feerate.h>
-#include <policy/packages.h>
 #include <script/script_error.h>
 #include <sync.h>
 #include <chainparams.h>
@@ -108,8 +107,6 @@ static const bool DEFAULT_PEERBLOOMFILTERS = true;
 static const int DEFAULT_STOPATHEIGHT = 0;
 
 extern RecursiveMutex cs_main;
-extern CTxMemPool mempool;
-extern std::atomic_bool g_is_mempool_loaded;
 
 /** Minimum blocks required to signal NODE_NETWORK_LIMITED */
 static const unsigned int NODE_NETWORK_LIMITED_MIN_BLOCKS = 288;
@@ -159,14 +156,14 @@ bool LoadGenesisBlock();
 bool LoadBlockIndex() EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 /** Update the chain tip based on database information. */
 bool LoadChainTip();
-/** Unload database information */
-void UnloadBlockIndex();
+/** Unload database information, and clear the mempool if one is given */
+void UnloadBlockIndex(CTxMemPool* mempool);
 /** Run instances of script checking worker threads */
 void StartScriptCheckWorkerThreads(int threads_num);
 /** Check whether we are doing an initial block download (synchronizing from disk or network) */
 bool IsInitialBlockDownload();
-/** Retrieve a transaction (from memory pool, or from disk, if possible) */
-bool GetTransaction(const uint256& hash, CTransactionRef& tx, uint256& hashBlock, bool fAllowSlow = false, CBlockIndex* blockIndex = nullptr);
+/** Retrieve a transaction (from the mempool if one is given, or from disk, if possible) */
+bool GetTransaction(const CTxMemPool* mempool, const uint256& hash, CTransactionRef& tx, uint256& hashBlock, bool fAllowSlow = false, CBlockIndex* blockIndex = nullptr);
 /**
  * Find the best known block, and make it the tip of the block chain
  *
@@ -181,10 +178,6 @@ void FlushStateToDisk();
 void PruneAndFlush();
 /** Prune block files up to a given height */
 void PruneBlockFilesManual(int nManualPruneHeight);
-
-/** (try to) add transaction to memory pool
- * plTxnReplaced will be appended to with all transactions replaced from mempool **/
-bool AcceptToMemoryPool(const CTransactionRef &tx, CTxMempoolAcceptanceOptions &opt) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 
 /** remove old transactions from mempool based on age to keep it within size limits*/
 void LimitMempoolSize(CTxMemPool& pool, size_t limit, unsigned long age) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
@@ -223,7 +216,7 @@ bool CheckFinalTx(const CTransaction &tx, int flags = -1);
  *
  * The LOCKTIME_* flags are defined in ConsensusConstants.
  */
-bool CheckSequenceLocks(const CTransaction &tx, int flags,  CCoinsViewMemPool& viewMemPool, LockPoints* lp = nullptr, bool useExistingLockPoints = false);
+bool CheckSequenceLocks(const CTxMemPool& pool, const CTransaction &tx, int flags,  CCoinsViewMemPool& viewMemPool, LockPoints* lp = nullptr, bool useExistingLockPoints = false);
 
 /**
  * Check whether all inputs of this transaction are valid (no double spends, scripts & sigs, amounts)
@@ -281,32 +274,5 @@ int GetSpendHeight(const CCoinsViewCache& inputs);
 static const unsigned int REJECT_INTERNAL = 0x100;
 /** Too high fee. Can not be triggered by P2P transactions */
 static const unsigned int REJECT_HIGHFEE = 0x100;
-
-/** Puts the transactions not already in the mempool into package; the others get a duplicate rejection in results. */
-void FilterMempoolDuplicates(const std::vector<CTransaction>& txns, Package& package, PackageValidationState& results);
-
-/**
- * SubmitPackageToMempool is used to submit the package to mempool after validation checks.
- * It gives granular results with the state of each transaction in the package and
- * the state of the package as a whole.
- *
- * Admission is NOT atomic. Transactions are evaluated and admitted individually in
- * package order. A false return value means at least one transaction was rejected, but
- * earlier transactions in the package may already have been admitted. This is intentional:
- * packages are a submission convenience, not an all-or-nothing commit. Callers must
- * inspect per-transaction results to determine which transactions were admitted.
- * Results describe the mempool after the whole package: a transaction a later one
- * trimmed is "mempool full", and one a later one replaced is "replaced-in-package".
- *
- * @param package The package of transactions to be submitted.
- * @param state A reference to the validation state that tracks the package validation results.
- * @param results A reference to the package validation state that records the validation outcome of each transaction.
- * @param opt Options that control how the mempool accepts transactions.
- * @return True if all transactions in the package were successfully accepted, false otherwise.
- */
-bool SubmitPackageToMempool(const Package& package,
-                                  CValidationState& state,
-                                  PackageValidationState& results,
-                                  CTxMempoolAcceptanceOptions& opt);
 
 #endif // BITCOIN_VALIDATION_H

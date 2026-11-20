@@ -7,6 +7,7 @@
 #include <chainparams.h>
 #include <core_io.h>
 #include <index/txindex.h>
+#include <nodecontext.h>
 #include <primitives/block.h>
 #include <primitives/transaction.h>
 #include <validation.h>
@@ -348,7 +349,7 @@ bool RESTHandler::rest_mempool_info(HTTPRequest* req, const std::string& strURIP
 
     switch (rf) {
     case RetFormat::JSON: {
-        UniValue mempoolInfoObject = mempoolInfoToJSON();
+        UniValue mempoolInfoObject = mempoolInfoToJSON(*m_node.mempool);
 
         std::string strJSON = mempoolInfoObject.write() + "\n";
         req->WriteHeader("Content-Type", "application/json");
@@ -370,7 +371,7 @@ bool RESTHandler::rest_mempool_contents(HTTPRequest* req, const std::string& str
 
     switch (rf) {
     case RetFormat::JSON: {
-        UniValue mempoolObject = mempoolToJSON(true);
+        UniValue mempoolObject = mempoolToJSON(*m_node.mempool, true);
 
         std::string strJSON = mempoolObject.write() + "\n";
         req->WriteHeader("Content-Type", "application/json");
@@ -400,7 +401,7 @@ bool RESTHandler::rest_tx(HTTPRequest* req, const std::string& strURIPart) const
 
     CTransactionRef tx;
     uint256 hashBlock = uint256();
-    if (!GetTransaction(hash, tx, hashBlock, true))
+    if (!GetTransaction(m_node.mempool.get(), hash, tx, hashBlock, true))
         return RESTERR(req, HTTP_NOT_FOUND, hashStr + " not found");
 
     CDataStream ssTx(SER_NETWORK, PROTOCOL_VERSION | RPCSerializationFlags());
@@ -562,6 +563,7 @@ bool RESTHandler::rest_getutxos(HTTPRequest* req, const std::string& strURIPart)
 
         if (fCheckMemPool) {
             // use db+mempool as cache backend in case user likes to query mempool
+            CTxMemPool& mempool = *m_node.mempool;
             LOCK2(cs_main, mempool.cs);
             CCoinsViewCache& viewChain = g_chainstate_manager.ActiveChainstate().CoinsTip();
             CCoinsViewMemPool viewMempool(&viewChain, mempool);

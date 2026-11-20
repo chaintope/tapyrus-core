@@ -162,8 +162,8 @@ public:
     }
     int64_t getTotalBytesRecv() override { return m_context.connman ? m_context.connman->GetTotalBytesRecv() : 0; }
     int64_t getTotalBytesSent() override { return m_context.connman ? m_context.connman->GetTotalBytesSent() : 0; }
-    size_t getMempoolSize() override { LOCK(mempool.cs); return ::mempool.size(); }
-    size_t getMempoolDynamicUsage() override { return ::mempool.DynamicMemoryUsage(); }
+    size_t getMempoolSize() override { LOCK(m_context.mempool->cs); return m_context.mempool->size(); }
+    size_t getMempoolDynamicUsage() override { return m_context.mempool->DynamicMemoryUsage(); }
     bool getHeaderTip(int& height, int64_t& block_time) override
     {
         LOCK(::cs_main);

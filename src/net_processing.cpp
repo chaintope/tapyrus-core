@@ -191,7 +191,7 @@ bool PeerManager::MarkBlockAsInFlight(NodeId nodeid, const uint256& hash, const 
     MarkBlockAsReceived(hash, nodeid);
 
     std::list<QueuedBlock>::iterator it = state->vBlocksInFlight.insert(state->vBlocksInFlight.end(),
-            {hash, pindex, pindex != nullptr, std::unique_ptr<PartiallyDownloadedBlock>(pit ? new PartiallyDownloadedBlock(&mempool) : nullptr)});
+            {hash, pindex, pindex != nullptr, std::unique_ptr<PartiallyDownloadedBlock>(pit ? new PartiallyDownloadedBlock(&m_mempool) : nullptr)});
     if (state->vBlocksInFlight.size() == 1) {
         // We're starting a block download (batch) from this peer.
         state->nDownloadingSince = GetTimeMicros();
@@ -575,8 +575,8 @@ bool PeerManager::BlockRequestAllowed(const CBlockIndex* pindex)
         (g_chainstate_manager.BestHeader()->GetBlockTime() - pindex->GetBlockTime() < STALE_RELAY_AGE_LIMIT);
 }
 
-PeerManager::PeerManager(CConnman& connman, CScheduler& scheduler, PeerNotifications& notifications)
-    : m_connman(connman), m_stale_tip_check_time(0), m_outbound_time_offsets(notifications) {
+PeerManager::PeerManager(CConnman& connman, CTxMemPool& mempool, CScheduler& scheduler, PeerNotifications& notifications)
+    : m_connman(connman), m_mempool(mempool), m_stale_tip_check_time(0), m_outbound_time_offsets(notifications) {
 
     // The recent-rejects filter is 1.3 MB, so it is built here rather than at declaration.
     recentRejects.reset(new CRollingBloomFilter(120000, 0.000001));
@@ -754,7 +754,7 @@ bool PeerManager::AlreadyHave(const CInv& inv)
             if (m_orphan_tx_pool.HaveTx(inv.hash)) return true;
 
             return recentRejects->contains(inv.hash) ||
-                   mempool.exists(inv.hash) ||
+                   m_mempool.exists(inv.hash) ||
                    g_chainstate_manager.ActiveChainstate().CoinsTip().HaveCoinInCache(COutPoint(inv.hash, 0)) || // Best effort: only try output 0 and 1
                    g_chainstate_manager.ActiveChainstate().CoinsTip().HaveCoinInCache(COutPoint(inv.hash, 1));
         }
@@ -949,7 +949,7 @@ void PeerManager::ProcessGetBlockData(CNode* pfrom, const CInv& inv)
 //! Determine whether or not a peer can request a transaction, and return it (or nullptr if not found or not allowed).
 CTransactionRef PeerManager::FindTxForGetData(const CNode* peer, const uint256& txid, const std::chrono::seconds mempool_req, const std::chrono::seconds now)
 {
-    auto txinfo = mempool.info(txid);
+    auto txinfo = m_mempool.info(txid);
     if (txinfo.tx) {
         // If a TX could have been INVed in reply to a MEMPOOL request,
         // or is older than UNCONDITIONAL_RELAY_DELAY, permit the request
@@ -1011,7 +1011,7 @@ void PeerManager::ProcessGetData(CNode* pfrom, const std::atomic<bool>& interrup
             m_connman.PushMessage(pfrom, msgMaker.Make(NetMsgType::TX, *tx));
             // As we're going to send tx, make sure its unconfirmed parents are made requestable.
             for (const auto& txin : tx->vin) {
-                auto txinfo = mempool.info(txin.prevout.hashMalFix);
+                auto txinfo = m_mempool.info(txin.prevout.hashMalFix);
                 if (txinfo.tx && txinfo.nTime > (now - UNCONDITIONAL_RELAY_DELAY).count()) {
                     // Relaying a transaction with a recent but unconfirmed parent.
                     // Check filterInventoryKnown under cs_inventory, then release it before
@@ -1294,7 +1294,7 @@ void PeerManager::ProcessOrphanTx(std::set<uint256>& orphan_work_set)
         if (setMisbehaving.count(fromPeer)) continue;
         CTxMempoolAcceptanceOptions opt;
 
-        if (AcceptToMemoryPool(porphanTx, opt)) {
+        if (g_chainstate_manager.ActiveChainstate().AcceptToMemoryPool(porphanTx, opt)) {
             LogPrint(BCLog::MEMPOOL, "   accepted orphan tx %s\n", orphanHash.ToString());
             RelayTransaction(orphanTx, &m_connman);
             m_orphan_tx_pool.AddChildrenToWorkSet(orphanTx, orphan_work_set);
@@ -1318,7 +1318,7 @@ void PeerManager::ProcessOrphanTx(std::set<uint256>& orphan_work_set)
             m_orphan_tx_pool.EraseOrphanTx(orphanHash);
             done = true;
         }
-        mempool.check(&g_chainstate_manager.ActiveChainstate().CoinsTip());
+        m_mempool.check(&g_chainstate_manager.ActiveChainstate().CoinsTip());
 
         for(auto& tx:opt.txnReplaced) {
             AddToCompactExtraTransactions(tx);
@@ -2005,8 +2005,8 @@ bool PeerManager::ProcessMessage(CNode* pfrom, const std::string& strCommand, CD
 
         CTxMempoolAcceptanceOptions opt;
         if (!AlreadyHave(inv) &&
-            AcceptToMemoryPool(ptx, opt)) {
-            mempool.check(&g_chainstate_manager.ActiveChainstate().CoinsTip());
+            g_chainstate_manager.ActiveChainstate().AcceptToMemoryPool(ptx, opt)) {
+            m_mempool.check(&g_chainstate_manager.ActiveChainstate().CoinsTip());
             RelayTransaction(tx, &m_connman);
             m_orphan_tx_pool.AddChildrenToWorkSet(tx, pfrom->orphan_work_set);
 
@@ -2015,7 +2015,7 @@ bool PeerManager::ProcessMessage(CNode* pfrom, const std::string& strCommand, CD
             LogPrint(BCLog::MEMPOOL, "AcceptToMemoryPool: peer=%d: accepted %s (poolsz %u txn, %u kB)\n",
                 pfrom->GetId(),
                 tx.GetHashMalFix().ToString(),
-                mempool.size(), mempool.DynamicMemoryUsage() / 1000);
+                m_mempool.size(), m_mempool.DynamicMemoryUsage() / 1000);
 
             // Recursively process any orphan transactions that depended on this one
             ProcessOrphanTx(pfrom->orphan_work_set);
@@ -2211,7 +2211,7 @@ bool PeerManager::ProcessMessage(CNode* pfrom, const std::string& strCommand, CD
                 std::list<QueuedBlock>::iterator* queuedBlockIt = nullptr;
                 if (!MarkBlockAsInFlight(pfrom->GetId(), pindex->GetBlockHash(), pindex, &queuedBlockIt)) {
                     if (!(*queuedBlockIt)->partialBlock)
-                        (*queuedBlockIt)->partialBlock.reset(new PartiallyDownloadedBlock(&mempool));
+                        (*queuedBlockIt)->partialBlock.reset(new PartiallyDownloadedBlock(&m_mempool));
                     else {
                         // The block was already in flight using compact blocks from the same peer
                         LogPrint(BCLog::NET, "Peer sent us compact block we were already syncing!\n");
@@ -2269,7 +2269,7 @@ bool PeerManager::ProcessMessage(CNode* pfrom, const std::string& strCommand, CD
                 // download from.
                 // Optimistically try to reconstruct anyway since we might be
                 // able to without any round trips.
-                PartiallyDownloadedBlock tempBlock(&mempool);
+                PartiallyDownloadedBlock tempBlock(&m_mempool);
                 ReadStatus status = tempBlock.InitData(cmpctblock, vExtraTxnForCompact);
                 if (status == READ_STATUS_INVALID) {
                     MarkBlockAsReceived(pindex->GetBlockHash(), pfrom->GetId()); // Reset in-flight state in case of whitelist
@@ -3326,7 +3326,7 @@ bool PeerManager::SendMessages(CNode* pto)
 
             // Respond to BIP35 mempool requests
             if (fSendTrickle && pto->fSendMempool) {
-                auto vtxinfo = mempool.infoAll();
+                auto vtxinfo = m_mempool.infoAll();
                 pto->fSendMempool = false;
                 CAmount filterrate = 0;
                 {
@@ -3373,7 +3373,7 @@ bool PeerManager::SendMessages(CNode* pto)
                 }
                 // Topologically and fee-rate sort the inventory we send for privacy and priority reasons.
                 // A heap is used so that not all items need sorting if only a few are being sent.
-                CompareInvMempoolOrder compareInvMempoolOrder(&mempool);
+                CompareInvMempoolOrder compareInvMempoolOrder(&m_mempool);
                 std::make_heap(vInvTx.begin(), vInvTx.end(), compareInvMempoolOrder);
                 // No reason to drain out at many times the network's capacity,
                 // especially since we have many peers and some will draw much shorter delays.
@@ -3394,7 +3394,7 @@ bool PeerManager::SendMessages(CNode* pto)
                         continue;
                     }
                     // Not in the mempool anymore? don't bother sending it.
-                    auto txinfo = mempool.info(hash);
+                    auto txinfo = m_mempool.info(hash);
                     if (!txinfo.tx) {
                         continue;
                     }
@@ -3552,7 +3552,7 @@ bool PeerManager::SendMessages(CNode* pto)
         // We don't want white listed peers to filter txs to us if we have -whitelistforcerelay
         if (g_policy_settings->feeFilter &&
             !(pto->fWhitelisted && g_policy_settings->whitelistForceRelay)) {
-            CAmount currentFilter = mempool.GetMinFee(g_policy_settings->maxMempool).GetFeePerK();
+            CAmount currentFilter = m_mempool.GetMinFee(g_policy_settings->maxMempool).GetFeePerK();
             int64_t timeNow = GetTimeMicros();
             if (timeNow > pto->nextSendTimeFeeFilter) {
                 static CFeeRate default_feerate(DEFAULT_MIN_RELAY_TX_FEE);

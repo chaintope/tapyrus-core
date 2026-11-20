@@ -190,7 +190,7 @@ void Shutdown(NodeContext& node)
     /// Be sure that anything that writes files or flushes caches only does this if the respective
     /// module was initialized.
     RenameThread("tapyrus-shutoff");
-    mempool.AddTransactionsUpdated(1);
+    if (node.mempool) node.mempool->AddTransactionsUpdated(1);
 
     StopHTTPRPC();
     StopREST();
@@ -217,8 +217,8 @@ void Shutdown(NodeContext& node)
     node.connman.reset();
     g_txindex.reset();
 
-    if (g_is_mempool_loaded && node.policy && node.policy->persistMempool) {
-        DumpMempool();
+    if (node.mempool && node.mempool_loaded && node.policy && node.policy->persistMempool) {
+        DumpMempool(*node.mempool);
     }
 
     if (fFeeEstimatesInitialized)
@@ -286,10 +286,12 @@ void Shutdown(NodeContext& node)
 #endif
     UnregisterAllValidationInterfaces();
     GetMainSignals().UnregisterBackgroundSignalScheduler();
-    GetMainSignals().UnregisterWithMempoolSignals(mempool);
+    if (node.mempool) GetMainSignals().UnregisterWithMempoolSignals(*node.mempool);
     g_wallet_init_interface.Close();
     // The chain interface reads the NodeContext, which the caller destroys after this.
     g_wallet_init_interface.SetChainInterface(nullptr);
+    // The chainstate refers to the node's mempool, which the caller destroys after this.
+    g_chainstate_manager.ReleaseChainstate();
     globalVerifyHandle.reset();
     ECC_Stop();
     LogPrintf("%s: done\n", __func__);
@@ -612,7 +614,7 @@ struct CImportingNow
 };
 
 
-static void ThreadImport(std::vector<fs::path> vImportFiles)
+static void ThreadImport(NodeContext& node, std::vector<fs::path> vImportFiles)
 {
     BlockIndexMap& blockIndex = g_chainstate_manager.BlockIndex();
     RenameThread("tapyrus-loadblk");
@@ -703,9 +705,9 @@ static void ThreadImport(std::vector<fs::path> vImportFiles)
     }
     } // End scope of CImportingNow
     if (g_policy_settings->persistMempool) {
-        LoadMempool();
+        g_chainstate_manager.ActiveChainstate().LoadMempool();
     }
-    g_is_mempool_loaded = !ShutdownRequested();
+    node.mempool_loaded = !ShutdownRequested();
 }
 
 /** Sanity checks
@@ -1018,9 +1020,10 @@ bool AppInitParameterInteraction(NodeContext& node)
 
     // Checkmempool and checkblockindex default to true in dev mode
     node.fee_estimator = std::make_unique<CBlockPolicyEstimator>();
+    node.mempool = std::make_unique<CTxMemPool>();
     int ratio = std::min<int>(std::max<int>(gArgs.GetArg("-checkmempool", chainparams.DefaultConsistencyChecks() ? 1 : 0), 0), 1000000);
     if (ratio != 0) {
-        mempool.setSanityCheck(1.0 / ratio);
+        node.mempool->setSanityCheck(1.0 / ratio);
     }
     nConnectTimeout = gArgs.GetArg("-timeout", DEFAULT_CONNECT_TIMEOUT);
     if (nConnectTimeout <= 0)
@@ -1056,7 +1059,7 @@ bool AppInitParameterInteraction(NodeContext& node)
     } catch (const std::exception& e) {
         return InitError(e.what());
     }
-    g_chainstate_manager.InitializeChainstate();
+    g_chainstate_manager.InitializeChainstate(*node.mempool);
 
     // Option to startup with mocktime set (used for regression testing):
     SetMockTime(gArgs.GetArg("-mocktime", 0)); // SetMockTime(0) is a no-op
@@ -1208,7 +1211,7 @@ bool AppInitMain(NodeContext& node)
     }
 
     GetMainSignals().RegisterBackgroundSignalScheduler(scheduler);
-    GetMainSignals().RegisterWithMempoolSignals(mempool);
+    GetMainSignals().RegisterWithMempoolSignals(*node.mempool);
     RegisterValidationInterface(node.fee_estimator.get());
 
     /* Register RPC commands regardless of -server setting so they will be
@@ -1245,7 +1248,7 @@ bool AppInitMain(NodeContext& node)
     node.connman = std::unique_ptr<CConnman>(new CConnman(GetRand(std::numeric_limits<uint64_t>::max()), GetRand(std::numeric_limits<uint64_t>::max())));
     CConnman& connman = *node.connman;
 
-    node.peerman.reset(new PeerManager(connman, scheduler, node.notifications));
+    node.peerman.reset(new PeerManager(connman, *node.mempool, scheduler, node.notifications));
     RegisterValidationInterface(node.peerman.get());
 
     // sanitize comments per BIP-0014, format user agent and check total size
@@ -1376,7 +1379,7 @@ bool AppInitMain(NodeContext& node)
         do {
             const int64_t load_block_index_start_time = GetTimeMillis();
             try {
-                UnloadBlockIndex();
+                UnloadBlockIndex(node.mempool.get());
                 g_chainstate_manager.ActiveChainstate().ResetCoinsViews();
                 // new CBlockTreeDB tries to delete the existing file, which
                 // fails if it's still open from the previous loop. Close it first:
@@ -1615,7 +1618,7 @@ bool AppInitMain(NodeContext& node)
         vImportFiles.push_back(strFile);
     }
 
-    scheduler.m_load_block = std::thread(std::bind(&ThreadImport, vImportFiles));
+    scheduler.m_load_block = std::thread(std::bind(&ThreadImport, std::ref(node), vImportFiles));
 
     // Wait for genesis block to be processed
     {

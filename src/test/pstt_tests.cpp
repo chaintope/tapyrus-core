@@ -499,11 +499,12 @@ static void SignInputForTest(PartiallySignedTapyrusTransaction& pstt, unsigned i
 static void CheckMempoolResult(TestChainSetup& setup, const CTransactionRef& tx, bool expect_success,
                                 const std::string& expect_reject_reason = "")
 {
+    CTxMemPool& mempool = *setup.m_node.mempool;
     CTxMempoolAcceptanceOptions opt;
     opt.flags = MempoolAcceptanceFlags::BYPASSS_LIMITS;
     {
         LOCK(cs_main);
-        BOOST_CHECK_EQUAL(expect_success, AcceptToMemoryPool(tx, opt));
+        BOOST_CHECK_EQUAL(expect_success, g_chainstate_manager.ActiveChainstate().AcceptToMemoryPool(tx, opt));
     }
     if (expect_success) {
         BOOST_CHECK(opt.state.IsValid());

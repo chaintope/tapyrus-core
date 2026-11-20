@@ -56,18 +56,18 @@ BOOST_AUTO_TEST_CASE(a_broadcast_transaction_enters_the_mempool)
     CValidationState state;
     BOOST_CHECK(m_chain->broadcastTransaction(tx, MAX_TX_FEE, true, state));
     BOOST_CHECK(state.IsValid());
-    BOOST_CHECK(mempool.exists(tx->GetHashMalFix()));
+    BOOST_CHECK(m_node.mempool->exists(tx->GetHashMalFix()));
 }
 
 BOOST_AUTO_TEST_CASE(a_transaction_already_in_the_mempool_is_not_accepted_again)
 {
     const CTransactionRef tx{Spend(m_coinbase_txns[0])};
     Submit(tx);
-    const size_t size{mempool.size()};
+    const size_t size{m_node.mempool->size()};
     CValidationState state;
     BOOST_CHECK(m_chain->broadcastTransaction(tx, MAX_TX_FEE, true, state));
     BOOST_CHECK(state.IsValid());
-    BOOST_CHECK_EQUAL(mempool.size(), size);
+    BOOST_CHECK_EQUAL(m_node.mempool->size(), size);
 }
 
 BOOST_AUTO_TEST_CASE(the_mempool_counts_ancestors_and_descendants)
@@ -116,7 +116,7 @@ BOOST_AUTO_TEST_CASE(a_rejected_broadcast_reports_the_mempool_reason)
     CValidationState state;
     BOOST_CHECK(!m_chain->broadcastTransaction(tx, FEE - 1, true, state));
     BOOST_CHECK_EQUAL(state.GetRejectReason(), "absurdly-high-fee");
-    BOOST_CHECK(!mempool.exists(tx->GetHashMalFix()));
+    BOOST_CHECK(!m_node.mempool->exists(tx->GetHashMalFix()));
 }
 
 BOOST_AUTO_TEST_CASE(a_transaction_outside_the_mempool_has_no_ancestry)

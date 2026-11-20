@@ -64,7 +64,7 @@ bool TestWalletSetup::ProcessBlockAndScanForWalletTxns(const CTransactionRef tx)
     CTxMempoolAcceptanceOptions opt;
     {
         LOCK(cs_main);
-        if(!AcceptToMemoryPool(tx, opt)) {
+        if(!g_chainstate_manager.ActiveChainstate().AcceptToMemoryPool(tx, opt)) {
             return false;
         }
     }

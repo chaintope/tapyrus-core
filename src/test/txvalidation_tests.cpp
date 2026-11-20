@@ -44,13 +44,14 @@ BOOST_FIXTURE_TEST_CASE(tx_mempool_reject_coinbase, TestChainSetup)
 
     LOCK(cs_main);
 
+    CTxMemPool& mempool = *m_node.mempool;
     unsigned int initialPoolSize = mempool.size();
 
     CTxMempoolAcceptanceOptions opt;
     opt.flags = MempoolAcceptanceFlags::BYPASSS_LIMITS;
     BOOST_CHECK_EQUAL(
             false,
-            AcceptToMemoryPool(MakeTransactionRef(coinbaseTx), opt));
+            g_chainstate_manager.ActiveChainstate().AcceptToMemoryPool(MakeTransactionRef(coinbaseTx), opt));
 
     // Check that the transaction hasn't been added to mempool.
     BOOST_CHECK_EQUAL(mempool.size(), initialPoolSize);
@@ -87,6 +88,7 @@ namespace
 
 void testTx(TestChainSetup* setup, const CTransactionRef tx, bool success, std::string errStr="")
 {
+    CTxMemPool& mempool = *setup->m_node.mempool;
     CTxMempoolAcceptanceOptions opt;
     opt.flags = MempoolAcceptanceFlags::BYPASSS_LIMITS;
     {
@@ -94,7 +96,7 @@ void testTx(TestChainSetup* setup, const CTransactionRef tx, bool success, std::
 
         BOOST_CHECK_EQUAL(
             success,
-            AcceptToMemoryPool( tx, opt));
+            g_chainstate_manager.ActiveChainstate().AcceptToMemoryPool(tx, opt));
     }
 
     if(success)
@@ -120,11 +122,11 @@ void testTx(TestChainSetup* setup, const CTransactionRef tx, bool success, std::
 // a block.  Used for pre-activation checks: the softfork is not yet active so
 // attack scripts pass CheckOutputColorIds; the UTXO remains unspent so
 // the companion post-activation test can reuse it.
-static void checkMempoolAdmitted(const CTransactionRef& tx)
+static void checkMempoolAdmitted(CTxMemPool& pool, const CTransactionRef& tx)
 {
     CTxMempoolAcceptanceOptions opt;
     opt.flags = MempoolAcceptanceFlags::BYPASSS_LIMITS;
-    { LOCK(cs_main); BOOST_CHECK(AcceptToMemoryPool(tx, opt)); }
+    { LOCK(cs_main); BOOST_CHECK(g_chainstate_manager.ActiveChainstate().AcceptToMemoryPool(tx, opt)); }
     BOOST_CHECK(opt.state.IsValid());
 }
 
@@ -197,7 +199,7 @@ BOOST_FIXTURE_TEST_CASE(tx_invalid_token_issue, TestChainSetup)
 
 #ifdef CP2SH_ACTIVATION_TEST_HEIGHT
     // Pre-activation: softfork not active → attack script admitted to mempool.
-    checkMempoolAdmitted(MakeTransactionRef(tokenIssueTx));
+    checkMempoolAdmitted(*m_node.mempool, MakeTransactionRef(tokenIssueTx));
 #else
     testTx(this, MakeTransactionRef(tokenIssueTx), false, "bad-txns-nonstandard-opcolor");
 #endif
@@ -951,7 +953,7 @@ BOOST_FIXTURE_TEST_CASE(tx_mempool_swap_color_script, TestChainSetup)
     fundTx.vin[0].scriptSig = CScript() << vchSig;
 #ifdef CP2SH_ACTIVATION_TEST_HEIGHT
     // Pre-activation: softfork not active → swap-color attack script admitted.
-    checkMempoolAdmitted(MakeTransactionRef(fundTx));
+    checkMempoolAdmitted(*m_node.mempool, MakeTransactionRef(fundTx));
 #else
     testTx(this, MakeTransactionRef(fundTx), false, "bad-txns-nonstandard-opcolor");
 #endif
@@ -1045,7 +1047,7 @@ BOOST_FIXTURE_TEST_CASE(tx_mempool_altstack_color_script, TestChainSetup)
     fundTx.vin[0].scriptSig = CScript() << vchSig;
 #ifdef CP2SH_ACTIVATION_TEST_HEIGHT
     // Pre-activation: softfork not active → altstack-color attack script admitted.
-    checkMempoolAdmitted(MakeTransactionRef(fundTx));
+    checkMempoolAdmitted(*m_node.mempool, MakeTransactionRef(fundTx));
 #else
     testTx(this, MakeTransactionRef(fundTx), false, "bad-txns-nonstandard-opcolor");
 #endif
@@ -1135,7 +1137,7 @@ BOOST_FIXTURE_TEST_CASE(tx_mempool_drop_decoy_nft_script, TestChainSetup)
     fundTx.vin[0].scriptSig = CScript() << vchSig;
 #ifdef CP2SH_ACTIVATION_TEST_HEIGHT
     // Pre-activation: softfork not active → drop-decoy NFT attack script admitted.
-    checkMempoolAdmitted(MakeTransactionRef(fundTx));
+    checkMempoolAdmitted(*m_node.mempool, MakeTransactionRef(fundTx));
 #else
     testTx(this, MakeTransactionRef(fundTx), false, "bad-txns-nonstandard-opcolor");
 #endif
@@ -1224,7 +1226,7 @@ BOOST_FIXTURE_TEST_CASE(tx_mempool_rot_decoy_script, TestChainSetup)
     fundTx.vin[0].scriptSig = CScript() << vchSig;
 #ifdef CP2SH_ACTIVATION_TEST_HEIGHT
     // Pre-activation: softfork not active → ROT-decoy attack script admitted.
-    checkMempoolAdmitted(MakeTransactionRef(fundTx));
+    checkMempoolAdmitted(*m_node.mempool, MakeTransactionRef(fundTx));
 #else
     testTx(this, MakeTransactionRef(fundTx), false, "bad-txns-nonstandard-opcolor");
 #endif
@@ -1311,7 +1313,7 @@ BOOST_FIXTURE_TEST_CASE(tx_mempool_drop_decoy_same_type_script, TestChainSetup)
     fundTx.vin[0].scriptSig = CScript() << vchSig;
 #ifdef CP2SH_ACTIVATION_TEST_HEIGHT
     // Pre-activation: softfork not active → same-type decoy attack script admitted.
-    checkMempoolAdmitted(MakeTransactionRef(fundTx));
+    checkMempoolAdmitted(*m_node.mempool, MakeTransactionRef(fundTx));
 #else
     testTx(this, MakeTransactionRef(fundTx), false, "bad-txns-nonstandard-opcolor");
 #endif
@@ -1395,7 +1397,7 @@ BOOST_FIXTURE_TEST_CASE(tx_mempool_cltv_colored_coin, TestChainSetup)
     fundTx.vin[0].scriptSig = CScript() << vchSig;
 #ifdef CP2SH_ACTIVATION_TEST_HEIGHT
     // Pre-activation: softfork not active → direct-CLTV colored attack script admitted.
-    checkMempoolAdmitted(MakeTransactionRef(fundTx));
+    checkMempoolAdmitted(*m_node.mempool, MakeTransactionRef(fundTx));
 #else
     testTx(this, MakeTransactionRef(fundTx), false, "bad-txns-nonstandard-opcolor");
 #endif

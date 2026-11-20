@@ -102,8 +102,9 @@ BasicTestingSetup::BasicTestingSetup(const std::string& chainName)
         g_chainstate_manager.InitOptions(ChainstateOptionsOverride::TestOptions({}));
         g_chainstate_manager.InitBlockFileManager(BlockFileManager::Options(gArgs, Params().PruneAfterHeight()), m_node.notifications);
         m_node.fee_estimator = std::make_unique<CBlockPolicyEstimator>();
-        // Created once per test binary, as the global chainstate it replaces was.
-        if (!g_chainstate_manager.HasChainstate()) g_chainstate_manager.InitializeChainstate();
+        m_node.mempool = std::make_unique<CTxMemPool>();
+        // Recreated for each test, as it holds a reference to this test's mempool.
+        g_chainstate_manager.InitializeChainstate(*m_node.mempool);
         {
             LOCK(cs_main);
             g_chainstate_manager.IssuedColorIds() = CIssuedColorIds();
@@ -124,6 +125,7 @@ BasicTestingSetup::~BasicTestingSetup()
         g_chainstate_manager.IssuedColorIds() = CIssuedColorIds();
     }
     g_chainstate_manager.ReleaseBlockFileManager();
+    g_chainstate_manager.ReleaseChainstate();
     // The xfield history is left alone: it belongs to g_chainstate_manager,
     // which lives for the whole test binary. See pxFieldHistory in test_tapyrus.h.
     ClearDatadirCache();
@@ -199,11 +201,11 @@ TestingSetup::TestingSetup(const std::string& chainName) : BasicTestingSetup(cha
         CScheduler::Function serviceLoop = std::bind(&CScheduler::serviceQueue, &scheduler);
         scheduler.m_service_thread = std::thread(&TraceThread, "scheduler", serviceLoop);
         GetMainSignals().RegisterBackgroundSignalScheduler(scheduler);
-        GetMainSignals().RegisterWithMempoolSignals(::mempool);
+        GetMainSignals().RegisterWithMempoolSignals(*m_node.mempool);
         RegisterValidationInterface(m_node.fee_estimator.get());
 
         try {
-            mempool.setSanityCheck(1.0);
+            m_node.mempool->setSanityCheck(1.0);
             {
                 LOCK(cs_main);
                 blockIndex.pblocktreedb.reset(new CBlockTreeDB(1 << 20, true));
@@ -223,7 +225,7 @@ TestingSetup::TestingSetup(const std::string& chainName) : BasicTestingSetup(cha
             g_chainstate_manager.InitOptions(ChainstateOptionsOverride::TestOptions({{"-par", SCRIPT_CHECK_PAR}}));
             StartScriptCheckWorkerThreads(g_chainstate_manager.GetOptions().nScriptCheckThreads);
             m_node.connman = std::unique_ptr<CConnman>(new CConnman(0x1337, 0x1337)); // Deterministic randomness for tests.
-            m_node.peerman.reset(new PeerManager(*m_node.connman, scheduler, m_node.notifications));
+            m_node.peerman.reset(new PeerManager(*m_node.connman, *m_node.mempool, scheduler, m_node.notifications));
         } catch (...) {
             // ~TestingSetup() never runs for a throwing constructor, so the
             // scheduler thread started above must be stopped here. Left
@@ -244,11 +246,11 @@ void TestingSetup::TearDown()
         scheduler.stop();
         GetMainSignals().FlushBackgroundCallbacks();
         UnregisterValidationInterface(m_node.fee_estimator.get());
-        GetMainSignals().UnregisterWithMempoolSignals(::mempool);
+        GetMainSignals().UnregisterWithMempoolSignals(*m_node.mempool);
         GetMainSignals().UnregisterBackgroundSignalScheduler();
         m_node.peerman.reset();
         m_node.connman.reset();
-        UnloadBlockIndex();
+        UnloadBlockIndex(m_node.mempool.get());
         LOCK(cs_main);
         g_chainstate_manager.ActiveChainstate().ResetCoinsViews();
         blockIndex.pblocktreedb.reset();
@@ -298,7 +300,7 @@ TestChainSetup::CreateAndProcessBlock(const std::vector<CMutableTransaction>& tx
         // Held across both, so the template builds on the tip the options read.
         LOCK(cs_main);
         const BlockAssembler::Options options(*m_node.policy, gArgs, g_chainstate_manager);
-        pblocktemplate = BlockAssembler(g_chainstate_manager, options).CreateNewBlock(scriptPubKey);
+        pblocktemplate = BlockAssembler(g_chainstate_manager, *m_node.mempool, options).CreateNewBlock(scriptPubKey);
     }
     CBlock& block = pblocktemplate->block;
 
