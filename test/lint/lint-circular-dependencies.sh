@@ -13,8 +13,6 @@ EXPECTED_CIRCULAR_DEPENDENCIES=(
     "chainstate -> validation -> chainstate"
     "checkpoints -> validation -> checkpoints"
     "index/txindex -> validation -> index/txindex"
-    "policy/fees -> txmempool -> policy/fees"
-    "policy/fees -> txmempool -> validation -> policy/fees"
     "policy/rbf -> txmempool -> validation -> policy/rbf"
     "qt/addressbookpage -> qt/tapyrusgui -> qt/walletview -> qt/addressbookpage"
     "qt/addressbookpage -> qt/tapyrusgui -> qt/walletview -> qt/receivecoinsdialog -> qt/addressbookpage"
