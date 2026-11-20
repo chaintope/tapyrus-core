@@ -20,7 +20,6 @@
 class CAutoFile;
 class CFeeRate;
 class CTxMemPoolEntry;
-class CTxMemPool;
 class TxConfirmStats;
 
 /** class CBlockPolicyEstimator
