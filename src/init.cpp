@@ -1018,13 +1018,6 @@ bool AppInitParameterInteraction(NodeContext& node)
     if (gArgs.IsArgSet("-blockminsize"))
         InitWarning("Unsupported argument -blockminsize ignored.");
 
-    // Checkmempool and checkblockindex default to true in dev mode
-    node.fee_estimator = std::make_unique<CBlockPolicyEstimator>();
-    node.mempool = std::make_unique<CTxMemPool>();
-    int ratio = std::min<int>(std::max<int>(gArgs.GetArg("-checkmempool", chainparams.DefaultConsistencyChecks() ? 1 : 0), 0), 1000000);
-    if (ratio != 0) {
-        node.mempool->setSanityCheck(1.0 / ratio);
-    }
     nConnectTimeout = gArgs.GetArg("-timeout", DEFAULT_CONNECT_TIMEOUT);
     if (nConnectTimeout <= 0)
         nConnectTimeout = DEFAULT_CONNECT_TIMEOUT;
@@ -1059,6 +1052,13 @@ bool AppInitParameterInteraction(NodeContext& node)
     } catch (const std::exception& e) {
         return InitError(e.what());
     }
+    node.fee_estimator = std::make_unique<CBlockPolicyEstimator>();
+    CTxMemPool::Options mempool_options;
+    // Checkmempool and checkblockindex default to true in dev mode
+    mempool_options.check_ratio = std::min<int32_t>(std::max<int32_t>(gArgs.GetArg("-checkmempool", chainparams.DefaultConsistencyChecks() ? 1 : 0), 0), 1000000);
+    mempool_options.expiry = node.policy->mempoolExpiry;
+    mempool_options.max_size = node.policy->maxMempool;
+    node.mempool = std::make_unique<CTxMemPool>(mempool_options);
     g_chainstate_manager.InitializeChainstate(*node.mempool);
 
     // Option to startup with mocktime set (used for regression testing):
@@ -1357,7 +1357,7 @@ bool AppInitMain(NodeContext& node)
     g_chainstate_manager.SetReindexing(gArgs.GetBoolArg("-reindex", false));
 
     const CacheSettings& cache = *node.cache;
-    int64_t nMempoolSizeMax = node.policy->maxMempool;
+    int64_t nMempoolSizeMax = node.mempool->MaxSize();
     LogPrintf("Cache configuration:\n");
     LogPrintf("* Using %.1fMiB for block index database\n", cache.nBlockTreeDBCache * (1.0 / 1024 / 1024));
     if (gArgs.GetBoolArg("-txindex", DEFAULT_TXINDEX)) {

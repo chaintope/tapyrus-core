@@ -37,7 +37,7 @@ public:
 
     CFeeRate mempoolMinFee() const override
     {
-        return m_node.mempool->GetMinFee(g_policy_settings->maxMempool);
+        return m_node.mempool->GetMinFee();
     }
 
     bool hasDescendantsInMempool(const uint256& txid) const override

@@ -198,14 +198,14 @@ bool CheckSequenceLocks(const CTxMemPool& pool, const CTransaction &tx, int flag
     }
     return ContextualConsensusRules::EvaluateSequenceLocks(index, lockPair);
 }
-void LimitMempoolSize(CTxMemPool& pool, size_t limit, unsigned long age) {
-    int expired = pool.Expire(GetTime() - age);
+void LimitMempoolSize(CTxMemPool& pool) {
+    int expired = pool.Expire(GetTime() - pool.Expiry());
     if (expired != 0) {
         LogPrint(BCLog::MEMPOOL, "Expired %i transactions from the memory pool\n", expired);
     }
 
     std::vector<COutPoint> vNoSpendsRemaining;
-    pool.TrimToSize(limit, &vNoSpendsRemaining);
+    pool.TrimToSize(pool.MaxSize(), &vNoSpendsRemaining);
     for (const COutPoint& removed : vNoSpendsRemaining)
         g_chainstate_manager.ActiveChainstate().CoinsTip().Uncache(removed);
 }
@@ -439,7 +439,7 @@ static bool AcceptToMemoryPoolWorker(CTxMemPool& pool, const CTransactionRef &pt
                               fSpendsCoinbase, nSigOps, lp);
         unsigned int nSize = entry.GetTxSize();
 
-        CAmount mempoolRejectFee = pool.GetMinFee(g_policy_settings->maxMempool).GetFee(nSize);
+        CAmount mempoolRejectFee = pool.GetMinFee().GetFee(nSize);
         if (opt.flags != MempoolAcceptanceFlags::BYPASSS_LIMITS
           && mempoolRejectFee > 0
           && nModifiedFees < mempoolRejectFee) {
@@ -672,7 +672,7 @@ static bool AcceptToMemoryPoolWorker(CTxMemPool& pool, const CTransactionRef &pt
 
         // trim mempool and check if tx was trimmed
         if (opt.flags != MempoolAcceptanceFlags::BYPASSS_LIMITS) {
-            LimitMempoolSize(pool, g_policy_settings->maxMempool, g_policy_settings->mempoolExpiry);
+            LimitMempoolSize(pool);
             if (!pool.exists(hash))
                 return state.DoS(0, false, REJECT_INSUFFICIENTFEE, "mempool full");
         }

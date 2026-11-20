@@ -22,6 +22,7 @@
 #include <indirectmap.h>
 #include <mempoolentry.h>
 #include <mempoolremovalreason.h>
+#include <policy/policysettings.h>
 #include <policy/feerate.h>
 #include <primitives/transaction.h>
 #include <sync.h>
@@ -310,8 +311,10 @@ struct TxMempoolInfo
 class CTxMemPool
 {
 private:
-    uint32_t nCheckFrequency GUARDED_BY(cs); //!< Value n means that n times in 2^32 we check.
+    const uint32_t nCheckFrequency; //!< Value n means that n times in 2^32 we check.
     unsigned int nTransactionsUpdated; //!< Used by getblocktemplate to trigger CreateNewBlock() invocation
+    const int64_t m_expiry;
+    const int64_t m_max_size;
 
     uint64_t totalTxSize GUARDED_BY(cs);      //!< sum of all mempool tx's serialized sizes.
     uint64_t cachedInnerUsage; //!< sum of dynamic memory usage of all the map elements (NOT the maps themselves)
@@ -389,7 +392,23 @@ public:
 
     /** Create a new CTxMemPool.
      */
+    /** What the mempool is configured with when it is created. */
+    struct Options {
+        //! check() sanity-checks the pool on one call in this many; 0 never.
+        int32_t check_ratio{0};
+        //! Seconds a transaction may stay in the pool before it expires.
+        int64_t expiry{int64_t{DEFAULT_MEMPOOL_EXPIRY} * 60 * 60};
+        //! Bytes of memory the pool is trimmed to.
+        int64_t max_size{int64_t{DEFAULT_MAX_MEMPOOL_SIZE} * 1000000};
+    };
+
     CTxMemPool();
+    explicit CTxMemPool(const Options& options);
+
+    /** Seconds a transaction may stay in the pool before it expires. */
+    int64_t Expiry() const { return m_expiry; }
+    /** Bytes of memory the pool is trimmed to. */
+    int64_t MaxSize() const { return m_max_size; }
 
     /**
      * If sanity-checking is turned on, check makes sure the pool is
@@ -398,7 +417,6 @@ public:
      * check does nothing.
      */
     void check(const CCoinsViewCache *pcoins) const;
-    void setSanityCheck(double dFrequency = 1.0) { LOCK(cs); nCheckFrequency = static_cast<uint32_t>(dFrequency * 4294967295.0); }
 
     // addUnchecked must updated state for all ancestors of a given transaction,
     // to track size/count of descendant transactions.  First version of
@@ -482,6 +500,8 @@ public:
       *  would otherwise be half of this, it is set to 0 instead.
       */
     CFeeRate GetMinFee(size_t sizelimit) const;
+    /** The minimum fee to get into the pool at its own max size. */
+    CFeeRate GetMinFee() const { return GetMinFee(m_max_size); }
 
     /** Remove transactions from the mempool until its dynamic size is <= sizelimit.
       *  pvNoSpendsRemaining, if set, will be populated with the list of outpoints

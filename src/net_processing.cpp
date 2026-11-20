@@ -3552,7 +3552,7 @@ bool PeerManager::SendMessages(CNode* pto)
         // We don't want white listed peers to filter txs to us if we have -whitelistforcerelay
         if (g_policy_settings->feeFilter &&
             !(pto->fWhitelisted && g_policy_settings->whitelistForceRelay)) {
-            CAmount currentFilter = m_mempool.GetMinFee(g_policy_settings->maxMempool).GetFeePerK();
+            CAmount currentFilter = m_mempool.GetMinFee().GetFeePerK();
             int64_t timeNow = GetTimeMicros();
             if (timeNow > pto->nextSendTimeFeeFilter) {
                 static CFeeRate default_feerate(DEFAULT_MIN_RELAY_TX_FEE);

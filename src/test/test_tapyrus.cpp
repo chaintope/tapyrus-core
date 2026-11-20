@@ -102,7 +102,11 @@ BasicTestingSetup::BasicTestingSetup(const std::string& chainName)
         g_chainstate_manager.InitOptions(ChainstateOptionsOverride::TestOptions({}));
         g_chainstate_manager.InitBlockFileManager(BlockFileManager::Options(gArgs, Params().PruneAfterHeight()), m_node.notifications);
         m_node.fee_estimator = std::make_unique<CBlockPolicyEstimator>();
-        m_node.mempool = std::make_unique<CTxMemPool>();
+        CTxMemPool::Options mempool_options;
+        mempool_options.check_ratio = 1;
+        mempool_options.expiry = m_node.policy->mempoolExpiry;
+        mempool_options.max_size = m_node.policy->maxMempool;
+        m_node.mempool = std::make_unique<CTxMemPool>(mempool_options);
         // Recreated for each test, as it holds a reference to this test's mempool.
         g_chainstate_manager.InitializeChainstate(*m_node.mempool);
         {
@@ -205,7 +209,6 @@ TestingSetup::TestingSetup(const std::string& chainName) : BasicTestingSetup(cha
         RegisterValidationInterface(m_node.fee_estimator.get());
 
         try {
-            m_node.mempool->setSanityCheck(1.0);
             {
                 LOCK(cs_main);
                 blockIndex.pblocktreedb.reset(new CBlockTreeDB(1 << 20, true));
