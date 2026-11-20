@@ -58,12 +58,13 @@ class Recorder : public Notifications
 public:
     Recorder(std::string name, std::vector<std::string>& log) : m_name(std::move(name)), m_log(log) {}
 
-    void ReportShutdown(ShutdownReason reason, const std::string& detail) override { m_log.push_back(m_name + " shutdown " + NotificationHub::ShutdownMessage(reason, detail)); }
+    void ReportFatalError(FatalErrorReason reason, const std::string& detail) override { m_log.push_back(m_name + " fatal error " + NotificationHub::FatalErrorMessage(reason, detail)); }
     void ReportClockOutOfSync(std::chrono::minutes threshold) override { m_log.push_back(m_name + " clock " + std::to_string(threshold.count())); }
     void ReportClockInSync() override { m_log.push_back(m_name + " clock ok"); }
     void ReportLargeWorkFork(const uint256& fork_base) override { m_log.push_back(m_name + " fork " + fork_base.ToString()); }
     void ReportInvalidChainAhead() override { m_log.push_back(m_name + " invalid chain"); }
     void ReportForkResolved() override { m_log.push_back(m_name + " fork resolved"); }
+    void ReportStopHeightReached(int height) override { m_log.push_back(m_name + " stop at " + std::to_string(height)); }
     void ReportUpgradeProgress(int percent) override { m_log.push_back(m_name + " upgrade " + std::to_string(percent)); }
 
 private:
@@ -77,7 +78,7 @@ BOOST_FIXTURE_TEST_SUITE(notificationhub_tests, BasicTestingSetup)
 BOOST_AUTO_TEST_CASE(later_warnings_take_the_status_bar)
 {
     NotificationHub notifications;
-    notifications.ReportShutdown(ShutdownReason::SYSTEM_ERROR, "disk full");
+    notifications.ReportFatalError(FatalErrorReason::SYSTEM_ERROR, "disk full");
     notifications.ReportClockOutOfSync(std::chrono::minutes{10});
     BOOST_CHECK_EQUAL(notifications.GetWarnings("statusbar"), ClockWarning());
     BOOST_CHECK_EQUAL(notifications.GetWarnings("gui"), GuiText("System error: disk full<hr />" + ClockWarning()));
@@ -160,36 +161,36 @@ BOOST_AUTO_TEST_CASE(alertnotify_runs_once_per_fork)
     BOOST_CHECK(lines[1].find(uint256S("02").ToString()) != std::string::npos);
 }
 
-BOOST_AUTO_TEST_CASE(a_fatal_shutdown_is_stored_and_passed_on)
+BOOST_AUTO_TEST_CASE(a_fatal_error_is_stored_and_passed_on)
 {
     std::vector<std::string> log;
     Recorder recorder{"r", log};
     NotificationHub notifications;
     notifications.Subscribe(recorder);
-    notifications.ReportShutdown(ShutdownReason::INDEX_BLOCK_READ_FAILED, "00ab");
+    notifications.ReportFatalError(FatalErrorReason::INDEX_BLOCK_READ_FAILED, "00ab");
     BOOST_CHECK_EQUAL(notifications.GetWarnings("statusbar"), "Failed to read block 00ab from disk");
-    const std::vector<std::string> expected{"r shutdown Failed to read block 00ab from disk"};
+    const std::vector<std::string> expected{"r fatal error Failed to read block 00ab from disk"};
     BOOST_CHECK_EQUAL_COLLECTIONS(log.begin(), log.end(), expected.begin(), expected.end());
 }
 
-BOOST_AUTO_TEST_CASE(every_shutdown_reason_has_a_message)
+BOOST_AUTO_TEST_CASE(every_fatal_error_reason_has_a_message)
 {
-    for (int32_t reason = 0; reason <= static_cast<int32_t>(ShutdownReason::INDEX_INIT_FAILED); ++reason) {
-        BOOST_CHECK(!NotificationHub::ShutdownMessage(static_cast<ShutdownReason>(reason), "detail").empty());
+    for (int32_t reason = 0; reason <= static_cast<int32_t>(FatalErrorReason::INDEX_INIT_FAILED); ++reason) {
+        BOOST_CHECK(!NotificationHub::FatalErrorMessage(static_cast<FatalErrorReason>(reason), "detail").empty());
     }
-    BOOST_CHECK_EQUAL(NotificationHub::ShutdownMessage(ShutdownReason::DISK_SPACE_LOW, ""), "Disk space is low!");
-    BOOST_CHECK_EQUAL(NotificationHub::ShutdownMessage(ShutdownReason::SYSTEM_ERROR, "disk full"), "System error: disk full");
-    BOOST_CHECK_EQUAL(NotificationHub::ShutdownMessage(ShutdownReason::INDEX_INIT_FAILED, "txindex"), "txindex failed to initialize");
+    BOOST_CHECK_EQUAL(NotificationHub::FatalErrorMessage(FatalErrorReason::DISK_SPACE_LOW, ""), "Disk space is low!");
+    BOOST_CHECK_EQUAL(NotificationHub::FatalErrorMessage(FatalErrorReason::SYSTEM_ERROR, "disk full"), "System error: disk full");
+    BOOST_CHECK_EQUAL(NotificationHub::FatalErrorMessage(FatalErrorReason::INDEX_INIT_FAILED, "txindex"), "txindex failed to initialize");
 }
 
-BOOST_AUTO_TEST_CASE(the_dialog_shows_the_user_message_of_a_fatal_shutdown)
+BOOST_AUTO_TEST_CASE(the_dialog_shows_the_user_message_of_a_fatal_error)
 {
     std::vector<std::string> shown;
     const boost::signals2::scoped_connection box{uiInterface.ThreadSafeMessageBox.connect(
         [&shown](const std::string& message, const std::string& caption, unsigned int style) { shown.push_back(message); return false; })};
-    FatalErrorDialog::Instance().ReportShutdown(ShutdownReason::DISK_SPACE_LOW, "");
-    FatalErrorDialog::Instance().ReportShutdown(ShutdownReason::COINS_READ_FAILED, "bad key");
-    FatalErrorDialog::Instance().ReportShutdown(ShutdownReason::BLOCK_WRITE_FAILED, "");
+    FatalErrorDialog::Instance().ReportFatalError(FatalErrorReason::DISK_SPACE_LOW, "");
+    FatalErrorDialog::Instance().ReportFatalError(FatalErrorReason::COINS_READ_FAILED, "bad key");
+    FatalErrorDialog::Instance().ReportFatalError(FatalErrorReason::BLOCK_WRITE_FAILED, "");
     const std::vector<std::string> expected{
         "Error: Disk space is low!",
         "Error reading from database, shutting down.",
@@ -225,13 +226,13 @@ BOOST_AUTO_TEST_CASE(reaching_the_stop_height_is_not_an_error)
     const boost::signals2::scoped_connection box{uiInterface.ThreadSafeMessageBox.connect(
         [&boxes](const std::string& message, const std::string& caption, unsigned int style) { ++boxes; return false; })};
 
-    notifications.ReportShutdown(ShutdownReason::STOP_HEIGHT_REACHED, "100");
-    FatalErrorDialog::Instance().ReportShutdown(ShutdownReason::STOP_HEIGHT_REACHED, "100");
+    notifications.ReportStopHeightReached(100);
+    FatalErrorDialog::Instance().ReportStopHeightReached(100);
     BOOST_CHECK_EQUAL(changes, 0);
     BOOST_CHECK_EQUAL(boxes, 0);
     BOOST_CHECK_EQUAL(notifications.GetWarnings("gui"), GuiText(""));
     // The subscribers still hear it, so the node stops.
-    const std::vector<std::string> expected{"r shutdown Stopping at height 100 as -stopatheight asks"};
+    const std::vector<std::string> expected{"r stop at 100"};
     BOOST_CHECK_EQUAL_COLLECTIONS(log.begin(), log.end(), expected.begin(), expected.end());
 }
 
@@ -298,7 +299,7 @@ BOOST_AUTO_TEST_CASE(clearing_one_warning_keeps_the_others)
 BOOST_AUTO_TEST_CASE(a_clock_in_sync_clears_only_the_clock_warning)
 {
     NotificationHub notifications;
-    notifications.ReportShutdown(ShutdownReason::SYSTEM_ERROR, "disk full");
+    notifications.ReportFatalError(FatalErrorReason::SYSTEM_ERROR, "disk full");
     int changes{0};
     const boost::signals2::scoped_connection counter{uiInterface.NotifyAlertChanged.connect([&changes] { ++changes; })};
 
@@ -318,35 +319,37 @@ BOOST_AUTO_TEST_CASE(every_subscriber_hears_each_publish_in_order)
     notifications.Subscribe(first);
     notifications.Subscribe(second);
 
-    notifications.ReportShutdown(ShutdownReason::SYSTEM_ERROR, "disk full");
+    notifications.ReportFatalError(FatalErrorReason::SYSTEM_ERROR, "disk full");
     notifications.ReportClockOutOfSync(std::chrono::minutes{10});
     notifications.ReportClockInSync();
     notifications.ReportLargeWorkFork(uint256S("01"));
     notifications.ReportInvalidChainAhead();
     notifications.ReportForkResolved();
+    notifications.ReportStopHeightReached(100);
     notifications.ReportUpgradeProgress(42);
 
     const std::string fork{uint256S("01").ToString()};
     const std::vector<std::string> expected{
-        "first shutdown System error: disk full", "second shutdown System error: disk full",
+        "first fatal error System error: disk full", "second fatal error System error: disk full",
         "first clock 10", "second clock 10",
         "first clock ok", "second clock ok",
         "first fork " + fork, "second fork " + fork,
         "first invalid chain", "second invalid chain",
         "first fork resolved", "second fork resolved",
+        "first stop at 100", "second stop at 100",
         "first upgrade 42", "second upgrade 42"};
     BOOST_CHECK_EQUAL_COLLECTIONS(log.begin(), log.end(), expected.begin(), expected.end());
 }
 
-BOOST_AUTO_TEST_CASE(subscribers_hear_a_shutdown_after_it_is_stored)
+BOOST_AUTO_TEST_CASE(subscribers_hear_a_fatal_error_after_it_is_stored)
 {
     std::vector<std::string> log;
     Recorder recorder{"r", log};
     NotificationHub notifications;
     notifications.Subscribe(recorder);
-    notifications.ReportShutdown(ShutdownReason::SYSTEM_ERROR, "disk full");
+    notifications.ReportFatalError(FatalErrorReason::SYSTEM_ERROR, "disk full");
     BOOST_CHECK_EQUAL(notifications.GetWarnings("statusbar"), "System error: disk full");
-    const std::vector<std::string> expected{"r shutdown System error: disk full"};
+    const std::vector<std::string> expected{"r fatal error System error: disk full"};
     BOOST_CHECK_EQUAL_COLLECTIONS(log.begin(), log.end(), expected.begin(), expected.end());
 }
 
@@ -360,8 +363,8 @@ BOOST_AUTO_TEST_CASE(an_unsubscribed_subscriber_hears_nothing)
     notifications.Subscribe(dropped);
     notifications.Unsubscribe(dropped);
 
-    notifications.ReportShutdown(ShutdownReason::SYSTEM_ERROR, "disk full");
-    const std::vector<std::string> expected{"kept shutdown System error: disk full"};
+    notifications.ReportFatalError(FatalErrorReason::SYSTEM_ERROR, "disk full");
+    const std::vector<std::string> expected{"kept fatal error System error: disk full"};
     BOOST_CHECK_EQUAL_COLLECTIONS(log.begin(), log.end(), expected.begin(), expected.end());
 }
 

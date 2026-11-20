@@ -21,7 +21,7 @@
 #include <trace.h>
 #include <transactioncolorchecker.h>
 #include <ui_interface.h>
-#include <notifications.h>
+#include <chainnotifications.h>
 #include <xfieldhistory.h>
 
 #include <deque>
@@ -421,7 +421,7 @@ bool Chainstate::ConnectBlock(const CBlock& block, CValidationState& state, CBlo
             // We don't write down blocks to disk if they may have been
             // corrupted, so this should be impossible unless we're having hardware
             // problems.
-            m_chainman.Notifications().ReportShutdown(ShutdownReason::CORRUPT_BLOCK, "");
+            m_chainman.Notifications().ReportFatalError(FatalErrorReason::CORRUPT_BLOCK, "");
             return state.Error("Corrupt block found indicating potential hardware failure; shutting down");
         }
         return error("%s: Consensus::CheckBlock: %s", __func__, FormatStateMessage(state));
@@ -669,7 +669,7 @@ bool Chainstate::DisconnectTip(CValidationState& state, DisconnectedBlockTransac
     std::shared_ptr<CBlock> pblock = std::make_shared<CBlock>();
     CBlock& block = *pblock;
     if (!g_chainstate_manager.ReadBlock(block, pindexDelete)) {
-        m_chainman.Notifications().ReportShutdown(ShutdownReason::BLOCK_READ_FAILED, "");
+        m_chainman.Notifications().ReportFatalError(FatalErrorReason::BLOCK_READ_FAILED, "");
         return state.Error("Failed to read block");
     }
     // Apply the block atomically to the chain state.
@@ -738,7 +738,7 @@ bool Chainstate::ConnectTip(CValidationState& state, CBlockIndex* pindexNew, con
     if (!pblock) {
         std::shared_ptr<CBlock> pblockNew = std::make_shared<CBlock>();
         if (!g_chainstate_manager.ReadBlock(*pblockNew, pindexNew)) {
-            m_chainman.Notifications().ReportShutdown(ShutdownReason::BLOCK_READ_FAILED, "");
+            m_chainman.Notifications().ReportFatalError(FatalErrorReason::BLOCK_READ_FAILED, "");
             return state.Error("Failed to read block");
         }
         pthisBlock = pblockNew;
@@ -1067,7 +1067,7 @@ bool Chainstate::ActivateBestChain(CValidationState &state, std::shared_ptr<cons
         // When we reach this point, we switched to a new tip (stored in pindexNewTip).
 
         if (nStopAtHeight && pindexNewTip && pindexNewTip->nHeight >= nStopAtHeight && !ShutdownRequested()) {
-            m_chainman.Notifications().ReportShutdown(ShutdownReason::STOP_HEIGHT_REACHED, std::to_string(nStopAtHeight));
+            m_chainman.Notifications().ReportStopHeightReached(nStopAtHeight);
         }
 
         // We check shutdown only after giving ActivateBestChainStep a chance to run once so that we
@@ -1386,7 +1386,7 @@ bool Chainstate::AcceptBlock(const std::shared_ptr<const CBlock>& pblock, CValid
         }
         ReceivedBlockTransactions(block, pindex, blockPos);
     } catch (const std::runtime_error& e) {
-        m_chainman.Notifications().ReportShutdown(ShutdownReason::SYSTEM_ERROR, e.what());
+        m_chainman.Notifications().ReportFatalError(FatalErrorReason::SYSTEM_ERROR, e.what());
         return state.Error(std::string("System error: ") + e.what());
     }
 

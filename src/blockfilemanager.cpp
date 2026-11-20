@@ -6,7 +6,7 @@
 
 #include <blockfilemanager.h>
 
-#include <notifications.h>
+#include <chainnotifications.h>
 #include <blockindexmap.h>
 #include <checkblock.h>
 #include <clientversion.h>
@@ -239,7 +239,7 @@ CDiskBlockPos BlockFileManager::SaveBlockToDisk(const CBlock& block, int nHeight
     }
     if (!position_known) {
         if (!WriteBlockToDisk(block, blockPos)) {
-            m_notifications.ReportShutdown(ShutdownReason::BLOCK_WRITE_FAILED, "");
+            m_notifications.ReportFatalError(FatalErrorReason::BLOCK_WRITE_FAILED, "");
             return CDiskBlockPos();
         }
     }
@@ -278,7 +278,7 @@ bool BlockFileManager::WriteUndoDataForBlock(const CBlockUndo& blockundo, CValid
         if (!FindUndoPos(state, pindex->nFile, _pos, ::GetSerializeSize(blockundo, SER_DISK, CLIENT_VERSION) + 40))
             return error("ConnectBlock(): FindUndoPos failed");
         if (!UndoWriteToDisk(blockundo, _pos, pindex->pprev->GetBlockHash())) {
-            m_notifications.ReportShutdown(ShutdownReason::UNDO_WRITE_FAILED, "");
+            m_notifications.ReportFatalError(FatalErrorReason::UNDO_WRITE_FAILED, "");
             return state.Error("Failed to write undo data");
         }
 
@@ -315,7 +315,7 @@ void BlockFileManager::FlushBlockFile(bool fFinalize)
     }
 
     if (!status) {
-        m_notifications.ReportShutdown(ShutdownReason::BLOCK_FILE_FLUSH_FAILED, "");
+        m_notifications.ReportFatalError(FatalErrorReason::BLOCK_FILE_FLUSH_FAILED, "");
     }
 }
 
@@ -481,7 +481,7 @@ bool BlockFileManager::CheckDiskSpace(uint64_t nAdditionalBytes, bool blocks_dir
 
     // Check for nMinDiskSpace bytes (currently 50MB)
     if (nFreeBytesAvailable < nMinDiskSpace + nAdditionalBytes) {
-        m_notifications.ReportShutdown(ShutdownReason::DISK_SPACE_LOW, "");
+        m_notifications.ReportFatalError(FatalErrorReason::DISK_SPACE_LOW, "");
         return false;
     }
 

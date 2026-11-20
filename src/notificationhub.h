@@ -27,8 +27,8 @@ public:
     void Subscribe(Notifications& subscriber);
     void Unsubscribe(Notifications& subscriber);
 
-    /** Logs the reason; records a fatal error as a warning. */
-    void ReportShutdown(ShutdownReason reason, const std::string& detail) override;
+    /** Records the fatal error as a warning and logs it. */
+    void ReportFatalError(FatalErrorReason reason, const std::string& detail) override;
     /** Sets the clock warning, telling the user how to fix their clock. */
     void ReportClockOutOfSync(std::chrono::minutes threshold) override;
     void ReportClockInSync() override;
@@ -36,6 +36,8 @@ public:
     void ReportLargeWorkFork(const uint256& fork_base) override;
     void ReportInvalidChainAhead() override;
     void ReportForkResolved() override;
+    /** Logs the stop; it is not a warning. */
+    void ReportStopHeightReached(int height) override;
     /** Shows the upgrade's progress in the GUI. */
     void ReportUpgradeProgress(int percent) override;
 
@@ -47,8 +49,8 @@ public:
      */
     std::string GetWarnings(const std::string& strFor) const;
 
-    /** What the log and the warnings say about a shutdown for reason. */
-    static std::string ShutdownMessage(ShutdownReason reason, const std::string& detail);
+    /** What the log and the warnings say about the fatal error. */
+    static std::string FatalErrorMessage(FatalErrorReason reason, const std::string& detail);
 
 private:
     //! What a warning is about; each has at most one current message.
@@ -78,15 +80,16 @@ class FatalErrorDialog : public Notifications
 {
 public:
     static FatalErrorDialog& Instance();
-    void ReportShutdown(ShutdownReason reason, const std::string& detail) override;
+    void ReportFatalError(FatalErrorReason reason, const std::string& detail) override;
 };
 
-/** Shuts the node down for every reason reported. */
+/** Shuts the node down on a fatal error and at the stop height. */
 class NodeShutdown : public Notifications
 {
 public:
     static NodeShutdown& Instance();
-    void ReportShutdown(ShutdownReason reason, const std::string& detail) override;
+    void ReportFatalError(FatalErrorReason reason, const std::string& detail) override;
+    void ReportStopHeightReached(int height) override;
 };
 
 #endif // TAPYRUS_NOTIFICATIONHUB_H

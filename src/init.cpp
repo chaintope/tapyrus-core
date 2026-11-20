@@ -263,6 +263,7 @@ void Shutdown(NodeContext& node)
         }
         g_chainstate_manager.IssuedColorIds() = CIssuedColorIds();
         g_chainstate_manager.BlockIndex().pblocktreedb.reset();
+        g_chainstate_manager.ReleaseBlockFileManager();
     }
     g_wallet_init_interface.Stop();
 

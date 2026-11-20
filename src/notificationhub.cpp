@@ -79,16 +79,12 @@ void NotificationHub::AlertNotify(const std::string& message) const
     t.detach(); // thread runs free
 }
 
-void NotificationHub::ReportShutdown(ShutdownReason reason, const std::string& detail)
+void NotificationHub::ReportFatalError(FatalErrorReason reason, const std::string& detail)
 {
-    const std::string message{ShutdownMessage(reason, detail)};
-    if (reason == ShutdownReason::STOP_HEIGHT_REACHED) {
-        LogPrintf("%s\n", message);
-    } else {
-        Store(WarningId::FATAL_ERROR, message);
-        LogPrintf("*** %s\n", message);
-    }
-    for (Notifications* subscriber : Subscribers()) subscriber->ReportShutdown(reason, detail);
+    const std::string message{FatalErrorMessage(reason, detail)};
+    Store(WarningId::FATAL_ERROR, message);
+    LogPrintf("*** %s\n", message);
+    for (Notifications* subscriber : Subscribers()) subscriber->ReportFatalError(reason, detail);
 }
 
 void NotificationHub::ReportClockOutOfSync(std::chrono::minutes threshold)
@@ -134,6 +130,12 @@ void NotificationHub::ReportForkResolved()
     for (Notifications* subscriber : Subscribers()) subscriber->ReportForkResolved();
 }
 
+void NotificationHub::ReportStopHeightReached(int height)
+{
+    LogPrintf("Stopping at height %d as -stopatheight asks\n", height);
+    for (Notifications* subscriber : Subscribers()) subscriber->ReportStopHeightReached(height);
+}
+
 void NotificationHub::ReportUpgradeProgress(int percent)
 {
     if (percent < 100) {
@@ -175,26 +177,25 @@ std::string NotificationHub::GetWarnings(const std::string& strFor) const
     return "error";
 }
 
-std::string NotificationHub::ShutdownMessage(ShutdownReason reason, const std::string& detail)
+std::string NotificationHub::FatalErrorMessage(FatalErrorReason reason, const std::string& detail)
 {
     switch (reason) {
-    case ShutdownReason::DISK_SPACE_LOW: return "Disk space is low!";
-    case ShutdownReason::BLOCK_WRITE_FAILED: return "Failed to write block";
-    case ShutdownReason::UNDO_WRITE_FAILED: return "Failed to write undo data";
-    case ShutdownReason::BLOCK_FILE_FLUSH_FAILED: return "Flushing block file to disk failed. This is likely the result of an I/O error.";
-    case ShutdownReason::BLOCK_INDEX_WRITE_FAILED: return "Failed to write to block index database";
-    case ShutdownReason::COINS_WRITE_FAILED: return "Failed to write to coin database";
-    case ShutdownReason::COINS_READ_FAILED: return "Error reading from database: " + detail;
-    case ShutdownReason::CORRUPT_BLOCK: return "Corrupt block found indicating potential hardware failure; shutting down";
-    case ShutdownReason::BLOCK_READ_FAILED: return "Failed to read block";
-    case ShutdownReason::SYSTEM_ERROR: return "System error: " + detail;
-    case ShutdownReason::FLUSH_SYSTEM_ERROR: return "System error while flushing: " + detail;
-    case ShutdownReason::STOP_HEIGHT_REACHED: return "Stopping at height " + detail + " as -stopatheight asks";
-    case ShutdownReason::INDEX_BLOCK_READ_FAILED: return "Failed to read block " + detail + " from disk";
-    case ShutdownReason::INDEX_BLOCK_WRITE_FAILED: return "Failed to write block " + detail + " to index database";
-    case ShutdownReason::INDEX_FIRST_BLOCK_NOT_GENESIS: return "First block connected is not the genesis block (height=" + detail + ")";
-    case ShutdownReason::INDEX_LOCATOR_BLOCK_NOT_FOUND: return "First block (hash=" + detail + ") in locator was not found";
-    case ShutdownReason::INDEX_INIT_FAILED: return detail + " failed to initialize";
+    case FatalErrorReason::DISK_SPACE_LOW: return "Disk space is low!";
+    case FatalErrorReason::BLOCK_WRITE_FAILED: return "Failed to write block";
+    case FatalErrorReason::UNDO_WRITE_FAILED: return "Failed to write undo data";
+    case FatalErrorReason::BLOCK_FILE_FLUSH_FAILED: return "Flushing block file to disk failed. This is likely the result of an I/O error.";
+    case FatalErrorReason::BLOCK_INDEX_WRITE_FAILED: return "Failed to write to block index database";
+    case FatalErrorReason::COINS_WRITE_FAILED: return "Failed to write to coin database";
+    case FatalErrorReason::COINS_READ_FAILED: return "Error reading from database: " + detail;
+    case FatalErrorReason::CORRUPT_BLOCK: return "Corrupt block found indicating potential hardware failure; shutting down";
+    case FatalErrorReason::BLOCK_READ_FAILED: return "Failed to read block";
+    case FatalErrorReason::SYSTEM_ERROR: return "System error: " + detail;
+    case FatalErrorReason::FLUSH_SYSTEM_ERROR: return "System error while flushing: " + detail;
+    case FatalErrorReason::INDEX_BLOCK_READ_FAILED: return "Failed to read block " + detail + " from disk";
+    case FatalErrorReason::INDEX_BLOCK_WRITE_FAILED: return "Failed to write block " + detail + " to index database";
+    case FatalErrorReason::INDEX_FIRST_BLOCK_NOT_GENESIS: return "First block connected is not the genesis block (height=" + detail + ")";
+    case FatalErrorReason::INDEX_LOCATOR_BLOCK_NOT_FOUND: return "First block (hash=" + detail + ") in locator was not found";
+    case FatalErrorReason::INDEX_INIT_FAILED: return detail + " failed to initialize";
     } // no default case, so the compiler can warn about missing cases
     assert(false);
     return "";
@@ -206,13 +207,12 @@ FatalErrorDialog& FatalErrorDialog::Instance()
     return instance;
 }
 
-void FatalErrorDialog::ReportShutdown(ShutdownReason reason, const std::string& detail)
+void FatalErrorDialog::ReportFatalError(FatalErrorReason reason, const std::string& detail)
 {
     std::string message;
     switch (reason) {
-    case ShutdownReason::STOP_HEIGHT_REACHED: return;
-    case ShutdownReason::DISK_SPACE_LOW: message = _("Error: Disk space is low!"); break;
-    case ShutdownReason::COINS_READ_FAILED: message = _("Error reading from database, shutting down."); break;
+    case FatalErrorReason::DISK_SPACE_LOW: message = _("Error: Disk space is low!"); break;
+    case FatalErrorReason::COINS_READ_FAILED: message = _("Error reading from database, shutting down."); break;
     default: message = _("Error: A fatal internal error occurred, see debug.log for details");
     }
     uiInterface.ThreadSafeMessageBox(message, "", CClientUIInterface::MSG_ERROR);
@@ -224,7 +224,12 @@ NodeShutdown& NodeShutdown::Instance()
     return instance;
 }
 
-void NodeShutdown::ReportShutdown(ShutdownReason reason, const std::string& detail)
+void NodeShutdown::ReportFatalError(FatalErrorReason reason, const std::string& detail)
+{
+    StartShutdown();
+}
+
+void NodeShutdown::ReportStopHeightReached(int height)
 {
     StartShutdown();
 }

@@ -6,7 +6,7 @@
 #include <index/txindex.h>
 #include <blockfilemanager.h>
 #include <chainstatemanager.h>
-#include <notifications.h>
+#include <index/indexnotifications.h>
 #include <shutdown.h>
 #include <util.h>
 #include <validation.h>

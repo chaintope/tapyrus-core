@@ -6,7 +6,7 @@
  #include <timeoffsets.h>
  #include <sync.h>
  #include <utiltime.h>
- #include <notifications.h>
+ #include <peernotifications.h>
 
  #include <algorithm>
  #include <chrono>

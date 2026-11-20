@@ -117,6 +117,7 @@ BasicTestingSetup::~BasicTestingSetup()
         LOCK(cs_main);
         g_chainstate_manager.IssuedColorIds() = CIssuedColorIds();
     }
+    g_chainstate_manager.ReleaseBlockFileManager();
     // The xfield history is left alone: it belongs to g_chainstate_manager,
     // which lives for the whole test binary. See pxFieldHistory in test_tapyrus.h.
     ClearDatadirCache();

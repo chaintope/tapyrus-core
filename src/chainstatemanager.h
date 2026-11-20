@@ -133,6 +133,8 @@ public:
     void InitBlockFileManager(const BlockFileManager::Options& options, ChainNotifications& notifications);
 
     BlockFileManager& GetBlockFileManager() { assert(m_block_file_manager); return *m_block_file_manager; }
+    /** Destroys the block file manager before the notifications it reports to. */
+    void ReleaseBlockFileManager() { m_block_file_manager.reset(); }
 
     /** Set while the block files are reindexed; restored from the block tree when an earlier reindex was interrupted. */
     bool IsReindexing() const { return m_reindexing; }

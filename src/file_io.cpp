@@ -7,7 +7,7 @@
 #include <chainstatemanager.h>
 #include <checkblock.h>
 #include <index/txindex.h>
-#include <notifications.h>
+#include <chainnotifications.h>
 #include <policy/policy.h>
 #include <shutdown.h>
 #include <trace.h>
@@ -286,7 +286,7 @@ bool ChainstateManager::LoadExternalBlockFile(FILE* fileIn, CDiskBlockPos *dbp, 
             }
         }
     } catch (const std::runtime_error& e) {
-        Notifications().ReportShutdown(ShutdownReason::SYSTEM_ERROR, e.what());
+        Notifications().ReportFatalError(FatalErrorReason::SYSTEM_ERROR, e.what());
     }
     if (nLoaded > 0)
         LogPrintf("Loaded %i blocks from external file in %dms\n", nLoaded, GetTimeMillis() - nStart);
@@ -346,7 +346,7 @@ bool Chainstate::FlushStateToDisk(CValidationState& state, FlushStateMode mode, 
             blockFileManager.FlushBlockFile();
             // Then update all block file information (which may refer to block and undo files).
             if (!blockFileManager.WriteBlockIndexDB()) {
-                m_chainman.Notifications().ReportShutdown(ShutdownReason::BLOCK_INDEX_WRITE_FAILED, "");
+                m_chainman.Notifications().ReportFatalError(FatalErrorReason::BLOCK_INDEX_WRITE_FAILED, "");
                 return state.Error("Failed to write to block index database");
             }
             // Finally remove any pruned files
@@ -366,7 +366,7 @@ bool Chainstate::FlushStateToDisk(CValidationState& state, FlushStateMode mode, 
             // For a full flush, wipe the entire cache; for a prune flush, use Sync()
             // to write dirty entries while keeping the cache warm for faster block connection.
             if (fDoFullFlush ? !CoinsTip().Flush() : !CoinsTip().Sync()) {
-                m_chainman.Notifications().ReportShutdown(ShutdownReason::COINS_WRITE_FAILED, "");
+                m_chainman.Notifications().ReportFatalError(FatalErrorReason::COINS_WRITE_FAILED, "");
                 return state.Error("Failed to write to coin database");
             }
             m_last_flush = nNow;
@@ -384,7 +384,7 @@ bool Chainstate::FlushStateToDisk(CValidationState& state, FlushStateMode mode, 
         GetMainSignals().ChainStateFlushed(m_chain.GetLocator());
     }
     } catch (const std::runtime_error& e) {
-        m_chainman.Notifications().ReportShutdown(ShutdownReason::FLUSH_SYSTEM_ERROR, e.what());
+        m_chainman.Notifications().ReportFatalError(FatalErrorReason::FLUSH_SYSTEM_ERROR, e.what());
         return state.Error(std::string("System error while flushing: ") + e.what());
     }
     return true;

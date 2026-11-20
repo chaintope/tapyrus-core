@@ -6,7 +6,7 @@
 
 #include <coinsviews.h>
 
-#include <notifications.h>
+#include <chainnotifications.h>
 #include <txdb.h>
 
 #include <stdexcept>
@@ -16,7 +16,7 @@ bool CCoinsViewErrorCatcher::GetCoin(const COutPoint &outpoint, Coin &coin) cons
     try {
         return CCoinsViewBacked::GetCoin(outpoint, coin);
     } catch(const std::runtime_error& e) {
-        m_notifications.ReportShutdown(ShutdownReason::COINS_READ_FAILED, e.what());
+        m_notifications.ReportFatalError(FatalErrorReason::COINS_READ_FAILED, e.what());
         // Starting the shutdown sequence and returning false to the caller would be
         // interpreted as 'entry not found' (as opposed to unable to read data), and
         // could lead to invalid interpretation. Just exit immediately, as we can't

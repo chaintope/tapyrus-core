@@ -8,7 +8,7 @@
 #include <validation.h>
 #include <blockfilemanager.h>
 #include <chainstatemanager.h>
-#include <notifications.h>
+#include <index/indexnotifications.h>
 
 constexpr char DB_BEST_BLOCK = 'B';
 
@@ -107,11 +107,11 @@ void BaseIndex::ThreadSync()
 
             CBlock block;
             if (!g_chainstate_manager.ReadBlock(block, pindex)) {
-                m_notifications.ReportShutdown(ShutdownReason::INDEX_BLOCK_READ_FAILED, pindex->GetBlockHash().ToString());
+                m_notifications.ReportFatalError(FatalErrorReason::INDEX_BLOCK_READ_FAILED, pindex->GetBlockHash().ToString());
                 return;
             }
             if (!WriteBlock(block, pindex)) {
-                m_notifications.ReportShutdown(ShutdownReason::INDEX_BLOCK_WRITE_FAILED, pindex->GetBlockHash().ToString());
+                m_notifications.ReportFatalError(FatalErrorReason::INDEX_BLOCK_WRITE_FAILED, pindex->GetBlockHash().ToString());
                 return;
             }
         }
@@ -143,7 +143,7 @@ void BaseIndex::BlockConnected(const std::shared_ptr<const CBlock>& block, const
     const CBlockIndex* best_block_index = m_best_block_index.load();
     if (!best_block_index) {
         if (pindex->nHeight != 0) {
-            m_notifications.ReportShutdown(ShutdownReason::INDEX_FIRST_BLOCK_NOT_GENESIS, std::to_string(pindex->nHeight));
+            m_notifications.ReportFatalError(FatalErrorReason::INDEX_FIRST_BLOCK_NOT_GENESIS, std::to_string(pindex->nHeight));
             return;
         }
     } else {
@@ -164,7 +164,7 @@ void BaseIndex::BlockConnected(const std::shared_ptr<const CBlock>& block, const
     if (WriteBlock(*block, pindex)) {
         m_best_block_index = pindex;
     } else {
-        m_notifications.ReportShutdown(ShutdownReason::INDEX_BLOCK_WRITE_FAILED, pindex->GetBlockHash().ToString());
+        m_notifications.ReportFatalError(FatalErrorReason::INDEX_BLOCK_WRITE_FAILED, pindex->GetBlockHash().ToString());
         return;
     }
 }
@@ -184,7 +184,7 @@ void BaseIndex::ChainStateFlushed(const CBlockLocator& locator)
     }
 
     if (!locator_tip_index) {
-        m_notifications.ReportShutdown(ShutdownReason::INDEX_LOCATOR_BLOCK_NOT_FOUND, locator_tip_hash.ToString());
+        m_notifications.ReportFatalError(FatalErrorReason::INDEX_LOCATOR_BLOCK_NOT_FOUND, locator_tip_hash.ToString());
         return;
     }
 
@@ -242,7 +242,7 @@ void BaseIndex::Start()
     // callbacks are not missed if Init sets m_synced to true.
     RegisterValidationInterface(this);
     if (!Init()) {
-        m_notifications.ReportShutdown(ShutdownReason::INDEX_INIT_FAILED, GetName());
+        m_notifications.ReportFatalError(FatalErrorReason::INDEX_INIT_FAILED, GetName());
         return;
     }
 
