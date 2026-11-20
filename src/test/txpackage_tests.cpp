@@ -4,6 +4,7 @@
 
 #include <consensus/validation.h>
 #include <key_io.h>
+#include <mempoolaccept.h>
 #include <policy/packages.h>
 #include <policy/policy.h>
 #include <policy/rbf.h>
@@ -242,8 +243,7 @@ BOOST_FIXTURE_TEST_CASE(package_validation_tests, PackageTestSetup)
     CTxMemPool& mempool = *m_node.mempool;
     PackageValidationState validationState;
     CValidationState state;
-    CTxMempoolAcceptanceOptions opt;
-    opt.context = ValidationContext::PACKAGE;
+    MempoolAcceptOptions opt;
 
     CKey parent_key;
     parent_key.MakeNewKey(true);
@@ -349,7 +349,7 @@ BOOST_FIXTURE_TEST_CASE(package_validation_tests, PackageTestSetup)
     }
 }
 
-// Verify that testmempoolaccept (TEST_ONLY) correctly resolves inputs in a
+// Verify that testmempoolaccept (test_only) correctly resolves inputs in a
 // chained package (tx1 → tx2 → tx3) using the virtual-mempool overlay, and
 // that the mempool is unchanged afterwards.
 BOOST_FIXTURE_TEST_CASE(testmempoolaccept_chained_package, PackageTestSetup)
@@ -357,9 +357,8 @@ BOOST_FIXTURE_TEST_CASE(testmempoolaccept_chained_package, PackageTestSetup)
     CTxMemPool& mempool = *m_node.mempool;
     PackageValidationState validationState;
     CValidationState state;
-    CTxMempoolAcceptanceOptions opt;
-    opt.context = ValidationContext::PACKAGE;
-    opt.flags = MempoolAcceptanceFlags::TEST_ONLY;
+    MempoolAcceptOptions opt;
+    opt.test_only = true;
 
     CKey child_key;
     child_key.MakeNewKey(true);
@@ -404,7 +403,7 @@ BOOST_FIXTURE_TEST_CASE(testmempoolaccept_chained_package, PackageTestSetup)
     BOOST_CHECK_EQUAL(validationState[mtx3.GetHashMalFix()].GetRejectCode(), 0);
     BOOST_CHECK_EQUAL(validationState[mtx3.GetHashMalFix()].GetRejectReason(), "");
 
-    // TEST_ONLY must leave the mempool unchanged
+    // A test-only submit must leave the mempool unchanged
     BOOST_CHECK_EQUAL(mempool.size(), initialPoolSize);
 }
 
@@ -413,8 +412,7 @@ BOOST_FIXTURE_TEST_CASE(package_orphan_tx_tests, PackageTestSetup)
     CTxMemPool& mempool = *m_node.mempool;
     PackageValidationState validationState;
     CValidationState state, state2;
-    CTxMempoolAcceptanceOptions opt;
-    opt.context = ValidationContext::PACKAGE;
+    MempoolAcceptOptions opt;
 
     CKey spend_key;
     spend_key.MakeNewKey(true);
@@ -444,9 +442,9 @@ BOOST_FIXTURE_TEST_CASE(package_orphan_tx_tests, PackageTestSetup)
         //This is the orphan tx as its parent is not known yet
         {
             LOCK(cs_main);
-            CTxMempoolAcceptanceOptions opt;
-            BOOST_CHECK(!g_chainstate_manager.ActiveChainstate().AcceptToMemoryPool(tx_orphan, opt));
-            BOOST_CHECK_EQUAL(opt.missingInputs.size(), 1);
+            MempoolAcceptResult orphan_result;
+            BOOST_CHECK(!g_chainstate_manager.ActiveChainstate().AcceptToMemoryPool(tx_orphan, MempoolAcceptOptions{}, orphan_result));
+            BOOST_CHECK_EQUAL(orphan_result.missing_inputs.size(), 1);
         }
 
         COutPoint spend_child(mtx_orphan.GetHashMalFix(), 0);
@@ -501,9 +499,9 @@ BOOST_FIXTURE_TEST_CASE(package_orphan_tx_tests, PackageTestSetup)
         {
             LOCK(cs_main);
             auto tx_orphan{MakeTransactionRef(mtx_orphan)};
-            CTxMempoolAcceptanceOptions opt;
-            BOOST_CHECK(!g_chainstate_manager.ActiveChainstate().AcceptToMemoryPool(tx_orphan, opt));
-            BOOST_CHECK_EQUAL(opt.missingInputs.size(), 1);
+            MempoolAcceptResult orphan_result;
+            BOOST_CHECK(!g_chainstate_manager.ActiveChainstate().AcceptToMemoryPool(tx_orphan, MempoolAcceptOptions{}, orphan_result));
+            BOOST_CHECK_EQUAL(orphan_result.missing_inputs.size(), 1);
         }
 
         // orphan is now in the package as child transaction.
@@ -658,9 +656,8 @@ BOOST_FIXTURE_TEST_CASE(package_submission_tests, PackageTestSetup)
     Package package_unrelated;
     CValidationState state, stateSubmit;
     PackageValidationState packageState;
-    CTxMempoolAcceptanceOptions opt;
-    opt.context = ValidationContext::PACKAGE;
-    opt.nAbsurdFee = 1 * ConsensusConstants::COIN;
+    MempoolAcceptOptions opt;
+    opt.max_tx_fee = 1 * ConsensusConstants::COIN;
 
     auto final_index = index_cb + 10;
     std::vector<unsigned char> vchSig;
@@ -768,7 +765,7 @@ BOOST_FIXTURE_TEST_CASE(package_submission_tests, PackageTestSetup)
 
     // high fee tx.
     {
-        opt.nAbsurdFee = 0.5 * ConsensusConstants::COIN;
+        opt.max_tx_fee = 0.5 * ConsensusConstants::COIN;
 
         ++index_cb;
         COutPoint spend_cbase(m_coinbase_txns[index_cb]->GetHashMalFix(), 0);
@@ -811,9 +808,8 @@ BOOST_FIXTURE_TEST_CASE(testmempoolaccept_missing_inputs_no_overlay_leak, Packag
     CTxMemPool& mempool = *m_node.mempool;
     PackageValidationState validationState;
     CValidationState state;
-    CTxMempoolAcceptanceOptions opt;
-    opt.context = ValidationContext::PACKAGE;
-    opt.flags = MempoolAcceptanceFlags::TEST_ONLY;
+    MempoolAcceptOptions opt;
+    opt.test_only = true;
 
     // tx_orphan: spends a non-existent outpoint — will get missing-inputs.
     COutPoint nonexistent(InsecureRand256(), 0);

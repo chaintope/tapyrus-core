@@ -8,8 +8,8 @@ functions:
 - name: SubmitPackageToMempool
   signature: "bool Chainstate::SubmitPackageToMempool(const Package& package,\n              \
     \                    CValidationState& state,\n                              \
-    \    PackageValidationState& results,\n                                  CTxMempoolAcceptanceOptions&\
-    \ opt)"
+    \    PackageValidationState& results,\n                                  const MempoolAcceptOptions&\
+    \ options)"
   return_type: bool
   params:
   - name: package
@@ -18,5 +18,5 @@ functions:
     type: CValidationState
   - name: results
     type: PackageValidationState
-  - name: opt
-    type: CTxMempoolAcceptanceOptions
+  - name: options
+    type: MempoolAcceptOptions

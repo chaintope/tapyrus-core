@@ -10,6 +10,7 @@
 #include <checkblock.h>
 #include <consensussettings.h>
 #include <disconnectedtransactions.h>
+#include <mempoolaccept.h>
 #include <util.h>
 #include <issuedcolorids.h>
 
@@ -371,10 +372,11 @@ void Chainstate::UpdateMempoolForReorg(DisconnectedBlockTransactions &disconnect
     auto it = disconnectpool.queuedTx.get<insertion_order>().rbegin();
     while (it != disconnectpool.queuedTx.get<insertion_order>().rend()) {
         // ignore validation errors in resurrected transactions
-        CTxMempoolAcceptanceOptions opt;
-        opt.flags = MempoolAcceptanceFlags::BYPASSS_LIMITS;
+        MempoolAcceptOptions options;
+        options.bypass_limits = true;
+        MempoolAcceptResult result;
         if (!fAddToMempool || (*it)->IsCoinBase() ||
-            !AcceptToMemoryPool(*it, opt) ){
+            !AcceptToMemoryPool(*it, options, result) ){
             // If the transaction doesn't make it in to the mempool, remove any
             // transactions that depend on it (which would now be orphans).
             m_mempool.removeRecursive(**it, MemPoolRemovalReason::REORG);

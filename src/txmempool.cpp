@@ -1107,4 +1107,3 @@ void CTxMemPool::GetTransactionAncestry(const uint256& txid, size_t& ancestors, 
     }
 }
 
-CTxMempoolAcceptanceOptions:: CTxMempoolAcceptanceOptions():context(ValidationContext::TRANSACTION), flags(MempoolAcceptanceFlags::NONE), nAbsurdFee(0), nAcceptTime(0), mempool_view(nullptr){}

@@ -6,6 +6,7 @@
 #include <cachesettings.h>
 #include <consensus/validation.h>
 #include <key.h>
+#include <mempoolaccept.h>
 #include <policy/policyconstants.h>
 #include <script/transactionsignatureserializer.h>
 #include <validation.h>
@@ -29,9 +30,10 @@ ToMemPool(CTxMemPool& pool, const CMutableTransaction& tx)
 {
     LOCK(cs_main);
 
-    CTxMempoolAcceptanceOptions opt;
-    opt.flags = MempoolAcceptanceFlags::BYPASSS_LIMITS;
-    return g_chainstate_manager.ActiveChainstate().AcceptToMemoryPool(MakeTransactionRef(tx), opt);
+    MempoolAcceptOptions opt;
+    opt.bypass_limits = true;
+    MempoolAcceptResult accept_result;
+    return g_chainstate_manager.ActiveChainstate().AcceptToMemoryPool(MakeTransactionRef(tx), opt, accept_result);
 }
 
 BOOST_FIXTURE_TEST_CASE(tx_mempool_block_doublespend, TestChainSetup)

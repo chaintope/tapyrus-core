@@ -8,6 +8,7 @@
 #include <checkblock.h>
 #include <index/txindex.h>
 #include <chainnotifications.h>
+#include <mempoolaccept.h>
 #include <policy/policy.h>
 #include <shutdown.h>
 #include <trace.h>
@@ -56,12 +57,13 @@ bool Chainstate::LoadMempool()
             if (amountdelta) {
                 pool.PrioritiseTransaction(tx->GetHashMalFix(), amountdelta);
             }
-            CTxMempoolAcceptanceOptions opt;
+            MempoolAcceptResult result;
             if (nTime + nExpiryTimeout > nNow) {
                 LOCK(cs_main);
-                opt.nAcceptTime = nTime;
-                AcceptToMemoryPool(tx, opt);
-                if (opt.state.IsValid()) {
+                MempoolAcceptOptions options;
+                options.accept_time = nTime;
+                AcceptToMemoryPool(tx, options, result);
+                if (result.state.IsValid()) {
                     ++count;
                 } else {
                     // mempool may contain the transaction already, e.g. from

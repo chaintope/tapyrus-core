@@ -8,6 +8,7 @@
 #include <chainstatemanager.h>
 #include <connman.h>
 #include <consensus/validation.h>
+#include <mempoolaccept.h>
 #include <net_processing.h>
 #include <nodecontext.h>
 #include <policy/fees.h>
@@ -73,10 +74,11 @@ public:
     {
         LOCK(::cs_main);
         if (!m_node.mempool->exists(tx->GetHashMalFix())) {
-            CTxMempoolAcceptanceOptions opt;
-            opt.nAbsurdFee = max_tx_fee;
-            if (!g_chainstate_manager.ActiveChainstate().AcceptToMemoryPool(tx, opt)) {
-                state = opt.state;
+            MempoolAcceptOptions options;
+            options.max_tx_fee = max_tx_fee;
+            MempoolAcceptResult result;
+            if (!g_chainstate_manager.ActiveChainstate().AcceptToMemoryPool(tx, options, result)) {
+                state = result.state;
                 return false;
             }
         }

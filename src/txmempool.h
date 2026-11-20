@@ -613,7 +613,7 @@ public:
 /**
  * CCoinsViewVirtualMemPool extends CCoinsViewMemPool with an in-memory map of
  * "virtual" coins — outputs of transactions that have been validated but not yet
- * added to the real mempool.  Used by SubmitPackageToMempool in TEST_ONLY mode so
+ * added to the real mempool.  Used by SubmitPackageToMempool for a test-only package so
  * that subsequent transactions in a chained package can resolve inputs against
  * earlier package transactions without requiring actual mempool admission.
  */
@@ -625,46 +625,6 @@ public:
     using CCoinsViewMemPool::CCoinsViewMemPool;
     bool GetCoin(const COutPoint& outpoint, Coin& coin) const override;
     void AddVirtualTx(const CTransaction& tx);
-};
-
-/* is the tx validation stand alone or part of a bigger entity */
-enum class ValidationContext {
-    TRANSACTION,
-    BLOCK,
-    INDEX,
-    PACKAGE
-};
-
-/* Options to change the behaviour of Accept to mempool
-* these are intended to be consolidated in one integer as flag
-* int flags = BYPASSS_LIMITS | TEST_ONLY
-*/
-enum class MempoolAcceptanceFlags
-{
-    NONE = 0,
-    BYPASSS_LIMITS = 1,
-    TEST_ONLY = 2
-};
-
-/* All configurable inputs and outputs of accept to mempool are consolidated here for ease of use*/
-struct CTxMempoolAcceptanceOptions {
-    ValidationContext context;
-    MempoolAcceptanceFlags flags;
-    CAmount nAbsurdFee;
-    CValidationState state;
-    int64_t nAcceptTime;
-    /** Resolves inputs against the mempool and the coins tip. AcceptToMemoryPool sets
-     *  the default one, under cs_main, unless the caller has set its own. */
-    CCoinsViewMemPool* mempool_view;
-    std::vector<CTransactionRef> txnReplaced;
-    std::vector<COutPoint> coins_to_uncache;
-    std::vector<COutPoint> missingInputs;
-
-    CTxMempoolAcceptanceOptions();
-    ~CTxMempoolAcceptanceOptions() {
-        delete mempool_view;
-        mempool_view = nullptr;
-    }
 };
 
 #endif // BITCOIN_TXMEMPOOL_H

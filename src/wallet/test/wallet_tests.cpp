@@ -3,6 +3,7 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
+#include <mempoolaccept.h>
 #include <script/transactionsignatureserializer.h>
 #include <blockfilemanager.h>
 #include <chainstatemanager.h>
@@ -523,10 +524,11 @@ public:
     }
 
     bool ProcessBlockAndScanForWalletTxns(const CTransactionRef tx) {
-        CTxMempoolAcceptanceOptions opt;
+        MempoolAcceptOptions opt;
+        MempoolAcceptResult accept_result;
         {
             LOCK(cs_main);
-            g_chainstate_manager.ActiveChainstate().AcceptToMemoryPool(tx, opt);
+            g_chainstate_manager.ActiveChainstate().AcceptToMemoryPool(tx, opt, accept_result);
         }
         CreateAndProcessBlock({ CMutableTransaction(*tx) }, CScript() <<  ToByteVector(coinbaseKey.GetPubKey()) << OP_CHECKSIG);
 
