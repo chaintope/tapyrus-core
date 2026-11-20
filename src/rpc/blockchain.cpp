@@ -169,7 +169,7 @@ static UniValue getbestblockhash(const JSONRPCRequest& request)
     return g_chainstate_manager.ActiveChain().Tip()->GetBlockHash().GetHex();
 }
 
-void RPCNotifyBlockChange(bool ibd, const CBlockIndex * pindex)
+void RPCNotifyBlockChange(bool ibd, const CBlockIndex * pindex, double)
 {
     if(pindex) {
         LOCK(cs_blockchange);

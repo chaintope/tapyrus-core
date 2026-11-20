@@ -11,6 +11,9 @@
 #include <random.h>
 #include <uint256.h>
 
+#include <mutex>
+#include <shared_mutex>
+
 SignatureCache::SignatureCache()
 {
     GetRandBytes(nonce.begin(), 32);

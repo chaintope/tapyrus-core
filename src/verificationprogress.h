@@ -40,8 +40,8 @@ public:
      *  the chain height (at least 100 blocks); the tip update calls it. */
     void Refresh(const CBlockIndex* pindexNew, const CBlockIndex* best_header) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
     /** Progress at pindex, from 0.0 (genesis) to 1.0 (current tip); 0.0 for a null
-     *  block or one not connected yet. The lock covers only the statistics, not
-     *  pindex->nChainTx. */
+     *  block or one not connected yet. The lock covers only the statistics: the caller
+     *  holds cs_main, or knows pindex is connected, since the chain writes its nChainTx. */
     double Guess(const CBlockIndex* pindex) const;
 
 private:

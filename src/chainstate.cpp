@@ -101,6 +101,7 @@ void NotifyHeaderTip() LOCKS_EXCLUDED(cs_main) {
     bool fInitialBlockDownload = false;
     static CBlockIndex* pindexHeaderOld = nullptr;
     CBlockIndex* pindexHeader = nullptr;
+    double verification_progress = 0.0;
     {
         LOCK(cs_main);
         pindexHeader = g_chainstate_manager.BestHeader();
@@ -109,11 +110,13 @@ void NotifyHeaderTip() LOCKS_EXCLUDED(cs_main) {
             fNotify = true;
             fInitialBlockDownload = IsInitialBlockDownload();
             pindexHeaderOld = pindexHeader;
+            // The header's block may still be connecting, which writes its nChainTx under cs_main.
+            verification_progress = g_chainstate_manager.Progress().Guess(pindexHeader);
         }
     }
     // Send block tip changed notifications without cs_main
     if (fNotify) {
-        uiInterface.NotifyHeaderTip(fInitialBlockDownload, pindexHeader);
+        uiInterface.NotifyHeaderTip(fInitialBlockDownload, pindexHeader, verification_progress);
     }
 }
 
@@ -1057,7 +1060,7 @@ bool Chainstate::ActivateBestChain(CValidationState &state, std::shared_ptr<cons
                 GetMainSignals().UpdatedBlockTip(pindexNewTip, pindexFork, fInitialDownload);
 
                 // Always notify the UI if a new block tip was connected
-                uiInterface.NotifyBlockTip(fInitialDownload, pindexNewTip);
+                uiInterface.NotifyBlockTip(fInitialDownload, pindexNewTip, g_chainstate_manager.Progress().Guess(pindexNewTip));
             }
         }
         // When we reach this point, we switched to a new tip (stored in pindexNewTip).
@@ -1142,7 +1145,7 @@ bool Chainstate::InvalidateBlock(CValidationState& state, CBlockIndex *pindex)
 
     // Only notify about a new block tip if the active chain was modified.
     if (pindex_was_in_chain) {
-        uiInterface.NotifyBlockTip(IsInitialBlockDownload(), pindex->pprev);
+        uiInterface.NotifyBlockTip(IsInitialBlockDownload(), pindex->pprev, g_chainstate_manager.Progress().Guess(pindex->pprev));
     }
     return true;
 }

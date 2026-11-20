@@ -566,7 +566,7 @@ std::string LicenseInfo()
            "\n";
 }
 
-static void BlockNotifyCallback(bool initialSync, const CBlockIndex *pBlockIndex)
+static void BlockNotifyCallback(bool initialSync, const CBlockIndex *pBlockIndex, double)
 {
     if (initialSync || !pBlockIndex)
         return;
@@ -583,7 +583,7 @@ static bool fHaveGenesis = false;
 static Mutex cs_GenesisWait;
 static CConditionVariable condvar_GenesisWait;
 
-static void BlockNotifyGenesisWait(bool, const CBlockIndex *pBlockIndex)
+static void BlockNotifyGenesisWait(bool, const CBlockIndex *pBlockIndex, double)
 {
     if (pBlockIndex != nullptr) {
         {
