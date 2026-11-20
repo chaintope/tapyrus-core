@@ -24,6 +24,7 @@ public:
     bool checkChainLimits(const CTransactionRef& tx) const override;
     RBFTransactionState isRBFOptIn(const CTransaction& tx) const override;
     bool broadcastTransaction(const CTransactionRef& tx, CAmount max_tx_fee, bool relay, CValidationState& state) override;
+    WalletNotifications& notifications() const override;
 
 private:
     NodeContext& m_node;

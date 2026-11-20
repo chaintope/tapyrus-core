@@ -13,6 +13,7 @@
 #include <httpserver.h>
 #include <init.h>
 #include <interfaces/nodecontextlookup.h>
+#include <notificationhub.h>
 #include <validation.h>
 #include <key_io.h>
 #include <messagemagic.h>
@@ -2568,8 +2569,8 @@ static UniValue loadwallet(const JSONRPCRequest& request)
         }
     }
 
-    std::string warning;
-    if (!CWallet::Verify(wallet_file, false, error, warning)) {
+    std::optional<SalvagedWalletFile> salvaged;
+    if (!CWallet::Verify(wallet_file, false, error, salvaged)) {
         throw JSONRPCError(RPC_WALLET_ERROR, "Wallet file verification failed: " + error);
     }
 
@@ -2583,7 +2584,7 @@ static UniValue loadwallet(const JSONRPCRequest& request)
 
     UniValue obj(UniValue::VOBJ);
     obj.pushKV("name", wallet->GetName());
-    obj.pushKV("warning", warning);
+    obj.pushKV("warning", salvaged ? NotificationHub::WalletFileSalvagedMessage(salvaged->wallet_file, salvaged->backup_file, salvaged->wallet_dir) : "");
 
     return obj;
 }
@@ -2609,7 +2610,7 @@ static UniValue createwallet(const JSONRPCRequest& request)
     }
     std::string wallet_name = request.params[0].get_str();
     std::string error;
-    std::string warning;
+    std::optional<SalvagedWalletFile> salvaged;
 
     bool disable_privatekeys = false;
     if (!request.params[1].isNull()) {
@@ -2623,7 +2624,7 @@ static UniValue createwallet(const JSONRPCRequest& request)
     }
 
     // Wallet::Verify will check if we're trying to create a wallet with a duplication name.
-    if (!CWallet::Verify(wallet_name, false, error, warning)) {
+    if (!CWallet::Verify(wallet_name, false, error, salvaged)) {
         throw JSONRPCError(RPC_WALLET_ERROR, "Wallet file verification failed: " + error);
     }
 
@@ -2637,7 +2638,7 @@ static UniValue createwallet(const JSONRPCRequest& request)
 
     UniValue obj(UniValue::VOBJ);
     obj.pushKV("name", wallet->GetName());
-    obj.pushKV("warning", warning);
+    obj.pushKV("warning", salvaged ? NotificationHub::WalletFileSalvagedMessage(salvaged->wallet_file, salvaged->backup_file, salvaged->wallet_dir) : "");
 
     return obj;
 }

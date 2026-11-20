@@ -228,8 +228,8 @@ public:
     static bool IsKeyType(const std::string& strType);
     /* verifies the database environment */
     static bool VerifyEnvironment(const fs::path& wallet_path, std::string& errorStr);
-    /* verifies the database file */
-    static bool VerifyDatabaseFile(const fs::path& wallet_path, std::string& warningStr, std::string& errorStr);
+    /* verifies the database file; salvaged is set when a corrupt file was salvaged */
+    static bool VerifyDatabaseFile(const fs::path& wallet_path, std::optional<SalvagedWalletFile>& salvaged, std::string& errorStr);
 
     //! write the hdchain model (external chain child index counter)
     bool WriteHDChain(const CHDChain& chain);

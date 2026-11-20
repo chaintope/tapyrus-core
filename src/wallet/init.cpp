@@ -5,6 +5,7 @@
 
 #include <chainparams.h>
 #include <init.h>
+#include <interfaces/nodecontextlookup.h>
 #include <net.h>
 #include <scheduler.h>
 #include <outputtype.h>
@@ -14,6 +15,7 @@
 #include <validation.h>
 #include <wallet/rpcwallet.h>
 #include <wallet/walletinit.h>
+#include <wallet/walletnotifications.h>
 #include <wallet/wallet.h>
 #include <wallet/walletutil.h>
 
@@ -126,8 +128,7 @@ bool WalletInit::Verify() const
 
     // A node setting, so warned about once here rather than for each wallet.
     if (g_policy_settings->minRelayTxFee.GetFeePerK() > HIGH_TX_FEE_PER_KB) {
-        InitWarning(AmountHighWarn("-minrelaytxfee") + " " +
-                    _("The wallet will avoid paying less than the minimum relay fee."));
+        if (m_node_lookup) m_node_lookup->notifications().ReportFeeSettingHigh(WalletFeeSetting::MIN_RELAY_TX_FEE);
     }
 
     if (gArgs.IsArgSet("-walletdir")) {
@@ -163,10 +164,10 @@ bool WalletInit::Verify() const
         }
 
         std::string error_string;
-        std::string warning_string;
-        bool verify_success = CWallet::Verify(wallet_file, salvage_wallet, error_string, warning_string);
+        std::optional<SalvagedWalletFile> salvaged;
+        bool verify_success = CWallet::Verify(wallet_file, salvage_wallet, error_string, salvaged);
         if (!error_string.empty()) InitError(error_string);
-        if (!warning_string.empty()) InitWarning(warning_string);
+        if (salvaged && m_node_lookup) m_node_lookup->notifications().ReportWalletFileSalvaged(salvaged->wallet_file, salvaged->backup_file, salvaged->wallet_dir);
         if (!verify_success) return false;
     }
 

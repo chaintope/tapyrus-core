@@ -13,6 +13,7 @@
 class CFeeRate;
 class CValidationState;
 class uint256;
+class WalletNotifications;
 struct FeeCalculation;
 enum class RBFTransactionState;
 
@@ -50,6 +51,9 @@ public:
     //! Adds tx to the mempool unless it is there already, then announces it to
     //! peers if relay is set. Returns false, with state set, if the mempool rejects it.
     virtual bool broadcastTransaction(const CTransactionRef& tx, CAmount max_tx_fee, bool relay, CValidationState& state) = 0;
+
+    //! Where the wallets publish what the user should see.
+    virtual WalletNotifications& notifications() const = 0;
 };
 
 } // namespace interfaces

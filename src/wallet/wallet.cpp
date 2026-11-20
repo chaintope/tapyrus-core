@@ -32,6 +32,7 @@
 #include <shutdown.h>
 #include <utilmoneystr.h>
 #include <wallet/fees.h>
+#include <wallet/walletnotifications.h>
 #include <wallet/walletutil.h>
 #include <trace.h>
 #include <blockfilemanager.h>
@@ -42,7 +43,6 @@
 #include <future>
 #include <stdexcept>
 
-#include <boost/algorithm/string/replace.hpp>
 
 static const size_t OUTPUT_GROUP_MAX_ENTRIES = 10;
 
@@ -962,15 +962,7 @@ bool CWallet::AddToWallet(const CWalletTx& wtxIn, bool fFlushOnClose, bool resca
     // Notify UI of new or updated transaction
     NotifyTransactionChanged(this, hash, fInsertedNew ? CT_NEW : CT_UPDATED);
 
-    // notify an external script when a wallet transaction comes in or is updated
-    std::string strCmd = gArgs.GetArg("-walletnotify", "");
-
-    if (!strCmd.empty())
-    {
-        boost::replace_all(strCmd, "%s", wtxIn.GetHash().GetHex());
-        std::thread t(runCommand, strCmd);
-        t.detach(); // thread runs free
-    }
+    if (m_node_lookup) m_node_lookup->notifications().ReportTransactionChanged(GetName(), wtxIn.GetHash());
 
     return true;
 }
@@ -1697,6 +1689,12 @@ int64_t CWallet::RescanFromTime(int64_t startTime, const WalletRescanReserver& r
  * the main chain after to the addition of any new keys you want to detect
  * transactions for.
  */
+void CWallet::ShowRescanProgress(int percent)
+{
+    ShowProgress(strprintf("%s " + _("Rescanning..."), GetDisplayName()), percent);
+    if (m_node_lookup) m_node_lookup->notifications().ReportRescanProgress(GetName(), percent);
+}
+
 CBlockIndex* CWallet::ScanForWalletTransactions(CBlockIndex* pindexStart, CBlockIndex* pindexStop, const WalletRescanReserver &reserver, bool fUpdate)
 {
     int64_t nNow = GetTime();
@@ -1713,7 +1711,7 @@ CBlockIndex* CWallet::ScanForWalletTransactions(CBlockIndex* pindexStart, CBlock
 
     {
         fAbortRescan = false;
-        ShowProgress(strprintf("%s " + _("Rescanning..."), GetDisplayName()), 0); // show rescan progress in GUI as dialog or on splashscreen, if -rescan on startup
+        ShowRescanProgress(0); // show rescan progress in GUI as dialog or on splashscreen, if -rescan on startup
         CBlockIndex* tip = nullptr;
         double progress_begin;
         double progress_end;
@@ -1731,7 +1729,7 @@ CBlockIndex* CWallet::ScanForWalletTransactions(CBlockIndex* pindexStart, CBlock
         while (pindex && !fAbortRescan && !ShutdownRequested())
         {
             if (pindex->nHeight % 100 == 0 && progress_end - progress_begin > 0.0) {
-                ShowProgress(strprintf("%s " + _("Rescanning..."), GetDisplayName()), std::max(1, std::min(99, (int)((progress_current - progress_begin) / (progress_end - progress_begin) * 100))));
+                ShowRescanProgress(std::max(1, std::min(99, (int)((progress_current - progress_begin) / (progress_end - progress_begin) * 100))));
             }
             if (GetTime() >= nNow + 60) {
                 nNow = GetTime();
@@ -1772,7 +1770,7 @@ CBlockIndex* CWallet::ScanForWalletTransactions(CBlockIndex* pindexStart, CBlock
         } else if (pindex && ShutdownRequested()) {
             WalletLogPrintf("Rescan interrupted by shutdown request at block %d. Progress=%f\n", pindex->nHeight, progress_current);
         }
-        ShowProgress(strprintf("%s " + _("Rescanning..."), GetDisplayName()), 100); // hide progress dialog in GUI
+        ShowRescanProgress(100); // hide progress dialog in GUI
     }
     return ret;
 }
@@ -4028,7 +4026,7 @@ void CWallet::MarkPreSplitKeys()
     }
 }
 
-bool CWallet::Verify(std::string wallet_file, bool salvage_wallet, std::string& error_string, std::string& warning_string)
+bool CWallet::Verify(std::string wallet_file, bool salvage_wallet, std::string& error_string, std::optional<SalvagedWalletFile>& salvaged)
 {
     // Do some checking on wallet path. It should be either a:
     //
@@ -4077,12 +4075,13 @@ bool CWallet::Verify(std::string wallet_file, bool salvage_wallet, std::string& 
         }
     }
 
-    return WalletBatch::VerifyDatabaseFile(wallet_path, warning_string, error_string);
+    return WalletBatch::VerifyDatabaseFile(wallet_path, salvaged, error_string);
 }
 
 std::shared_ptr<CWallet> CWallet::CreateWalletFromFile(interfaces::NodeContextLookup* node_lookup, const std::string& name, const fs::path& path, uint64_t wallet_creation_flags)
 {
     const std::string& walletFile = name;
+    WalletNotifications* notifications = node_lookup ? &node_lookup->notifications() : nullptr;
 
     // needed to restore wallet transaction meta data after -zapwallettxes
     std::vector<CWalletTx> vWtx;
@@ -4114,9 +4113,7 @@ std::shared_ptr<CWallet> CWallet::CreateWalletFromFile(interfaces::NodeContextLo
         }
         else if (nLoadWalletRet == DBErrors::NONCRITICAL_ERROR)
         {
-            InitWarning(strprintf(_("Error reading %s! All keys read correctly, but transaction data"
-                                         " or address book entries might be missing or incorrect."),
-                walletFile));
+            if (notifications) notifications->ReportTransactionDataUnreadable(walletFile);
         }
         else if (nLoadWalletRet == DBErrors::TOO_NEW) {
             InitError(strprintf(_("Error loading %s: Wallet requires newer version of %s"), walletFile, _(PACKAGE_NAME)));
@@ -4218,7 +4215,7 @@ std::shared_ptr<CWallet> CWallet::CreateWalletFromFile(interfaces::NodeContextLo
     } else if (walletInstance->IsWalletFlagSet(WALLET_FLAG_DISABLE_PRIVATE_KEYS)) {
         LOCK(walletInstance->cs_KeyStore);
         if (!walletInstance->mapKeys.empty() || !walletInstance->mapCryptedKeys.empty()) {
-            InitWarning(strprintf(_("Warning: Private keys detected in wallet {%s} with disabled private keys"), walletFile));
+            if (notifications) notifications->ReportPrivateKeysInDisabledWallet(walletFile);
         }
     } else if (gArgs.IsArgSet("-usehd")) {
         bool useHD = gArgs.GetBoolArg("-usehd", true);
@@ -4238,8 +4235,7 @@ std::shared_ptr<CWallet> CWallet::CreateWalletFromFile(interfaces::NodeContextLo
             return nullptr;
         }
         if (n > HIGH_TX_FEE_PER_KB) {
-            InitWarning(AmountHighWarn("-mintxfee") + " " +
-                        _("This is the minimum transaction fee you pay on every transaction."));
+            if (notifications) notifications->ReportFeeSettingHigh(WalletFeeSetting::MIN_TX_FEE);
         }
         walletInstance->m_min_fee = CFeeRate(n);
     }
@@ -4252,8 +4248,7 @@ std::shared_ptr<CWallet> CWallet::CreateWalletFromFile(interfaces::NodeContextLo
             return nullptr;
         }
         if (nFeePerK > HIGH_TX_FEE_PER_KB) {
-            InitWarning(AmountHighWarn("-fallbackfee") + " " +
-                        _("This is the transaction fee you may pay when fee estimates are not available."));
+            if (notifications) notifications->ReportFeeSettingHigh(WalletFeeSetting::FALLBACK_FEE);
         }
         walletInstance->m_fallback_fee = CFeeRate(nFeePerK);
         walletInstance->m_allow_fallback_fee = nFeePerK != 0; //disable fallback fee in case value was set to 0, enable if non-null value
@@ -4265,8 +4260,7 @@ std::shared_ptr<CWallet> CWallet::CreateWalletFromFile(interfaces::NodeContextLo
             return nullptr;
         }
         if (nFeePerK > HIGH_TX_FEE_PER_KB) {
-            InitWarning(AmountHighWarn("-discardfee") + " " +
-                        _("This is the transaction fee you may discard if change is smaller than dust at this level"));
+            if (notifications) notifications->ReportFeeSettingHigh(WalletFeeSetting::DISCARD_FEE);
         }
         walletInstance->m_discard_rate = CFeeRate(nFeePerK);
     }
@@ -4277,8 +4271,7 @@ std::shared_ptr<CWallet> CWallet::CreateWalletFromFile(interfaces::NodeContextLo
             return nullptr;
         }
         if (nFeePerK > HIGH_TX_FEE_PER_KB) {
-            InitWarning(AmountHighWarn("-paytxfee") + " " +
-                        _("This is the transaction fee you will pay if you send a transaction."));
+            if (notifications) notifications->ReportFeeSettingHigh(WalletFeeSetting::PAY_TX_FEE);
         }
         walletInstance->m_pay_tx_fee = CFeeRate(nFeePerK, 1000);
         if (walletInstance->m_pay_tx_fee < g_policy_settings->minRelayTxFee) {
