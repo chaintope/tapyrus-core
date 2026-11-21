@@ -575,8 +575,8 @@ bool PeerManager::BlockRequestAllowed(const CBlockIndex* pindex)
         (g_chainstate_manager.BestHeader()->GetBlockTime() - pindex->GetBlockTime() < STALE_RELAY_AGE_LIMIT);
 }
 
-PeerManager::PeerManager(CConnman& connman, CScheduler& scheduler)
-    : m_connman(connman), m_stale_tip_check_time(0) {
+PeerManager::PeerManager(CConnman& connman, CScheduler& scheduler, PeerNotifications& notifications)
+    : m_connman(connman), m_stale_tip_check_time(0), m_outbound_time_offsets(notifications) {
 
     // The recent-rejects filter is 1.3 MB, so it is built here rather than at declaration.
     recentRejects.reset(new CRollingBloomFilter(120000, 0.000001));
@@ -1533,8 +1533,8 @@ bool PeerManager::ProcessMessage(CNode* pfrom, const std::string& strCommand, CD
         pfrom->nTimeOffset = nTime - GetTime();
         if(!pfrom->fInbound)
         {
-            outbound_time_offsets.Add(std::chrono::seconds(pfrom->nTimeOffset));
-            outbound_time_offsets.WarnIfOutOfSync();
+            m_outbound_time_offsets.Add(std::chrono::seconds(pfrom->nTimeOffset));
+            m_outbound_time_offsets.WarnIfOutOfSync();
         }
 
         // Feeler connections exist only to verify if address is prod.

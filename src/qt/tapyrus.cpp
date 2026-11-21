@@ -33,7 +33,6 @@
 #include <uint256.h>
 #include <threadnames.h>
 #include <util.h>
-#include <warnings.h>
 
 #include <walletinitinterface.h>
 

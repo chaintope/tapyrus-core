@@ -112,6 +112,7 @@ add_executable(test_tapyrus
         multisig_tests.cpp
         net_tests.cpp
         netbase_tests.cpp
+        notificationhub_tests.cpp
         pmt_tests.cpp
         policyestimator_tests.cpp
         policysettings_tests.cpp
@@ -134,6 +135,7 @@ add_executable(test_tapyrus
         skiplist_tests.cpp
         streams_tests.cpp
         test_tapyrus_main.cpp
+        timeoffsets_tests.cpp
         torcontrol_tests.cpp
         transaction_tests.cpp
         transactioncolorchecker_tests.cpp

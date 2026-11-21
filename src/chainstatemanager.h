@@ -19,6 +19,8 @@
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
+#include <cstdio>
+#include <map>
 #include <memory>
 #include <optional>
 
@@ -27,6 +29,7 @@ class CBlock;
 class CBlockIndex;
 class CChain;
 class Chainstate;
+class ChainNotifications;
 
 static const int64_t DEFAULT_MAX_TIP_AGE = 24 * 60 * 60;
 static const bool DEFAULT_CHECKPOINTS_ENABLED = true;
@@ -39,7 +42,8 @@ static const int DEFAULT_SCRIPTCHECK_THREADS = 0;
  * Owns the node's chain-wide state, as Bitcoin Core's ChainstateManager does.
  * So far it holds the xfield history and the issued colorIds of the active chain,
  * the consensus settings, the block index, the block files, the start-up options,
- * the best block, the best header, the best invalid block and the active chainstate.
+ * the best block, the best header, the best invalid block, the active chainstate
+ * and the notifications it reports to.
  */
 class ChainstateManager
 {
@@ -118,10 +122,19 @@ public:
     /** The highest block found invalid. */
     CBlockIndex*& BestInvalid() EXCLUSIVE_LOCKS_REQUIRED(cs_main) { return m_best_invalid; }
 
-    /** Creates the block file manager once -prune is known; replaces any earlier one, keeping the block index. */
-    void InitBlockFileManager(const BlockFileManager::Options& options);
+    /** Where fatal errors and the fork warnings are reported; NodeContext owns it.
+     *  Set at start-up, before anything can fail. */
+    void SetNotifications(ChainNotifications* notifications) { m_notifications = notifications; }
+    ChainNotifications& Notifications() const { assert(m_notifications); return *m_notifications; }
+    bool ReportsTo(const ChainNotifications& notifications) const { return m_notifications == &notifications; }
+
+    /** Creates the block file manager once -prune is known; replaces any earlier one, keeping the block index.
+     *  notifications receives its fatal file errors. */
+    void InitBlockFileManager(const BlockFileManager::Options& options, ChainNotifications& notifications);
 
     BlockFileManager& GetBlockFileManager() { assert(m_block_file_manager); return *m_block_file_manager; }
+    /** Destroys the block file manager before the notifications it reports to. */
+    void ReleaseBlockFileManager() { m_block_file_manager.reset(); }
 
     /** Set while the block files are reindexed; restored from the block tree when an earlier reindex was interrupted. */
     bool IsReindexing() const { return m_reindexing; }
@@ -151,6 +164,9 @@ public:
     Chainstate& ActiveChainstate() const;
     CChain& ActiveChain() const;
 
+    /** Import blocks from an external file */
+    bool LoadExternalBlockFile(FILE* fileIn, CDiskBlockPos* dbp = nullptr, CXFieldHistoryMap* pxfieldHistory = nullptr);
+
     //! The hash of the active tip. getblocktemplate long-polls on it; the tip
     //! update sets it and RPC stop wakes the waiters.
     Mutex m_best_block_mutex;
@@ -168,6 +184,7 @@ private:
     std::unique_ptr<const ConsensusSettings> m_consensus_settings;
     //! Declared before the block file manager, which keeps a reference to it.
     BlockIndexMap m_block_index;
+    ChainNotifications* m_notifications{nullptr};
     //! Built from the start-up options, so it cannot be a plain member.
     std::unique_ptr<BlockFileManager> m_block_file_manager;
     //! Read by the network thread while the import thread clears it.
@@ -175,6 +192,9 @@ private:
     bool m_have_pruned GUARDED_BY(cs_main) = false;
     //! The only chainstate; the manager decides which chainstate is active, as in Core.
     std::unique_ptr<Chainstate> m_active_chainstate;
+    //! Disk positions of reindexed blocks whose parent is not loaded yet, by parent hash.
+    //! Only the import thread uses it.
+    std::multimap<uint256, CDiskBlockPos> m_blocks_unknown_parent;
 };
 
 extern ChainstateManager g_chainstate_manager;

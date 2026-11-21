@@ -266,13 +266,13 @@ target_link_libraries(tapyrus_global
 )
 
 # Genuinely shared, no single theme: netaddress/netbase (network address
-# types), protocol (P2P message framing), warnings (generic warning-state
-# utility).
+# types), protocol (P2P message framing), notificationhub (what the node's
+# components publish to).
 add_library(tapyrus_netbase STATIC EXCLUDE_FROM_ALL
   netaddress.cpp
   netbase.cpp
+  notificationhub.cpp
   protocol.cpp
-  warnings.cpp
 )
 target_link_libraries(tapyrus_netbase
   PUBLIC
@@ -341,7 +341,6 @@ include(InstallBinaryComponent)
 # Blockchain/mempool consensus-application state: chain index, UTXO set,
 # block/tx validation, mempool, block-storage indexes (leveldb-backed).
 add_library(tapyrus_chainstate STATIC EXCLUDE_FROM_ALL
-  abortnode.cpp
   blockfilemanager.cpp
   blockindexmap.cpp
   cachesettings.cpp

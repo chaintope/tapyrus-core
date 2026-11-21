@@ -29,6 +29,7 @@
 #include <httprpc.h>
 #include <index/txindex.h>
 #include <key.h>
+#include <notificationhub.h>
 #include <validation.h>
 #include <miner.h>
 #include <netbase.h>
@@ -57,7 +58,6 @@
 #include <util.h>
 #include <utilmoneystr.h>
 #include <validationinterface.h>
-#include <warnings.h>
 #include <walletinitinterface.h>
 #include <stdexcept>
 #include <stdint.h>
@@ -263,6 +263,7 @@ void Shutdown(NodeContext& node)
         }
         g_chainstate_manager.IssuedColorIds() = CIssuedColorIds();
         g_chainstate_manager.BlockIndex().pblocktreedb.reset();
+        g_chainstate_manager.ReleaseBlockFileManager();
     }
     g_wallet_init_interface.Stop();
 
@@ -633,7 +634,7 @@ static void ThreadImport(std::vector<fs::path> vImportFiles)
             if (!file)
                 break; // This error is logged in OpenBlockFile
             LogPrintf("Reindexing block file blk%05u.dat...\n", (unsigned int)nFile);
-            LoadExternalBlockFile(file, &pos, &tempXFieldHistory);
+            g_chainstate_manager.LoadExternalBlockFile(file, &pos, &tempXFieldHistory);
             nFile++;
         }
         {
@@ -651,7 +652,7 @@ static void ThreadImport(std::vector<fs::path> vImportFiles)
         if (file) {
             fs::path pathBootstrapOld = GetDataDir() / "bootstrap.dat.old";
             LogPrintf("Importing bootstrap.dat...\n");
-            LoadExternalBlockFile(file, nullptr, &tempXFieldHistory);
+            g_chainstate_manager.LoadExternalBlockFile(file, nullptr, &tempXFieldHistory);
             RenameOver(pathBootstrap, pathBootstrapOld);
         } else {
             LogPrintf("Warning: Could not open bootstrap file %s\n", pathBootstrap.string());
@@ -663,7 +664,7 @@ static void ThreadImport(std::vector<fs::path> vImportFiles)
         FILE *file = fsbridge::fopen(path, "rb");
         if (file) {
             LogPrintf("Importing blocks file %s...\n", path.string());
-            LoadExternalBlockFile(file, nullptr, &tempXFieldHistory);
+            g_chainstate_manager.LoadExternalBlockFile(file, nullptr, &tempXFieldHistory);
         } else {
             LogPrintf("Warning: Could not open blocks file %s\n", path.string());
         }
@@ -1037,13 +1038,16 @@ bool AppInitParameterInteraction(NodeContext& node)
 
     node.cache = std::make_unique<const CacheSettings>(gArgs);
     g_chainstate_manager.InitOptions(ChainstateManager::Options(gArgs, chainparams.DefaultConsistencyChecks(), node.cache->nCoinCacheUsage));
+    node.notifications.Subscribe(FatalErrorDialog::Instance());
+    node.notifications.Subscribe(NodeShutdown::Instance());
+    g_chainstate_manager.SetNotifications(&node.notifications);
     const uint256& hashAssumeValid = g_chainstate_manager.GetOptions().hashAssumeValid;
     if (!hashAssumeValid.IsNull())
         LogPrintf("Assuming ancestors of block %s have valid signatures.\n", hashAssumeValid.GetHex());
     else
         LogPrintf("Validating signatures for all blocks.\n");
     try {
-        g_chainstate_manager.InitBlockFileManager(BlockFileManager::Options(gArgs, Params().PruneAfterHeight()));
+        g_chainstate_manager.InitBlockFileManager(BlockFileManager::Options(gArgs, Params().PruneAfterHeight()), node.notifications);
     } catch (const std::exception& e) {
         return InitError(e.what());
     }
@@ -1233,7 +1237,7 @@ bool AppInitMain(NodeContext& node)
     node.connman = std::unique_ptr<CConnman>(new CConnman(GetRand(std::numeric_limits<uint64_t>::max()), GetRand(std::numeric_limits<uint64_t>::max())));
     CConnman& connman = *node.connman;
 
-    node.peerman.reset(new PeerManager(connman, scheduler));
+    node.peerman.reset(new PeerManager(connman, scheduler, node.notifications));
     RegisterValidationInterface(node.peerman.get());
 
     // sanitize comments per BIP-0014, format user agent and check total size
@@ -1562,7 +1566,7 @@ bool AppInitMain(NodeContext& node)
 
     // ********************************************************* Step 8: start indexers
     if (gArgs.GetBoolArg("-txindex", DEFAULT_TXINDEX)) {
-        g_txindex = MakeUnique<TxIndex>(cache.nTxIndexCache, false, g_chainstate_manager.IsReindexing());
+        g_txindex = MakeUnique<TxIndex>(node.notifications, cache.nTxIndexCache, false, g_chainstate_manager.IsReindexing());
         g_txindex->Start();
     }
 

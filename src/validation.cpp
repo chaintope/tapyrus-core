@@ -38,14 +38,11 @@
 #include <trace.h>
 #include <ui_interface.h>
 #include <utilmoneystr.h>
-#include <warnings.h>
 #include <tempxfieldhistory.h>
 
 #include <future>
 #include <thread>
 #include <sstream>
-
-#include <file_io.h>
 
 #if defined(NDEBUG)
 # error "Tapyrus cannot be compiled without assertions."
@@ -773,7 +770,7 @@ bool AcceptToMemoryPool(const CTransactionRef &tx, CTxMempoolAcceptanceOptions& 
     opt.coins_to_uncache.clear();
     // After we've (potentially) uncached entries, ensure our coins cache is still within its size limits
     CValidationState stateDummy;
-    FlushStateToDisk(stateDummy, FlushStateMode::PERIODIC);
+    g_chainstate_manager.ActiveChainstate().FlushStateToDisk(stateDummy, FlushStateMode::PERIODIC);
     return res;
 }
 
@@ -991,7 +988,7 @@ void StartScriptCheckWorkerThreads(int threads_num)
 
 void FlushStateToDisk() {
     CValidationState state;
-    if (!FlushStateToDisk(state, FlushStateMode::ALWAYS)) {
+    if (!g_chainstate_manager.ActiveChainstate().FlushStateToDisk(state, FlushStateMode::ALWAYS)) {
         LogPrintf("%s: failed to flush state (%s)\n", __func__, FormatStateMessage(state));
     }
 }
@@ -999,7 +996,7 @@ void FlushStateToDisk() {
 void PruneAndFlush() {
     CValidationState state;
     g_chainstate_manager.GetBlockFileManager().SetCheckForPruning();
-    if (!FlushStateToDisk(state, FlushStateMode::NONE)) {
+    if (!g_chainstate_manager.ActiveChainstate().FlushStateToDisk(state, FlushStateMode::NONE)) {
         LogPrintf("%s: failed to flush state (%s)\n", __func__, FormatStateMessage(state));
     }
 }
@@ -1008,7 +1005,7 @@ void PruneAndFlush() {
 void PruneBlockFilesManual(int nManualPruneHeight)
 {
     CValidationState state;
-    if (!FlushStateToDisk(state, FlushStateMode::NONE, nManualPruneHeight)) {
+    if (!g_chainstate_manager.ActiveChainstate().FlushStateToDisk(state, FlushStateMode::NONE, nManualPruneHeight)) {
         LogPrintf("%s: failed to flush state (%s)\n", __func__, FormatStateMessage(state));
     }
 }
@@ -1169,7 +1166,7 @@ bool RewindBlockIndex() {
         // and skip it here, we're about to -reindex-chainstate anyway, so
         // it'll get called a bunch real soon.
         CValidationState state;
-        if (!FlushStateToDisk(state, FlushStateMode::ALWAYS)) {
+        if (!g_chainstate_manager.ActiveChainstate().FlushStateToDisk(state, FlushStateMode::ALWAYS)) {
             LogPrintf("RewindBlockIndex: unable to flush state to disk (%s)\n", FormatStateMessage(state));
             return false;
         }
