@@ -287,7 +287,6 @@ TestChainSetup::TestChainSetup() : TestingSetup(TAPYRUS_MODES::DEV)
 CBlock
 TestChainSetup::CreateAndProcessBlock(const std::vector<CMutableTransaction>& txns, const CScript& scriptPubKey)
 {
-    const CChainParams& chainparams = Params();
     std::unique_ptr<CBlockTemplate> pblocktemplate;
     {
         // Held across both, so the template builds on the tip the options read.
