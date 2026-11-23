@@ -343,14 +343,17 @@ public:
         ABANDONED
     };
 
-    /* Confirmation includes tx status and a pair of {block hash/tx index in block} at which tx has been confirmed.
-     * This pair is both 0 if tx hasn't confirmed yet. Meaning of these fields changes with CONFLICTED state
-     * where they instead point to block hash and index of the deepest conflicting tx.
+    /* Confirmation includes tx status and a triplet of {block height/block hash/tx index in block}
+     * at which tx has been confirmed. All three are set to 0 if tx is unconfirmed or abandoned.
+     * Meaning of these fields changes with CONFLICTED state where they instead point to block hash
+     * and block height of the deepest conflicting tx.
      */
     struct Confirmation {
-        Status status = UNCONFIRMED;
-        uint256 hashBlock = uint256();
-        int nIndex = 0;
+        Status status;
+        int block_height;
+        uint256 hashBlock;
+        int nIndex;
+        Confirmation(Status s = UNCONFIRMED, int b = 0, uint256 h = uint256(), int i = 0) : status(s), block_height(b), hashBlock(h), nIndex(i) {}
     };
 
     Confirmation m_confirm;
@@ -477,27 +480,29 @@ public:
 
     std::set<uint256> GetConflicts() const;
 
-    void SetConf(Status status, const uint256& block_hash, int posInBlock);
-
     /**
      * Return depth of transaction in blockchain:
      * <0  : conflicts with a transaction this deep in the blockchain
      *  0  : in memory pool, waiting to be included in a block, or the wallet has no node
      * >=1 : this many blocks deep in the main chain
      */
-    int GetDepthInMainChain() const;
+    // The wallet's cs_wallet must be held; the depth comes from the height of
+    // the last block the wallet processed, without reading the chain.
+    int GetDepthInMainChain() const NO_THREAD_SAFETY_ANALYSIS;
     bool IsInMainChain() const { return GetDepthInMainChain() > 0; }
     bool isAbandoned() const { return m_confirm.status == CWalletTx::ABANDONED; }
     void setAbandoned()
     {
         m_confirm.status = CWalletTx::ABANDONED;
         m_confirm.hashBlock = uint256();
+        m_confirm.block_height = 0;
         m_confirm.nIndex = 0;
     }
     bool isConflicted() const { return m_confirm.status == CWalletTx::CONFLICTED; }
     void setConflicted() { m_confirm.status = CWalletTx::CONFLICTED; }
     bool isUnconfirmed() const { return m_confirm.status == CWalletTx::UNCONFIRMED; }
     void setUnconfirmed() { m_confirm.status = CWalletTx::UNCONFIRMED; }
+    bool isConfirmed() const { return m_confirm.status == CWalletTx::CONFIRMED; }
     void setConfirmed() { m_confirm.status = CWalletTx::CONFIRMED; }
 
     const uint256& GetHash() const { return tx->GetHashMalFix(); }
@@ -733,10 +738,10 @@ private:
      * Abandoned state should probably be more carefully tracked via different
      * posInBlock signals or by checking mempool presence when necessary.
      */
-    bool AddToWalletIfInvolvingMe(const CTransactionRef& tx, CWalletTx::Status status, const CBlockIndex* pIndex, int posInBlock, bool fUpdate, bool rescanning_old_block = false) EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
+    bool AddToWalletIfInvolvingMe(const CTransactionRef& tx, CWalletTx::Confirmation confirm, bool fUpdate, bool rescanning_old_block = false) EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
 
     /* Mark a transaction (and its in-wallet descendants) as conflicting with a particular block. */
-    void MarkConflicted(const uint256& hashBlock, const uint256& hashTx);
+    void MarkConflicted(const uint256& hashBlock, int conflicting_height, const uint256& hashTx);
 
     /* Mark a transaction's inputs dirty, thus forcing the outputs to be recomputed */
     void MarkInputsDirty(const CTransactionRef& tx);
@@ -745,7 +750,7 @@ private:
 
     /* Used by TransactionAddedToMemorypool/BlockConnected/Disconnected/ScanForWalletTransactions.
      * Should be called with pindexBlock and posInBlock if this is for a transaction that is included in a block. */
-    void SyncTransaction(const CTransactionRef& tx, CWalletTx::Status status, const CBlockIndex *pindex, int posInBlock = 0, bool update_tx = true, bool rescanning_old_block = false) EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
+    void SyncTransaction(const CTransactionRef& tx, CWalletTx::Confirmation confirm, bool update_tx = true, bool rescanning_old_block = false) EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
 
     /* the HD chain data model (external chain counters) */
     CHDChain hdChain;
@@ -790,13 +795,17 @@ private:
      * The following is used to keep track of how far behind the wallet is
      * from the chain sync, and to allow clients to block on us being caught up.
      *
-     * Note that this is *not* how far we've processed, we may need some rescan
-     * to have seen all transactions in the chain, but is only used to track
-     * live BlockConnected callbacks.
-     *
-     * Protected by cs_main (see BlockUntilSyncedToCurrentChain)
+     * Processed hash is a pointer on node's tip and doesn't imply that the wallet
+     * has scanned sequentially all blocks up to this one.
      */
-    const CBlockIndex* m_last_block_processed = nullptr;
+    uint256 m_last_block_processed GUARDED_BY(cs_wallet);
+
+    /* Height of last block processed is used by wallet to know depth of transactions
+     * without relying on Chain interface beyond asynchronous updates. For safety, we
+     * initialize it to -1. Height is a pointer on node's tip and doesn't imply
+     * that the wallet has scanned sequentially all blocks up to this one.
+     */
+    int m_last_block_processed_height GUARDED_BY(cs_wallet) = -1;
 
 public:
     /*
@@ -980,8 +989,23 @@ public:
     void LoadToWallet(CWalletTx& wtxIn) EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
     void TransactionAddedToMempool(const CTransactionRef& tx) override;
     void BlockConnected(const std::shared_ptr<const CBlock>& pblock, const CBlockIndex *pindex, const std::vector<CTransactionRef>& vtxConflicted) override;
-    void BlockDisconnected(const std::shared_ptr<const CBlock>& pblock) override;
+    void BlockDisconnected(const std::shared_ptr<const CBlock>& pblock, const CBlockIndex* pindex) override;
     void UpdatedBlockTip(const CBlockIndex* pindexNew, const CBlockIndex* pindexFork, bool fInitialDownload) override;
+
+    /** Get last block processed height */
+    int GetLastBlockHeight() const EXCLUSIVE_LOCKS_REQUIRED(cs_wallet)
+    {
+        AssertLockHeld(cs_wallet);
+        assert(m_last_block_processed_height >= 0);
+        return m_last_block_processed_height;
+    };
+    /** Set last block processed height, currently only use in unit test */
+    void SetLastBlockProcessed(int block_height, uint256 block_hash) EXCLUSIVE_LOCKS_REQUIRED(cs_wallet)
+    {
+        AssertLockHeld(cs_wallet);
+        m_last_block_processed_height = block_height;
+        m_last_block_processed = block_hash;
+    };
     int64_t RescanFromTime(int64_t startTime, const WalletRescanReserver& reserver, bool update);
     CBlockIndex* ScanForWalletTransactions(CBlockIndex* pindexStart, CBlockIndex* pindexStop, const WalletRescanReserver& reserver, bool fUpdate = false);
     void TransactionRemovedFromMempool(const CTransactionRef &ptx) override;

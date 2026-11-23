@@ -196,9 +196,9 @@ void WalletEventQueue::BlockConnected(const std::shared_ptr<const CBlock>& block
     Add([block, pindex, txnConflicted](CWallet& wallet) { wallet.BlockConnected(block, pindex, txnConflicted); });
 }
 
-void WalletEventQueue::BlockDisconnected(const std::shared_ptr<const CBlock>& block)
+void WalletEventQueue::BlockDisconnected(const std::shared_ptr<const CBlock>& block, const CBlockIndex* pindex)
 {
-    Add([block](CWallet& wallet) { wallet.BlockDisconnected(block); });
+    Add([block, pindex](CWallet& wallet) { wallet.BlockDisconnected(block, pindex); });
 }
 
 void WalletEventQueue::TransactionRemovedFromMempool(const CTransactionRef& ptx)
