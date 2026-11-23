@@ -207,26 +207,6 @@ struct COutputEntry
     int vout;
 };
 
-/** Legacy class used for deserializing vtxPrev for backwards compatibility.
- * vtxPrev was removed in commit 93a18a3650292afbb441a47d1fa1b94aeb0164e3,
- * but old wallet.dat files may still contain vtxPrev vectors of CMerkleTxs.
- * These need to get deserialized for field alignment when deserializing
- * a CWalletTx, but the deserialized values are discarded.**/
-class CMerkleTx
-{
-public:
-    template<typename Stream>
-    void Unserialize(Stream& s)
-    {
-        CTransactionRef tx;
-        uint256 hashBlock;
-        std::vector<uint256> vMerkleBranch;
-        int nIndex;
-
-        s >> tx >> hashBlock >> vMerkleBranch >> nIndex;
-    }
-};
-
 //Get the marginal bytes of spending the specified output
 int CalculateMaximumSignedInputSize(const CTxOut& txout, const CWallet* pwallet, bool use_max_sig = false);
 
@@ -387,7 +367,7 @@ public:
         }
 
         std::vector<char> dummy_vector1; //!< Used to be vMerkleBranch
-        std::vector<char> dummy_vector2; //!< Used to be vtxPrev
+        std::vector<char> dummy_vector2; //!< Used to be vtxPrev; always empty
         char dummy_char = false; //!< Used to be fSpent
         uint256 serializedHash = isAbandoned() ? ABANDON_HASH : m_confirm.hashBlock;
         int serializedIndex = isAbandoned() || isConflicted() ? -1 : m_confirm.nIndex;
@@ -400,10 +380,14 @@ public:
         Init(nullptr);
 
         std::vector<uint256> dummy_vector1; //!< Used to be vMerkleBranch
-        std::vector<CMerkleTx> dummy_vector2; //!< Used to be vtxPrev
         char dummy_char; //! Used to be fSpent
         int serializedIndex;
-        s >> tx >> m_confirm.hashBlock >> dummy_vector1 >> serializedIndex >> dummy_vector2 >> mapValue >> vOrderForm >> fTimeReceivedIsTxTime >> nTimeReceived >> fFromMe >> dummy_char;
+        s >> tx >> m_confirm.hashBlock >> dummy_vector1 >> serializedIndex;
+        // Used to be vtxPrev; every Tapyrus version writes it empty.
+        if (ReadCompactSize(s) != 0) {
+            throw std::ios_base::failure("CWalletTx: unexpected vtxPrev entries");
+        }
+        s >> mapValue >> vOrderForm >> fTimeReceivedIsTxTime >> nTimeReceived >> fFromMe >> dummy_char;
 
         /* At serialization/deserialization, an nIndex == -1 means that hashBlock refers to
          * the earliest block in the chain we know this or any in-wallet ancestor conflicts
