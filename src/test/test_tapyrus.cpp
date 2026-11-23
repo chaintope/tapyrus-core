@@ -229,7 +229,7 @@ TestingSetup::TestingSetup(const std::string& chainName) : BasicTestingSetup(cha
             g_chainstate_manager.InitOptions(ChainstateOptionsOverride::TestOptions({{"-par", SCRIPT_CHECK_PAR}}));
             StartScriptCheckWorkerThreads(g_chainstate_manager.GetOptions().nScriptCheckThreads);
             m_node.connman = std::unique_ptr<CConnman>(new CConnman(0x1337, 0x1337)); // Deterministic randomness for tests.
-            m_node.peerman.reset(new PeerManager(*m_node.connman, *m_node.mempool, scheduler, m_node.notifications));
+            m_node.peerman.reset(new PeerManager(*m_node.connman, g_chainstate_manager, *m_node.mempool, scheduler, m_node.notifications));
         } catch (...) {
             // ~TestingSetup() never runs for a throwing constructor, so the
             // scheduler thread started above must be stopped here. Left
