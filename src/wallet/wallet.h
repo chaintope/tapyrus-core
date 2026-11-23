@@ -207,66 +207,24 @@ struct COutputEntry
     int vout;
 };
 
-/** A transaction with a merkle branch linking it to the block chain. */
+/** Legacy class used for deserializing vtxPrev for backwards compatibility.
+ * vtxPrev was removed in commit 93a18a3650292afbb441a47d1fa1b94aeb0164e3,
+ * but old wallet.dat files may still contain vtxPrev vectors of CMerkleTxs.
+ * These need to get deserialized for field alignment when deserializing
+ * a CWalletTx, but the deserialized values are discarded.**/
 class CMerkleTx
 {
-private:
-  /** Constant used in hashBlock to indicate tx has been abandoned */
-    static const uint256 ABANDON_HASH;
-
 public:
-    CTransactionRef tx;
-    uint256 hashBlock;
-
-    /* An nIndex == -1 means that hashBlock (in nonzero) refers to the earliest
-     * block in the chain we know this or any in-wallet dependency conflicts
-     * with. Older clients interpret nIndex == -1 as unconfirmed for backward
-     * compatibility.
-     */
-    int nIndex;
-
-    CMerkleTx()
+    template<typename Stream>
+    void Unserialize(Stream& s)
     {
-        SetTx(MakeTransactionRef());
-        Init();
+        CTransactionRef tx;
+        uint256 hashBlock;
+        std::vector<uint256> vMerkleBranch;
+        int nIndex;
+
+        s >> tx >> hashBlock >> vMerkleBranch >> nIndex;
     }
-
-    explicit CMerkleTx(CTransactionRef arg)
-    {
-        SetTx(std::move(arg));
-        Init();
-    }
-
-    void Init()
-    {
-        hashBlock = uint256();
-        nIndex = -1;
-    }
-
-    void SetTx(CTransactionRef arg)
-    {
-        tx = std::move(arg);
-    }
-
-    ADD_SERIALIZE_METHODS;
-
-    template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action) {
-        std::vector<uint256> vMerkleBranch; // For compatibility with older versions.
-        READWRITE(tx);
-        READWRITE(hashBlock);
-        READWRITE(vMerkleBranch);
-        READWRITE(nIndex);
-    }
-
-    void SetMerkleBranch(const CBlockIndex* pIndex, int posInBlock);
-
-    bool hashUnset() const { return (hashBlock.IsNull() || hashBlock == ABANDON_HASH); }
-    bool isAbandoned() const { return (hashBlock == ABANDON_HASH); }
-    void setAbandoned() { hashBlock = ABANDON_HASH; }
-
-    const uint256& GetHash() const { return tx->GetHashMalFix(); }
-    bool IsCoinBase() const { return tx->IsCoinBase(); }
 };
 
 //Get the marginal bytes of spending the specified output
@@ -276,10 +234,13 @@ int CalculateMaximumSignedInputSize(const CTxOut& txout, const CWallet* pwallet,
  * A transaction with a bunch of additional info that only the owner cares about.
  * It includes any unrecorded transactions needed to link it back to the block chain.
  */
-class CWalletTx : public CMerkleTx
+class CWalletTx
 {
 private:
     const CWallet* pwallet;
+
+  /** Constant used in hashBlock to indicate tx has been abandoned */
+    static const uint256 ABANDON_HASH;
 
 public:
     /**
@@ -348,7 +309,10 @@ public:
     mutable TxColoredCoinBalancesMap nAvailableWatchCreditCached;
     mutable TxColoredCoinBalancesMap nChangeCached;
 
-    CWalletTx(const CWallet* pwalletIn, CTransactionRef arg) : CMerkleTx(std::move(arg))
+    CWalletTx(const CWallet* pwalletIn, CTransactionRef arg)
+        : tx(std::move(arg)),
+          hashBlock(uint256()),
+          nIndex(-1)
     {
         Init(pwalletIn);
     }
@@ -381,10 +345,18 @@ public:
         nOrderPos = -1;
     }
 
+    CTransactionRef tx;
+    uint256 hashBlock;
+    /* An nIndex == -1 means that hashBlock (in nonzero) refers to the earliest
+     * block in the chain we know this or any in-wallet dependency conflicts
+     * with. Older clients interpret nIndex == -1 as unconfirmed for backward
+     * compatibility.
+     */
+    int nIndex;
+
     template<typename Stream>
     void Serialize(Stream& s) const
     {
-        char fSpent = false;
         mapValue_t mapValueCopy = mapValue;
 
         mapValueCopy["fromaccount"] = strFromAccount;
@@ -393,20 +365,21 @@ public:
             mapValueCopy["timesmart"] = strprintf("%u", nTimeSmart);
         }
 
-        s << static_cast<const CMerkleTx&>(*this);
-        std::vector<CMerkleTx> vUnused; //!< Used to be vtxPrev
-        s << vUnused << mapValueCopy << vOrderForm << fTimeReceivedIsTxTime << nTimeReceived << fFromMe << fSpent;
+        std::vector<char> dummy_vector1; //!< Used to be vMerkleBranch
+        std::vector<char> dummy_vector2; //!< Used to be vtxPrev
+        char dummy_char = false; //!< Used to be fSpent
+        s << tx << hashBlock << dummy_vector1 << nIndex << dummy_vector2 << mapValueCopy << vOrderForm << fTimeReceivedIsTxTime << nTimeReceived << fFromMe << dummy_char;
     }
 
     template<typename Stream>
     void Unserialize(Stream& s)
     {
         Init(nullptr);
-        char fSpent;
 
-        s >> static_cast<CMerkleTx&>(*this);
-        std::vector<CMerkleTx> vUnused; //!< Used to be vtxPrev
-        s >> vUnused >> mapValue >> vOrderForm >> fTimeReceivedIsTxTime >> nTimeReceived >> fFromMe >> fSpent;
+        std::vector<uint256> dummy_vector1; //!< Used to be vMerkleBranch
+        std::vector<CMerkleTx> dummy_vector2; //!< Used to be vtxPrev
+        char dummy_char; //! Used to be fSpent
+        s >> tx >> hashBlock >> dummy_vector1 >> nIndex >> dummy_vector2 >> mapValue >> vOrderForm >> fTimeReceivedIsTxTime >> nTimeReceived >> fFromMe >> dummy_char;
 
         strFromAccount = std::move(mapValue["fromaccount"]);
         ReadOrderPos(nOrderPos, mapValue);
@@ -416,6 +389,11 @@ public:
         mapValue.erase("spent");
         mapValue.erase("n");
         mapValue.erase("timesmart");
+    }
+
+    void SetTx(CTransactionRef arg)
+    {
+        tx = std::move(arg);
     }
 
     //! make sure balances are recalculated
@@ -460,15 +438,6 @@ public:
     // True if only scriptSigs are different
     bool IsEquivalentTo(const CWalletTx& tx) const;
 
-    /**
-     * Return depth of transaction in blockchain:
-     * <0  : conflicts with a transaction this deep in the blockchain
-     *  0  : in memory pool, waiting to be included in a block, or the wallet has no node
-     * >=1 : this many blocks deep in the main chain
-     */
-    int GetDepthInMainChain() const;
-    bool IsInMainChain() const { return GetDepthInMainChain() > 0; }
-
     bool InMempool() const;
     bool IsTrusted() const;
 
@@ -482,6 +451,23 @@ public:
     bool SubmitMemoryPoolAndRelay(CValidationState& state, bool relay) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 
     std::set<uint256> GetConflicts() const;
+
+    void SetMerkleBranch(const CBlockIndex* pIndex, int posInBlock);
+
+    /**
+     * Return depth of transaction in blockchain:
+     * <0  : conflicts with a transaction this deep in the blockchain
+     *  0  : in memory pool, waiting to be included in a block, or the wallet has no node
+     * >=1 : this many blocks deep in the main chain
+     */
+    int GetDepthInMainChain() const;
+    bool IsInMainChain() const { return GetDepthInMainChain() > 0; }
+    bool hashUnset() const { return (hashBlock.IsNull() || hashBlock == ABANDON_HASH); }
+    bool isAbandoned() const { return (hashBlock == ABANDON_HASH); }
+    void setAbandoned() { hashBlock = ABANDON_HASH; }
+
+    const uint256& GetHash() const { return tx->GetHashMalFix(); }
+    bool IsCoinBase() const { return tx->IsCoinBase(); }
 };
 
 class COutput
