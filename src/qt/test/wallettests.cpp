@@ -152,6 +152,10 @@ void TestGUI()
     }
     std::unique_ptr<interfaces::Chain> chain = interfaces::MakeChain(test.m_node);
     std::shared_ptr<CWallet> wallet = std::make_shared<CWallet>(chain.get(), "mock", WalletDatabase::CreateMock());
+    {
+        LOCK(wallet->cs_wallet);
+        wallet->SetLastBlockProcessed(g_chainstate_manager.ActiveChain().Height(), g_chainstate_manager.ActiveChain().Tip()->GetBlockHash());
+    }
     bool firstRun;
     wallet->LoadWallet(firstRun);
     {
@@ -272,6 +276,10 @@ void TestGUI_coloredCoin()
     std::unique_ptr<interfaces::Chain> chain = interfaces::MakeChain(test.m_node);
     std::shared_ptr<CWallet> wallet =
         std::make_shared<CWallet>(chain.get(), "mock", WalletDatabase::CreateMock());
+    {
+        LOCK(wallet->cs_wallet);
+        wallet->SetLastBlockProcessed(g_chainstate_manager.ActiveChain().Height(), g_chainstate_manager.ActiveChain().Tip()->GetBlockHash());
+    }
     bool firstRun;
     wallet->LoadWallet(firstRun);
     {
@@ -330,6 +338,10 @@ void TestGUI_coloredCoin()
                 mempoolTxns.emplace_back(*e.GetSharedTx());
         }
         test.CreateAndProcessBlock(mempoolTxns, GetScriptForRawPubKey(test.coinbaseKey.GetPubKey()));
+        {
+            LOCK(wallet->cs_wallet);
+            wallet->SetLastBlockProcessed(g_chainstate_manager.ActiveChain().Height(), g_chainstate_manager.ActiveChain().Tip()->GetBlockHash());
+        }
         {
             LOCK(cs_main);
             WalletRescanReserver reserver(wallet.get());

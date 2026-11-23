@@ -66,7 +66,7 @@ protected:
     void UpdatedBlockTip(const CBlockIndex* pindexNew, const CBlockIndex* pindexFork, bool fInitialDownload) override;
     void TransactionAddedToMempool(const CTransactionRef& ptx) override;
     void BlockConnected(const std::shared_ptr<const CBlock>& block, const CBlockIndex* pindex, const std::vector<CTransactionRef>& txnConflicted) override;
-    void BlockDisconnected(const std::shared_ptr<const CBlock>& block) override;
+    void BlockDisconnected(const std::shared_ptr<const CBlock>& block, const CBlockIndex* pindex) override;
     void TransactionRemovedFromMempool(const CTransactionRef& ptx) override;
     void ChainStateFlushed(const CBlockLocator& locator) override;
 

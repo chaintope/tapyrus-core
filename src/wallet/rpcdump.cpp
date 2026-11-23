@@ -398,6 +398,7 @@ UniValue importprunedfunds(const JSONRPCRequest& request)
     std::vector<uint256> vMatch;
     std::vector<unsigned int> vIndex;
     unsigned int txnIndex = 0;
+    int height = 0;
     if (merkleBlock.txn.ExtractMatches(vMatch, vIndex) == merkleBlock.header.hashImMerkleRoot) {
 
         LOCK(cs_main);
@@ -405,6 +406,7 @@ UniValue importprunedfunds(const JSONRPCRequest& request)
         if (!pindex || !pwallet->chain().isInActiveChain(pindex)) {
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Block not found in chain");
         }
+        height = pindex->nHeight;
 
         std::vector<uint256>::const_iterator it;
         if ((it = std::find(vMatch.begin(), vMatch.end(), hashTx))==vMatch.end()) {
@@ -417,7 +419,8 @@ UniValue importprunedfunds(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Something wrong with merkleblock");
     }
 
-    wtx.SetConf(CWalletTx::Status::CONFIRMED, merkleBlock.header.GetHash(), txnIndex);
+    CWalletTx::Confirmation confirm(CWalletTx::Status::CONFIRMED, height, merkleBlock.header.GetHash(), txnIndex);
+    wtx.m_confirm = confirm;
 
     LOCK2(cs_main, pwallet->cs_wallet);
 
