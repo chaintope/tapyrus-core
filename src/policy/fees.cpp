@@ -8,6 +8,7 @@
 #include <policy/policy.h>
 
 #include <clientversion.h>
+#include <cmath>
 #include <mempoolentry.h>
 #include <primitives/transaction.h>
 #include <stdexcept>

@@ -1152,6 +1152,19 @@ std::string CBlockFileInfo::ToString() const
     return strprintf("CBlockFileInfo(blocks=%u, size=%u, heights=%u...%u, time=%s...%s)", nBlocks, nSize, nHeightFirst, nHeightLast, FormatISO8601Date(nTimeFirst), FormatISO8601Date(nTimeLast));
 }
 
+void FilterMempoolDuplicates(const std::vector<CTransaction>& txns, Package& package, PackageValidationState& results)
+{
+    for (const auto& tx : txns) {
+        if (mempool.exists(tx.GetHashMalFix())) {
+            CValidationState state;
+            state.Invalid(false, REJECT_DUPLICATE, "txn-already-in-mempool");
+            results.emplace(tx.GetHashMalFix(), state);
+        } else {
+            package.emplace_back(MakeTransactionRef(tx));
+        }
+    }
+}
+
 bool SubmitPackageToMempool(const Package& package,
                                   CValidationState& state,
                                   PackageValidationState& results,
@@ -1202,7 +1215,7 @@ bool SubmitPackageToMempool(const Package& package,
         // Taken before the results below are rewritten, so a tx a later package tx
         // pushed out does not stop the rest of the package from being relayed.
         // Only the package's own txs count: results also holds the txs
-        // CTxMemPool::FilterDuplicates found already in the mempool.
+        // FilterMempoolDuplicates found already in the mempool.
         all_admitted = true;
         for (const auto& tx : package) {
             const auto result = results.find(tx->GetHashMalFix());

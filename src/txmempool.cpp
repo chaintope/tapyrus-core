@@ -459,19 +459,6 @@ void CTxMemPool::removeRecursive(const CTransaction &origTx, MemPoolRemovalReaso
     }
 }
 
-void CTxMemPool::FilterDuplicates(const std::vector<CTransaction>& txns, Package& package, PackageValidationState& results) const
-{
-    for (const auto& tx : txns) {
-        if (exists(tx.GetHashMalFix())) {
-            CValidationState state;
-            state.Invalid(false, REJECT_DUPLICATE, "txn-already-in-mempool");
-            results.emplace(tx.GetHashMalFix(), state);
-        } else {
-            package.emplace_back(MakeTransactionRef(tx));
-        }
-    }
-}
-
 void CTxMemPool::removeForReorg(const CCoinsViewCache *pcoins, unsigned int nMemPoolHeight, int flags)
 {
     // Remove transactions spending a coinbase which are now immature and no-longer-final transactions

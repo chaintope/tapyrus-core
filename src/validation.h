@@ -15,6 +15,7 @@
 #include <coinsviewcache.h>
 #include <fs.h>
 #include <policy/feerate.h>
+#include <policy/packages.h>
 #include <script/script_error.h>
 #include <sync.h>
 #include <chainparams.h>
@@ -282,6 +283,9 @@ int GetSpendHeight(const CCoinsViewCache& inputs);
 static const unsigned int REJECT_INTERNAL = 0x100;
 /** Too high fee. Can not be triggered by P2P transactions */
 static const unsigned int REJECT_HIGHFEE = 0x100;
+
+/** Puts the transactions not already in the mempool into package; the others get a duplicate rejection in results. */
+void FilterMempoolDuplicates(const std::vector<CTransaction>& txns, Package& package, PackageValidationState& results);
 
 /**
  * SubmitPackageToMempool is used to submit the package to mempool after validation checks.

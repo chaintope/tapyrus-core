@@ -22,7 +22,6 @@
 #include <indirectmap.h>
 #include <mempoolentry.h>
 #include <mempoolremovalreason.h>
-#include <policy/packages.h>
 #include <policy/feerate.h>
 #include <primitives/transaction.h>
 #include <sync.h>
@@ -512,9 +511,6 @@ public:
         LOCK(cs);
         return totalTxSize;
     }
-
-    /** Puts the transactions not already in the mempool into package; the others get a duplicate rejection in results. */
-    void FilterDuplicates(const std::vector<CTransaction>& txns, Package& package, PackageValidationState& results) const;
 
     bool exists(uint256 hash) const
     {
