@@ -16,6 +16,7 @@
 #include <issuedcolorids.h>
 #include <notificationhub.h>
 #include <policy/fees.h>
+#include <policy/mempoolfeelistener.h>
 #include <validation.h>
 #include <miner.h>
 #include <net_processing.h>
@@ -206,7 +207,7 @@ TestingSetup::TestingSetup(const std::string& chainName) : BasicTestingSetup(cha
         scheduler.m_service_thread = std::thread(&TraceThread, "scheduler", serviceLoop);
         GetMainSignals().RegisterBackgroundSignalScheduler(scheduler);
         GetMainSignals().RegisterWithMempoolSignals(*m_node.mempool);
-        RegisterValidationInterface(m_node.fee_estimator.get());
+        m_node.mempool_fee_listener = std::make_unique<MempoolFeeListener>(*m_node.mempool, *m_node.fee_estimator);
 
         try {
             {
@@ -248,7 +249,7 @@ void TestingSetup::TearDown()
         BlockIndexMap& blockIndex = g_chainstate_manager.BlockIndex();
         scheduler.stop();
         GetMainSignals().FlushBackgroundCallbacks();
-        UnregisterValidationInterface(m_node.fee_estimator.get());
+        m_node.mempool_fee_listener.reset();
         GetMainSignals().UnregisterWithMempoolSignals(*m_node.mempool);
         GetMainSignals().UnregisterBackgroundSignalScheduler();
         m_node.peerman.reset();

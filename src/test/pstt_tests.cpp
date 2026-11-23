@@ -500,7 +500,6 @@ static void SignInputForTest(PartiallySignedTapyrusTransaction& pstt, unsigned i
 static void CheckMempoolResult(TestChainSetup& setup, const CTransactionRef& tx, bool expect_success,
                                 const std::string& expect_reject_reason = "")
 {
-    CTxMemPool& mempool = *setup.m_node.mempool;
     MempoolAcceptOptions opt;
     opt.bypass_limits = true;
     MempoolAcceptResult accept_result;

@@ -361,6 +361,7 @@ add_library(tapyrus_chainstate STATIC EXCLUDE_FROM_ALL
   mempoolremovalreason.cpp
   miner.cpp
   policy/fees.cpp
+  policy/mempoolfeelistener.cpp
   policy/packages.cpp
   policy/policy.cpp
   policy/policysettings.cpp

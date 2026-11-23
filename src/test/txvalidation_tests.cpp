@@ -90,7 +90,6 @@ namespace
 
 void testTx(TestChainSetup* setup, const CTransactionRef tx, bool success, std::string errStr="")
 {
-    CTxMemPool& mempool = *setup->m_node.mempool;
     MempoolAcceptOptions opt;
     opt.bypass_limits = true;
     MempoolAcceptResult accept_result;

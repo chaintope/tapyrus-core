@@ -643,7 +643,6 @@ BOOST_FIXTURE_TEST_CASE(noncontextual_package_tests, PackageTestSetup)
 
 BOOST_FIXTURE_TEST_CASE(package_submission_tests, PackageTestSetup)
 {
-    CTxMemPool& mempool = *m_node.mempool;
     CKey parent_key;
     parent_key.MakeNewKey(true);
     CScript parent_locking_script = GetScriptForDestination(parent_key.GetPubKey().GetID());
@@ -805,7 +804,6 @@ BOOST_FIXTURE_TEST_CASE(package_submission_tests, PackageTestSetup)
 // child was spuriously reported as "allowed".
 BOOST_FIXTURE_TEST_CASE(testmempoolaccept_missing_inputs_no_overlay_leak, PackageTestSetup)
 {
-    CTxMemPool& mempool = *m_node.mempool;
     PackageValidationState validationState;
     CValidationState state;
     MempoolAcceptOptions opt;

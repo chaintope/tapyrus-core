@@ -5,6 +5,7 @@
 
 #include <policy/policy.h>
 #include <policy/fees.h>
+#include <policy/mempoolfeelistener.h>
 #include <txmempool.h>
 #include <uint256.h>
 #include <util.h>
@@ -15,31 +16,11 @@
 
 BOOST_FIXTURE_TEST_SUITE(policyestimator_tests, TestingSetup)
 
-/** Feeds an estimator from a mempool for its lifetime, as init wires the node's. */
-class EstimatorForMempool
-{
-public:
-    EstimatorForMempool(CTxMemPool& pool, CBlockPolicyEstimator& estimator) : m_pool(pool), m_estimator(estimator)
-    {
-        GetMainSignals().RegisterWithMempoolSignals(m_pool);
-        RegisterValidationInterface(&m_estimator);
-    }
-    ~EstimatorForMempool()
-    {
-        UnregisterValidationInterface(&m_estimator);
-        GetMainSignals().UnregisterWithMempoolSignals(m_pool);
-    }
-
-private:
-    CTxMemPool& m_pool;
-    CBlockPolicyEstimator& m_estimator;
-};
-
 BOOST_AUTO_TEST_CASE(BlockPolicyEstimates)
 {
     CBlockPolicyEstimator feeEst;
     CTxMemPool mpool;
-    const EstimatorForMempool wiring(mpool, feeEst);
+    const MempoolFeeListener fee_listener(mpool, feeEst);
     LOCK(mpool.cs);
     TestMemPoolEntryHelper entry;
     CAmount basefee(2000);

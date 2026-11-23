@@ -16,6 +16,7 @@
 #include <miner.h>
 #include <notificationhub.h>
 #include <policy/fees.h>
+#include <policy/mempoolfeelistener.h>
 #include <policy/policy.h>
 #include <scheduler.h>
 #include <txdb.h>
@@ -95,6 +96,7 @@ static void AssembleBlock(benchmark::State& state)
     BlockIndexMap& blockIndex = g_chainstate_manager.BlockIndex();
     CBlockPolicyEstimator fee_estimator;
     CTxMemPool mempool;
+    const MempoolFeeListener fee_listener(mempool, fee_estimator);
     g_chainstate_manager.InitializeChainstate(mempool);
 
     const CKey privKey(DecodeSecret(SIGN_BLOCK_PRIVKEY));
@@ -122,7 +124,6 @@ static void AssembleBlock(benchmark::State& state)
 
         GetMainSignals().RegisterBackgroundSignalScheduler(scheduler);
         GetMainSignals().RegisterWithMempoolSignals(mempool);
-        RegisterValidationInterface(&fee_estimator);
 
         LoadGenesisBlock();
         CValidationState state;
@@ -165,7 +166,6 @@ static void AssembleBlock(benchmark::State& state)
     if(thread.joinable())
         thread.join();
     GetMainSignals().FlushBackgroundCallbacks();
-    UnregisterValidationInterface(&fee_estimator);
     GetMainSignals().UnregisterWithMempoolSignals(mempool);
     GetMainSignals().UnregisterBackgroundSignalScheduler();
 }

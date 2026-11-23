@@ -696,7 +696,6 @@ bool Chainstate::AcceptSingleTransaction(const CTransactionRef& tx, const Mempoo
     stamped.accept_time = GetTime();
     std::vector<COutPoint> coins_to_uncache;
     bool res = AcceptToMemoryPoolWorker(m_mempool, tx, stamped, view, in_package, coins_to_uncache, result);
-    result.state.missingInputs = !result.missing_inputs.empty();
     if (!res) {
         for (const COutPoint& hashTx : coins_to_uncache)
         {
@@ -757,6 +756,7 @@ bool Chainstate::SubmitPackageToMempool(const Package& package,
         {
             MempoolAcceptResult result;
             AcceptSingleTransaction(tx, options, *view, /*in_package=*/true, result);
+            result.state.missingInputs = !result.missing_inputs.empty();
             for (const auto& replaced_tx : result.replaced) {
                 replaced.insert(replaced_tx->GetHashMalFix());
             }

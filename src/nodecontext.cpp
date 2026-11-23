@@ -11,6 +11,7 @@
 #include <net_processing.h>
 #include <notificationhub.h>
 #include <policy/fees.h>
+#include <policy/mempoolfeelistener.h>
 #include <policy/policysettings.h>
 #include <txmempool.h>
 

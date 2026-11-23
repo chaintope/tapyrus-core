@@ -41,6 +41,7 @@
 #include <nodecontext.h>
 #include <policy/feerate.h>
 #include <policy/fees.h>
+#include <policy/mempoolfeelistener.h>
 #include <policy/policy.h>
 #include <rpc/server.h>
 #include <rpc/rpctable.h>
@@ -287,6 +288,7 @@ void Shutdown(NodeContext& node)
     UnregisterAllValidationInterfaces();
     GetMainSignals().UnregisterBackgroundSignalScheduler();
     if (node.mempool) GetMainSignals().UnregisterWithMempoolSignals(*node.mempool);
+    node.mempool_fee_listener.reset();
     g_wallet_init_interface.Close();
     // The chain interface reads the NodeContext, which the caller destroys after this.
     g_wallet_init_interface.SetChainInterface(nullptr);
@@ -1212,7 +1214,7 @@ bool AppInitMain(NodeContext& node)
 
     GetMainSignals().RegisterBackgroundSignalScheduler(scheduler);
     GetMainSignals().RegisterWithMempoolSignals(*node.mempool);
-    RegisterValidationInterface(node.fee_estimator.get());
+    node.mempool_fee_listener = std::make_unique<MempoolFeeListener>(*node.mempool, *node.fee_estimator);
 
     /* Register RPC commands regardless of -server setting so they will be
      * available in the GUI RPC console even if external calls are disabled.
