@@ -167,9 +167,9 @@ public:
     bool getHeaderTip(int& height, int64_t& block_time) override
     {
         LOCK(::cs_main);
-        if (g_chainstate_manager.BestHeader()) {
-            height = g_chainstate_manager.BestHeader()->nHeight;
-            block_time = g_chainstate_manager.BestHeader()->GetBlockTime();
+        if (m_context.chainman->BestHeader()) {
+            height = m_context.chainman->BestHeader()->nHeight;
+            block_time = m_context.chainman->BestHeader()->GetBlockTime();
             return true;
         }
         return false;
@@ -177,28 +177,28 @@ public:
     int getNumBlocks() override
     {
         LOCK(::cs_main);
-        return g_chainstate_manager.ActiveChain().Height();
+        return m_context.chainman->ActiveChain().Height();
     }
     int64_t getLastBlockTime() override
     {
         LOCK(::cs_main);
-        if (g_chainstate_manager.ActiveChain().Tip()) {
-            return g_chainstate_manager.ActiveChain().Tip()->GetBlockTime();
+        if (m_context.chainman->ActiveChain().Tip()) {
+            return m_context.chainman->ActiveChain().Tip()->GetBlockTime();
         }
-        return g_chainstate_manager.Settings().GenesisBlock().GetBlockTime(); // Genesis block's time of current network
+        return m_context.chainman->Settings().GenesisBlock().GetBlockTime(); // Genesis block's time of current network
     }
     double getVerificationProgress() override
     {
         const CBlockIndex* tip;
         {
             LOCK(::cs_main);
-            tip = g_chainstate_manager.ActiveChain().Tip();
+            tip = m_context.chainman->ActiveChain().Tip();
         }
-        return g_chainstate_manager.Progress().Guess(tip);
+        return m_context.chainman->Progress().Guess(tip);
     }
-    bool isInitialBlockDownload() override { return IsInitialBlockDownload(); }
-    bool getReindex() override { return g_chainstate_manager.IsReindexing(); }
-    bool getImporting() override { return g_chainstate_manager.GetBlockFileManager().IsImporting(); }
+    bool isInitialBlockDownload() override { return m_context.chainman->ActiveChainstate().IsInitialBlockDownload(); }
+    bool getReindex() override { return m_context.chainman->IsReindexing(); }
+    bool getImporting() override { return m_context.chainman->GetBlockFileManager().IsImporting(); }
     void setNetworkActive(bool active) override
     {
         if (m_context.connman) {
@@ -232,7 +232,7 @@ public:
     bool getUnspentOutput(const COutPoint& output, Coin& coin) override
     {
         LOCK(::cs_main);
-        return g_chainstate_manager.ActiveChainstate().CoinsTip().GetCoin(output, coin);
+        return m_context.chainman->ActiveChainstate().CoinsTip().GetCoin(output, coin);
     }
     std::vector<std::unique_ptr<Wallet>> getWallets() override
     {

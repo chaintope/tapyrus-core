@@ -77,8 +77,7 @@ std::shared_ptr<CBlock> RegtestingSetup::Block(const uint256& prev_hash, int hei
     {
         // Held across both, so the template builds on the tip the options read.
         LOCK(cs_main);
-        const BlockAssembler::Options options(*g_policy_settings, gArgs, g_chainstate_manager);
-        ptemplate = BlockAssembler(g_chainstate_manager, *m_node.mempool, options).CreateNewBlock(pubKey, false);
+        ptemplate = BlockAssembler(g_chainstate_manager, *g_policy_settings, gArgs).CreateNewBlock(pubKey, false);
     }
     auto pblock = std::make_shared<CBlock>(ptemplate->block);
     pblock->hashPrevBlock = prev_hash;

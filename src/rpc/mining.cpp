@@ -49,14 +49,14 @@ unsigned int ParseConfirmTarget(const UniValue& value, unsigned int max_target)
     return (unsigned int)target;
 }
 
-UniValue generateBlocks(const CTxMemPool& mempool, std::shared_ptr<CReserveScript> coinbaseScript, int nGenerate, bool keepScript, const CKey& privKey)
+UniValue generateBlocks(ChainstateManager& chainman, const PolicySettings& policy, std::shared_ptr<CReserveScript> coinbaseScript, int nGenerate, bool keepScript, const CKey& privKey)
 {
     uint32_t nHeightEnd = 0;
     uint32_t nHeight = 0;
 
     {   // Don't keep cs_main locked
         LOCK(cs_main);
-        nHeight = g_chainstate_manager.ActiveChain().Height();
+        nHeight = chainman.ActiveChain().Height();
         nHeightEnd = nHeight+nGenerate;
     }
     unsigned int nExtraNonce = 0;
@@ -67,15 +67,14 @@ UniValue generateBlocks(const CTxMemPool& mempool, std::shared_ptr<CReserveScrip
         {
             // Held across both, so the template builds on the tip the options read.
             LOCK(cs_main);
-            const BlockAssembler::Options options(*g_policy_settings, gArgs, g_chainstate_manager);
-            pblocktemplate = BlockAssembler(g_chainstate_manager, mempool, options).CreateNewBlock(coinbaseScript->reserveScript);
+            pblocktemplate = BlockAssembler(chainman, policy, gArgs).CreateNewBlock(coinbaseScript->reserveScript);
         }
         if (!pblocktemplate.get())
             throw JSONRPCError(RPC_INTERNAL_ERROR, "Couldn't create new block");
         CBlock *pblock = &pblocktemplate->block;
         {
             LOCK(cs_main);
-            IncrementExtraNonce(pblock, g_chainstate_manager.ActiveChain().Tip(), nExtraNonce);
+            IncrementExtraNonce(pblock, chainman.ActiveChain().Tip(), nExtraNonce);
         }
 
         std::vector<unsigned char> proof;
@@ -84,14 +83,14 @@ UniValue generateBlocks(const CTxMemPool& mempool, std::shared_ptr<CReserveScrip
         privKey.Sign_Schnorr(blockHash, proof);
 
         XFieldAggPubKey aggpubkeyChange;
-        g_chainstate_manager.XFieldHistory().GetLatest(TAPYRUS_XFIELDTYPES::AGGPUBKEY, aggpubkeyChange);
+        chainman.XFieldHistory().GetLatest(TAPYRUS_XFIELDTYPES::AGGPUBKEY, aggpubkeyChange);
 
         if(!pblock->AbsorbBlockProof(proof, aggpubkeyChange.getPubKey())) {
             throw JSONRPCError(RPC_INTERNAL_ERROR, "AbsorbBlockProof, block proof not accepted");
         }
 
         std::shared_ptr<const CBlock> shared_pblock = std::make_shared<const CBlock>(*pblock);
-        if (!ProcessNewBlock(shared_pblock, true, nullptr))
+        if (!chainman.ProcessNewBlock(shared_pblock, true, nullptr))
             throw JSONRPCError(RPC_INTERNAL_ERROR, "ProcessNewBlock, block not accepted");
         ++nHeight;
         blockHashes.push_back(pblock->GetHash().GetHex());
@@ -125,7 +124,8 @@ static UniValue generatetoaddress(const JSONRPCRequest& request)
     int nGenerate = request.params[0].get_int();
 
     // Skip IBD check in DEV mode
-    if (gArgs.GetChainMode() != TAPYRUS_OP_MODE::DEV && IsInitialBlockDownload()) {
+    ChainstateManager& chainman = EnsureChainman(request.context);
+    if (gArgs.GetChainMode() != TAPYRUS_OP_MODE::DEV && chainman.ActiveChainstate().IsInitialBlockDownload()) {
         throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Tapyrus is in initial sync and waiting for blocks...");
     }
 
@@ -142,13 +142,13 @@ static UniValue generatetoaddress(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_WALLET_INVALID_PRIVATE_KEY, "No private key given or invalid private key.");
 
     XFieldAggPubKey aggpubkeyChange;
-    g_chainstate_manager.XFieldHistory().GetLatest(TAPYRUS_XFIELDTYPES::AGGPUBKEY, aggpubkeyChange);
+    chainman.XFieldHistory().GetLatest(TAPYRUS_XFIELDTYPES::AGGPUBKEY, aggpubkeyChange);
 
     if(cPrivKey.GetPubKey() != aggpubkeyChange.getPubKey())
         throw JSONRPCError(RPC_WALLET_INVALID_AGGREGATE_KEY, "Given private key doesn't correspond to the Aggregate Key.");
 
-    assert(request.context.mempool);
-    return generateBlocks(*request.context.mempool, coinbaseScript, nGenerate, false, cPrivKey);
+    assert(request.context.policy);
+    return generateBlocks(chainman, *request.context.policy, coinbaseScript, nGenerate, false, cPrivKey);
 }
 
 UniValue getnewblock(const JSONRPCRequest& request)
@@ -171,7 +171,8 @@ UniValue getnewblock(const JSONRPCRequest& request)
         );
 
     // Skip IBD check in DEV mode
-    if (gArgs.GetChainMode() != TAPYRUS_OP_MODE::DEV && IsInitialBlockDownload()) {
+    ChainstateManager& chainman = EnsureChainman(request.context);
+    if (gArgs.GetChainMode() != TAPYRUS_OP_MODE::DEV && chainman.ActiveChainstate().IsInitialBlockDownload()) {
         throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Tapyrus is in initial sync and waiting for blocks...");
     }
 
@@ -244,13 +245,12 @@ UniValue getnewblock(const JSONRPCRequest& request)
     }
     CScript coinbaseScript {GetScriptForDestination(destination)};
 
-    assert(request.context.mempool);
+    assert(request.context.policy);
     std::unique_ptr<CBlockTemplate> pblocktemplate;
     {
         // Held across both, so the template builds on the tip the options read.
         LOCK(cs_main);
-        const BlockAssembler::Options options(*request.context.policy, gArgs, g_chainstate_manager);
-        pblocktemplate = BlockAssembler(g_chainstate_manager, *request.context.mempool, options).CreateNewBlock(coinbaseScript, true, &xfield);
+        pblocktemplate = BlockAssembler(chainman, *request.context.policy, gArgs).CreateNewBlock(coinbaseScript, true, &xfield);
     }
     if (!pblocktemplate.get())
         throw JSONRPCError(RPC_INTERNAL_ERROR, "Wallet keypool empty");
@@ -258,7 +258,7 @@ UniValue getnewblock(const JSONRPCRequest& request)
         // IncrementExtraNonce sets coinbase flags and builds merkle tree
         LOCK(cs_main);
         unsigned int nExtraNonce = 0;
-        IncrementExtraNonce(&pblocktemplate->block, g_chainstate_manager.ActiveChain().Tip(), nExtraNonce);
+        IncrementExtraNonce(&pblocktemplate->block, chainman.ActiveChain().Tip(), nExtraNonce);
     }
 
     CDataStream ssBlock(SER_NETWORK, PROTOCOL_VERSION);
@@ -290,7 +290,8 @@ static UniValue getmininginfo(const JSONRPCRequest& request)
     LOCK(cs_main);
 
     UniValue obj(UniValue::VOBJ);
-    obj.pushKV("blocks",           (int)g_chainstate_manager.ActiveChain().Height());
+    ChainstateManager& chainman = EnsureChainman(request.context);
+    obj.pushKV("blocks",           (int)chainman.ActiveChain().Height());
     obj.pushKV("currentblocksize", BlockAssembler::m_last_block_size.load());
     obj.pushKV("currentblocktx",   BlockAssembler::m_last_block_tx.load());
     // TODO: push signed block multisig condition
@@ -325,7 +326,8 @@ static UniValue BIP22ValidationResult(const CValidationState& state)
 
 static UniValue getblocktemplate(const JSONRPCRequest& request)
 {
-    BlockIndexMap& blockIndex = g_chainstate_manager.BlockIndex();
+    ChainstateManager& chainman = EnsureChainman(request.context);
+    BlockIndexMap& blockIndex = chainman.BlockIndex();
     if (request.fHelp || request.params.size() > 1)
         throw std::runtime_error(
             "getblocktemplate ( TemplateRequest )\n"
@@ -439,12 +441,12 @@ static UniValue getblocktemplate(const JSONRPCRequest& request)
                 return "duplicate-inconclusive";
             }
 
-            CBlockIndex* const pindexPrev = g_chainstate_manager.ActiveChain().Tip();
+            CBlockIndex* const pindexPrev = chainman.ActiveChain().Tip();
             // TestBlockValidity only supports blocks built on the current Tip
             if (block.hashPrevBlock != pindexPrev->GetBlockHash())
                 return "inconclusive-not-best-prevblk";
             CValidationState state;
-            TestBlockValidity(state, block, pindexPrev, false, true);
+            chainman.ActiveChainstate().TestBlockValidity(state, block, false, true);
             return BIP22ValidationResult(state);
         }
 
@@ -466,7 +468,7 @@ static UniValue getblocktemplate(const JSONRPCRequest& request)
     if (connman.GetNodeCount(CConnman::CONNECTIONS_ALL) == 0)
         throw JSONRPCError(RPC_CLIENT_NOT_CONNECTED, "Tapyrus is not connected!");
 
-    if (IsInitialBlockDownload())
+    if (chainman.ActiveChainstate().IsInitialBlockDownload())
         throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Tapyrus is downloading blocks...");
 
     static unsigned int nTransactionsUpdatedLast;
@@ -489,7 +491,7 @@ static UniValue getblocktemplate(const JSONRPCRequest& request)
         else
         {
             // NOTE: Spec does not specify behaviour for non-string longpollid, but this makes testing easier
-            hashWatchedChain = g_chainstate_manager.ActiveChain().Tip()->GetBlockHash();
+            hashWatchedChain = chainman.ActiveChain().Tip()->GetBlockHash();
             nTransactionsUpdatedLastLP = nTransactionsUpdatedLast;
         }
 
@@ -498,10 +500,10 @@ static UniValue getblocktemplate(const JSONRPCRequest& request)
         {
             checktxtime = std::chrono::steady_clock::now() + std::chrono::minutes(1);
 
-            UniqueLock lock(g_chainstate_manager.m_best_block_mutex);
-            while (g_chainstate_manager.m_best_block == hashWatchedChain && IsRPCRunning())
+            UniqueLock lock(chainman.m_best_block_mutex);
+            while (chainman.m_best_block == hashWatchedChain && IsRPCRunning())
             {
-                if (g_chainstate_manager.m_best_block_cv.wait_until(lock, checktxtime) == std::cv_status::timeout)
+                if (chainman.m_best_block_cv.wait_until(lock, checktxtime) == std::cv_status::timeout)
                 {
                     // Timeout: Check transactions for update
                     if (mempool.GetTransactionsUpdated() != nTransactionsUpdatedLastLP)
@@ -521,7 +523,7 @@ static UniValue getblocktemplate(const JSONRPCRequest& request)
     static CBlockIndex* pindexPrev;
     static int64_t nStart;
     static std::unique_ptr<CBlockTemplate> pblocktemplate;
-    if (pindexPrev != g_chainstate_manager.ActiveChain().Tip() ||
+    if (pindexPrev != chainman.ActiveChain().Tip() ||
         (mempool.GetTransactionsUpdated() != nTransactionsUpdatedLast && GetTime() - nStart > 5))
     {
         // Clear pindexPrev so future calls make a new block, despite any failures from here on
@@ -529,13 +531,12 @@ static UniValue getblocktemplate(const JSONRPCRequest& request)
 
         // Store the pindexBest used before CreateNewBlock, to avoid races
         nTransactionsUpdatedLast = mempool.GetTransactionsUpdated();
-        CBlockIndex* pindexPrevNew = g_chainstate_manager.ActiveChain().Tip();
+        CBlockIndex* pindexPrevNew = chainman.ActiveChain().Tip();
         nStart = GetTime();
 
         // Create new block
         CScript scriptDummy = CScript() << OP_TRUE;
-        const BlockAssembler::Options options(*request.context.policy, gArgs, g_chainstate_manager);
-        BlockAssembler assembler(g_chainstate_manager, mempool, options);
+        BlockAssembler assembler(chainman, *request.context.policy, gArgs);
         pblocktemplate = assembler.CreateNewBlock(scriptDummy);
         if (!pblocktemplate)
             throw JSONRPCError(RPC_OUT_OF_MEMORY, "Out of memory");
@@ -604,12 +605,12 @@ static UniValue getblocktemplate(const JSONRPCRequest& request)
     result.pushKV("transactions", transactions);
     result.pushKV("coinbaseaux", aux);
     result.pushKV("coinbasevalue", (int64_t)pblock->vtx[0]->vout[0].nValue);
-    result.pushKV("longpollid", g_chainstate_manager.ActiveChain().Tip()->GetBlockHash().GetHex() + i64tostr(nTransactionsUpdatedLast));
+    result.pushKV("longpollid", chainman.ActiveChain().Tip()->GetBlockHash().GetHex() + i64tostr(nTransactionsUpdatedLast));
     result.pushKV("mintime", (int64_t)pindexPrev->GetMedianTimePast()+1);
     result.pushKV("mutable", aMutable);
     result.pushKV("noncerange", "00000000ffffffff");
-    result.pushKV("sigoplimit", (int64_t)g_chainstate_manager.XFieldHistory().GetMaxBlockSigops());
-    result.pushKV("sizelimit", (int64_t)g_chainstate_manager.XFieldHistory().GetCurrentMaxBlockSize());
+    result.pushKV("sigoplimit", (int64_t)chainman.XFieldHistory().GetMaxBlockSigops());
+    result.pushKV("sizelimit", (int64_t)chainman.XFieldHistory().GetCurrentMaxBlockSize());
     result.pushKV("curtime", pblock->GetBlockTime());
     result.pushKV("proof", HexStr(pblock->proof));
     result.pushKV("height", (pindexPrev->nHeight+1));
@@ -637,7 +638,8 @@ protected:
 
 static UniValue submitblock(const JSONRPCRequest& request)
 {
-    BlockIndexMap& blockIndex = g_chainstate_manager.BlockIndex();
+    ChainstateManager& chainman = EnsureChainman(request.context);
+    BlockIndexMap& blockIndex = chainman.BlockIndex();
     // We allow 2 arguments for compliance with BIP22. Argument 2 is ignored.
     if (request.fHelp || request.params.size() < 1 || request.params.size() > 2) {
         throw std::runtime_error(
@@ -682,7 +684,7 @@ static UniValue submitblock(const JSONRPCRequest& request)
     bool new_block;
     submitblock_StateCatcher sc(block.GetHash());
     RegisterValidationInterface(&sc);
-    bool accepted = ProcessNewBlock(blockptr, /* fForceProcessing */ true, /* fNewBlock */ &new_block);
+    bool accepted = chainman.ProcessNewBlock(blockptr, /* fForceProcessing */ true, /* fNewBlock */ &new_block);
     UnregisterValidationInterface(&sc);
     if (!new_block) {
         if (!accepted) {
@@ -904,7 +906,8 @@ UniValue combineblocksigs(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_INVALID_PARAMS, "Invalid signature encoding");
 
     XFieldAggPubKey aggpubkeyChange;
-    g_chainstate_manager.XFieldHistory().GetLatest(TAPYRUS_XFIELDTYPES::AGGPUBKEY, aggpubkeyChange);
+    ChainstateManager& chainman = EnsureChainman(request.context);
+    chainman.XFieldHistory().GetLatest(TAPYRUS_XFIELDTYPES::AGGPUBKEY, aggpubkeyChange);
     CPubKey aggpubkey(aggpubkeyChange.getPubKey());
 
     bool status = block.AbsorbBlockProof(blockProof, aggpubkey);
@@ -921,7 +924,8 @@ UniValue combineblocksigs(const JSONRPCRequest& request)
 
 UniValue testproposedblock(const JSONRPCRequest& request)
 {
-    BlockIndexMap& blockIndex = g_chainstate_manager.BlockIndex();
+    ChainstateManager& chainman = EnsureChainman(request.context);
+    BlockIndexMap& blockIndex = chainman.BlockIndex();
     if (request.fHelp || request.params.size() != 1 )
         throw std::runtime_error(
             "testproposedblock \"blockhex\"\n"
@@ -953,14 +957,14 @@ UniValue testproposedblock(const JSONRPCRequest& request)
 
     }
 
-    CBlockIndex* const pindexPrev = g_chainstate_manager.ActiveChain().Tip();
+    CBlockIndex* const pindexPrev = chainman.ActiveChain().Tip();
     // TestBlockValidity only supports blocks built on the current Tip
     if (block.hashPrevBlock != pindexPrev->GetBlockHash())
         throw JSONRPCError(RPC_VERIFY_ERROR, "proposal was not based on our best chain");
 
     CValidationState state;
 
-    bool valid = TestBlockValidity(state, block, pindexPrev, false, true);
+    bool valid = chainman.ActiveChainstate().TestBlockValidity(state, block, false, true);
     if (!valid || !state.IsValid()) {
         std::string strRejectReason = state.GetRejectReason();
         if (strRejectReason.empty())
@@ -971,7 +975,7 @@ UniValue testproposedblock(const JSONRPCRequest& request)
     for (auto& transaction : block.vtx) {
         if (transaction->IsCoinBase()) continue;
         std::string reason;
-        if (!IsStandardTx(*transaction, reason)) {
+        if (!IsStandardTx(*transaction, reason, chainman.RulesLatest().MaxBlockSize())) {
             throw JSONRPCError(RPC_VERIFY_ERROR, "Block proposal included a non-standard transaction: " + reason);
         }
     }
@@ -1000,4 +1004,9 @@ void RegisterMiningRPCCommands(CRPCTable &t)
 {
     for (unsigned int vcidx = 0; vcidx < ARRAYLEN(commands); vcidx++)
         t.appendCommand(commands[vcidx].name, &commands[vcidx]);
+}
+
+UniValue generateBlocks(const CTxMemPool&, std::shared_ptr<CReserveScript> coinbaseScript, int nGenerate, bool keepScript, const CKey& vecPrivKeys)
+{
+    return generateBlocks(g_chainstate_manager, *g_policy_settings, coinbaseScript, nGenerate, keepScript, vecPrivKeys);
 }
