@@ -45,8 +45,6 @@ public:
     void ReportWalletFileSalvaged(const std::string& wallet_file, const std::string& backup_file, const std::string& wallet_dir) override;
     void ReportTransactionDataUnreadable(const std::string& wallet_file) override;
     void ReportPrivateKeysInDisabledWallet(const std::string& wallet_file) override;
-    /** Shows nothing: the wallet's own progress signal drives its GUI dialog. */
-    void ReportRescanProgress(const std::string& wallet_name, int percent) override;
     /** Runs the -walletnotify command with the transaction id. */
     void ReportTransactionChanged(const std::string& wallet_name, const uint256& txid) override;
 
@@ -60,8 +58,6 @@ public:
 
     /** What the log and the warnings say about the fatal error. */
     static std::string FatalErrorMessage(FatalErrorReason reason, const std::string& detail);
-    /** What the warning says about a salvaged wallet file; loadwallet returns it too. */
-    static std::string WalletFileSalvagedMessage(const std::string& wallet_file, const std::string& backup_file, const std::string& wallet_dir);
 
 private:
     //! What a warning is about; each has at most one current message.

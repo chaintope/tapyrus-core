@@ -12,6 +12,7 @@
 #include <ui_interface.h>
 #include <util.h>
 #include <utilstrencodings.h>
+#include <wallet/walletmessages.h>
 
 #include <algorithm>
 #include <cassert>
@@ -138,49 +139,26 @@ void NotificationHub::ReportStopHeightReached(int height)
 
 void NotificationHub::ReportFeeSettingHigh(WalletFeeSetting setting)
 {
-    switch (setting) {
-    case WalletFeeSetting::MIN_RELAY_TX_FEE:
-        InitWarning(AmountHighWarn("-minrelaytxfee") + " " + _("The wallet will avoid paying less than the minimum relay fee."));
-        break;
-    case WalletFeeSetting::MIN_TX_FEE:
-        InitWarning(AmountHighWarn("-mintxfee") + " " + _("This is the minimum transaction fee you pay on every transaction."));
-        break;
-    case WalletFeeSetting::FALLBACK_FEE:
-        InitWarning(AmountHighWarn("-fallbackfee") + " " + _("This is the transaction fee you may pay when fee estimates are not available."));
-        break;
-    case WalletFeeSetting::DISCARD_FEE:
-        InitWarning(AmountHighWarn("-discardfee") + " " + _("This is the transaction fee you may discard if change is smaller than dust at this level"));
-        break;
-    case WalletFeeSetting::PAY_TX_FEE:
-        InitWarning(AmountHighWarn("-paytxfee") + " " + _("This is the transaction fee you will pay if you send a transaction."));
-        break;
-    } // no default case, so the compiler can warn about missing cases
+    InitWarning(WalletMessages::FeeSettingHigh(setting));
     for (Notifications* subscriber : Subscribers()) subscriber->ReportFeeSettingHigh(setting);
 }
 
 void NotificationHub::ReportWalletFileSalvaged(const std::string& wallet_file, const std::string& backup_file, const std::string& wallet_dir)
 {
-    InitWarning(WalletFileSalvagedMessage(wallet_file, backup_file, wallet_dir));
+    InitWarning(WalletMessages::WalletFileSalvaged(wallet_file, backup_file, wallet_dir));
     for (Notifications* subscriber : Subscribers()) subscriber->ReportWalletFileSalvaged(wallet_file, backup_file, wallet_dir);
 }
 
 void NotificationHub::ReportTransactionDataUnreadable(const std::string& wallet_file)
 {
-    InitWarning(strprintf(_("Error reading %s! All keys read correctly, but transaction data"
-                            " or address book entries might be missing or incorrect."),
-        wallet_file));
+    InitWarning(WalletMessages::TransactionDataUnreadable(wallet_file));
     for (Notifications* subscriber : Subscribers()) subscriber->ReportTransactionDataUnreadable(wallet_file);
 }
 
 void NotificationHub::ReportPrivateKeysInDisabledWallet(const std::string& wallet_file)
 {
-    InitWarning(strprintf(_("Warning: Private keys detected in wallet {%s} with disabled private keys"), wallet_file));
+    InitWarning(WalletMessages::PrivateKeysInDisabledWallet(wallet_file));
     for (Notifications* subscriber : Subscribers()) subscriber->ReportPrivateKeysInDisabledWallet(wallet_file);
-}
-
-void NotificationHub::ReportRescanProgress(const std::string& wallet_name, int percent)
-{
-    for (Notifications* subscriber : Subscribers()) subscriber->ReportRescanProgress(wallet_name, percent);
 }
 
 void NotificationHub::ReportTransactionChanged(const std::string& wallet_name, const uint256& txid)
@@ -257,15 +235,6 @@ std::string NotificationHub::FatalErrorMessage(FatalErrorReason reason, const st
     } // no default case, so the compiler can warn about missing cases
     assert(false);
     return "";
-}
-
-std::string NotificationHub::WalletFileSalvagedMessage(const std::string& wallet_file, const std::string& backup_file, const std::string& wallet_dir)
-{
-    return strprintf(_("Warning: Wallet file corrupt, data salvaged!"
-                       " Original %s saved as %s in %s; if"
-                       " your balance or transactions are incorrect you should"
-                       " restore from a backup."),
-        wallet_file, backup_file, wallet_dir);
 }
 
 FatalErrorDialog& FatalErrorDialog::Instance()

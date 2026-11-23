@@ -12,8 +12,7 @@
 #include <core_io.h>
 #include <httpserver.h>
 #include <init.h>
-#include <interfaces/nodecontextlookup.h>
-#include <notificationhub.h>
+#include <interfaces/chain.h>
 #include <validation.h>
 #include <key_io.h>
 #include <messagemagic.h>
@@ -43,6 +42,7 @@
 #include <wallet/rpcwallet.h>
 #include <wallet/wallet.h>
 #include <wallet/walletdb.h>
+#include <wallet/walletmessages.h>
 #include <wallet/walletutil.h>
 #include <walletinitinterface.h>
 #include <xfieldhistory.h>
@@ -134,8 +134,7 @@ static void WalletTxToJSON(const CWallet* const pwallet, const CWalletTx& wtx, U
     // Add opt-in RBF status
     std::string rbfStatus = "no";
     if (confirms <= 0) {
-        const interfaces::NodeContextLookup* node_lookup = pwallet->NodeLookup();
-        RBFTransactionState rbfState = node_lookup ? node_lookup->isRBFOptIn(*wtx.tx) : RBFTransactionState::UNKNOWN;
+        RBFTransactionState rbfState = pwallet->HaveChain() ? pwallet->chain().isRBFOptIn(*wtx.tx) : RBFTransactionState::UNKNOWN;
         if (rbfState == RBFTransactionState::UNKNOWN)
             rbfStatus = "unknown";
         else if (rbfState == RBFTransactionState::REPLACEABLE_BIP125)
@@ -2574,7 +2573,7 @@ static UniValue loadwallet(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_WALLET_ERROR, "Wallet file verification failed: " + error);
     }
 
-    std::shared_ptr<CWallet> const wallet = CWallet::CreateWalletFromFile(g_wallet_init_interface.GetNodeContextLookup(), wallet_file, wallet_path);
+    std::shared_ptr<CWallet> const wallet = CWallet::CreateWalletFromFile(g_wallet_init_interface.GetChainInterface(), wallet_file, wallet_path);
     if (!wallet) {
         throw JSONRPCError(RPC_WALLET_ERROR, "Wallet loading failed.");
     }
@@ -2584,7 +2583,7 @@ static UniValue loadwallet(const JSONRPCRequest& request)
 
     UniValue obj(UniValue::VOBJ);
     obj.pushKV("name", wallet->GetName());
-    obj.pushKV("warning", salvaged ? NotificationHub::WalletFileSalvagedMessage(salvaged->wallet_file, salvaged->backup_file, salvaged->wallet_dir) : "");
+    obj.pushKV("warning", salvaged ? WalletMessages::WalletFileSalvaged(salvaged->wallet_file, salvaged->backup_file, salvaged->wallet_dir) : "");
 
     return obj;
 }
@@ -2628,7 +2627,7 @@ static UniValue createwallet(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_WALLET_ERROR, "Wallet file verification failed: " + error);
     }
 
-    std::shared_ptr<CWallet> const wallet = CWallet::CreateWalletFromFile(g_wallet_init_interface.GetNodeContextLookup(), wallet_name, wallet_path, (disable_privatekeys ? (uint64_t)WALLET_FLAG_DISABLE_PRIVATE_KEYS : 0));
+    std::shared_ptr<CWallet> const wallet = CWallet::CreateWalletFromFile(g_wallet_init_interface.GetChainInterface(), wallet_name, wallet_path, (disable_privatekeys ? (uint64_t)WALLET_FLAG_DISABLE_PRIVATE_KEYS : 0));
     if (!wallet) {
         throw JSONRPCError(RPC_WALLET_ERROR, "Wallet creation failed.");
     }
@@ -2638,7 +2637,7 @@ static UniValue createwallet(const JSONRPCRequest& request)
 
     UniValue obj(UniValue::VOBJ);
     obj.pushKV("name", wallet->GetName());
-    obj.pushKV("warning", salvaged ? NotificationHub::WalletFileSalvagedMessage(salvaged->wallet_file, salvaged->backup_file, salvaged->wallet_dir) : "");
+    obj.pushKV("warning", salvaged ? WalletMessages::WalletFileSalvaged(salvaged->wallet_file, salvaged->backup_file, salvaged->wallet_dir) : "");
 
     return obj;
 }

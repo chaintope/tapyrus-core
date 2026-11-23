@@ -2,16 +2,18 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef TAPYRUS_INTERFACES_NODECONTEXTLOOKUP_H
-#define TAPYRUS_INTERFACES_NODECONTEXTLOOKUP_H
+#ifndef TAPYRUS_INTERFACES_CHAIN_H
+#define TAPYRUS_INTERFACES_CHAIN_H
 
 #include <amount.h>
 #include <primitives/transaction.h>
 
+#include <memory>
 #include <stddef.h>
 
 class CFeeRate;
 class CValidationState;
+struct NodeContext;
 class uint256;
 class WalletNotifications;
 struct FeeCalculation;
@@ -20,12 +22,13 @@ enum class RBFTransactionState;
 namespace interfaces {
 
 /** What a client of the node, such as the wallet, may read from it, and the
- *  requests it may make. Clients reach node state only through this class, so
- *  they need no node headers. */
-class NodeContextLookup
+ *  requests it may make. The goal is that clients reach node state only through
+ *  this class and need no node headers. The wallet still reads the chain directly
+ *  under cs_main; that goes once the wallet keeps its own view of the chain. */
+class Chain
 {
 public:
-    virtual ~NodeContextLookup() {}
+    virtual ~Chain() {}
 
     //! Fee rate to confirm within num_blocks, or CFeeRate(0) without enough data.
     virtual CFeeRate estimateSmartFee(int num_blocks, bool conservative, FeeCalculation* calc) const = 0;
@@ -56,6 +59,9 @@ public:
     virtual WalletNotifications& notifications() const = 0;
 };
 
+//! Return the Chain implementation over node, which must outlive it.
+std::unique_ptr<Chain> MakeChain(NodeContext& node);
+
 } // namespace interfaces
 
-#endif // TAPYRUS_INTERFACES_NODECONTEXTLOOKUP_H
+#endif // TAPYRUS_INTERFACES_CHAIN_H

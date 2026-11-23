@@ -649,7 +649,7 @@ struct CoinSelectionParams
 class WalletRescanReserver; //forward declarations for ScanForWalletTransactions/RescanFromTime
 
 namespace interfaces {
-class NodeContextLookup;
+class Chain;
 } // namespace interfaces
 /**
  * A CWallet is an extension of a keystore, which also maintains a set of transactions and balances,
@@ -735,13 +735,14 @@ private:
      */
     bool AddWatchOnly(const CScript& dest) override EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
 
+    //! The node this wallet reads from and submits to, or null.
+    interfaces::Chain* const m_chain;
+
     /**
      * Wallet filename from wallet=<path> command line or config option.
      * Used in debug logs and to send RPCs to the right wallet instance when
      * more than one wallet is loaded.
      */
-    interfaces::NodeContextLookup* const m_node_lookup;
-
     std::string m_name;
 
     /** Internal database handle. */
@@ -787,8 +788,11 @@ public:
      */
     const std::string& GetName() const { return m_name; }
 
-    //! The node this wallet reads from and submits to, or null.
-    interfaces::NodeContextLookup* NodeLookup() const { return m_node_lookup; }
+    //! Whether the wallet runs with a node.
+    bool HaveChain() const { return m_chain != nullptr; }
+
+    //! The node this wallet reads from and submits to; only valid when HaveChain().
+    interfaces::Chain& chain() const { assert(m_chain); return *m_chain; }
 
     void LoadKeyPool(int64_t nIndex, const CKeyPool &keypool) EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
     void MarkPreSplitKeys();
@@ -803,10 +807,10 @@ public:
     MasterKeyMap mapMasterKeys;
     unsigned int nMasterKeyMaxID = 0;
 
-    /** Construct wallet with specified name and database implementation. node_lookup is the node it
+    /** Construct wallet with specified name and database implementation. chain is the node it
      *  reads from and submits to, null when it runs without one; it must outlive the wallet. */
-    CWallet(interfaces::NodeContextLookup* node_lookup, std::string name, std::unique_ptr<WalletDatabase> database)
-        : m_node_lookup(node_lookup), m_name(std::move(name)), database(std::move(database))
+    CWallet(interfaces::Chain* chain, std::string name, std::unique_ptr<WalletDatabase> database)
+        : m_chain(chain), m_name(std::move(name)), database(std::move(database))
     {
     }
 
@@ -941,8 +945,6 @@ public:
     void BlockDisconnected(const std::shared_ptr<const CBlock>& pblock) override;
     int64_t RescanFromTime(int64_t startTime, const WalletRescanReserver& reserver, bool update);
     CBlockIndex* ScanForWalletTransactions(CBlockIndex* pindexStart, CBlockIndex* pindexStop, const WalletRescanReserver& reserver, bool fUpdate = false);
-    //! Shows the rescan's progress in the wallet's GUI and reports it to the node.
-    void ShowRescanProgress(int percent);
     void TransactionRemovedFromMempool(const CTransactionRef &ptx) override;
     void ReacceptWalletTransactions();
     void ResendWalletTransactions(int64_t nBestBlockTime) override;
@@ -1136,7 +1138,7 @@ public:
     static bool Verify(std::string wallet_file, bool salvage_wallet, std::string& error_string, std::optional<SalvagedWalletFile>& salvaged);
 
     /* Initializes the wallet, returns a new CWallet instance or a null pointer in case of an error */
-    static std::shared_ptr<CWallet> CreateWalletFromFile(interfaces::NodeContextLookup* node_lookup, const std::string& name, const fs::path& path, uint64_t wallet_creation_flags = 0);
+    static std::shared_ptr<CWallet> CreateWalletFromFile(interfaces::Chain* chain, const std::string& name, const fs::path& path, uint64_t wallet_creation_flags = 0);
 
     /**
      * Wallet post-init setup

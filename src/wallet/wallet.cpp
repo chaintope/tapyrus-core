@@ -13,7 +13,7 @@
 #include <consensusconstants.h>
 #include <consensus/validation.h>
 #include <fs.h>
-#include <interfaces/nodecontextlookup.h>
+#include <interfaces/chain.h>
 #include <key.h>
 #include <key_io.h>
 #include <keystore.h>
@@ -962,7 +962,7 @@ bool CWallet::AddToWallet(const CWalletTx& wtxIn, bool fFlushOnClose, bool resca
     // Notify UI of new or updated transaction
     NotifyTransactionChanged(this, hash, fInsertedNew ? CT_NEW : CT_UPDATED);
 
-    if (m_node_lookup) m_node_lookup->notifications().ReportTransactionChanged(GetName(), wtxIn.GetHash());
+    if (HaveChain()) chain().notifications().ReportTransactionChanged(GetName(), wtxIn.GetHash());
 
     return true;
 }
@@ -1689,12 +1689,6 @@ int64_t CWallet::RescanFromTime(int64_t startTime, const WalletRescanReserver& r
  * the main chain after to the addition of any new keys you want to detect
  * transactions for.
  */
-void CWallet::ShowRescanProgress(int percent)
-{
-    ShowProgress(strprintf("%s " + _("Rescanning..."), GetDisplayName()), percent);
-    if (m_node_lookup) m_node_lookup->notifications().ReportRescanProgress(GetName(), percent);
-}
-
 CBlockIndex* CWallet::ScanForWalletTransactions(CBlockIndex* pindexStart, CBlockIndex* pindexStop, const WalletRescanReserver &reserver, bool fUpdate)
 {
     int64_t nNow = GetTime();
@@ -1711,7 +1705,7 @@ CBlockIndex* CWallet::ScanForWalletTransactions(CBlockIndex* pindexStart, CBlock
 
     {
         fAbortRescan = false;
-        ShowRescanProgress(0); // show rescan progress in GUI as dialog or on splashscreen, if -rescan on startup
+        ShowProgress(strprintf("%s " + _("Rescanning..."), GetDisplayName()), 0); // show rescan progress in GUI as dialog or on splashscreen, if -rescan on startup
         CBlockIndex* tip = nullptr;
         double progress_begin;
         double progress_end;
@@ -1729,7 +1723,7 @@ CBlockIndex* CWallet::ScanForWalletTransactions(CBlockIndex* pindexStart, CBlock
         while (pindex && !fAbortRescan && !ShutdownRequested())
         {
             if (pindex->nHeight % 100 == 0 && progress_end - progress_begin > 0.0) {
-                ShowRescanProgress(std::max(1, std::min(99, (int)((progress_current - progress_begin) / (progress_end - progress_begin) * 100))));
+                ShowProgress(strprintf("%s " + _("Rescanning..."), GetDisplayName()), std::max(1, std::min(99, (int)((progress_current - progress_begin) / (progress_end - progress_begin) * 100))));
             }
             if (GetTime() >= nNow + 60) {
                 nNow = GetTime();
@@ -1770,7 +1764,7 @@ CBlockIndex* CWallet::ScanForWalletTransactions(CBlockIndex* pindexStart, CBlock
         } else if (pindex && ShutdownRequested()) {
             WalletLogPrintf("Rescan interrupted by shutdown request at block %d. Progress=%f\n", pindex->nHeight, progress_current);
         }
-        ShowRescanProgress(100); // hide progress dialog in GUI
+        ShowProgress(strprintf("%s " + _("Rescanning..."), GetDisplayName()), 100); // hide progress dialog in GUI
     }
     return ret;
 }
@@ -3094,9 +3088,9 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
         }
     }
 
-    if (m_node_lookup && gArgs.GetBoolArg("-walletrejectlongchains", DEFAULT_WALLET_REJECT_LONG_CHAINS)) {
+    if (HaveChain() && gArgs.GetBoolArg("-walletrejectlongchains", DEFAULT_WALLET_REJECT_LONG_CHAINS)) {
         // Lastly, ensure this tx will pass the mempool's chain limits
-        if (!m_node_lookup->checkChainLimits(tx)) {
+        if (!chain().checkChainLimits(tx)) {
             strFailReason = _("Transaction has too long of a mempool chain");
             return false;
         }
@@ -4078,10 +4072,10 @@ bool CWallet::Verify(std::string wallet_file, bool salvage_wallet, std::string& 
     return WalletBatch::VerifyDatabaseFile(wallet_path, salvaged, error_string);
 }
 
-std::shared_ptr<CWallet> CWallet::CreateWalletFromFile(interfaces::NodeContextLookup* node_lookup, const std::string& name, const fs::path& path, uint64_t wallet_creation_flags)
+std::shared_ptr<CWallet> CWallet::CreateWalletFromFile(interfaces::Chain* chain, const std::string& name, const fs::path& path, uint64_t wallet_creation_flags)
 {
     const std::string& walletFile = name;
-    WalletNotifications* notifications = node_lookup ? &node_lookup->notifications() : nullptr;
+    WalletNotifications* notifications = chain ? &chain->notifications() : nullptr;
 
     // needed to restore wallet transaction meta data after -zapwallettxes
     std::vector<CWalletTx> vWtx;
@@ -4089,7 +4083,7 @@ std::shared_ptr<CWallet> CWallet::CreateWalletFromFile(interfaces::NodeContextLo
     if (gArgs.GetBoolArg("-zapwallettxes", false)) {
         uiInterface.InitMessage(_("Zapping all transactions from wallet..."));
 
-        std::unique_ptr<CWallet> tempWallet = MakeUnique<CWallet>(node_lookup, name, WalletDatabase::Create(path));
+        std::unique_ptr<CWallet> tempWallet = MakeUnique<CWallet>(chain, name, WalletDatabase::Create(path));
         DBErrors nZapWalletRet = tempWallet->ZapWalletTx(vWtx);
         if (nZapWalletRet != DBErrors::LOAD_OK) {
             InitError(strprintf(_("Error loading %s: Wallet corrupted"), walletFile));
@@ -4103,7 +4097,7 @@ std::shared_ptr<CWallet> CWallet::CreateWalletFromFile(interfaces::NodeContextLo
     bool fFirstRun = true;
     // TODO: Can't use std::make_shared because we need a custom deleter but
     // should be possible to use std::allocate_shared.
-    std::shared_ptr<CWallet> walletInstance(new CWallet(node_lookup, name, WalletDatabase::Create(path)), ReleaseWallet);
+    std::shared_ptr<CWallet> walletInstance(new CWallet(chain, name, WalletDatabase::Create(path)), ReleaseWallet);
     DBErrors nLoadWalletRet = walletInstance->LoadWallet(fFirstRun);
     if (nLoadWalletRet != DBErrors::LOAD_OK)
     {
@@ -4445,8 +4439,7 @@ int CMerkleTx::GetDepthInMainChain() const
 
 bool CWalletTx::SubmitMemoryPoolAndRelay(CValidationState& state, bool relay)
 {
-    interfaces::NodeContextLookup* node_lookup = pwallet->NodeLookup();
-    if (!node_lookup) {
+    if (!pwallet->HaveChain()) {
         return state.Error("no node to submit the transaction to");
     }
     // We must set fInMempool here - while it will be re-set to true by the
@@ -4454,7 +4447,7 @@ bool CWalletTx::SubmitMemoryPoolAndRelay(CValidationState& state, bool relay)
     // user could call sendmoney in a loop and hit spurious out of funds errors
     // because we think that this newly generated transaction's change is
     // unavailable as we're not yet aware that it is in the mempool.
-    bool ret = node_lookup->broadcastTransaction(tx, g_policy_settings->maxTxFee, relay, state);
+    bool ret = pwallet->chain().broadcastTransaction(tx, g_policy_settings->maxTxFee, relay, state);
     fInMempool |= ret;
     if (ret && relay) {
         pwallet->WalletLogPrintf("Relaying wtx %s\n", GetHash().ToString());
@@ -4471,7 +4464,7 @@ std::vector<OutputGroup> CWallet::GroupOutputs(const std::vector<COutput>& outpu
             CInputCoin input_coin = output.GetInputCoin();
 
             size_t ancestors = 0, descendants = 0;
-            if (m_node_lookup) m_node_lookup->getTransactionAncestry(output.tx->GetHash(), ancestors, descendants);
+            if (HaveChain()) chain().getTransactionAncestry(output.tx->GetHash(), ancestors, descendants);
             if (!single_coin && ExtractDestination(output.tx->tx->vout[output.i].scriptPubKey, dst)) {
                 // Limit output groups to no more than 10 entries, to protect
                 // against inadvertently creating a too-large transaction

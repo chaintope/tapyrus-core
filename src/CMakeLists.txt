@@ -497,7 +497,7 @@ target_link_libraries(tapyrus_rpc
 # later the GUI) reach it through. The clients' own libraries never link it;
 # the executables that create a node do.
 add_library(tapyrus_wallet_interface STATIC EXCLUDE_FROM_ALL
-  interfaces/nodecontextlookupimpl.cpp
+  interfaces/chain.cpp
 )
 target_link_libraries(tapyrus_wallet_interface
   PRIVATE

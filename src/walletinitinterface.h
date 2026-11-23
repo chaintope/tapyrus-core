@@ -11,7 +11,7 @@ class CScheduler;
 class CRPCTable;
 
 namespace interfaces {
-class NodeContextLookup;
+class Chain;
 } // namespace interfaces
 
 class WalletInitInterface {
@@ -25,9 +25,9 @@ public:
     /** Verify wallets */
     virtual bool Verify() const = 0;
     /** Set the node the wallets read from; null when they run without one. Must outlive the wallets. */
-    virtual void SetNodeContextLookup(interfaces::NodeContextLookup* node_lookup) const = 0;
+    virtual void SetChainInterface(interfaces::Chain* chain) const = 0;
     /** The node set above, for wallets loaded later */
-    virtual interfaces::NodeContextLookup* GetNodeContextLookup() const = 0;
+    virtual interfaces::Chain* GetChainInterface() const = 0;
     /** Open wallets*/
     virtual bool Open() const = 0;
     /** Start wallets*/

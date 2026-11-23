@@ -5,7 +5,7 @@
 
 #include <chainparams.h>
 #include <init.h>
-#include <interfaces/nodecontextlookup.h>
+#include <interfaces/chain.h>
 #include <net.h>
 #include <scheduler.h>
 #include <outputtype.h>
@@ -128,7 +128,7 @@ bool WalletInit::Verify() const
 
     // A node setting, so warned about once here rather than for each wallet.
     if (g_policy_settings->minRelayTxFee.GetFeePerK() > HIGH_TX_FEE_PER_KB) {
-        if (m_node_lookup) m_node_lookup->notifications().ReportFeeSettingHigh(WalletFeeSetting::MIN_RELAY_TX_FEE);
+        if (m_chain) m_chain->notifications().ReportFeeSettingHigh(WalletFeeSetting::MIN_RELAY_TX_FEE);
     }
 
     if (gArgs.IsArgSet("-walletdir")) {
@@ -167,7 +167,7 @@ bool WalletInit::Verify() const
         std::optional<SalvagedWalletFile> salvaged;
         bool verify_success = CWallet::Verify(wallet_file, salvage_wallet, error_string, salvaged);
         if (!error_string.empty()) InitError(error_string);
-        if (salvaged && m_node_lookup) m_node_lookup->notifications().ReportWalletFileSalvaged(salvaged->wallet_file, salvaged->backup_file, salvaged->wallet_dir);
+        if (salvaged && m_chain) m_chain->notifications().ReportWalletFileSalvaged(salvaged->wallet_file, salvaged->backup_file, salvaged->wallet_dir);
         if (!verify_success) return false;
     }
 
@@ -184,7 +184,7 @@ bool WalletInit::Open() const
     for (const std::string& walletFile : gArgs.GetArgs("-wallet")) {
         fs::path wallet_path = fs::path(walletFile).is_absolute() ? fs::path(walletFile) : GetWalletDir() / fs::path(walletFile);
 
-        std::shared_ptr<CWallet> pwallet = CWallet::CreateWalletFromFile(m_node_lookup, walletFile, wallet_path);
+        std::shared_ptr<CWallet> pwallet = CWallet::CreateWalletFromFile(m_chain, walletFile, wallet_path);
         if (!pwallet) {
             return false;
         }

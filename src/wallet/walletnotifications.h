@@ -31,8 +31,6 @@ public:
     virtual void ReportTransactionDataUnreadable(const std::string& wallet_file) = 0;
     /** wallet_file has private keys although it was created with them disabled. */
     virtual void ReportPrivateKeysInDisabledWallet(const std::string& wallet_file) = 0;
-    /** Rescanning wallet_name is percent done; 0 when it starts and 100 when it ends. */
-    virtual void ReportRescanProgress(const std::string& wallet_name, int percent) = 0;
     /** A transaction of wallet_name was added or updated. */
     virtual void ReportTransactionChanged(const std::string& wallet_name, const uint256& txid) = 0;
 };

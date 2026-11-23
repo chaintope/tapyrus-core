@@ -5,7 +5,7 @@
 
 #include <coloridentifier.h>
 #include <consensus/validation.h>
-#include <interfaces/nodecontextlookup.h>
+#include <interfaces/chain.h>
 #include <wallet/coincontrol.h>
 #include <wallet/feebumper.h>
 #include <wallet/fees.h>
@@ -26,7 +26,7 @@ static feebumper::Result PreconditionChecks(const CWallet* wallet, const CWallet
         return feebumper::Result::INVALID_PARAMETER;
     }
 
-    if (wallet->NodeLookup() && wallet->NodeLookup()->hasDescendantsInMempool(wtx.GetHash())) {
+    if (wallet->HaveChain() && wallet->chain().hasDescendantsInMempool(wtx.GetHash())) {
         errors.push_back("Transaction has descendants in the mempool");
         return feebumper::Result::INVALID_PARAMETER;
     }
@@ -216,7 +216,7 @@ Result CreateTransaction(const CWallet* wallet, const uint256& txid, const CCoin
     // This may occur if the user set TotalFee or paytxfee too low, if fallbackfee is too low, or, perhaps,
     // in a rare situation where the mempool minimum fee increased significantly since the fee estimation just a
     // moment earlier. In this case, we report an error to the user, who may use total_fee to make an adjustment.
-    CFeeRate minMempoolFeeRate = wallet->NodeLookup() ? wallet->NodeLookup()->mempoolMinFee() : CFeeRate(0);
+    CFeeRate minMempoolFeeRate = wallet->HaveChain() ? wallet->chain().mempoolMinFee() : CFeeRate(0);
     if (nNewFeeRate.GetFeePerK() < minMempoolFeeRate.GetFeePerK()) {
         errors.push_back(strprintf(
             "New fee rate (%s) is lower than the minimum fee rate (%s) to get into the mempool -- "

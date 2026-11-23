@@ -71,7 +71,6 @@ public:
     void ReportWalletFileSalvaged(const std::string& wallet_file, const std::string& backup_file, const std::string& wallet_dir) override { m_log.push_back(m_name + " salvaged " + wallet_file); }
     void ReportTransactionDataUnreadable(const std::string& wallet_file) override { m_log.push_back(m_name + " unreadable " + wallet_file); }
     void ReportPrivateKeysInDisabledWallet(const std::string& wallet_file) override { m_log.push_back(m_name + " private keys " + wallet_file); }
-    void ReportRescanProgress(const std::string& wallet_name, int percent) override { m_log.push_back(m_name + " rescan " + wallet_name + " " + std::to_string(percent)); }
     void ReportTransactionChanged(const std::string& wallet_name, const uint256& txid) override { m_log.push_back(m_name + " tx " + wallet_name + " " + txid.ToString()); }
 
 private:
@@ -300,22 +299,6 @@ BOOST_AUTO_TEST_CASE(reaching_the_stop_height_is_not_an_error)
     BOOST_CHECK_EQUAL_COLLECTIONS(log.begin(), log.end(), expected.begin(), expected.end());
 }
 
-BOOST_AUTO_TEST_CASE(rescan_progress_shows_nothing_and_sets_no_warning)
-{
-    int boxes{0};
-    const boost::signals2::scoped_connection box{uiInterface.ThreadSafeMessageBox.connect(
-        [&boxes](const std::string& message, const std::string& caption, unsigned int style) { ++boxes; return false; })};
-    int progress{0};
-    const boost::signals2::scoped_connection shown{uiInterface.ShowProgress.connect(
-        [&progress](const std::string& title, int percent, bool resume_possible) { ++progress; })};
-    NotificationHub notifications;
-    notifications.ReportRescanProgress("w", 0);
-    notifications.ReportRescanProgress("w", 100);
-    BOOST_CHECK_EQUAL(boxes, 0);
-    BOOST_CHECK_EQUAL(progress, 0);
-    BOOST_CHECK_EQUAL(notifications.GetWarnings("gui"), GuiText(""));
-}
-
 BOOST_AUTO_TEST_CASE(wallet_warnings_are_not_kept_for_the_status_bar)
 {
     NotificationHub notifications;
@@ -415,7 +398,6 @@ BOOST_AUTO_TEST_CASE(every_subscriber_hears_each_publish_in_order)
     notifications.ReportForkResolved();
     notifications.ReportStopHeightReached(100);
     notifications.ReportUpgradeProgress(42);
-    notifications.ReportRescanProgress("w", 7);
     notifications.ReportTransactionChanged("w", uint256S("02"));
 
     const std::string fork{uint256S("01").ToString()};
@@ -428,7 +410,6 @@ BOOST_AUTO_TEST_CASE(every_subscriber_hears_each_publish_in_order)
         "first fork resolved", "second fork resolved",
         "first stop at 100", "second stop at 100",
         "first upgrade 42", "second upgrade 42",
-        "first rescan w 7", "second rescan w 7",
         "first tx w " + uint256S("02").ToString(), "second tx w " + uint256S("02").ToString()};
     BOOST_CHECK_EQUAL_COLLECTIONS(log.begin(), log.end(), expected.begin(), expected.end());
 }

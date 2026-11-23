@@ -55,7 +55,7 @@ void TestWalletSetup::initWallet()
     CHash160().Write(coinbasePubKey.data(), coinbasePubKey.size()).Finalize(
             coinbasePubKeyHash.data());
 
-    wallet = MakeUnique<CWallet>(&m_node_lookup, "mock", WalletDatabase::CreateMock());
+    wallet = MakeUnique<CWallet>(m_chain.get(), "mock", WalletDatabase::CreateMock());
     bool firstRun;
     wallet->LoadWallet(firstRun);
 }

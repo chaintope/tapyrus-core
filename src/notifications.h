@@ -30,7 +30,6 @@ public:
     void ReportWalletFileSalvaged(const std::string& wallet_file, const std::string& backup_file, const std::string& wallet_dir) override {}
     void ReportTransactionDataUnreadable(const std::string& wallet_file) override {}
     void ReportPrivateKeysInDisabledWallet(const std::string& wallet_file) override {}
-    void ReportRescanProgress(const std::string& wallet_name, int percent) override {}
     void ReportTransactionChanged(const std::string& wallet_name, const uint256& txid) override {}
 };
 
