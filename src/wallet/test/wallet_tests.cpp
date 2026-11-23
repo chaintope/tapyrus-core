@@ -219,14 +219,19 @@ static int64_t AddTx(CWallet& wallet, uint32_t lockTime, int64_t mockTime, int64
     }
 
     CWalletTx wtx(&wallet, MakeTransactionRef(tx));
-    if (block) {
-        wtx.SetMerkleBranch(block, 0);
-    }
-    {
-        LOCK(cs_main);
+    LOCK(cs_main);
+    LOCK(wallet.cs_wallet);
+    // If transaction is already in map, to avoid inconsistencies, unconfirmation
+    // is needed before confirm again with different block.
+    std::map<uint256, CWalletTx>::iterator it = wallet.mapWallet.find(wtx.GetHash());
+    if (it != wallet.mapWallet.end()) {
+        wtx.setUnconfirmed();
         wallet.AddToWallet(wtx);
     }
-    LOCK(wallet.cs_wallet);
+    if (block) {
+        wtx.SetConf(CWalletTx::Status::CONFIRMED, block->GetBlockHash(), 0);
+    }
+    wallet.AddToWallet(wtx);
     return wallet.mapWallet.at(wtx.GetHash()).nTimeSmart;
 }
 
@@ -314,7 +319,7 @@ public:
         auto it = wallet->mapWallet.find(tx->GetHashMalFix());
         bool res = it != wallet->mapWallet.end();
         BOOST_CHECK(res);
-        it->second.SetMerkleBranch(g_chainstate_manager.ActiveChain().Tip(), 1);
+        it->second.SetConf(CWalletTx::Status::CONFIRMED, g_chainstate_manager.ActiveChain().Tip()->GetBlockHash(), 1);
         return it->second;
     }
 

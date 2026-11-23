@@ -119,9 +119,9 @@ static void WalletTxToJSON(const CWallet* const pwallet, const CWalletTx& wtx, U
     if (confirms > 0)
     {
         AssertLockHeld(cs_main);
-        entry.pushKV("blockhash", wtx.hashBlock.GetHex());
-        entry.pushKV("blockindex", wtx.nIndex);
-        entry.pushKV("blocktime", pwallet->chain().lookupBlockIndex(wtx.hashBlock)->GetBlockTime());
+        entry.pushKV("blockhash", wtx.m_confirm.hashBlock.GetHex());
+        entry.pushKV("blockindex", wtx.m_confirm.nIndex);
+        entry.pushKV("blocktime", pwallet->chain().lookupBlockIndex(wtx.m_confirm.hashBlock)->GetBlockTime());
     } else {
         entry.pushKV("trusted", wtx.IsTrusted());
     }

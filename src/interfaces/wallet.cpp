@@ -106,7 +106,7 @@ WalletTx MakeWalletTx(CWallet& wallet, const CWalletTx& wtx)
 WalletTxStatus MakeWalletTxStatus(interfaces::Chain& chain, const CWalletTx& wtx) EXCLUSIVE_LOCKS_REQUIRED(cs_main)
 {
     WalletTxStatus result;
-    CBlockIndex* block = chain.lookupBlockIndex(wtx.hashBlock);
+    CBlockIndex* block = chain.lookupBlockIndex(wtx.m_confirm.hashBlock);
     result.block_height = (block ? block->nHeight : std::numeric_limits<int>::max());
     result.depth_in_main_chain = wtx.GetDepthInMainChain();
     result.time_received = wtx.nTimeReceived;
