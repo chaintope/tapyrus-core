@@ -11,8 +11,11 @@
 #include <script/interpreter.h>
 
 PrecomputedColorData::PrecomputedColorData(const CTransaction& tx, const CCoinsViewCache& inputs, int32_t blockHeight)
+    : PrecomputedColorData(tx, inputs, g_chainstate_manager.Settings(), blockHeight) {}
+
+PrecomputedColorData::PrecomputedColorData(const CTransaction& tx, const CCoinsViewCache& inputs, const ConsensusSettings& settings, int32_t blockHeight)
     : m_coinbase(tx.IsCoinBase()),
-      m_cp2sh_colored_active(g_chainstate_manager.Settings().IsActive(SCRIPT_VERIFY_CP2SH_COLORED, blockHeight))
+      m_cp2sh_colored_active(settings.IsActive(SCRIPT_VERIFY_CP2SH_COLORED, blockHeight))
 {
     // Outputs first, so the inputs hash only the colorids some output can issue.
     bool needScriptColorId{false};

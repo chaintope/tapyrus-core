@@ -16,6 +16,7 @@
 #include <vector>
 
 class CCoinsViewCache;
+class ConsensusSettings;
 class CIssuedColorIds;
 class CTransaction;
 
@@ -49,6 +50,9 @@ public:
         bool issued{false};
     };
 
+    /** settings tells whether the CP2SH colored soft fork is active at blockHeight. */
+    PrecomputedColorData(const CTransaction& tx, const CCoinsViewCache& inputs, const ConsensusSettings& settings, int32_t blockHeight) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
+    //! With the active chain's settings; goes with g_chainstate_manager.
     PrecomputedColorData(const CTransaction& tx, const CCoinsViewCache& inputs, int32_t blockHeight) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 
     /** Mark the outputs whose non-reissuable or NFT colorid is already issued. */

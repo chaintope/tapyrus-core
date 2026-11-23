@@ -47,25 +47,25 @@ bool BaseIndex::Init()
     }
 
     LOCK(cs_main);
-    m_best_block_index = FindForkInGlobalIndex(g_chainstate_manager.ActiveChain(), locator);
-    m_synced = m_best_block_index.load() == g_chainstate_manager.ActiveChain().Tip();
+    m_best_block_index = m_chainman.ActiveChainstate().FindForkInGlobalIndex(locator);
+    m_synced = m_best_block_index.load() == m_chainman.ActiveChain().Tip();
     return true;
 }
 
-static const CBlockIndex* NextSyncBlock(const CBlockIndex* pindex_prev)
+const CBlockIndex* BaseIndex::NextSyncBlock(const CBlockIndex* pindex_prev) const
 {
     AssertLockHeld(cs_main);
 
     if (!pindex_prev) {
-        return g_chainstate_manager.ActiveChain().Genesis();
+        return m_chainman.ActiveChain().Genesis();
     }
 
-    const CBlockIndex* pindex = g_chainstate_manager.ActiveChain().Next(pindex_prev);
+    const CBlockIndex* pindex = m_chainman.ActiveChain().Next(pindex_prev);
     if (pindex) {
         return pindex;
     }
 
-    return g_chainstate_manager.ActiveChain().Next(g_chainstate_manager.ActiveChain().FindFork(pindex_prev));
+    return m_chainman.ActiveChain().Next(m_chainman.ActiveChain().FindFork(pindex_prev));
 }
 
 void BaseIndex::ThreadSync()
@@ -106,7 +106,7 @@ void BaseIndex::ThreadSync()
             }
 
             CBlock block;
-            if (!g_chainstate_manager.ReadBlock(block, pindex)) {
+            if (!m_chainman.ReadBlock(block, pindex)) {
                 m_notifications.ReportFatalError(FatalErrorReason::INDEX_BLOCK_READ_FAILED, pindex->GetBlockHash().ToString());
                 return;
             }
@@ -127,7 +127,7 @@ void BaseIndex::ThreadSync()
 bool BaseIndex::WriteBestBlock(const CBlockIndex* block_index)
 {
     LOCK(cs_main);
-    if (!GetDB().WriteBestBlock(g_chainstate_manager.ActiveChain().GetLocator(block_index))) {
+    if (!GetDB().WriteBestBlock(m_chainman.ActiveChain().GetLocator(block_index))) {
         return error("%s: Failed to write locator to disk", __func__);
     }
     return true;
@@ -171,7 +171,7 @@ void BaseIndex::BlockConnected(const std::shared_ptr<const CBlock>& block, const
 
 void BaseIndex::ChainStateFlushed(const CBlockLocator& locator)
 {
-    BlockIndexMap& blockIndex = g_chainstate_manager.BlockIndex();
+    BlockIndexMap& blockIndex = m_chainman.BlockIndex();
     if (!m_synced) {
         return;
     }
@@ -219,7 +219,7 @@ bool BaseIndex::BlockUntilSyncedToCurrentChain()
         // Skip the queue-draining stuff if we know we're caught up with
         // the active tip.
         LOCK(cs_main);
-        const CBlockIndex* chain_tip = g_chainstate_manager.ActiveChain().Tip();
+        const CBlockIndex* chain_tip = m_chainman.ActiveChain().Tip();
         const CBlockIndex* best_block_index = m_best_block_index.load();
         if (best_block_index->GetAncestor(chain_tip->nHeight) == chain_tip) {
             return true;

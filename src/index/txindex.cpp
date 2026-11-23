@@ -225,21 +225,21 @@ bool TxIndex::DB::MigrateData(CBlockTreeDB& block_tree_db, const CBlockLocator& 
     return true;
 }
 
-TxIndex::TxIndex(IndexNotifications& notifications, size_t n_cache_size, bool f_memory, bool f_wipe)
-    : BaseIndex(notifications), m_db(MakeUnique<TxIndex::DB>(n_cache_size, f_memory, f_wipe))
+TxIndex::TxIndex(ChainstateManager& chainman, IndexNotifications& notifications, size_t n_cache_size, bool f_memory, bool f_wipe)
+    : BaseIndex(chainman, notifications), m_db(MakeUnique<TxIndex::DB>(n_cache_size, f_memory, f_wipe))
 {}
 
 TxIndex::~TxIndex() {}
 
 bool TxIndex::Init()
 {
-    BlockIndexMap& blockIndex = g_chainstate_manager.BlockIndex();
+    BlockIndexMap& blockIndex = m_chainman.BlockIndex();
     LOCK(cs_main);
 
     // Attempt to migrate txindex from the old database to the new one. Even if
     // chain_tip is null, the node could be reindexing and we still want to
     // delete txindex records in the old database.
-    if (!m_db->MigrateData(*blockIndex.pblocktreedb, g_chainstate_manager.ActiveChain().GetLocator(), m_notifications)) {
+    if (!m_db->MigrateData(*blockIndex.pblocktreedb, m_chainman.ActiveChain().GetLocator(), m_notifications)) {
         return false;
     }
 
@@ -267,7 +267,7 @@ bool TxIndex::FindTx(const uint256& tx_hash, uint256& block_hash, CTransactionRe
         return false;
     }
 
-    CAutoFile file(g_chainstate_manager.GetBlockFileManager().OpenBlockFile(postx, true), SER_DISK, CLIENT_VERSION);
+    CAutoFile file(m_chainman.GetBlockFileManager().OpenBlockFile(postx, true), SER_DISK, CLIENT_VERSION);
     if (file.IsNull()) {
         return error("%s: OpenBlockFile failed", __func__);
     }

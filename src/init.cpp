@@ -1582,7 +1582,7 @@ bool AppInitMain(NodeContext& node)
 
     // ********************************************************* Step 8: start indexers
     if (gArgs.GetBoolArg("-txindex", DEFAULT_TXINDEX)) {
-        g_txindex = MakeUnique<TxIndex>(node.notifications, cache.nTxIndexCache, false, g_chainstate_manager.IsReindexing());
+        g_txindex = MakeUnique<TxIndex>(g_chainstate_manager, node.notifications, cache.nTxIndexCache, false, g_chainstate_manager.IsReindexing());
         g_txindex->Start();
     }
 
