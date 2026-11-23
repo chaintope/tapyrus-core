@@ -958,8 +958,20 @@ bool CWallet::AddToWallet(const CWalletTx& wtxIn, bool fFlushOnClose, bool resca
     return true;
 }
 
-void CWallet::LoadToWallet(const CWalletTx& wtxIn)
+void CWallet::LoadToWallet(CWalletTx& wtxIn)
 {
+    // A block a transaction was confirmed or conflicted in may have been
+    // reorged out while the wallet was not loaded: the transaction is then
+    // unconfirmed. Without a node (wallet-only tests) the status is kept.
+    if (HaveChain() && !wtxIn.m_confirm.hashBlock.IsNull()) {
+        AssertLockHeld(cs_main);
+        const CBlockIndex* pindex = chain().lookupBlockIndex(wtxIn.m_confirm.hashBlock);
+        if (!pindex || !chain().isInActiveChain(pindex)) {
+            wtxIn.setUnconfirmed();
+            wtxIn.m_confirm.hashBlock = uint256();
+            wtxIn.m_confirm.nIndex = 0;
+        }
+    }
     uint256 hash = wtxIn.GetHash();
     const auto& ins = mapWallet.emplace(hash, wtxIn);
     CWalletTx& wtx = ins.first->second;
@@ -1195,21 +1207,13 @@ void CWallet::TransactionRemovedFromMempool(const CTransactionRef &ptx) {
 
 void CWallet::BlockConnected(const std::shared_ptr<const CBlock>& pblock, const CBlockIndex *pindex, const std::vector<CTransactionRef>& vtxConflicted) {
     LOCK2(cs_main, cs_wallet);
-    // TODO: Temporarily ensure that mempool removals are notified before
-    // connected transactions.  This shouldn't matter, but the abandoned
-    // state of transactions in our wallet is currently cleared when we
-    // receive another notification and there is a race condition where
-    // notification of a connected conflict might cause an outside process
-    // to abandon a transaction and then have it inadvertently cleared by
-    // the notification that the conflicted transaction was evicted.
 
-    for (const CTransactionRef& ptx : vtxConflicted) {
-        SyncTransaction(ptx, CWalletTx::Status::CONFLICTED, nullptr /* block index */, 0 /* position in block */);
-        TransactionRemovedFromMempool(ptx);
-    }
     for (size_t i = 0; i < pblock->vtx.size(); i++) {
         SyncTransaction(pblock->vtx[i], CWalletTx::Status::CONFIRMED, pindex, i);
         TransactionRemovedFromMempool(pblock->vtx[i]);
+    }
+    for (const CTransactionRef& ptx : vtxConflicted) {
+        TransactionRemovedFromMempool(ptx);
     }
 
     m_last_block_processed = pindex;

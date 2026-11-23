@@ -88,6 +88,7 @@ BASE_SCRIPTS = [
     'wallet_listreceivedby.py',
     'wallet_listreceivedby.py --scheme SCHNORR',
     'wallet_abandonconflict.py',
+    'wallet_reorgsrestore.py',
     'wallet_abandonconflict.py --scheme SCHNORR',
     'feature_csv_activation.py',
     'feature_csv_activation.py --scheme SCHNORR',
