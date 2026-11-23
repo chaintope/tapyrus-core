@@ -23,6 +23,7 @@
 #include <rpc/client.h>
 #include <test/test_tapyrus.h>
 #include <validation.h>
+#include <streams.h>
 #include <wallet/coincontrol.h>
 #include <wallet/test/wallet_test_fixture.h>
 #include <utilstrencodings.h>
@@ -1014,6 +1015,42 @@ BOOST_FIXTURE_TEST_CASE(a_wallet_without_a_node_cannot_submit, TestChainSetup)
     BOOST_CHECK(!wtx.SubmitMemoryPoolAndRelay(state, false));
     BOOST_CHECK_EQUAL(state.GetRejectReason(), "no node to submit the transaction to");
     BOOST_CHECK(!wtx.InMempool());
+}
+
+BOOST_AUTO_TEST_CASE(a_wallet_transaction_reads_back_as_written)
+{
+    CMutableTransaction mtx;
+    mtx.vout.emplace_back(1 * ConsensusConstants::COIN, CScript() << OP_TRUE);
+    CWalletTx wtx(&m_wallet, MakeTransactionRef(mtx));
+    wtx.SetConf(CWalletTx::Status::CONFIRMED, uint256S("01"), 3);
+
+    CDataStream written(SER_DISK, CLIENT_VERSION);
+    written << wtx;
+    CWalletTx read(nullptr, MakeTransactionRef());
+    CDataStream copy(written);
+    copy >> read;
+    BOOST_CHECK(copy.empty());
+    BOOST_CHECK_EQUAL(read.GetHash(), wtx.GetHash());
+    BOOST_CHECK(read.m_confirm.status == CWalletTx::Status::CONFIRMED);
+    BOOST_CHECK_EQUAL(read.m_confirm.hashBlock, uint256S("01"));
+    BOOST_CHECK_EQUAL(read.m_confirm.nIndex, 3);
+    CDataStream rewritten(SER_DISK, CLIENT_VERSION);
+    rewritten << read;
+    BOOST_CHECK(rewritten.str() == written.str());
+}
+
+// Negative case: the slot that used to hold vtxPrev must be empty.
+BOOST_AUTO_TEST_CASE(a_wallet_transaction_with_vtxprev_entries_is_rejected)
+{
+    CMutableTransaction mtx;
+    mtx.vout.emplace_back(1 * ConsensusConstants::COIN, CScript() << OP_TRUE);
+    CDataStream stream(SER_DISK, CLIENT_VERSION);
+    stream << MakeTransactionRef(mtx) << uint256() << std::vector<uint256>() << int{0};
+    WriteCompactSize(stream, 1);
+    CWalletTx read(nullptr, MakeTransactionRef());
+    BOOST_CHECK_EXCEPTION(stream >> read, std::ios_base::failure, [](const std::ios_base::failure& e) {
+        return std::string(e.what()).find("CWalletTx: unexpected vtxPrev entries") != std::string::npos;
+    });
 }
 
 BOOST_AUTO_TEST_SUITE_END()
