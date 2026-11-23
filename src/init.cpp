@@ -1130,6 +1130,7 @@ bool AppInitLockDataDirectory()
 
 bool AppInitMain(NodeContext& node)
 {
+    node.chainman = &g_chainstate_manager;
     BlockIndexMap& blockIndex = g_chainstate_manager.BlockIndex();
     // ********************************************************* Step 4a: application initialization
 #ifndef WIN32
@@ -1343,7 +1344,8 @@ bool AppInitMain(NodeContext& node)
     }
 
 #if ENABLE_ZMQ
-    g_zmq_notification_interface = CZMQNotificationInterface::Create();
+    g_zmq_notification_interface = CZMQNotificationInterface::Create(
+        [&chainman = *node.chainman](CBlock& block, const CBlockIndex* pindex) { return chainman.ReadBlock(block, pindex); });
 
     if (g_zmq_notification_interface) {
         RegisterValidationInterface(g_zmq_notification_interface);

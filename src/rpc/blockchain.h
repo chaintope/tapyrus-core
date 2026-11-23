@@ -13,18 +13,23 @@
 
 class CBlock;
 class CBlockIndex;
+class ChainstateManager;
 class UniValue;
+struct NodeContext;
 
 static constexpr int NUM_GETBLOCKSTATS_PERCENTILES = 5;
 
 /** Callback for when block tip changed; the progress is unused, but lets it connect to NotifyBlockTip. */
 void RPCNotifyBlockChange(bool ibd, const CBlockIndex *, double verification_progress = 0.0);
 
+/** The node's chainstate manager; an RPC error if the node has none. */
+ChainstateManager& EnsureChainman(const NodeContext& node);
+
 /** Block description to JSON */
-UniValue blockToJSON(const CBlock& block, const CBlockIndex* blockindex, bool txDetails = false);
+UniValue blockToJSON(ChainstateManager& chainman, const CBlock& block, const CBlockIndex* blockindex, bool txDetails = false);
 
 /** Block header to JSON */
-UniValue blockheaderToJSON(const CBlockIndex* blockindex);
+UniValue blockheaderToJSON(ChainstateManager& chainman, const CBlockIndex* blockindex);
 
 /** String name of Xfield in block header */
 std::string GetXFieldNameForRpc(TAPYRUS_XFIELDTYPES x);

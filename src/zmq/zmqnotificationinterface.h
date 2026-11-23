@@ -6,10 +6,12 @@
 #define BITCOIN_ZMQ_ZMQNOTIFICATIONINTERFACE_H
 
 #include <validationinterface.h>
+#include <functional>
 #include <string>
 #include <map>
 #include <list>
 
+class CBlock;
 class CBlockIndex;
 class CZMQAbstractNotifier;
 
@@ -20,7 +22,8 @@ public:
 
     std::list<const CZMQAbstractNotifier*> GetActiveNotifiers() const;
 
-    static CZMQNotificationInterface* Create();
+    /** get_block_by_index reads a block for the raw block notifier. */
+    static CZMQNotificationInterface* Create(std::function<bool(CBlock&, const CBlockIndex*)> get_block_by_index);
 
 protected:
     bool Initialize();

@@ -11,6 +11,7 @@
 #include <vector>
 
 class CBasicKeyStore;
+class ChainstateManager;
 class CTxIn;
 class CTxMemPool;
 class CTxOut;
@@ -19,6 +20,8 @@ class UniValue;
 enum class SignatureScheme;
 
 /** Sign a transaction with the given keystore and previous transactions */
+UniValue SignTransaction(ChainstateManager& chainman, const CTxMemPool& mempool, CMutableTransaction& mtx, const UniValue& prevTxs, CBasicKeyStore *keystore, bool tempKeystore, const UniValue& hashType, const SignatureScheme sigScheme);
+//! On the active chain; goes with g_chainstate_manager.
 UniValue SignTransaction(const CTxMemPool& mempool, CMutableTransaction& mtx, const UniValue& prevTxs, CBasicKeyStore *keystore, bool tempKeystore, const UniValue& hashType, const SignatureScheme sigScheme);
 
 /** Build the output for one destination and amount; shared by ConstructTransaction and the PSTT output RPCs */

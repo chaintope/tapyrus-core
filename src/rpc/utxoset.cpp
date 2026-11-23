@@ -15,6 +15,7 @@
 #include <validation.h>
 #include <primitives/transaction.h>
 #include <rpc/protocol.h>
+#include <rpc/blockchain.h>
 #include <rpc/server.h>
 #include <rpc/jsonrpcrequest.h>
 #include <rpc/rpctable.h>
@@ -71,9 +72,9 @@ static void ApplyStats(CCoinsStats &stats, CHashWriter& ss, const uint256& hash,
 }
 
 //! Calculate statistics about the unspent transaction output set
-static bool GetUTXOStats(CCoinsViewDB *view, CCoinsStats &stats)
+static bool GetUTXOStats(ChainstateManager& chainman, CCoinsViewDB *view, CCoinsStats &stats)
 {
-    BlockIndexMap& blockIndex = g_chainstate_manager.BlockIndex();
+    BlockIndexMap& blockIndex = chainman.BlockIndex();
     std::unique_ptr<CCoinsViewDBCursor> pcursor(static_cast<CCoinsViewDBCursor*>(view->Cursor()));
     assert(pcursor);
 
@@ -145,13 +146,14 @@ static UniValue gettxoutsetinfo(const JSONRPCRequest& request)
     UniValue ret(UniValue::VOBJ);
 
     CCoinsStats stats;
-    FlushStateToDisk();
+    ChainstateManager& chainman = EnsureChainman(request.context);
+    chainman.ActiveChainstate().ForceFlushStateToDisk();
     CCoinsViewDB* coinsdb;
     {
         LOCK(cs_main);
-        coinsdb = &g_chainstate_manager.ActiveChainstate().CoinsDB();
+        coinsdb = &chainman.ActiveChainstate().CoinsDB();
     }
-    if (GetUTXOStats(coinsdb, stats)) {
+    if (GetUTXOStats(chainman, coinsdb, stats)) {
         ret.pushKV("height", (int64_t)stats.nHeight);
         ret.pushKV("bestblock", stats.hashBlock.GetHex());
         ret.pushKV("transactions", (int64_t)stats.nTransactions);
@@ -280,6 +282,7 @@ UniValue scantxoutset(const JSONRPCRequest& request)
     RPCTypeCheck(request.params, {UniValue::VSTR, UniValue::VARR});
 
     UniValue result(UniValue::VOBJ);
+    ChainstateManager& chainman = EnsureChainman(request.context);
     if (request.params[0].get_str() == "status") {
         CoinsViewScanReserver reserver;
         if (reserver.reserve()) {
@@ -349,8 +352,8 @@ UniValue scantxoutset(const JSONRPCRequest& request)
         std::unique_ptr<CCoinsViewCursor> pcursor;
         {
             LOCK(cs_main);
-            FlushStateToDisk();
-            pcursor = std::unique_ptr<CCoinsViewCursor>(g_chainstate_manager.ActiveChainstate().CoinsDB().Cursor());
+            chainman.ActiveChainstate().ForceFlushStateToDisk();
+            pcursor = std::unique_ptr<CCoinsViewCursor>(chainman.ActiveChainstate().CoinsDB().Cursor());
             assert(pcursor);
         }
         bool res = FindScriptPubKey(g_scan_progress, g_should_abort_scan, count, pcursor.get(), needles, coins);
@@ -387,12 +390,13 @@ UniValue scantxoutset(const JSONRPCRequest& request)
 }
 
 static void CreateUTXOSnapshot(
+    ChainstateManager& chainman,
     CAutoFile& afile,
     const fs::path& path,
     const fs::path& temppath,
     UniValue& result)
 {
-    BlockIndexMap& blockIndex = g_chainstate_manager.BlockIndex();
+    BlockIndexMap& blockIndex = chainman.BlockIndex();
     std::unique_ptr<CCoinsViewCursor> pcursor;
     const CBlockIndex* tip;
     CCoinsStats maybe_stats;
@@ -412,14 +416,14 @@ static void CreateUTXOSnapshot(
         //
         LOCK(::cs_main);
 
-        FlushStateToDisk();
+        chainman.ActiveChainstate().ForceFlushStateToDisk();
 
-        auto success = GetUTXOStats(&g_chainstate_manager.ActiveChainstate().CoinsDB(), maybe_stats);
+        auto success = GetUTXOStats(chainman, &chainman.ActiveChainstate().CoinsDB(), maybe_stats);
         if (!success) {
             throw JSONRPCError(RPC_INTERNAL_ERROR, "Unable to read UTXO set");
         }
 
-        pcursor = std::unique_ptr<CCoinsViewCursor>(g_chainstate_manager.ActiveChainstate().CoinsDB().Cursor());
+        pcursor = std::unique_ptr<CCoinsViewCursor>(chainman.ActiveChainstate().CoinsDB().Cursor());
         tip = blockIndex.LookupBlockIndex(maybe_stats.hashBlock);
     }
 
@@ -554,7 +558,8 @@ static UniValue dumptxoutset(const JSONRPCRequest& request)
     result.pushKV("path", path.c_str());
 
     //snapshot in temp file
-    CreateUTXOSnapshot(afile, path, temppath, result);
+    ChainstateManager& chainman = EnsureChainman(request.context);
+    CreateUTXOSnapshot(chainman, afile, path, temppath, result);
 
     //move snapshot to actual path
     fs::rename(temppath, path);

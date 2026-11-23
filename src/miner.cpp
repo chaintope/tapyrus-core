@@ -69,8 +69,13 @@ BlockAssembler::Options::Options(const PolicySettings& policy, const ArgsManager
 {
 }
 
-BlockAssembler::BlockAssembler(ChainstateManager& chainman, const CTxMemPool& mempool, const Options& options)
-    : m_chainman(chainman), m_mempool(mempool), m_options(options)
+BlockAssembler::BlockAssembler(ChainstateManager& chainman, const Options& options)
+    : m_chainman(chainman), m_mempool(chainman.ActiveChainstate().GetMempool()), m_options(options)
+{
+}
+
+BlockAssembler::BlockAssembler(ChainstateManager& chainman, const PolicySettings& policy, const ArgsManager& args)
+    : BlockAssembler(chainman, Options(policy, args, chainman))
 {
 }
 

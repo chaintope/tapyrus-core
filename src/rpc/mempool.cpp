@@ -10,6 +10,7 @@
 #include <nodecontext.h>
 #include <policy/packages.h>
 #include <policy/policy.h>
+#include <rpc/blockchain.h>
 #include <rpc/mempool.h>
 #include <rpc/protocol.h>
 #include <rpc/server.h>
@@ -117,14 +118,15 @@ static UniValue testmempoolaccept(const JSONRPCRequest& request)
     CValidationState state;
     PackageValidationState pkg_results;
 
-    g_chainstate_manager.ActiveChainstate().FilterMempoolDuplicates(transactions, package, pkg_results);
+    ChainstateManager& chainman = EnsureChainman(request.context);
+    chainman.ActiveChainstate().FilterMempoolDuplicates(transactions, package, pkg_results);
 
     bool success = false;
     MempoolAcceptOptions options;
     options.max_tx_fee = max_raw_tx_fee;
     options.test_only = true;
 
-    success = g_chainstate_manager.ActiveChainstate().SubmitPackageToMempool(package, state, pkg_results, options);
+    success = chainman.ActiveChainstate().SubmitPackageToMempool(package, state, pkg_results, options);
 
     UniValue result(UniValue::VOBJ);
 
@@ -187,12 +189,13 @@ static UniValue submitpackage(const JSONRPCRequest& request)
     CValidationState state;
     PackageValidationState pkg_results;
 
-    g_chainstate_manager.ActiveChainstate().FilterMempoolDuplicates(transactions, package, pkg_results);
+    ChainstateManager& chainman = EnsureChainman(request.context);
+    chainman.ActiveChainstate().FilterMempoolDuplicates(transactions, package, pkg_results);
 
     MempoolAcceptOptions options;
     options.max_tx_fee = max_raw_tx_fee;
 
-    bool success = g_chainstate_manager.ActiveChainstate().SubmitPackageToMempool(package, state, pkg_results, options);
+    bool success = chainman.ActiveChainstate().SubmitPackageToMempool(package, state, pkg_results, options);
 
     UniValue result(UniValue::VOBJ);
 

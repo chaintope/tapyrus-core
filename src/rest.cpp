@@ -165,7 +165,8 @@ bool RESTHandler::CheckWarmup(HTTPRequest* req)
 bool RESTHandler::rest_headers(HTTPRequest* req,
                          const std::string& strURIPart) const
 {
-    BlockIndexMap& blockIndex = g_chainstate_manager.BlockIndex();
+    ChainstateManager& chainman = *m_node.chainman;
+    BlockIndexMap& blockIndex = chainman.BlockIndex();
     if (!CheckWarmup(req))
         return false;
     std::string param;
@@ -192,11 +193,11 @@ bool RESTHandler::rest_headers(HTTPRequest* req,
     {
         LOCK(cs_main);
         const CBlockIndex* pindex = blockIndex.LookupBlockIndex(hash);
-        while (pindex != nullptr && g_chainstate_manager.ActiveChain().Contains(pindex)) {
+        while (pindex != nullptr && chainman.ActiveChain().Contains(pindex)) {
             headers.push_back(pindex);
             if (headers.size() == (unsigned long)count)
                 break;
-            pindex = g_chainstate_manager.ActiveChain().Next(pindex);
+            pindex = chainman.ActiveChain().Next(pindex);
         }
     }
 
@@ -224,7 +225,7 @@ bool RESTHandler::rest_headers(HTTPRequest* req,
         {
             LOCK(cs_main);
             for (const CBlockIndex *pindex : headers) {
-                jsonHeaders.push_back(blockheaderToJSON(pindex));
+                jsonHeaders.push_back(blockheaderToJSON(chainman, pindex));
             }
         }
         std::string strJSON = jsonHeaders.write() + "\n";
@@ -242,7 +243,8 @@ bool RESTHandler::rest_block(HTTPRequest* req,
                        const std::string& strURIPart,
                        bool showTxDetails) const
 {
-    BlockIndexMap& blockIndex = g_chainstate_manager.BlockIndex();
+    ChainstateManager& chainman = *m_node.chainman;
+    BlockIndexMap& blockIndex = chainman.BlockIndex();
     if (!CheckWarmup(req))
         return false;
     std::string hashStr;
@@ -261,10 +263,10 @@ bool RESTHandler::rest_block(HTTPRequest* req,
             return RESTERR(req, HTTP_NOT_FOUND, hashStr + " not found");
         }
 
-        if (g_chainstate_manager.IsBlockPruned(pblockindex))
+        if (chainman.IsBlockPruned(pblockindex))
             return RESTERR(req, HTTP_NOT_FOUND, hashStr + " not available (pruned data)");
 
-        if (!g_chainstate_manager.ReadBlock(block, pblockindex))
+        if (!chainman.ReadBlock(block, pblockindex))
             return RESTERR(req, HTTP_NOT_FOUND, hashStr + " not found");
     }
 
@@ -290,7 +292,7 @@ bool RESTHandler::rest_block(HTTPRequest* req,
         UniValue objBlock;
         {
             LOCK(cs_main);
-            objBlock = blockToJSON(block, pblockindex, showTxDetails);
+            objBlock = blockToJSON(chainman, block, pblockindex, showTxDetails);
         }
         std::string strJSON = objBlock.write() + "\n";
         req->WriteHeader("Content-Type", "application/json");
@@ -386,6 +388,7 @@ bool RESTHandler::rest_mempool_contents(HTTPRequest* req, const std::string& str
 
 bool RESTHandler::rest_tx(HTTPRequest* req, const std::string& strURIPart) const
 {
+    ChainstateManager& chainman = *m_node.chainman;
     if (!CheckWarmup(req))
         return false;
     std::string hashStr;
@@ -401,7 +404,7 @@ bool RESTHandler::rest_tx(HTTPRequest* req, const std::string& strURIPart) const
 
     CTransactionRef tx;
     uint256 hashBlock = uint256();
-    if (!GetTransaction(m_node.mempool.get(), hash, tx, hashBlock, true))
+    if (!GetTransaction(chainman, hash, tx, hashBlock, true))
         return RESTERR(req, HTTP_NOT_FOUND, hashStr + " not found");
 
     CDataStream ssTx(SER_NETWORK, PROTOCOL_VERSION | RPCSerializationFlags());
@@ -439,6 +442,7 @@ bool RESTHandler::rest_tx(HTTPRequest* req, const std::string& strURIPart) const
 
 bool RESTHandler::rest_getutxos(HTTPRequest* req, const std::string& strURIPart) const
 {
+    ChainstateManager& chainman = *m_node.chainman;
     if (!CheckWarmup(req))
         return false;
     std::string param;
@@ -565,16 +569,16 @@ bool RESTHandler::rest_getutxos(HTTPRequest* req, const std::string& strURIPart)
             // use db+mempool as cache backend in case user likes to query mempool
             CTxMemPool& mempool = *m_node.mempool;
             LOCK2(cs_main, mempool.cs);
-            CCoinsViewCache& viewChain = g_chainstate_manager.ActiveChainstate().CoinsTip();
+            CCoinsViewCache& viewChain = chainman.ActiveChainstate().CoinsTip();
             CCoinsViewMemPool viewMempool(&viewChain, mempool);
             process_utxos(viewMempool, mempool);
-            chainHeight = g_chainstate_manager.ActiveChain().Height();
-            chainTip = g_chainstate_manager.ActiveChain().Tip()->GetBlockHash();
+            chainHeight = chainman.ActiveChain().Height();
+            chainTip = chainman.ActiveChain().Tip()->GetBlockHash();
         } else {
             LOCK(cs_main);  // no need to lock mempool!
-            process_utxos(g_chainstate_manager.ActiveChainstate().CoinsTip(), CTxMemPool());
-            chainHeight = g_chainstate_manager.ActiveChain().Height();
-            chainTip = g_chainstate_manager.ActiveChain().Tip()->GetBlockHash();
+            process_utxos(chainman.ActiveChainstate().CoinsTip(), CTxMemPool());
+            chainHeight = chainman.ActiveChain().Height();
+            chainTip = chainman.ActiveChain().Tip()->GetBlockHash();
         }
 
         for (size_t i = 0; i < hits.size(); ++i) {

@@ -64,8 +64,7 @@ BlockAssembler MinerTestingSetup::AssemblerForTest() {
     ArgsManager args;
     args.ForceSetArg("-blockmaxsize", std::to_string(g_chainstate_manager.RulesLatest().MaxBlockSize()));
     const PolicySettings policy(args, TAPYRUS_OP_MODE::PROD);
-    const BlockAssembler::Options options(policy, args, g_chainstate_manager);
-    return BlockAssembler(g_chainstate_manager, *m_node.mempool, options);
+    return BlockAssembler(g_chainstate_manager, policy, args);
 }
 
 //! Options read from the active tip, with -blockmaxsize set to max_size.
@@ -695,7 +694,7 @@ BOOST_AUTO_TEST_CASE(a_template_is_refused_once_the_tip_has_moved)
         tip = g_chainstate_manager.ActiveChain().Tip();
         BOOST_REQUIRE(InvalidateBlock(state, tip));
     }
-    BOOST_CHECK_THROW(BlockAssembler(g_chainstate_manager, *m_node.mempool, options).CreateNewBlock(scriptPubKey), std::runtime_error);
+    BOOST_CHECK_THROW(BlockAssembler(g_chainstate_manager, options).CreateNewBlock(scriptPubKey), std::runtime_error);
 
     {
         LOCK(cs_main);
@@ -703,7 +702,7 @@ BOOST_AUTO_TEST_CASE(a_template_is_refused_once_the_tip_has_moved)
     }
     BOOST_REQUIRE(ActivateBestChain(state));
     // Back on the tip the options were read from, the template is built.
-    BOOST_CHECK(BlockAssembler(g_chainstate_manager, *m_node.mempool, options).CreateNewBlock(scriptPubKey) != nullptr);
+    BOOST_CHECK(BlockAssembler(g_chainstate_manager, options).CreateNewBlock(scriptPubKey) != nullptr);
 }
 
 BOOST_AUTO_TEST_SUITE_END()

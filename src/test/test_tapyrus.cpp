@@ -110,6 +110,7 @@ BasicTestingSetup::BasicTestingSetup(const std::string& chainName)
         m_node.mempool = std::make_unique<CTxMemPool>(mempool_options);
         // Recreated for each test, as it holds a reference to this test's mempool.
         g_chainstate_manager.InitializeChainstate(*m_node.mempool);
+        m_node.chainman = &g_chainstate_manager;
         {
             LOCK(cs_main);
             g_chainstate_manager.IssuedColorIds() = CIssuedColorIds();
@@ -303,8 +304,7 @@ TestChainSetup::CreateAndProcessBlock(const std::vector<CMutableTransaction>& tx
     {
         // Held across both, so the template builds on the tip the options read.
         LOCK(cs_main);
-        const BlockAssembler::Options options(*m_node.policy, gArgs, g_chainstate_manager);
-        pblocktemplate = BlockAssembler(g_chainstate_manager, *m_node.mempool, options).CreateNewBlock(scriptPubKey);
+        pblocktemplate = BlockAssembler(g_chainstate_manager, *m_node.policy, gArgs).CreateNewBlock(scriptPubKey);
     }
     CBlock& block = pblocktemplate->block;
 
