@@ -132,13 +132,13 @@ CPartialMerkleTree::CPartialMerkleTree(const std::vector<uint256> &vTxid, const 
 
 CPartialMerkleTree::CPartialMerkleTree() : nTransactions(0), fBad(true) {}
 
-uint256 CPartialMerkleTree::ExtractMatches(std::vector<uint256> &vMatch, std::vector<unsigned int> &vnIndex) {
+uint256 CPartialMerkleTree::ExtractMatches(std::vector<uint256> &vMatch, std::vector<unsigned int> &vnIndex, uint32_t max_block_size) {
     vMatch.clear();
     // An empty set will not work
     if (nTransactions == 0)
         return uint256();
     // check for excessively high numbers of transactions
-    if (nTransactions > g_chainstate_manager.XFieldHistory().GetCurrentMaxBlockSize() / ConsensusConstants::MIN_TRANSACTION_SIZE)
+    if (nTransactions > max_block_size / ConsensusConstants::MIN_TRANSACTION_SIZE)
         return uint256();
     // there can never be more hashes provided than one for every txid
     if (vHash.size() > nTransactions)
@@ -164,3 +164,5 @@ uint256 CPartialMerkleTree::ExtractMatches(std::vector<uint256> &vMatch, std::ve
         return uint256();
     return hashMerkleRoot;
 }
+
+uint256 CPartialMerkleTree::ExtractMatches(std::vector<uint256> &vMatch, std::vector<unsigned int> &vnIndex) { return ExtractMatches(vMatch, vnIndex, g_chainstate_manager.XFieldHistory().GetCurrentMaxBlockSize()); }

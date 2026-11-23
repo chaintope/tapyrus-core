@@ -6,6 +6,8 @@
 
 #include <orphantxpool.h>
 
+#include <chainstatemanager.h>
+
 #include <policy/policysettings.h>
 #include <primitives/block.h>
 #include <random.h>
@@ -18,7 +20,7 @@
 #include <cassert>
 #include <vector>
 
-bool OrphanTxPool::AddOrphanTx(const CTransactionRef& tx, NodeId peer)
+bool OrphanTxPool::AddOrphanTx(const CTransactionRef& tx, NodeId peer, uint32_t max_block_size)
 {
     const uint256& hash = tx->GetHashMalFix();
     if (mapOrphanTransactions.count(hash))
@@ -32,7 +34,7 @@ bool OrphanTxPool::AddOrphanTx(const CTransactionRef& tx, NodeId peer)
     // -maxorphantx orphans of at most -maxorphantxsize bytes each, by default
     // 100 x 100,000 bytes = 10 megabytes, plus the byprev index:
     unsigned int sz = GetSerializeSize(*tx, SER_NETWORK, PROTOCOL_VERSION);
-    if (sz > g_policy_settings->MaxOrphanTxSize())
+    if (sz > g_policy_settings->MaxOrphanTxSize(max_block_size))
     {
         LogPrint(BCLog::MEMPOOL, "ignoring large orphan tx (size: %u, hash: %s)\n", sz, hash.ToString());
         return false;
@@ -170,3 +172,5 @@ void OrphanTxPool::AddChildrenToWorkSet(const CTransaction& tx, std::set<uint256
         }
     }
 }
+
+bool OrphanTxPool::AddOrphanTx(const CTransactionRef& tx, NodeId peer) { return AddOrphanTx(tx, peer, g_chainstate_manager.RulesLatest().MaxBlockSize()); }

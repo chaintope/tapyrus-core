@@ -37,6 +37,7 @@ class CBlock;
 class CBlockHeader;
 class CBlockHeaderAndShortTxIDs;
 class CChainParams;
+class ChainstateManager;
 class CTxMemPool;
 struct CNodeStateStats;
 
@@ -44,11 +45,13 @@ struct CNodeStateStats;
 class PeerManager final : public CValidationInterface, public NetEventsInterface {
 private:
     CConnman& m_connman;
+    //! The chain peers sync from us and blocks they send are processed into.
+    ChainstateManager& m_chainman;
     //! Transactions peers send are accepted into it and relayed from it.
     CTxMemPool& m_mempool;
 
 public:
-    PeerManager(CConnman& connman, CTxMemPool& mempool, CScheduler& scheduler, PeerNotifications& notifications);
+    PeerManager(CConnman& connman, ChainstateManager& chainman, CTxMemPool& mempool, CScheduler& scheduler, PeerNotifications& notifications);
 
     /**
      * Overridden from CValidationInterface.
@@ -194,12 +197,12 @@ private:
     void ProcessBlockAvailability(NodeId nodeid) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
     void UpdateBlockAvailability(NodeId nodeid, const uint256& hash) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
     bool TipMayBeStale() EXCLUSIVE_LOCKS_REQUIRED(cs_main);
-    static bool CanDirectFetch() EXCLUSIVE_LOCKS_REQUIRED(cs_main);
+    bool CanDirectFetch() EXCLUSIVE_LOCKS_REQUIRED(cs_main);
     static bool PeerHasHeader(CNodeState* state, const CBlockIndex* pindex) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
     void FindNextBlocksToDownload(NodeId nodeid, unsigned int count, std::vector<const CBlockIndex*>& vBlocks, NodeId& nodeStaller) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
     static bool IsOutboundDisconnectionCandidate(const CNode* node);
     void AddToCompactExtraTransactions(const CTransactionRef& tx) EXCLUSIVE_LOCKS_REQUIRED(m_tx_download_mutex);
-    static bool BlockRequestAllowed(const CBlockIndex* pindex);
+    bool BlockRequestAllowed(const CBlockIndex* pindex);
     bool AlreadyHave(const CInv& inv) EXCLUSIVE_LOCKS_REQUIRED(cs_main, m_tx_download_mutex);
     CTransactionRef FindTxForGetData(const CNode* peer, const uint256& txid, std::chrono::seconds mempool_req, std::chrono::seconds now);
 
