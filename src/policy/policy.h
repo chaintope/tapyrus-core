@@ -27,6 +27,7 @@ bool IsStandard(const CScript& scriptPubKey, txnouttype& whichType);
      * Check for standard transaction types
      * @return True if all outputs (scriptPubKeys) use only standard transaction forms
      */
+bool IsStandardTx(const CTransaction& tx, std::string& reason, uint32_t max_block_size);
 bool IsStandardTx(const CTransaction& tx, std::string& reason);
     /**
      * Check for standard transaction types

@@ -172,15 +172,20 @@ struct PolicySettings : PolicyConstants
     const int32_t blockFeatures;
 
     /** The largest transaction we relay and mine: -maxstandardtxsize, capped at the latest block size limit. */
-    uint32_t MaxStandardTxSize() const;
+    uint32_t MaxStandardTxSize(uint32_t max_block_size) const;
     /** The smallest transaction we relay and mine: -minstandardtxsize, capped at MaxStandardTxSize(). */
-    uint32_t MinStandardTxSize() const;
+    uint32_t MinStandardTxSize(uint32_t max_block_size) const;
     /** The largest orphan transaction kept: -maxorphantxsize, capped at MaxStandardTxSize(). */
-    uint32_t MaxOrphanTxSize() const;
+    uint32_t MaxOrphanTxSize(uint32_t max_block_size) const;
     /**
      * The start-up error when -minstandardtxsize exceeds MaxStandardTxSize(), or "".
      * Checked once the chainstate has loaded, as the block size limit comes from it.
      */
+    std::string CheckMinStandardTxSize(uint32_t max_block_size) const;
+    //! The forms above at the active chain's latest block size limit; they go with g_chainstate_manager.
+    uint32_t MaxStandardTxSize() const;
+    uint32_t MinStandardTxSize() const;
+    uint32_t MaxOrphanTxSize() const;
     std::string CheckMinStandardTxSize() const;
 
 private:

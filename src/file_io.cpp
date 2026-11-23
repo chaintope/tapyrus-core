@@ -249,7 +249,7 @@ bool ChainstateManager::LoadExternalBlockFile(FILE* fileIn, CDiskBlockPos *dbp, 
                 // Activate the genesis block so normal node progress can continue
                 if (hash == Settings().GenesisBlock().GetHash()) {
                     CValidationState state;
-                    if (!ActivateBestChain(state)) {
+                    if (!ActiveChainstate().ActivateBestChain(state, nullptr)) {
                         break;
                     }
                 }

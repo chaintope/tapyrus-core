@@ -162,7 +162,8 @@ void UnloadBlockIndex(CTxMemPool* mempool);
 void StartScriptCheckWorkerThreads(int threads_num);
 /** Check whether we are doing an initial block download (synchronizing from disk or network) */
 bool IsInitialBlockDownload();
-/** Retrieve a transaction (from the mempool if one is given, or from disk, if possible) */
+/** Retrieve a transaction from the active chainstate's mempool, or from disk if possible */
+bool GetTransaction(ChainstateManager& chainman, const uint256& hash, CTransactionRef& tx, uint256& hashBlock, bool fAllowSlow = false, CBlockIndex* blockIndex = nullptr);
 bool GetTransaction(const CTxMemPool* mempool, const uint256& hash, CTransactionRef& tx, uint256& hashBlock, bool fAllowSlow = false, CBlockIndex* blockIndex = nullptr);
 /**
  * Find the best known block, and make it the tip of the block chain
@@ -177,9 +178,11 @@ void FlushStateToDisk();
 /** Prune block files and flush state to disk. */
 void PruneAndFlush();
 /** Prune block files up to a given height */
+void PruneBlockFilesManual(Chainstate& active_chainstate, int nManualPruneHeight);
 void PruneBlockFilesManual(int nManualPruneHeight);
 
-/** Expires transactions older than the pool's expiry, then trims the pool to its max size. */
+/** Expires transactions older than the pool's expiry, then trims the pool to its max size,
+ *  dropping the coins the removed transactions spent from the coins tip. */
 void LimitMempoolSize(CTxMemPool& pool) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 
 /** Transaction validation functions */
@@ -187,7 +190,7 @@ void LimitMempoolSize(CTxMemPool& pool) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 /**
  * Test whether the LockPoints height and time are still valid on the current chain
  */
-bool TestLockPointValidity(const LockPoints* lp);
+bool TestLockPointValidity(const LockPoints* lp) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 
 /** The last checkpoint in the block index, or null when -checkpoints is off or none is known. */
 const CBlockIndex* GetLastCheckpointIfEnabled() EXCLUSIVE_LOCKS_REQUIRED(cs_main);
@@ -198,7 +201,7 @@ const CBlockIndex* GetLastCheckpointIfEnabled() EXCLUSIVE_LOCKS_REQUIRED(cs_main
  *
  * The LOCKTIME_* flags are defined in ConsensusConstants.
  */
-bool CheckFinalTx(const CTransaction &tx, int flags = -1);
+bool CheckFinalTx(const CTransaction &tx, int flags = -1) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 
 /**
  * Check if transaction will be BIP 68 final in the next block to be created on the active tip.
@@ -211,7 +214,7 @@ bool CheckFinalTx(const CTransaction &tx, int flags = -1);
  *
  * The LOCKTIME_* flags are defined in ConsensusConstants.
  */
-bool CheckSequenceLocks(const CTxMemPool& pool, const CTransaction &tx, int flags,  CCoinsViewMemPool& viewMemPool, LockPoints* lp = nullptr, bool useExistingLockPoints = false);
+bool CheckSequenceLocks(const CTxMemPool& pool, const CTransaction &tx, int flags,  CCoinsViewMemPool& viewMemPool, LockPoints* lp = nullptr, bool useExistingLockPoints = false) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 
 /**
  * Check whether all inputs of this transaction are valid (no double spends, scripts & sigs, amounts)
@@ -254,13 +257,6 @@ bool InvalidateBlock(CValidationState& state, CBlockIndex* pindex) EXCLUSIVE_LOC
 
 /** Remove invalidity status from a block and its descendants. */
 void ResetBlockFailureFlags(CBlockIndex* pindex) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
-
-/**
- * Return the spend height, which is one more than the inputs.GetBestBlock().
- * While checking, GetBestBlock() refers to the parent block. (protected by cs_main)
- * This is also true for mempool checks.
- */
-int GetSpendHeight(const CCoinsViewCache& inputs);
 
 /** Reject codes greater or equal to this can be returned by AcceptToMemPool
  * for transactions, to signal internal conditions. They cannot and should not
