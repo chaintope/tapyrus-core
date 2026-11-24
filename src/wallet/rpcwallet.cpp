@@ -3186,10 +3186,16 @@ UniValue signrawtransactionwithwallet(const JSONRPCRequest& request)
 
     SignatureScheme sigScheme = ParseSigSchemeString(request.params[3]);
 
+    // Fetch previous transactions (inputs):
+    std::map<COutPoint, Coin> coins;
+    for (const CTxIn& txin : mtx.vin) {
+        coins[txin.prevout]; // Create empty map entry keyed by prevout.
+    }
+    pwallet->chain().findCoins(coins);
+
     // Sign the transaction
     LOCK2(cs_main, pwallet->cs_wallet);
-    assert(request.context.mempool);
-    return SignTransaction(*request.context.mempool, mtx, request.params[1], pwallet, false, request.params[2], sigScheme);
+    return SignTransaction(mtx, request.params[1], pwallet, coins, false, request.params[2], sigScheme);
 }
 
 static UniValue bumpfee(const JSONRPCRequest& request)
@@ -3425,8 +3431,11 @@ UniValue generate(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_INTERNAL_ERROR, "No coinbase script available");
     }
 
-    assert(request.context.mempool);
-    return generateBlocks(*request.context.mempool, coinbase_script, num_generate, true, cPrivKey);
+    UniValue block_hashes(UniValue::VARR);
+    for (const uint256& hash : pwallet->chain().generateBlocks(coinbase_script, num_generate, cPrivKey)) {
+        block_hashes.push_back(hash.GetHex());
+    }
+    return block_hashes;
 }
 
 UniValue rescanblockchain(const JSONRPCRequest& request)
@@ -4390,9 +4399,8 @@ UniValue walletfundpsttfee(const JSONRPCRequest& request)
         // the fee_input is the provider's own coin, but nothing here requires
         // it to be *this* wallet specifically, matching signpsttwithkey's own
         // no-wallet-required Signer path.
-        CTransactionRef feeTx;
-        uint256 hashBlock;
-        if (!GetTransaction(request.context.mempool.get(), txid, feeTx, hashBlock, true)) {
+        const CTransactionRef feeTx{pwallet->chain().findTransaction(txid)};
+        if (!feeTx) {
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "fee_input's txid not found");
         }
         if ((unsigned int)nOutput >= feeTx->vout.size()) {

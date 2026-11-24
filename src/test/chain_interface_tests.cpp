@@ -4,6 +4,7 @@
 
 #include <chain.h>
 #include <chainstatemanager.h>
+#include <coin.h>
 #include <consensus/validation.h>
 #include <consensusconstants.h>
 #include <interfaces/chain.h>
@@ -17,6 +18,8 @@
 #include <test/test_tapyrus.h>
 #include <txmempool.h>
 #include <validation.h>
+
+#include <univalue.h>
 
 #include <boost/test/unit_test.hpp>
 
@@ -289,6 +292,74 @@ BOOST_AUTO_TEST_CASE(lookups_past_the_tip_or_off_the_ancestry_fail)
     // The tip does not descend from a later block.
     const CBlockIndex* lower = tip->GetAncestor(tip->nHeight - 3);
     BOOST_CHECK(!m_chain->findAncestorByHash(lower->GetBlockHash(), tip->GetBlockHash()));
+}
+
+BOOST_AUTO_TEST_CASE(coins_are_found_in_the_utxo_set_and_the_mempool)
+{
+    const CTransactionRef unconfirmed{Spend(m_coinbase_txns[0])};
+    Submit(unconfirmed);
+    const COutPoint confirmed_out{m_coinbase_txns[1]->GetHashMalFix(), 0};
+    const COutPoint unconfirmed_out{unconfirmed->GetHashMalFix(), 0};
+    std::map<COutPoint, Coin> coins{{confirmed_out, Coin()}, {unconfirmed_out, Coin()}};
+    m_chain->findCoins(coins);
+    BOOST_CHECK(!coins[confirmed_out].IsSpent());
+    BOOST_CHECK_EQUAL(coins[confirmed_out].out.nValue, m_coinbase_txns[1]->vout[0].nValue);
+    BOOST_CHECK(!coins[unconfirmed_out].IsSpent());
+    BOOST_CHECK_EQUAL(coins[unconfirmed_out].out.nValue, unconfirmed->vout[0].nValue);
+}
+
+BOOST_AUTO_TEST_CASE(a_transaction_is_found_in_the_mempool_and_in_a_block)
+{
+    const CTransactionRef unconfirmed{Spend(m_coinbase_txns[0])};
+    Submit(unconfirmed);
+    const CTransactionRef in_mempool{m_chain->findTransaction(unconfirmed->GetHashMalFix())};
+    BOOST_REQUIRE(in_mempool);
+    BOOST_CHECK(*in_mempool == *unconfirmed);
+    const CTransactionRef in_block{m_chain->findTransaction(m_coinbase_txns[1]->GetHashMalFix())};
+    BOOST_REQUIRE(in_block);
+    BOOST_CHECK(*in_block == *m_coinbase_txns[1]);
+}
+
+BOOST_AUTO_TEST_CASE(generated_blocks_extend_the_tip)
+{
+    CKey key;
+    key.Set(validAggPrivateKey, validAggPrivateKey + 32, true);
+    auto script{std::make_shared<CReserveScript>()};
+    script->reserveScript = CScript() << ToByteVector(coinbaseKey.GetPubKey()) << OP_CHECKSIG;
+    const int height{*m_chain->getHeight()};
+    const std::vector<uint256> hashes{m_chain->generateBlocks(script, 2, key)};
+    BOOST_REQUIRE_EQUAL(hashes.size(), 2U);
+    BOOST_CHECK_EQUAL(*m_chain->getHeight(), height + 2);
+    BOOST_CHECK_EQUAL(Tip()->GetBlockHash(), hashes[1]);
+}
+
+BOOST_AUTO_TEST_CASE(unknown_coins_are_cleared)
+{
+    const CTransactionRef unconfirmed{Spend(m_coinbase_txns[0])};
+    Submit(unconfirmed);
+    const COutPoint unknown_tx{uint256S("01"), 0};
+    const COutPoint past_the_outputs{unconfirmed->GetHashMalFix(), 5};
+    Coin filled{m_coinbase_txns[1]->vout[0], 1, false};
+    std::map<COutPoint, Coin> coins{{unknown_tx, filled}, {past_the_outputs, filled}};
+    m_chain->findCoins(coins);
+    BOOST_CHECK(coins[unknown_tx].IsSpent());
+    BOOST_CHECK(coins[past_the_outputs].IsSpent());
+}
+
+BOOST_AUTO_TEST_CASE(an_unknown_transaction_is_not_found)
+{
+    BOOST_CHECK(!m_chain->findTransaction(uint256S("01")));
+}
+
+BOOST_AUTO_TEST_CASE(blocks_signed_with_another_key_are_not_generated)
+{
+    CKey key;
+    key.MakeNewKey(true);
+    auto script{std::make_shared<CReserveScript>()};
+    script->reserveScript = CScript() << ToByteVector(coinbaseKey.GetPubKey()) << OP_CHECKSIG;
+    const uint256 tip{Tip()->GetBlockHash()};
+    BOOST_CHECK_THROW(m_chain->generateBlocks(script, 1, key), UniValue);
+    BOOST_CHECK_EQUAL(Tip()->GetBlockHash(), tip);
 }
 
 BOOST_AUTO_TEST_SUITE_END()
