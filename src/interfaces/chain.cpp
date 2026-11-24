@@ -93,6 +93,11 @@ public:
         return m_node.notifications;
     }
 
+    bool isReadyToBroadcast() override
+    {
+        return !g_chainstate_manager.LoadingBlocks() && !IsInitialBlockDownload();
+    }
+
 private:
     NodeContext& m_node;
 };

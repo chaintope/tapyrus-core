@@ -154,4 +154,24 @@ BOOST_AUTO_TEST_CASE(without_data_there_is_no_fee_estimate_or_mempool_minimum)
     BOOST_CHECK(m_chain->mempoolMinFee() == CFeeRate(0));
 }
 
+BOOST_AUTO_TEST_CASE(a_synced_node_is_ready_to_broadcast)
+{
+    BOOST_REQUIRE(!IsInitialBlockDownload());
+    BOOST_CHECK(m_chain->isReadyToBroadcast());
+}
+
+// Negative case: a node loading blocks must not rebroadcast.
+
+BOOST_AUTO_TEST_CASE(a_node_importing_or_reindexing_is_not_ready_to_broadcast)
+{
+    g_chainstate_manager.GetBlockFileManager().SetImporting(true);
+    BOOST_CHECK(!m_chain->isReadyToBroadcast());
+    g_chainstate_manager.GetBlockFileManager().SetImporting(false);
+
+    g_chainstate_manager.SetReindexing(true);
+    BOOST_CHECK(!m_chain->isReadyToBroadcast());
+    g_chainstate_manager.SetReindexing(false);
+    BOOST_CHECK(m_chain->isReadyToBroadcast());
+}
+
 BOOST_AUTO_TEST_SUITE_END()

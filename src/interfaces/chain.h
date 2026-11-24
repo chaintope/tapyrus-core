@@ -57,6 +57,9 @@ public:
 
     //! Where the wallets publish what the user should see.
     virtual WalletNotifications& notifications() const = 0;
+
+    //! Check if the node is ready to broadcast transactions.
+    virtual bool isReadyToBroadcast() = 0;
 };
 
 //! Return the Chain implementation over node, which must outlive it.

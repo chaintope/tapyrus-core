@@ -1232,7 +1232,10 @@ void CWallet::BlockDisconnected(const std::shared_ptr<const CBlock>& pblock) {
     }
 }
 
-
+void CWallet::UpdatedBlockTip(const CBlockIndex* pindexNew, const CBlockIndex* pindexFork, bool fInitialDownload)
+{
+    m_best_block_time = GetTime();
+}
 
 void CWallet::BlockUntilSyncedToCurrentChain() {
     AssertLockNotHeld(cs_main);
@@ -2007,8 +2010,14 @@ std::vector<uint256> CWallet::ResendWalletTransactionsBefore(int64_t nTime)
     return result;
 }
 
-void CWallet::ResendWalletTransactions(int64_t nBestBlockTime)
+// Rebroadcast transactions from the wallet. We do this on a random timer
+// to slightly obfuscate which transactions come from our wallet.
+void CWallet::ResendWalletTransactions()
 {
+    // During reindex, importing and IBD, old wallet transactions become
+    // unconfirmed. Don't resend them as that would spam other nodes.
+    if (!chain().isReadyToBroadcast()) return;
+
     // Do this infrequently and randomly to avoid giving away
     // that these are our transactions.
     if (GetTime() < nNextResend || !fBroadcastTransactions)
@@ -2019,17 +2028,26 @@ void CWallet::ResendWalletTransactions(int64_t nBestBlockTime)
         return;
 
     // Only do it if there's been a new block since last time
-    if (nBestBlockTime < nLastResend)
+    if (m_best_block_time < nLastResend)
         return;
     nLastResend = GetTime();
 
-    // Broadcast is a synchronous signal, sent by PeerManager::SendMessages with cs_main held.
-    AssertLockHeld(cs_main);
-    // Rebroadcast unconfirmed txes older than 5 minutes before the last
-    // block was found:
-    std::vector<uint256> relayed = ResendWalletTransactionsBefore(nBestBlockTime-5*60);
+    std::vector<uint256> relayed;
+    {
+        LOCK2(cs_main, cs_wallet);
+        // Rebroadcast unconfirmed txes older than 5 minutes before the last
+        // block was found:
+        relayed = ResendWalletTransactionsBefore(m_best_block_time - 5 * 60);
+    }
     if (!relayed.empty())
         WalletLogPrintf("%s: rebroadcast %u unconfirmed transactions\n", __func__, relayed.size());
+}
+
+void MaybeResendWalletTxs()
+{
+    for (const std::shared_ptr<CWallet>& pwallet : GetWallets()) {
+        pwallet->ResendWalletTransactions();
+    }
 }
 
 /** @} */ // end of mapWallet

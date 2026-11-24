@@ -687,8 +687,6 @@ void PeerManager::UpdatedBlockTip(const CBlockIndex *pindexNew, const CBlockInde
         });
         m_connman.WakeMessageHandler();
     }
-
-    nTimeBestReceived = GetTime();
 }
 
 /**
@@ -3146,14 +3144,6 @@ bool PeerManager::SendMessages(CNode* pto)
                 LogPrint(BCLog::NET, "initial getheaders (%d) to peer=%d (startheight:%d)\n", pindexStart->nHeight, pto->GetId(), pto->nStartingHeight);
                 m_connman.PushMessage(pto, msgMaker.Make(NetMsgType::GETHEADERS, g_chainstate_manager.ActiveChain().GetLocator(pindexStart), uint256()));
             }
-        }
-
-        // Resend wallet transactions that haven't gotten in a block yet
-        // Except during reindex, importing and IBD, when old wallet
-        // transactions become unconfirmed and spams other nodes.
-        if (!g_chainstate_manager.LoadingBlocks() && !IsInitialBlockDownload())
-        {
-            GetMainSignals().Broadcast(nTimeBestReceived);
         }
 
         //
