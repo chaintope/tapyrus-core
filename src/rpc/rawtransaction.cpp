@@ -820,24 +820,8 @@ static UniValue combinerawtransaction(const JSONRPCRequest& request)
     return EncodeHexTx(mergedTx);
 }
 
-UniValue SignTransaction(ChainstateManager& chainman, const CTxMemPool& mempool, CMutableTransaction& mtx, const UniValue& prevTxsUnival, CBasicKeyStore *keystore, bool is_temp_keystore, const UniValue& hashType, const SignatureScheme sigScheme)
+UniValue SignTransaction(CMutableTransaction& mtx, const UniValue& prevTxsUnival, CBasicKeyStore *keystore, std::map<COutPoint, Coin>& coins, bool is_temp_keystore, const UniValue& hashType, const SignatureScheme sigScheme)
 {
-    // Fetch previous transactions (inputs):
-    CCoinsView viewDummy;
-    CCoinsViewCache view(&viewDummy);
-    {
-        LOCK2(cs_main, mempool.cs);
-        CCoinsViewCache &viewChain = chainman.ActiveChainstate().CoinsTip();
-        CCoinsViewMemPool viewMempool(&viewChain, mempool);
-        view.SetBackend(viewMempool); // temporarily switch cache backend to db+mempool view
-
-        for (const CTxIn& txin : mtx.vin) {
-            view.AccessCoin(txin.prevout); // Load entries from viewChain into view; can fail.
-        }
-
-        view.SetBackend(viewDummy); // switch back to avoid locking mempool for too long
-    }
-
     // Add previous txouts given in the RPC call:
     if (!prevTxsUnival.isNull()) {
         UniValue prevTxs = prevTxsUnival.get_array();
@@ -868,10 +852,10 @@ UniValue SignTransaction(ChainstateManager& chainman, const CTxMemPool& mempool,
             CScript scriptPubKey(pkData.begin(), pkData.end());
 
             {
-                const Coin& coin = view.AccessCoin(out);
-                if (!coin.IsSpent() && coin.out.scriptPubKey != scriptPubKey) {
+                auto coin = coins.find(out);
+                if (coin != coins.end() && !coin->second.IsSpent() && coin->second.out.scriptPubKey != scriptPubKey) {
                     std::string err("Previous output scriptPubKey mismatch:\n");
-                    err = err + ScriptToAsmStr(coin.out.scriptPubKey) + "\nvs:\n"+
+                    err = err + ScriptToAsmStr(coin->second.out.scriptPubKey) + "\nvs:\n"+
                         ScriptToAsmStr(scriptPubKey);
                     throw JSONRPCError(RPC_DESERIALIZATION_ERROR, err);
                 }
@@ -882,7 +866,7 @@ UniValue SignTransaction(ChainstateManager& chainman, const CTxMemPool& mempool,
                     newcoin.out.nValue = AmountFromValue(prevOut.find_value("amount"));
                 }
                 newcoin.nHeight = 1;
-                view.AddCoin(out, std::move(newcoin), true);
+                coins[out] = std::move(newcoin);
             }
 
             // if redeemScript given and not using the local wallet (private keys
@@ -918,11 +902,12 @@ UniValue SignTransaction(ChainstateManager& chainman, const CTxMemPool& mempool,
     // Sign what we can:
     for (unsigned int i = 0; i < mtx.vin.size(); i++) {
         CTxIn& txin = mtx.vin[i];
-        const Coin& coin = view.AccessCoin(txin.prevout);
-        if (coin.IsSpent()) {
+        auto coin_it = coins.find(txin.prevout);
+        if (coin_it == coins.end() || coin_it->second.IsSpent()) {
             TxInErrorToJSON(txin, vErrors, "Input not found or already spent");
             continue;
         }
+        const Coin& coin = coin_it->second;
         const CScript& prevPubKey = coin.out.scriptPubKey;
         const CAmount& amount = coin.out.nValue;
         inBalances[GetColorIdFromScript(coin.out.scriptPubKey)] += amount;
@@ -1051,9 +1036,13 @@ static UniValue signrawtransactionwithkey(const JSONRPCRequest& request)
 
     SignatureScheme sigScheme = ParseSigSchemeString(request.params[4]);
 
-    assert(request.context.mempool);
-    ChainstateManager& chainman = EnsureChainman(request.context);
-    return SignTransaction(chainman, *request.context.mempool, mtx, request.params[2], &keystore, true, request.params[3], sigScheme);
+    // Fetch previous transactions (inputs):
+    std::map<COutPoint, Coin> coins;
+    for (const CTxIn& txin : mtx.vin) {
+        coins[txin.prevout]; // Create empty map entry keyed by prevout.
+    }
+    EnsureChainman(request.context).ActiveChainstate().FindCoins(coins);
+    return SignTransaction(mtx, request.params[2], &keystore, coins, true, request.params[3], sigScheme);
 }
 
 UniValue signrawtransaction(const JSONRPCRequest& request)
@@ -1280,9 +1269,4 @@ void RegisterRawTransactionRPCCommands(CRPCTable &t)
 {
     for (unsigned int vcidx = 0; vcidx < ARRAYLEN(commands); vcidx++)
         t.appendCommand(commands[vcidx].name, &commands[vcidx]);
-}
-
-UniValue SignTransaction(const CTxMemPool& mempool, CMutableTransaction& mtx, const UniValue& prevTxs, CBasicKeyStore *keystore, bool tempKeystore, const UniValue& hashType, const SignatureScheme sigScheme)
-{
-    return SignTransaction(g_chainstate_manager, mempool, mtx, prevTxs, keystore, tempKeystore, hashType, sigScheme);
 }

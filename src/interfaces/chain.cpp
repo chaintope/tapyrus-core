@@ -17,7 +17,9 @@
 #include <policy/policysettings.h>
 #include <policy/rbf.h>
 #include <primitives/block.h>
+#include <primitives/xfieldvalues.h>
 #include <pubkey.h>
+#include <rpc/mining.h>
 #include <txmempool.h>
 #include <utilmemory.h>
 #include <validation.h>
@@ -101,7 +103,7 @@ public:
 
     bool isReadyToBroadcast() override
     {
-        return !g_chainstate_manager.LoadingBlocks() && !IsInitialBlockDownload();
+        return !Chainman().LoadingBlocks() && !Chainman().ActiveChainstate().IsInitialBlockDownload();
     }
 
     std::optional<int> getHeight() override
@@ -136,7 +138,7 @@ public:
     std::optional<int> findLocatorFork(const CBlockLocator& locator) override
     {
         LOCK(cs_main);
-        if (const CBlockIndex* fork = FindForkInGlobalIndex(ActiveChain(), locator)) {
+        if (const CBlockIndex* fork = Chainman().ActiveChainstate().FindForkInGlobalIndex(locator)) {
             return fork->nHeight;
         }
         return std::nullopt;
@@ -145,7 +147,7 @@ public:
     bool checkFinalTx(const CTransaction& tx) override
     {
         LOCK(cs_main);
-        return CheckFinalTx(tx);
+        return Chainman().ActiveChainstate().CheckFinalTx(tx);
     }
 
     bool findBlock(const uint256& hash, const FoundBlock& block) override
@@ -153,7 +155,7 @@ public:
         const CBlockIndex* index;
         {
             LOCK(cs_main);
-            index = g_chainstate_manager.BlockIndex().LookupBlockIndex(hash);
+            index = Chainman().BlockIndex().LookupBlockIndex(hash);
             if (!FillIndexData(index, block)) return false;
         }
         FillBlockData(index, block);
@@ -192,7 +194,7 @@ public:
         const CBlockIndex* ancestor = nullptr;
         {
             LOCK(cs_main);
-            if (const CBlockIndex* block = g_chainstate_manager.BlockIndex().LookupBlockIndex(block_hash)) {
+            if (const CBlockIndex* block = Chainman().BlockIndex().LookupBlockIndex(block_hash)) {
                 ancestor = block->GetAncestor(ancestor_height);
             }
             if (!FillIndexData(ancestor, ancestor_out)) return false;
@@ -206,8 +208,8 @@ public:
         const CBlockIndex* ancestor;
         {
             LOCK(cs_main);
-            const CBlockIndex* block = g_chainstate_manager.BlockIndex().LookupBlockIndex(block_hash);
-            ancestor = g_chainstate_manager.BlockIndex().LookupBlockIndex(ancestor_hash);
+            const CBlockIndex* block = Chainman().BlockIndex().LookupBlockIndex(block_hash);
+            ancestor = Chainman().BlockIndex().LookupBlockIndex(ancestor_hash);
             if (block && ancestor && block->GetAncestor(ancestor->nHeight) != ancestor) ancestor = nullptr;
             if (!FillIndexData(ancestor, ancestor_out)) return false;
         }
@@ -223,8 +225,8 @@ public:
         bool found;
         {
             LOCK(cs_main);
-            block1 = g_chainstate_manager.BlockIndex().LookupBlockIndex(block_hash1);
-            block2 = g_chainstate_manager.BlockIndex().LookupBlockIndex(block_hash2);
+            block1 = Chainman().BlockIndex().LookupBlockIndex(block_hash1);
+            block2 = Chainman().BlockIndex().LookupBlockIndex(block_hash2);
             ancestor = block1 && block2 ? LastCommonAncestor(block1, block2) : nullptr;
             // Fill all three, even if the ancestor is missing.
             found = FillIndexData(ancestor, ancestor_out) & FillIndexData(block1, block1_out) & FillIndexData(block2, block2_out);
@@ -245,7 +247,7 @@ public:
         // used to limit the range, and passing min_height that's too low or
         // max_height that's too high will not crash or change the result.
         LOCK(cs_main);
-        if (const CBlockIndex* block = g_chainstate_manager.BlockIndex().LookupBlockIndex(block_hash)) {
+        if (const CBlockIndex* block = Chainman().BlockIndex().LookupBlockIndex(block_hash)) {
             if (max_height && block->nHeight >= *max_height) block = block->GetAncestor(*max_height);
             for (; block->nStatus & BLOCK_HAVE_DATA; block = block->pprev) {
                 // Check pprev to not segfault if min_height is too low
@@ -258,23 +260,23 @@ public:
     double guessVerificationProgress(const uint256& block_hash) override
     {
         LOCK(cs_main);
-        return g_chainstate_manager.Progress().Guess(g_chainstate_manager.BlockIndex().LookupBlockIndex(block_hash));
+        return Chainman().Progress().Guess(Chainman().BlockIndex().LookupBlockIndex(block_hash));
     }
 
     bool havePruned() override
     {
         LOCK(cs_main);
-        return g_chainstate_manager.HavePruned();
+        return Chainman().HavePruned();
     }
 
     bool isPruneMode() override
     {
-        return g_chainstate_manager.GetBlockFileManager().GetOptions().fPruneMode;
+        return Chainman().GetBlockFileManager().GetOptions().fPruneMode;
     }
 
     bool isInitialBlockDownload() override
     {
-        return IsInitialBlockDownload();
+        return Chainman().ActiveChainstate().IsInitialBlockDownload();
     }
 
     void waitForNotificationsIfTipChanged(const uint256& old_tip) override
@@ -288,18 +290,41 @@ public:
 
     uint32_t getMaxBlockSize() override
     {
-        return g_chainstate_manager.XFieldHistory().GetCurrentMaxBlockSize();
+        return Chainman().XFieldHistory().GetCurrentMaxBlockSize();
     }
 
     CPubKey getAggregatePubkey() override
     {
         XFieldAggPubKey aggpubkey;
-        g_chainstate_manager.XFieldHistory().GetLatest(TAPYRUS_XFIELDTYPES::AGGPUBKEY, aggpubkey);
+        Chainman().XFieldHistory().GetLatest(TAPYRUS_XFIELDTYPES::AGGPUBKEY, aggpubkey);
         return aggpubkey.getPubKey();
     }
 
+    void findCoins(std::map<COutPoint, Coin>& coins) override
+    {
+        Chainman().ActiveChainstate().FindCoins(coins);
+    }
+
+    CTransactionRef findTransaction(const uint256& txid) override
+    {
+        CTransactionRef tx;
+        uint256 block_hash;
+        if (!GetTransaction(Chainman(), txid, tx, block_hash, /*fAllowSlow=*/true)) return nullptr;
+        return tx;
+    }
+
+    std::vector<uint256> generateBlocks(std::shared_ptr<CReserveScript> coinbase_script, int num_blocks, const CKey& privkey) override
+    {
+        assert(m_node.policy);
+        const UniValue hashes{::generateBlocks(Chainman(), *m_node.policy, coinbase_script, num_blocks, /*keepScript=*/true, privkey)};
+        std::vector<uint256> result;
+        for (size_t i = 0; i < hashes.size(); ++i) result.push_back(uint256S(hashes[i].get_str()));
+        return result;
+    }
+
 private:
-    CChain& ActiveChain() EXCLUSIVE_LOCKS_REQUIRED(cs_main) { return g_chainstate_manager.ActiveChain(); }
+    ChainstateManager& Chainman() const { assert(m_node.chainman); return *m_node.chainman; }
+    CChain& ActiveChain() EXCLUSIVE_LOCKS_REQUIRED(cs_main) { return Chainman().ActiveChain(); }
 
     //! Fills what the index entry holds; false if there is no entry.
     bool FillIndexData(const CBlockIndex* index, const FoundBlock& block) EXCLUSIVE_LOCKS_REQUIRED(cs_main)
@@ -318,7 +343,7 @@ private:
     //! never waits on the read; a block without data reads as null.
     void FillBlockData(const CBlockIndex* index, const FoundBlock& block) LOCKS_EXCLUDED(cs_main)
     {
-        if (index && block.m_data && !g_chainstate_manager.ReadBlock(*block.m_data, index)) block.m_data->SetNull();
+        if (index && block.m_data && !Chainman().ReadBlock(*block.m_data, index)) block.m_data->SetNull();
     }
 
     NodeContext& m_node;

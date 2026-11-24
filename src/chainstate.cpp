@@ -358,6 +358,15 @@ size_t Chainstate::MempoolUsage() const
     return m_mempool.DynamicMemoryUsage();
 }
 
+void Chainstate::FindCoins(std::map<COutPoint, Coin>& coins)
+{
+    LOCK2(cs_main, m_mempool.cs);
+    CCoinsViewMemPool mempool_view(&CoinsTip(), m_mempool);
+    for (auto& [outpoint, coin] : coins) {
+        if (!mempool_view.GetCoin(outpoint, coin)) coin.Clear();
+    }
+}
+
 void Chainstate::RemoveForScriptFlagChange(unsigned int newMempoolScriptFlags, int32_t newBlockHeight)
 {
     AssertLockHeld(cs_main); // coins tip access

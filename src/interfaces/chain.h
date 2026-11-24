@@ -8,15 +8,20 @@
 #include <amount.h>
 #include <primitives/transaction.h>
 
+#include <map>
 #include <memory>
 #include <optional>
+#include <vector>
 #include <stddef.h>
 #include <stdint.h>
 
 class CBlock;
 struct CBlockLocator;
 class CFeeRate;
+class CKey;
+class Coin;
 class CPubKey;
+class CReserveScript;
 class CValidationState;
 struct NodeContext;
 class uint256;
@@ -147,6 +152,19 @@ public:
 
     //! The aggregate public key the latest xfield sets; blocks are signed with it.
     virtual CPubKey getAggregatePubkey() = 0;
+
+    //! Fills each coin from the mempool, else from the UTXO set; one found in
+    //! neither is cleared, so it reads as spent.
+    virtual void findCoins(std::map<COutPoint, Coin>& coins) = 0;
+
+    //! A transaction from the mempool, the transaction index, or the block of
+    //! an unspent output of it; null if none has it.
+    virtual CTransactionRef findTransaction(const uint256& txid) = 0;
+
+    //! Mines and signs num_blocks blocks on the tip with privkey, paying
+    //! coinbase_script, which is kept once used. Returns the block hashes, and
+    //! throws, as the RPCs do, if a block cannot be made or is not accepted.
+    virtual std::vector<uint256> generateBlocks(std::shared_ptr<CReserveScript> coinbase_script, int num_blocks, const CKey& privkey) = 0;
 
     //! Fee rate to confirm within num_blocks, or CFeeRate(0) without enough data.
     virtual CFeeRate estimateSmartFee(int num_blocks, bool conservative, FeeCalculation* calc) const = 0;

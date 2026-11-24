@@ -262,6 +262,8 @@ public:
 
     /** Sets the tip to the coins database's best block; connects the genesis block first on a new database. */
     bool LoadChainTip() EXCLUSIVE_LOCKS_REQUIRED(cs_main);
+    /** Fills each coin from the mempool, else from the coins tip; one found in neither is unknown or spent, and cleared. */
+    void FindCoins(std::map<COutPoint, Coin>& coins);
     /** Whether the node is still catching up: blocks are being loaded, there is no tip,
      *  or the tip is older than -maxtipage. Once false, it stays false. */
     bool IsInitialBlockDownload() const;
