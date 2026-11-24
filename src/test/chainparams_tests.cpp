@@ -6,7 +6,7 @@
 #include <crypto/sha256.h>
 #include <eccverifyhandle.h>
 #include <validation.h>
-#include <script/sigcache.h>
+#include <cachesettings.h>
 #include <test/test_tapyrus.h>
 #include <test/test_keys_helper.h>
 
@@ -29,8 +29,10 @@ struct ChainParamsTestingSetup {
         ECC_Start();
         SetupEnvironment();
         SetupNetworking();
-        InitSignatureCache();
-        InitScriptExecutionCache();
+        {
+            LOCK(cs_main);
+            g_chainstate_manager.ValidationCaches().Resize(CacheSettings(gArgs).nValidationCacheBytes);
+        }
         g_chainstate_manager.InitOptions(ChainstateOptionsOverride::TestOptions({}));
         SetDataDir("tempdir");
         writeTestGenesisBlockToFile(GetDataDir());

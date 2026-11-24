@@ -17,8 +17,8 @@ class UniValue;
 
 static constexpr int NUM_GETBLOCKSTATS_PERCENTILES = 5;
 
-/** Callback for when block tip changed. */
-void RPCNotifyBlockChange(bool ibd, const CBlockIndex *);
+/** Callback for when block tip changed; the progress is unused, but lets it connect to NotifyBlockTip. */
+void RPCNotifyBlockChange(bool ibd, const CBlockIndex *, double verification_progress = 0.0);
 
 /** Block description to JSON */
 UniValue blockToJSON(const CBlock& block, const CBlockIndex* blockindex, bool txDetails = false);

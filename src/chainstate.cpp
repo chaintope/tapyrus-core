@@ -28,10 +28,6 @@
 #include <stdexcept>
 
 
-// Defined in validation.cpp; declared here to avoid pulling in validation.h
-// (which includes chainstate.h, creating an indirect self-inclusion).
-void RefreshChainTxDataFromTip(const CBlockIndex* pindexNew) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
-
 static int64_t nTimeCheck = 0;
 static int64_t nTimeForks = 0;
 static int64_t nTimeVerify = 0;
@@ -105,6 +101,7 @@ void NotifyHeaderTip() LOCKS_EXCLUDED(cs_main) {
     bool fInitialBlockDownload = false;
     static CBlockIndex* pindexHeaderOld = nullptr;
     CBlockIndex* pindexHeader = nullptr;
+    double verification_progress = 0.0;
     {
         LOCK(cs_main);
         pindexHeader = g_chainstate_manager.BestHeader();
@@ -113,11 +110,13 @@ void NotifyHeaderTip() LOCKS_EXCLUDED(cs_main) {
             fNotify = true;
             fInitialBlockDownload = IsInitialBlockDownload();
             pindexHeaderOld = pindexHeader;
+            // The header's block may still be connecting, which writes its nChainTx under cs_main.
+            verification_progress = g_chainstate_manager.Progress().Guess(pindexHeader);
         }
     }
     // Send block tip changed notifications without cs_main
     if (fNotify) {
-        uiInterface.NotifyHeaderTip(fInitialBlockDownload, pindexHeader);
+        uiInterface.NotifyHeaderTip(fInitialBlockDownload, pindexHeader, verification_progress);
     }
 }
 
@@ -291,13 +290,13 @@ void static UpdateTip(const CBlockIndex *pindexNew)
         g_chainstate_manager.m_best_block_cv.notify_all();
     }
 
-    RefreshChainTxDataFromTip(pindexNew);
+    g_chainstate_manager.Progress().Refresh(pindexNew, g_chainstate_manager.BestHeader());
 
     LogPrintf("%s: new best=%s height=%d version=0x%08x xfield=%s tx=%lu date='%s' progress=%f cache=%.1fMiB(%utxo)", __func__, /* Continued */
       pindexNew->GetBlockHash().ToString(), pindexNew->nHeight, pindexNew->nFeatures,
       pindexNew->xfield.ToString(),
       (unsigned long)pindexNew->nChainTx, FormatISO8601DateTime(pindexNew->GetBlockTime()),
-      GuessVerificationProgress(Params().TxData(), pindexNew), g_chainstate_manager.ActiveChainstate().CoinsTip().DynamicMemoryUsage() * (1.0 / (1<<20)), g_chainstate_manager.ActiveChainstate().CoinsTip().GetCacheSize());
+      g_chainstate_manager.Progress().Guess(pindexNew), g_chainstate_manager.ActiveChainstate().CoinsTip().DynamicMemoryUsage() * (1.0 / (1<<20)), g_chainstate_manager.ActiveChainstate().CoinsTip().GetCacheSize());
     LogPrintf("\n");
 
 }
@@ -546,7 +545,7 @@ bool Chainstate::ConnectBlock(const CBlock& block, CValidationState& state, CBlo
         {
             std::vector<CScriptCheck> vChecks;
             bool fCacheResults = fJustCheck; /* Don't cache results if we're actually connecting blocks (still consult the cache, though) */
-            if (!CheckInputs(tx, state, view, fScriptChecks, consensusAtHeight.ScriptFlags(), fCacheResults, fCacheResults, g_chainstate_manager.GetOptions().nScriptCheckThreads ? &vChecks : nullptr, consensusAtHeight.ScriptFlags()))
+            if (!CheckInputs(tx, state, view, fScriptChecks, consensusAtHeight.ScriptFlags(), fCacheResults, fCacheResults, g_chainstate_manager.ValidationCaches(), g_chainstate_manager.GetOptions().nScriptCheckThreads ? &vChecks : nullptr, consensusAtHeight.ScriptFlags()))
                 // FormatStateMessage is evaluated before DoS() re-sets state, preserving
                 // the per-input detail in the log.  state.GetRejectReason() already holds
                 // the specific error string set by CheckInputs, so it is propagated as-is.
@@ -1061,7 +1060,7 @@ bool Chainstate::ActivateBestChain(CValidationState &state, std::shared_ptr<cons
                 GetMainSignals().UpdatedBlockTip(pindexNewTip, pindexFork, fInitialDownload);
 
                 // Always notify the UI if a new block tip was connected
-                uiInterface.NotifyBlockTip(fInitialDownload, pindexNewTip);
+                uiInterface.NotifyBlockTip(fInitialDownload, pindexNewTip, g_chainstate_manager.Progress().Guess(pindexNewTip));
             }
         }
         // When we reach this point, we switched to a new tip (stored in pindexNewTip).
@@ -1146,7 +1145,7 @@ bool Chainstate::InvalidateBlock(CValidationState& state, CBlockIndex *pindex)
 
     // Only notify about a new block tip if the active chain was modified.
     if (pindex_was_in_chain) {
-        uiInterface.NotifyBlockTip(IsInitialBlockDownload(), pindex->pprev);
+        uiInterface.NotifyBlockTip(IsInitialBlockDownload(), pindex->pprev, g_chainstate_manager.Progress().Guess(pindex->pprev));
     }
     return true;
 }

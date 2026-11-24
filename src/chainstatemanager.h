@@ -13,6 +13,8 @@
 #include <issuedcolorids.h>
 #include <sync.h>
 #include <uint256.h>
+#include <validationcache.h>
+#include <verificationprogress.h>
 #include <xfieldhistory.h>
 
 #include <atomic>
@@ -42,8 +44,9 @@ static const int DEFAULT_SCRIPTCHECK_THREADS = 0;
  * Owns the node's chain-wide state, as Bitcoin Core's ChainstateManager does.
  * So far it holds the xfield history and the issued colorIds of the active chain,
  * the consensus settings, the block index, the block files, the start-up options,
- * the best block, the best header, the best invalid block, the active chainstate
- * and the notifications it reports to.
+ * the best block, the best header, the best invalid block, the active chainstate,
+ * the verification progress estimate, the validation caches and the
+ * notifications it reports to.
  */
 class ChainstateManager
 {
@@ -122,6 +125,12 @@ public:
     /** The highest block found invalid. */
     CBlockIndex*& BestInvalid() EXCLUSIVE_LOCKS_REQUIRED(cs_main) { return m_best_invalid; }
 
+    /** The signature and script execution caches; init sizes them with ValidationCache::Resize. */
+    ValidationCache& ValidationCaches() { return m_validation_cache; }
+
+    /** How far chain sync has got; readable without cs_main. */
+    VerificationProgress& Progress() { return m_progress; }
+
     /** Where fatal errors and the fork warnings are reported; NodeContext owns it.
      *  Set at start-up, before anything can fail. */
     void SetNotifications(ChainNotifications* notifications) { m_notifications = notifications; }
@@ -181,6 +190,8 @@ private:
     CIssuedColorIds m_issued_colorids GUARDED_BY(cs_main);
     CBlockIndex* m_best_header GUARDED_BY(cs_main){nullptr};
     CBlockIndex* m_best_invalid GUARDED_BY(cs_main){nullptr};
+    VerificationProgress m_progress;
+    ValidationCache m_validation_cache;
     std::unique_ptr<const ConsensusSettings> m_consensus_settings;
     //! Declared before the block file manager, which keeps a reference to it.
     BlockIndexMap m_block_index;

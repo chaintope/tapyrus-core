@@ -148,6 +148,7 @@ add_executable(test_tapyrus
         util_tests.cpp
         validation_block_tests.cpp
         validation_flush_tests.cpp
+        verificationprogress_tests.cpp
         xfieldhistory_tests.cpp
         xfield_tests.cpp
         zmq_tests.cpp

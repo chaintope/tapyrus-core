@@ -25,6 +25,7 @@
 #include <script/sigcache.h>
 #include <xfieldhistory.h>
 #include <util.h>
+#include <cachesettings.h>
 
 #include <thread>
 #include <fstream>
@@ -80,8 +81,11 @@ BasicTestingSetup::BasicTestingSetup(const std::string& chainName)
     try {
         SetupEnvironment();
         SetupNetworking();
-        InitSignatureCache();
-        InitScriptExecutionCache();
+        m_node.cache = std::make_unique<const CacheSettings>(gArgs);
+        {
+            LOCK(cs_main);
+            g_chainstate_manager.ValidationCaches().Resize(m_node.cache->nValidationCacheBytes);
+        }
         // No subscribers: a fatal error in a test is recorded, not shown or shut down on.
         g_chainstate_manager.SetNotifications(&m_node.notifications);
         SelectParams(TAPYRUS_OP_MODE::PROD);
@@ -283,8 +287,13 @@ TestChainSetup::TestChainSetup() : TestingSetup(TAPYRUS_MODES::DEV)
 CBlock
 TestChainSetup::CreateAndProcessBlock(const std::vector<CMutableTransaction>& txns, const CScript& scriptPubKey)
 {
-    const CChainParams& chainparams = Params();
-    std::unique_ptr<CBlockTemplate> pblocktemplate = BlockAssembler(chainparams).CreateNewBlock(scriptPubKey);
+    std::unique_ptr<CBlockTemplate> pblocktemplate;
+    {
+        // Held across both, so the template builds on the tip the options read.
+        LOCK(cs_main);
+        const BlockAssembler::Options options(*m_node.policy, gArgs, g_chainstate_manager);
+        pblocktemplate = BlockAssembler(g_chainstate_manager, options).CreateNewBlock(scriptPubKey);
+    }
     CBlock& block = pblocktemplate->block;
 
     // Replace mempool-selected txns with just coinbase plus passed-in txns:
