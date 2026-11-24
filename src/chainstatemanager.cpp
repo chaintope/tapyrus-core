@@ -16,8 +16,6 @@
 #include <limits>
 #include <utility>
 
-ChainstateManager g_chainstate_manager;
-
 ChainstateManager::ChainstateManager() = default;
 
 ChainstateManager::~ChainstateManager() = default;
@@ -160,11 +158,6 @@ void ChainstateManager::LoadPersistentFlags()
 void ChainstateManager::InitializeChainstate(CTxMemPool& mempool)
 {
     m_active_chainstate = std::make_unique<Chainstate>(*this, mempool);
-}
-
-void ChainstateManager::ReleaseChainstate()
-{
-    m_active_chainstate.reset();
 }
 
 Chainstate& ChainstateManager::ActiveChainstate() const

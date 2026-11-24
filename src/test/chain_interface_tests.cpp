@@ -36,7 +36,7 @@ public:
     const CBlockIndex* Tip()
     {
         LOCK(cs_main);
-        return g_chainstate_manager.ActiveChain().Tip();
+        return m_node.chainman->ActiveChain().Tip();
     }
 
     //! Spends output 0 of parent, paying it less FEE back to the coinbase key.
@@ -170,7 +170,7 @@ BOOST_AUTO_TEST_CASE(without_data_there_is_no_fee_estimate_or_mempool_minimum)
 
 BOOST_AUTO_TEST_CASE(a_synced_node_is_ready_to_broadcast)
 {
-    BOOST_REQUIRE(!IsInitialBlockDownload());
+    BOOST_REQUIRE(!m_node.chainman->ActiveChainstate().IsInitialBlockDownload());
     BOOST_CHECK(m_chain->isReadyToBroadcast());
 }
 
@@ -178,13 +178,13 @@ BOOST_AUTO_TEST_CASE(a_synced_node_is_ready_to_broadcast)
 
 BOOST_AUTO_TEST_CASE(a_node_importing_or_reindexing_is_not_ready_to_broadcast)
 {
-    g_chainstate_manager.GetBlockFileManager().SetImporting(true);
+    m_node.chainman->GetBlockFileManager().SetImporting(true);
     BOOST_CHECK(!m_chain->isReadyToBroadcast());
-    g_chainstate_manager.GetBlockFileManager().SetImporting(false);
+    m_node.chainman->GetBlockFileManager().SetImporting(false);
 
-    g_chainstate_manager.SetReindexing(true);
+    m_node.chainman->SetReindexing(true);
     BOOST_CHECK(!m_chain->isReadyToBroadcast());
-    g_chainstate_manager.SetReindexing(false);
+    m_node.chainman->SetReindexing(false);
     BOOST_CHECK(m_chain->isReadyToBroadcast());
 }
 
@@ -193,7 +193,7 @@ BOOST_AUTO_TEST_CASE(a_node_importing_or_reindexing_is_not_ready_to_broadcast)
 BOOST_AUTO_TEST_CASE(the_tip_and_heights_match_the_active_chain)
 {
     LOCK(cs_main);
-    const CChain& active = g_chainstate_manager.ActiveChain();
+    const CChain& active = m_node.chainman->ActiveChain();
     BOOST_CHECK_EQUAL(*m_chain->getHeight(), active.Height());
     BOOST_CHECK_EQUAL(m_chain->getBlockHash(active.Height()), active.Tip()->GetBlockHash());
     BOOST_CHECK(m_chain->haveBlockOnDisk(active.Height()));
@@ -242,7 +242,7 @@ BOOST_AUTO_TEST_CASE(the_progress_size_and_key_come_from_the_chain)
     BOOST_CHECK(progress > 0.0 && progress <= 1.0);
     BOOST_CHECK(!m_chain->havePruned());
     BOOST_CHECK(!m_chain->isPruneMode());
-    BOOST_CHECK_EQUAL(m_chain->getMaxBlockSize(), g_chainstate_manager.XFieldHistory().GetCurrentMaxBlockSize());
+    BOOST_CHECK_EQUAL(m_chain->getMaxBlockSize(), m_node.chainman->XFieldHistory().GetCurrentMaxBlockSize());
     BOOST_CHECK(m_chain->getAggregatePubkey().IsFullyValid());
 }
 

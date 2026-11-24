@@ -1006,7 +1006,3 @@ void RegisterMiningRPCCommands(CRPCTable &t)
         t.appendCommand(commands[vcidx].name, &commands[vcidx]);
 }
 
-UniValue generateBlocks(const CTxMemPool&, std::shared_ptr<CReserveScript> coinbaseScript, int nGenerate, bool keepScript, const CKey& vecPrivKeys)
-{
-    return generateBlocks(g_chainstate_manager, *g_policy_settings, coinbaseScript, nGenerate, keepScript, vecPrivKeys);
-}

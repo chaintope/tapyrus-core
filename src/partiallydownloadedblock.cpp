@@ -196,4 +196,3 @@ ReadStatus PartiallyDownloadedBlock::FillBlock(CBlock& block, const std::vector<
     return READ_STATUS_OK;
 }
 
-ReadStatus PartiallyDownloadedBlock::InitData(const CBlockHeaderAndShortTxIDs& cmpctblock, const std::vector<std::pair<uint256, CTransactionRef>>& extra_txn) { return InitData(cmpctblock, extra_txn, g_chainstate_manager.XFieldHistory().GetCurrentMaxBlockSize()); }

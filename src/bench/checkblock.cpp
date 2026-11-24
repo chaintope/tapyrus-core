@@ -7,6 +7,9 @@
 #include <chainparams.h>
 #include <chainstatemanager.h>
 #include <checkblock.h>
+#include <consensussettings.h>
+#include <federationparams.h>
+#include <genesisfile.h>
 #include <validation.h>
 #include <streams.h>
 #include <consensus/validation.h>
@@ -43,6 +46,9 @@ static void DeserializeAndCheckBlockTest(benchmark::State& state)
     stream.write(&a, 1); // Prevent compaction
 
     const auto chainParams = CreateChainParams(TAPYRUS_OP_MODE::PROD);
+    ChainstateManager chainman;
+    chainman.InitConsensusSettings(std::make_unique<const ConsensusSettings>(ReadGenesisBlock(), TAPYRUS_OP_MODE::PROD, FederationParams().NetworkId()));
+    chainman.InitXFieldHistory(chainman.Settings().GenesisBlock());
 
     while (state.KeepRunning()) {
         CBlock block; // Note that CBlock caches its checked state, so we need to recreate it here
@@ -50,7 +56,7 @@ static void DeserializeAndCheckBlockTest(benchmark::State& state)
         assert(stream.Rewind(sizeof(block_bench::block413567)));
 
         CValidationState validationState;
-        assert(CheckBlock(block, validationState, g_chainstate_manager.RulesLatest()));
+        assert(CheckBlock(block, validationState, chainman.RulesLatest()));
     }
 }
 

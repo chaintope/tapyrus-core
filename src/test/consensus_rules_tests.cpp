@@ -403,24 +403,24 @@ BOOST_AUTO_TEST_CASE(height_derived_rules)
 {
     CKey rotatedKey;
     rotatedKey.MakeNewKey(true);
-    CTempXFieldHistory history(g_chainstate_manager.XFieldHistory());
+    CTempXFieldHistory history(m_node.chainman->XFieldHistory());
     history.Add(TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE, XFieldChange(XFieldMaxBlockSize(2000), 10, uint256()));
     history.Add(TAPYRUS_XFIELDTYPES::AGGPUBKEY, XFieldChange(XFieldAggPubKey(rotatedKey.GetPubKey()), 20, uint256()));
 
     const TestChain chain(30);
-    const HeightDerivedConsensusRules before = g_chainstate_manager.RulesAt(chain.At(9), history);
+    const HeightDerivedConsensusRules before = m_node.chainman->RulesAt(chain.At(9), history);
     BOOST_CHECK_EQUAL(*before.Height(), 9);
     BOOST_CHECK_EQUAL(before.MaxBlockSize(), ConsensusConstants::MAX_BLOCK_SIZE);
     BOOST_CHECK(before.AggregatePubKey() == AggregateKey().GetPubKey());
 
     // RulesAfter(prev) is RulesAt the next height.
-    const HeightDerivedConsensusRules after = g_chainstate_manager.RulesAfter(chain.At(9), history);
+    const HeightDerivedConsensusRules after = m_node.chainman->RulesAfter(chain.At(9), history);
     BOOST_CHECK_EQUAL(*after.Height(), 10);
     BOOST_CHECK_EQUAL(after.MaxBlockSize(), 2000U);
     BOOST_CHECK_EQUAL(after.MaxBlockSigops(), 2000U / ConsensusConstants::BLOCK_SIZE_PER_SIGOP);
 
     // RulesLatest reads the history's last entries even ahead of any tip.
-    const HeightDerivedConsensusRules latest = g_chainstate_manager.RulesLatest(history);
+    const HeightDerivedConsensusRules latest = m_node.chainman->RulesLatest(history);
     BOOST_CHECK(!latest.Height());
     BOOST_CHECK(latest.AggregatePubKey() == rotatedKey.GetPubKey());
     BOOST_CHECK_EQUAL(latest.MaxBlockSize(), 2000U);
@@ -428,14 +428,14 @@ BOOST_AUTO_TEST_CASE(height_derived_rules)
 #ifdef CP2SH_ACTIVATION_TEST_HEIGHT
     // Test builds register CP2SH at CP2SH_ACTIVATION_TEST_HEIGHT on every network.
     const TestChain activation(CP2SH_ACTIVATION_TEST_HEIGHT + 1);
-    BOOST_CHECK(!(g_chainstate_manager.Settings().ScriptFlagsAt(activation.At(0).nHeight) & SCRIPT_VERIFY_CP2SH_COLORED));
-    BOOST_CHECK(!(g_chainstate_manager.Settings().ScriptFlagsAt(activation.At(CP2SH_ACTIVATION_TEST_HEIGHT - 1).nHeight) & SCRIPT_VERIFY_CP2SH_COLORED));
-    BOOST_CHECK(g_chainstate_manager.Settings().ScriptFlagsAt(activation.At(CP2SH_ACTIVATION_TEST_HEIGHT).nHeight) & SCRIPT_VERIFY_CP2SH_COLORED);
-    BOOST_CHECK_EQUAL(g_chainstate_manager.Settings().ActivationFlagsChange(CP2SH_ACTIVATION_TEST_HEIGHT - 1, CP2SH_ACTIVATION_TEST_HEIGHT), uint32_t{SCRIPT_VERIFY_CP2SH_COLORED});
+    BOOST_CHECK(!(m_node.chainman->Settings().ScriptFlagsAt(activation.At(0).nHeight) & SCRIPT_VERIFY_CP2SH_COLORED));
+    BOOST_CHECK(!(m_node.chainman->Settings().ScriptFlagsAt(activation.At(CP2SH_ACTIVATION_TEST_HEIGHT - 1).nHeight) & SCRIPT_VERIFY_CP2SH_COLORED));
+    BOOST_CHECK(m_node.chainman->Settings().ScriptFlagsAt(activation.At(CP2SH_ACTIVATION_TEST_HEIGHT).nHeight) & SCRIPT_VERIFY_CP2SH_COLORED);
+    BOOST_CHECK_EQUAL(m_node.chainman->Settings().ActivationFlagsChange(CP2SH_ACTIVATION_TEST_HEIGHT - 1, CP2SH_ACTIVATION_TEST_HEIGHT), uint32_t{SCRIPT_VERIFY_CP2SH_COLORED});
 #else
     // The test network registers no CP2SH soft fork, so it is active from genesis.
-    BOOST_CHECK(g_chainstate_manager.Settings().ScriptFlagsAt(chain.At(0).nHeight) & SCRIPT_VERIFY_CP2SH_COLORED);
-    BOOST_CHECK_EQUAL(g_chainstate_manager.Settings().ActivationFlagsChange(0, 1), 0U);
+    BOOST_CHECK(m_node.chainman->Settings().ScriptFlagsAt(chain.At(0).nHeight) & SCRIPT_VERIFY_CP2SH_COLORED);
+    BOOST_CHECK_EQUAL(m_node.chainman->Settings().ActivationFlagsChange(0, 1), 0U);
 #endif
 }
 

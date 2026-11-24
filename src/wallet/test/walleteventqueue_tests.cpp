@@ -66,7 +66,7 @@ public:
     {
         m_key.MakeNewKey(true);
         LOCK2(cs_main, m_wallet.cs_wallet);
-        m_tip = g_chainstate_manager.ActiveChain().Tip();
+        m_tip = m_node.chainman->ActiveChain().Tip();
         m_wallet.AddKeyPubKey(m_key, m_key.GetPubKey());
     }
 
@@ -301,7 +301,7 @@ BOOST_AUTO_TEST_CASE(a_rescan_holding_cs_main_finishes_while_add_waits)
 
         WalletRescanReserver reserver(&m_wallet);
         BOOST_REQUIRE(reserver.reserve());
-        const CBlockIndex* genesis{g_chainstate_manager.ActiveChain().Genesis()};
+        const CBlockIndex* genesis{m_node.chainman->ActiveChain().Genesis()};
         const CWallet::ScanResult result{m_wallet.ScanForWalletTransactions(genesis->GetBlockHash(), genesis->nHeight, {} /* max_height */, reserver, true)};
         BOOST_CHECK(result.status == CWallet::ScanResult::SUCCESS);
     }

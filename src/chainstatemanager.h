@@ -140,7 +140,6 @@ public:
      *  Set at start-up, before anything can fail. */
     void SetNotifications(ChainNotifications* notifications) { m_notifications = notifications; }
     ChainNotifications& Notifications() const { assert(m_notifications); return *m_notifications; }
-    bool ReportsTo(const ChainNotifications& notifications) const { return m_notifications == &notifications; }
 
     /** Creates the block file manager once -prune is known; replaces any earlier one, keeping the block index.
      *  notifications receives its fatal file errors. */
@@ -174,8 +173,6 @@ public:
     /** Creates the chainstate, which updates mempool as the tip moves; replaces any earlier one. */
     void InitializeChainstate(CTxMemPool& mempool);
     bool HasChainstate() const { return m_active_chainstate != nullptr; }
-    /** Destroys the chainstate before the mempool it refers to. */
-    void ReleaseChainstate();
 
     Chainstate& ActiveChainstate() const;
     CChain& ActiveChain() const;
@@ -247,7 +244,5 @@ private:
     //! The best header NotifyHeaderTip last reported.
     CBlockIndex* m_last_notified_header GUARDED_BY(cs_main){nullptr};
 };
-
-extern ChainstateManager g_chainstate_manager;
 
 #endif // TAPYRUS_CHAINSTATEMANAGER_H

@@ -399,7 +399,7 @@ UniValue importprunedfunds(const JSONRPCRequest& request)
     std::vector<unsigned int> vIndex;
     unsigned int txnIndex = 0;
     int height = 0;
-    if (merkleBlock.txn.ExtractMatches(vMatch, vIndex) == merkleBlock.header.hashImMerkleRoot) {
+    if (merkleBlock.txn.ExtractMatches(vMatch, vIndex, pwallet->chain().getMaxBlockSize()) == merkleBlock.header.hashImMerkleRoot) {
 
         bool in_active_chain{false};
         if (!pwallet->chain().findBlock(merkleBlock.header.GetHash(), interfaces::FoundBlock().height(height).inActiveChain(in_active_chain)) || !in_active_chain) {
