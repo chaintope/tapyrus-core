@@ -16,7 +16,7 @@ BOOST_AUTO_TEST_SUITE(txindex_tests)
 
 BOOST_FIXTURE_TEST_CASE(txindex_initial_sync, TestChainSetup)
 {
-    TxIndex txindex(g_chainstate_manager, m_node.notifications, 1 << 20, true);
+    TxIndex txindex(*m_node.chainman, m_node.notifications, 1 << 20, true);
 
     CTransactionRef tx_disk;
     uint256 block_hash;

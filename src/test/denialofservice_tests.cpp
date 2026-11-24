@@ -69,7 +69,7 @@ BOOST_AUTO_TEST_CASE(outbound_slow_chain_eviction)
 
     {
         LOCK(cs_main);
-        BOOST_CHECK(g_chainstate_manager.ActiveChain().Tip() != nullptr);
+        BOOST_CHECK(m_node.chainman->ActiveChain().Tip() != nullptr);
     }
 
     // Test starts here
@@ -348,7 +348,7 @@ BOOST_AUTO_TEST_CASE(DoS_mapOrphans)
         tx.vout[0].nValue = 1*CENT;
         tx.vout[0].scriptPubKey = GetScriptForDestination(key.GetPubKey().GetID());
 
-        orphans.AddOrphanTx(MakeTransactionRef(tx), i);
+        orphans.AddOrphanTx(MakeTransactionRef(tx), i, MaxBlockSize());
     }
 
     // ... and 50 that depend on other orphans:
@@ -365,7 +365,7 @@ BOOST_AUTO_TEST_CASE(DoS_mapOrphans)
         tx.vout[0].scriptPubKey = GetScriptForDestination(key.GetPubKey().GetID());
         SignSignature(keystore, *txPrev, tx, 0, SIGHASH_ALL);
 
-        orphans.AddOrphanTx(MakeTransactionRef(tx), i);
+        orphans.AddOrphanTx(MakeTransactionRef(tx), i, MaxBlockSize());
     }
 
     // This really-big orphan should be ignored:
@@ -389,7 +389,7 @@ BOOST_AUTO_TEST_CASE(DoS_mapOrphans)
         for (unsigned int j = 1; j < tx.vin.size(); j++)
             tx.vin[j].scriptSig = tx.vin[0].scriptSig;
 
-        BOOST_CHECK(!orphans.AddOrphanTx(MakeTransactionRef(tx), i));
+        BOOST_CHECK(!orphans.AddOrphanTx(MakeTransactionRef(tx), i, MaxBlockSize()));
     }
 
     // Test EraseOrphansFor:
@@ -425,11 +425,11 @@ BOOST_AUTO_TEST_CASE(DoS_orphan_size_limit)
     OrphanTxPoolTest orphans;
     {
         PolicySettingsOverride smallOrphans({{"-maxorphantxsize", std::to_string(size - 1)}});
-        BOOST_CHECK(!orphans.AddOrphanTx(tx, 0));
+        BOOST_CHECK(!orphans.AddOrphanTx(tx, 0, MaxBlockSize()));
     }
     {
         PolicySettingsOverride exactOrphans({{"-maxorphantxsize", std::to_string(size)}});
-        BOOST_CHECK(orphans.AddOrphanTx(tx, 0));
+        BOOST_CHECK(orphans.AddOrphanTx(tx, 0, MaxBlockSize()));
     }
 }
 

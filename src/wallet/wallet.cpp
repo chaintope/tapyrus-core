@@ -3141,7 +3141,7 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
         tx = MakeTransactionRef(std::move(txNew));
 
         // Limit size
-        if (GetSerializeSize(tx, SER_NETWORK, PROTOCOL_VERSION) > g_policy_settings->MaxStandardTxSize())
+        if (GetSerializeSize(tx, SER_NETWORK, PROTOCOL_VERSION) > g_policy_settings->MaxStandardTxSize(chain().getMaxBlockSize()))
         {
             strFailReason = _("Transaction too large");
             return false;

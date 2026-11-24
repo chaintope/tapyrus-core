@@ -154,7 +154,7 @@ void TestGUI()
     std::shared_ptr<CWallet> wallet = std::make_shared<CWallet>(chain.get(), "mock", WalletDatabase::CreateMock());
     {
         LOCK(wallet->cs_wallet);
-        wallet->SetLastBlockProcessed(g_chainstate_manager.ActiveChain().Height(), g_chainstate_manager.ActiveChain().Tip()->GetBlockHash());
+        wallet->SetLastBlockProcessed(test.m_node.chainman->ActiveChain().Height(), test.m_node.chainman->ActiveChain().Tip()->GetBlockHash());
     }
     bool firstRun;
     wallet->LoadWallet(firstRun);
@@ -167,7 +167,7 @@ void TestGUI()
         LOCK(cs_main);
         WalletRescanReserver reserver(wallet.get());
         reserver.reserve();
-        wallet->ScanForWalletTransactions(g_chainstate_manager.ActiveChain().Genesis()->GetBlockHash(), 0, {}, reserver, true);
+        wallet->ScanForWalletTransactions(test.m_node.chainman->ActiveChain().Genesis()->GetBlockHash(), 0, {}, reserver, true);
     }
     wallet->SetBroadcastTransactions(true);
 
@@ -278,7 +278,7 @@ void TestGUI_coloredCoin()
         std::make_shared<CWallet>(chain.get(), "mock", WalletDatabase::CreateMock());
     {
         LOCK(wallet->cs_wallet);
-        wallet->SetLastBlockProcessed(g_chainstate_manager.ActiveChain().Height(), g_chainstate_manager.ActiveChain().Tip()->GetBlockHash());
+        wallet->SetLastBlockProcessed(test.m_node.chainman->ActiveChain().Height(), test.m_node.chainman->ActiveChain().Tip()->GetBlockHash());
     }
     bool firstRun;
     wallet->LoadWallet(firstRun);
@@ -293,7 +293,7 @@ void TestGUI_coloredCoin()
         LOCK(cs_main);
         WalletRescanReserver reserver(wallet.get());
         reserver.reserve();
-        wallet->ScanForWalletTransactions(g_chainstate_manager.ActiveChain().Genesis()->GetBlockHash(), 0, {}, reserver, true);
+        wallet->ScanForWalletTransactions(test.m_node.chainman->ActiveChain().Genesis()->GetBlockHash(), 0, {}, reserver, true);
     }
     wallet->SetBroadcastTransactions(true);
 
@@ -340,13 +340,13 @@ void TestGUI_coloredCoin()
         test.CreateAndProcessBlock(mempoolTxns, GetScriptForRawPubKey(test.coinbaseKey.GetPubKey()));
         {
             LOCK(wallet->cs_wallet);
-            wallet->SetLastBlockProcessed(g_chainstate_manager.ActiveChain().Height(), g_chainstate_manager.ActiveChain().Tip()->GetBlockHash());
+            wallet->SetLastBlockProcessed(test.m_node.chainman->ActiveChain().Height(), test.m_node.chainman->ActiveChain().Tip()->GetBlockHash());
         }
         {
             LOCK(cs_main);
             WalletRescanReserver reserver(wallet.get());
             reserver.reserve();
-            wallet->ScanForWalletTransactions(g_chainstate_manager.ActiveChain().Genesis()->GetBlockHash(), 0, {}, reserver, true);
+            wallet->ScanForWalletTransactions(test.m_node.chainman->ActiveChain().Genesis()->GetBlockHash(), 0, {}, reserver, true);
         }
         // qWait drains the event queue continuously for 50 ms, giving
         // TransactionTableModel::updateTransaction events (queued from

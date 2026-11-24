@@ -114,107 +114,12 @@ static const unsigned int NODE_NETWORK_LIMITED_MIN_BLOCKS = 288;
 static const signed int DEFAULT_CHECKBLOCKS = 6;
 static const unsigned int DEFAULT_CHECKLEVEL = 3;
 
-/**
- * Process an incoming block. This only returns after the best known valid
- * block is made active. Note that it does not, however, guarantee that the
- * specific block passed to it has been checked for validity!
- *
- * If you want to *possibly* get feedback on whether pblock is valid, you must
- * install a CValidationInterface (see validationinterface.h) - this will have
- * its BlockChecked method called whenever *any* block completes validation.
- *
- * Note that we guarantee that either the proof-of-work is valid on pblock, or
- * (and possibly also) BlockChecked will have been called.
- *
- * May not be called in a
- * validationinterface callback.
- *
- * @param[in]   pblock  The block we want to process.
- * @param[in]   fForceProcessing Process this block even if unrequested; used for non-network block sources and whitelisted peers.
- * @param[out]  fNewBlock A boolean which is set to indicate if the block was first received via this call
- * @return True if state.IsValid()
- */
-bool ProcessNewBlock(const std::shared_ptr<const CBlock> pblock, bool fForceProcessing, bool* fNewBlock) LOCKS_EXCLUDED(cs_main);
-
-/**
- * Process incoming block headers.
- *
- * May not be called in a
- * validationinterface callback.
- *
- * @param[in]  block The block headers themselves
- * @param[out] state This may be set to an Error state if any error occurred processing them
- * @param[out] ppindex If set, the pointer will be set to point to the last new block index object for the given headers
- * @param[out] first_invalid First header that fails validation, if one exists
- */
-bool ProcessNewBlockHeaders(const std::vector<CBlockHeader>& block, CValidationState& state, const CBlockIndex** ppindex = nullptr, CBlockHeader* first_invalid = nullptr) LOCKS_EXCLUDED(cs_main);
-
-/** Ensures we have a genesis block in the block tree, possibly writing one to disk. */
-bool LoadGenesisBlock();
-/** Load the block tree and coins database from disk,
- * initializing state if we're running with -reindex. */
-bool LoadBlockIndex() EXCLUSIVE_LOCKS_REQUIRED(cs_main);
-/** Update the chain tip based on database information. */
-bool LoadChainTip();
-/** Unload database information, and clear the mempool if one is given */
-void UnloadBlockIndex(CTxMemPool* mempool);
-/** Run instances of script checking worker threads */
-void StartScriptCheckWorkerThreads(int threads_num);
-/** Check whether we are doing an initial block download (synchronizing from disk or network) */
-bool IsInitialBlockDownload();
 /** Retrieve a transaction from the active chainstate's mempool, or from disk if possible */
 bool GetTransaction(ChainstateManager& chainman, const uint256& hash, CTransactionRef& tx, uint256& hashBlock, bool fAllowSlow = false, CBlockIndex* blockIndex = nullptr);
-bool GetTransaction(const CTxMemPool* mempool, const uint256& hash, CTransactionRef& tx, uint256& hashBlock, bool fAllowSlow = false, CBlockIndex* blockIndex = nullptr);
-/**
- * Find the best known block, and make it the tip of the block chain
- *
- * May not be called with cs_main held. May not be called in a
- * validationinterface callback.
- */
-bool ActivateBestChain(CValidationState& state, std::shared_ptr<const CBlock> pblock = std::shared_ptr<const CBlock>());
-
-/** Flush all state, indexes and buffers to disk. */
-void FlushStateToDisk();
-/** Prune block files and flush state to disk. */
-void PruneAndFlush();
 /** Prune block files up to a given height */
 void PruneBlockFilesManual(Chainstate& active_chainstate, int nManualPruneHeight);
-void PruneBlockFilesManual(int nManualPruneHeight);
-
-/** Expires transactions older than the pool's expiry, then trims the pool to its max size,
- *  dropping the coins the removed transactions spent from the coins tip. */
-void LimitMempoolSize(CTxMemPool& pool) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 
 /** Transaction validation functions */
-
-/**
- * Test whether the LockPoints height and time are still valid on the current chain
- */
-bool TestLockPointValidity(const LockPoints* lp) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
-
-/** The last checkpoint in the block index, or null when -checkpoints is off or none is known. */
-const CBlockIndex* GetLastCheckpointIfEnabled() EXCLUSIVE_LOCKS_REQUIRED(cs_main);
-
-/**
- * Check if transaction will be final in the next block to be created on the active tip.
- * Calls IsFinalTx() with current block height and appropriate block time.
- *
- * The LOCKTIME_* flags are defined in ConsensusConstants.
- */
-bool CheckFinalTx(const CTransaction &tx, int flags = -1) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
-
-/**
- * Check if transaction will be BIP 68 final in the next block to be created on the active tip.
- *
- * Simulates calling ContextualConsensusRules::SequenceLocks() with data from the tip of the current
- * active chain. Optionally stores in LockPoints the resulting height and time calculated and
- * the hash of the block needed for calculation or skips the calculation and uses the
- * LockPoints passed in for evaluation.
- * The LockPoints should not be considered valid if CheckSequenceLocks returns false.
- *
- * The LOCKTIME_* flags are defined in ConsensusConstants.
- */
-bool CheckSequenceLocks(const CTxMemPool& pool, const CTransaction &tx, int flags,  CCoinsViewMemPool& viewMemPool, LockPoints* lp = nullptr, bool useExistingLockPoints = false) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 
 /**
  * Check whether all inputs of this transaction are valid (no double spends, scripts & sigs, amounts)
@@ -229,34 +134,6 @@ bool CheckSequenceLocks(const CTxMemPool& pool, const CTransaction &tx, int flag
  * entry again.
  */
 bool CheckInputs(const CTransaction& tx, CValidationState &state, const CCoinsViewCache &inputs, bool fScriptChecks, unsigned int flags, bool cacheSigStore, bool cacheFullScriptStore, ValidationCache& validation_cache, std::vector<CScriptCheck> *pvChecks = nullptr, unsigned int mandatoryFlags = 0);
-
-
-/** Functions for validating blocks and updating the block tree */
-
-/** Check a block is completely valid from start to finish (only works on top of our current best block) */
-bool TestBlockValidity(CValidationState& state, const CBlock& block, CBlockIndex* pindexPrev, bool fCheckPOW = true, bool fCheckMerkleRoot = true) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
-
-/** When there are blocks in the active chain with missing data, rewind the chainstate and remove them from the block index */
-bool RewindBlockIndex();
-
-/** Replay blocks that aren't fully applied to the database. */
-bool ReplayBlocks(CCoinsView* view, CIssuedColorIds& issuedColorIds);
-
-/** Find the last common block between the parameter chain and a locator. */
-CBlockIndex* FindForkInGlobalIndex(const CChain& chain, const CBlockLocator& locator);
-
-/** Mark a block as precious and reorganize.
- *
- * May not be called in a
- * validationinterface callback.
- */
-bool PreciousBlock(CValidationState& state, CBlockIndex *pindex) LOCKS_EXCLUDED(cs_main);
-
-/** Mark a block as invalid. */
-bool InvalidateBlock(CValidationState& state, CBlockIndex* pindex) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
-
-/** Remove invalidity status from a block and its descendants. */
-void ResetBlockFailureFlags(CBlockIndex* pindex) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 
 /** Reject codes greater or equal to this can be returned by AcceptToMemPool
  * for transactions, to signal internal conditions. They cannot and should not

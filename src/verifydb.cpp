@@ -25,10 +25,6 @@ CVerifyDB::~CVerifyDB()
     uiInterface.ShowProgress("", 100, false);
 }
 
-bool CVerifyDB::VerifyDB(CCoinsView *coinsview, int nCheckLevel, int nCheckDepth)
-{
-    return VerifyDB(g_chainstate_manager.ActiveChainstate(), coinsview, nCheckLevel, nCheckDepth);
-}
 
 bool CVerifyDB::VerifyDB(Chainstate& chainstate, CCoinsView *coinsview, int nCheckLevel, int nCheckDepth)
 {

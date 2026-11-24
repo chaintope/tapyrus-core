@@ -39,8 +39,9 @@ struct NodeContext {
     std::unique_ptr<CTxMemPool> mempool;
     //! Feeds fee_estimator from mempool. After both, so it is destroyed first.
     std::unique_ptr<MempoolFeeListener> mempool_fee_listener;
-    //! The chain state; its chainstate refers to the mempool, so it comes after it.
-    ChainstateManager* chainman{nullptr};
+    //! The chain state; its chainstate refers to the mempool and it reports to
+    //! notifications, so it comes after both and is destroyed before them.
+    std::unique_ptr<ChainstateManager> chainman;
     //! Set once the mempool has been loaded from disk (or loading was skipped);
     //! until then it is not dumped at shutdown and savemempool refuses.
     std::atomic_bool mempool_loaded{false};

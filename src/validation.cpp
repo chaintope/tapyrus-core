@@ -1214,32 +1214,3 @@ std::string CBlockFileInfo::ToString() const
     AssertLockHeld(::cs_main);
     return strprintf("CBlockFileInfo(blocks=%u, size=%u, heights=%u...%u, time=%s...%s)", nBlocks, nSize, nHeightFirst, nHeightLast, FormatISO8601Date(nTimeFirst), FormatISO8601Date(nTimeLast));
 }
-
-// The old free forms, for callers outside tapyrus_chainstate until they reach
-// the manager themselves; they go with g_chainstate_manager.
-bool ProcessNewBlock(const std::shared_ptr<const CBlock> pblock, bool fForceProcessing, bool* fNewBlock) { return g_chainstate_manager.ProcessNewBlock(pblock, fForceProcessing, fNewBlock); }
-bool ProcessNewBlockHeaders(const std::vector<CBlockHeader>& headers, CValidationState& state, const CBlockIndex** ppindex, CBlockHeader* first_invalid) { return g_chainstate_manager.ProcessNewBlockHeaders(headers, state, ppindex, first_invalid); }
-bool LoadGenesisBlock() { return g_chainstate_manager.ActiveChainstate().LoadGenesisBlock(); }
-bool LoadBlockIndex() { return g_chainstate_manager.LoadBlockIndex(); }
-bool LoadChainTip() { return g_chainstate_manager.ActiveChainstate().LoadChainTip(); }
-void UnloadBlockIndex(CTxMemPool*) { g_chainstate_manager.UnloadBlockIndex(); }
-void StartScriptCheckWorkerThreads(int) { g_chainstate_manager.StartScriptCheckWorkerThreads(); }
-bool IsInitialBlockDownload() { return g_chainstate_manager.ActiveChainstate().IsInitialBlockDownload(); }
-bool GetTransaction(const CTxMemPool*, const uint256& hash, CTransactionRef& tx, uint256& hashBlock, bool fAllowSlow, CBlockIndex* blockIndex) { return GetTransaction(g_chainstate_manager, hash, tx, hashBlock, fAllowSlow, blockIndex); }
-bool ActivateBestChain(CValidationState& state, std::shared_ptr<const CBlock> pblock) { return g_chainstate_manager.ActiveChainstate().ActivateBestChain(state, std::move(pblock)); }
-void FlushStateToDisk() { g_chainstate_manager.ActiveChainstate().ForceFlushStateToDisk(); }
-void PruneAndFlush() { g_chainstate_manager.ActiveChainstate().PruneAndFlush(); }
-void PruneBlockFilesManual(int nManualPruneHeight) { PruneBlockFilesManual(g_chainstate_manager.ActiveChainstate(), nManualPruneHeight); }
-void LimitMempoolSize(CTxMemPool& pool) { assert(&pool == &g_chainstate_manager.ActiveChainstate().GetMempool()); g_chainstate_manager.ActiveChainstate().LimitMempoolSize(); }
-bool TestLockPointValidity(const LockPoints* lp) { return g_chainstate_manager.ActiveChainstate().TestLockPointValidity(lp); }
-const CBlockIndex* GetLastCheckpointIfEnabled() { return g_chainstate_manager.GetLastCheckpointIfEnabled(); }
-bool CheckFinalTx(const CTransaction& tx, int flags) { return g_chainstate_manager.ActiveChainstate().CheckFinalTx(tx, flags); }
-bool CheckSequenceLocks(const CTxMemPool& pool, const CTransaction& tx, int flags, CCoinsViewMemPool& viewMemPool, LockPoints* lp, bool useExistingLockPoints) { assert(&pool == &g_chainstate_manager.ActiveChainstate().GetMempool()); return g_chainstate_manager.ActiveChainstate().CheckSequenceLocks(tx, flags, viewMemPool, lp, useExistingLockPoints); }
-bool TestBlockValidity(CValidationState& state, const CBlock& block, CBlockIndex* pindexPrev, bool fCheckPOW, bool fCheckMerkleRoot) { assert(pindexPrev && pindexPrev == g_chainstate_manager.ActiveChain().Tip()); return g_chainstate_manager.ActiveChainstate().TestBlockValidity(state, block, fCheckPOW, fCheckMerkleRoot); }
-bool RewindBlockIndex() { return g_chainstate_manager.RewindBlockIndex(); }
-bool ReplayBlocks(CCoinsView* view, CIssuedColorIds& issuedColorIds) { return g_chainstate_manager.ActiveChainstate().ReplayBlocks(view, issuedColorIds); }
-CBlockIndex* FindForkInGlobalIndex(const CChain& chain, const CBlockLocator& locator) { assert(&chain == &g_chainstate_manager.ActiveChain()); return g_chainstate_manager.ActiveChainstate().FindForkInGlobalIndex(locator); }
-bool PreciousBlock(CValidationState& state, CBlockIndex* pindex) { return g_chainstate_manager.ActiveChainstate().PreciousBlock(state, pindex); }
-bool InvalidateBlock(CValidationState& state, CBlockIndex* pindex) { return g_chainstate_manager.ActiveChainstate().InvalidateBlock(state, pindex); }
-void ResetBlockFailureFlags(CBlockIndex* pindex) { g_chainstate_manager.ActiveChainstate().ResetBlockFailureFlags(pindex); }
-bool IsStandardTx(const CTransaction& tx, std::string& reason) { return IsStandardTx(tx, reason, g_chainstate_manager.RulesLatest().MaxBlockSize()); }

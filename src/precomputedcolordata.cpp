@@ -10,8 +10,6 @@
 #include <primitives/transaction.h>
 #include <script/interpreter.h>
 
-PrecomputedColorData::PrecomputedColorData(const CTransaction& tx, const CCoinsViewCache& inputs, int32_t blockHeight)
-    : PrecomputedColorData(tx, inputs, g_chainstate_manager.Settings(), blockHeight) {}
 
 PrecomputedColorData::PrecomputedColorData(const CTransaction& tx, const CCoinsViewCache& inputs, const ConsensusSettings& settings, int32_t blockHeight)
     : m_coinbase(tx.IsCoinBase()),

@@ -19,7 +19,7 @@ WalletTestingSetup::WalletTestingSetup(const std::string& chainName):
     m_wallet.LoadWallet(fFirstRun);
     {
         LOCK(m_wallet.cs_wallet);
-        m_wallet.SetLastBlockProcessed(g_chainstate_manager.ActiveChain().Height(), g_chainstate_manager.ActiveChain().Tip()->GetBlockHash());
+        m_wallet.SetLastBlockProcessed(m_node.chainman->ActiveChain().Height(), m_node.chainman->ActiveChain().Tip()->GetBlockHash());
     }
     m_wallet_events.Start();
     m_wallet_events.Register(m_wallet);

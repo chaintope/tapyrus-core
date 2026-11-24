@@ -49,7 +49,7 @@ static void AddTestCoin(CCoinsViewCache& view)
 
 BOOST_FIXTURE_TEST_SUITE(validation_flush_tests, TestingSetup)
 
-//! Verify that the cache-size thresholds used in FlushStateToDisk() switch
+//! Verify that the cache-size thresholds used in m_node.chainman->ActiveChainstate().ForceFlushStateToDisk() switch
 //! from "OK" → "LARGE" → "CRITICAL" at the expected utilisation levels.
 //!
 //! Bitcoin Core tests Chainstate::GetCoinsCacheSizeState().  Tapyrus does not
@@ -62,7 +62,7 @@ BOOST_FIXTURE_TEST_SUITE(validation_flush_tests, TestingSetup)
 BOOST_AUTO_TEST_CASE(getcoinscachesizestate)
 {
     LOCK(cs_main);
-    CCoinsViewCache& view = g_chainstate_manager.ActiveChainstate().CoinsTip();
+    CCoinsViewCache& view = m_node.chainman->ActiveChainstate().CoinsTip();
 
     // An empty cache should occupy well under one pool chunk (~256 KiB).
     BOOST_CHECK_LT(view.DynamicMemoryUsage() / (256.0 * 1024), 1.1);
@@ -75,7 +75,7 @@ BOOST_AUTO_TEST_CASE(getcoinscachesizestate)
     constexpr size_t  MAX_ATTEMPTS = 200'000;
 
     // The override restores the cache size when the test ends.
-    ChainstateOptionsOverride smallCache(ChainstateOptionsOverride::TestOptions({{"-par", TestingSetup::SCRIPT_CHECK_PAR}}, static_cast<size_t>(MAX_COINS_BYTES)));
+    ChainstateOptionsOverride smallCache(*m_node.chainman, ChainstateOptionsOverride::TestOptions({{"-par", TestingSetup::SCRIPT_CHECK_PAR}}, static_cast<size_t>(MAX_COINS_BYTES)));
 
     // Run twice: once with no mempool head-room, once with head-room.
     for (int64_t max_mempool_size_bytes : {int64_t{0}, MAX_MEMPOOL_BYTES}) {

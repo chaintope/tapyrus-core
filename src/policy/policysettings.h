@@ -182,11 +182,6 @@ struct PolicySettings : PolicyConstants
      * Checked once the chainstate has loaded, as the block size limit comes from it.
      */
     std::string CheckMinStandardTxSize(uint32_t max_block_size) const;
-    //! The forms above at the active chain's latest block size limit; they go with g_chainstate_manager.
-    uint32_t MaxStandardTxSize() const;
-    uint32_t MinStandardTxSize() const;
-    uint32_t MaxOrphanTxSize() const;
-    std::string CheckMinStandardTxSize() const;
 
 private:
     /** The fee rate of a -<name>=<amt> option, or its default when it is not set. */

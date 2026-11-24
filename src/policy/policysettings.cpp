@@ -194,7 +194,3 @@ std::string PolicySettings::CheckMinStandardTxSize(uint32_t max_block_size) cons
     return "";
 }
 
-uint32_t PolicySettings::MaxStandardTxSize() const { return MaxStandardTxSize(g_chainstate_manager.RulesLatest().MaxBlockSize()); }
-uint32_t PolicySettings::MinStandardTxSize() const { return MinStandardTxSize(g_chainstate_manager.RulesLatest().MaxBlockSize()); }
-uint32_t PolicySettings::MaxOrphanTxSize() const { return MaxOrphanTxSize(g_chainstate_manager.RulesLatest().MaxBlockSize()); }
-std::string PolicySettings::CheckMinStandardTxSize() const { return CheckMinStandardTxSize(g_chainstate_manager.RulesLatest().MaxBlockSize()); }

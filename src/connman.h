@@ -230,8 +230,6 @@ public:
     // response true if the limit for serving historical blocks has been reached
     // max_block_size sizes the buffer kept for serving each new block once
     bool OutboundTargetReached(bool historicalBlockServingLimit, uint32_t max_block_size);
-    //! At the active chain's block size limit; goes with g_chainstate_manager.
-    bool OutboundTargetReached(bool historicalBlockServingLimit);
 
     //!response the bytes left in the current max outbound cycle
     // in case of no limit, it will always response 0

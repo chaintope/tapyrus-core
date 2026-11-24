@@ -173,4 +173,3 @@ void OrphanTxPool::AddChildrenToWorkSet(const CTransaction& tx, std::set<uint256
     }
 }
 
-bool OrphanTxPool::AddOrphanTx(const CTransactionRef& tx, NodeId peer) { return AddOrphanTx(tx, peer, g_chainstate_manager.RulesLatest().MaxBlockSize()); }

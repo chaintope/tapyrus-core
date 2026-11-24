@@ -165,4 +165,3 @@ uint256 CPartialMerkleTree::ExtractMatches(std::vector<uint256> &vMatch, std::ve
     return hashMerkleRoot;
 }
 
-uint256 CPartialMerkleTree::ExtractMatches(std::vector<uint256> &vMatch, std::vector<unsigned int> &vnIndex) { return ExtractMatches(vMatch, vnIndex, g_chainstate_manager.XFieldHistory().GetCurrentMaxBlockSize()); }

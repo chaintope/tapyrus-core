@@ -68,13 +68,14 @@ struct BasicTestingSetup {
     explicit BasicTestingSetup(const std::string& chainName = TAPYRUS_MODES::PROD);
     ~BasicTestingSetup();
 
+    //! The block size limit the latest xfield sets, as the node applies it to new transactions.
+    uint32_t MaxBlockSize() const;
     fs::path SetDataDir(const std::string& name);
     fs::path GetDataDir();
 private:
     const fs::path m_path_root;
 protected:
-    // The chain's xfield history (g_chainstate_manager's), shared by every
-    // test in the binary.
+    // This test's chain xfield history, which its ChainstateManager owns.
     static CXFieldHistory* pxFieldHistory;
 };
 
@@ -93,7 +94,7 @@ private:
     std::unique_ptr<const PolicySettings> m_settings;
 };
 
-/** Replaces g_chainstate_manager's options for the life of this object, then restores the previous ones. */
+/** Replaces a ChainstateManager's options for the life of this object, then restores the previous ones. */
 class ChainstateOptionsOverride
 {
 public:
@@ -103,10 +104,11 @@ public:
     /** Options built from these arguments alone, with -checkblockindex on and -par=1 (no worker threads) unless they say otherwise. */
     static ChainstateManager::Options TestOptions(const std::vector<std::pair<std::string, std::string>>& args, size_t coinCacheUsage = TEST_COIN_CACHE_USAGE);
 
-    explicit ChainstateOptionsOverride(const ChainstateManager::Options& options);
+    ChainstateOptionsOverride(ChainstateManager& chainman, const ChainstateManager::Options& options);
     ~ChainstateOptionsOverride();
 
 private:
+    ChainstateManager& m_chainman;
     const ChainstateManager::Options m_previous;
 };
 
@@ -150,6 +152,9 @@ struct TestChainSetup : public TestingSetup {
 
     //creates empty blocks and fills m_coinbase_txns with the new txids
     void refillCoinbase(int count = 10);
+
+    //! Adds tx to the mempool with its limits bypassed; true if it was accepted as valid.
+    bool AcceptToMempool(const CTransactionRef& tx);
 
     ~TestChainSetup(){}
 
