@@ -6,6 +6,7 @@
 #ifndef TAPYRUS_WALLET_WALLETINIT_H
 #define TAPYRUS_WALLET_WALLETINIT_H
 
+#include <wallet/walleteventqueue.h>
 #include <walletinitinterface.h>
 
 class WalletInit : public WalletInitInterface {
@@ -27,6 +28,7 @@ public:
 
     void SetChainInterface(interfaces::Chain* chain) const override { m_chain = chain; }
     interfaces::Chain* GetChainInterface() const override { return m_chain; }
+    WalletEvents* GetWalletEvents() const override { return &m_events; }
 
     //! Load wallet databases.
     bool Open() const override;
@@ -46,6 +48,8 @@ public:
 private:
     //! Mutable because the program holds WalletInit as a const reference.
     mutable interfaces::Chain* m_chain{nullptr};
+    //! The wallet thread and its queue; started when the wallets open.
+    mutable WalletEventQueue m_events;
 };
 
 #endif // TAPYRUS_WALLET_WALLETINIT_H

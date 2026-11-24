@@ -9,6 +9,7 @@
 
 class CScheduler;
 class CRPCTable;
+class WalletEvents;
 
 namespace interfaces {
 class Chain;
@@ -28,6 +29,8 @@ public:
     virtual void SetChainInterface(interfaces::Chain* chain) const = 0;
     /** The node set above, for wallets loaded later */
     virtual interfaces::Chain* GetChainInterface() const = 0;
+    /** The queue the wallet thread delivers the wallets' validation events from; null without wallets */
+    virtual WalletEvents* GetWalletEvents() const = 0;
     /** Open wallets*/
     virtual bool Open() const = 0;
     /** Start wallets*/

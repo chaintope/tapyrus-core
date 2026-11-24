@@ -10,6 +10,7 @@
 #include <test/test_tapyrus.h>
 
 #include <wallet/wallet.h>
+#include <wallet/walleteventqueue.h>
 
 #include <memory>
 
@@ -21,6 +22,8 @@ struct WalletTestingSetup: public TestingSetup {
 
     std::unique_ptr<interfaces::Chain> m_chain{interfaces::MakeChain(m_node)};
     CWallet m_wallet;
+    //! Delivers m_wallet's validation events on a wallet thread, as the node does.
+    WalletEventQueue m_wallet_events;
 };
 
 #endif // BITCOIN_WALLET_TEST_WALLET_TEST_FIXTURE_H

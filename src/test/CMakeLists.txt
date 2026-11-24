@@ -497,6 +497,7 @@ if(ENABLE_WALLET)
             ../wallet/test/wallet_crypto_tests.cpp
             ../wallet/test/wallet_test_fixture.cpp
             ../wallet/test/wallet_tests.cpp
+            ../wallet/test/walleteventqueue_tests.cpp
             ../wallet/test/create_transaction_tests.cpp
             ../wallet/test/test_tapyrus_wallet.cpp
     )

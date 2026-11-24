@@ -2579,7 +2579,7 @@ static UniValue loadwallet(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_WALLET_ERROR, "Wallet file verification failed: " + error);
     }
 
-    std::shared_ptr<CWallet> const wallet = CWallet::CreateWalletFromFile(g_wallet_init_interface.GetChainInterface(), wallet_file, wallet_path);
+    std::shared_ptr<CWallet> const wallet = CWallet::CreateWalletFromFile(g_wallet_init_interface.GetChainInterface(), *g_wallet_init_interface.GetWalletEvents(), wallet_file, wallet_path);
     if (!wallet) {
         throw JSONRPCError(RPC_WALLET_ERROR, "Wallet loading failed.");
     }
@@ -2633,7 +2633,7 @@ static UniValue createwallet(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_WALLET_ERROR, "Wallet file verification failed: " + error);
     }
 
-    std::shared_ptr<CWallet> const wallet = CWallet::CreateWalletFromFile(g_wallet_init_interface.GetChainInterface(), wallet_name, wallet_path, (disable_privatekeys ? (uint64_t)WALLET_FLAG_DISABLE_PRIVATE_KEYS : 0));
+    std::shared_ptr<CWallet> const wallet = CWallet::CreateWalletFromFile(g_wallet_init_interface.GetChainInterface(), *g_wallet_init_interface.GetWalletEvents(), wallet_name, wallet_path, (disable_privatekeys ? (uint64_t)WALLET_FLAG_DISABLE_PRIVATE_KEYS : 0));
     if (!wallet) {
         throw JSONRPCError(RPC_WALLET_ERROR, "Wallet creation failed.");
     }
@@ -2683,7 +2683,7 @@ static UniValue unloadwallet(const JSONRPCRequest& request)
     if (!RemoveWallet(wallet)) {
         throw JSONRPCError(RPC_MISC_ERROR, "Requested wallet already unloaded");
     }
-    UnregisterValidationInterface(wallet.get());
+    g_wallet_init_interface.GetWalletEvents()->Unregister(*wallet);
 
     // The wallet can be in use so it's not possible to explicitly unload here.
     // Just notify the unload intent so that all shared pointers are released.

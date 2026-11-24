@@ -181,10 +181,12 @@ bool WalletInit::Open() const
         return true;
     }
 
+    m_events.Start();
+
     for (const std::string& walletFile : gArgs.GetArgs("-wallet")) {
         fs::path wallet_path = fs::path(walletFile).is_absolute() ? fs::path(walletFile) : GetWalletDir() / fs::path(walletFile);
 
-        std::shared_ptr<CWallet> pwallet = CWallet::CreateWalletFromFile(m_chain, walletFile, wallet_path);
+        std::shared_ptr<CWallet> pwallet = CWallet::CreateWalletFromFile(m_chain, m_events, walletFile, wallet_path);
         if (!pwallet) {
             return false;
         }
@@ -200,13 +202,15 @@ void WalletInit::Start(CScheduler& scheduler) const
         pwallet->postInitProcess();
     }
 
-    // Schedule periodic wallet flushes and tx rebroadcasts
+    // Schedule periodic wallet flushes, and tx rebroadcasts on the wallet thread
     scheduler.scheduleEvery(MaybeCompactWalletDB, 500);
-    scheduler.scheduleEvery(MaybeResendWalletTxs, 1000);
+    m_events.ScheduleEvery([this] { m_events.ResendWalletTransactions(); }, std::chrono::milliseconds{1000});
 }
 
 void WalletInit::Flush() const
 {
+    // Shutdown has begun: the resend uses the network and the block files, which go away next.
+    m_events.CancelTasks();
     for (const std::shared_ptr<CWallet>& pwallet : GetWallets()) {
         pwallet->Flush(false);
     }
@@ -214,6 +218,8 @@ void WalletInit::Flush() const
 
 void WalletInit::Stop() const
 {
+    // Deliver the events still queued before the wallets flush.
+    m_events.Stop();
     for (const std::shared_ptr<CWallet>& pwallet : GetWallets()) {
         pwallet->Flush(true);
     }

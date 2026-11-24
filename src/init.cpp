@@ -104,6 +104,7 @@ public:
     bool Verify() const override {return true;}
     void SetChainInterface(interfaces::Chain* chain) const override {}
     interfaces::Chain* GetChainInterface() const override {return nullptr;}
+    WalletEvents* GetWalletEvents() const override {return nullptr;}
     bool Open() const override {LogPrintf("No wallet support compiled in!\n"); return true;}
     void Start(CScheduler& scheduler) const override {}
     void Flush() const override {}
@@ -247,6 +248,8 @@ void Shutdown(NodeContext& node)
     // After there are no more peers/RPC left to give us new data which may generate
     // CValidationInterface callbacks, flush them...
     GetMainSignals().FlushBackgroundCallbacks();
+    // Delivers the events just flushed to the wallet thread while the chainstate still exists.
+    g_wallet_init_interface.Stop();
 
     // Any future callbacks will be dropped. This should absolutely be safe - if
     // missing a callback results in an unrecoverable situation, unclean shutdown
@@ -268,7 +271,6 @@ void Shutdown(NodeContext& node)
         g_chainstate_manager.BlockIndex().pblocktreedb.reset();
         g_chainstate_manager.ReleaseBlockFileManager();
     }
-    g_wallet_init_interface.Stop();
 
 #if ENABLE_ZMQ
     if (g_zmq_notification_interface) {

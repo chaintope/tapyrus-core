@@ -36,6 +36,19 @@
 
 class CWallet;
 
+//! Where a wallet gets its validation events from; WalletEventQueue delivers them on the wallet thread.
+class WalletEvents
+{
+public:
+    virtual ~WalletEvents() = default;
+    //! Delivers later events to wallet.
+    virtual void Register(CWallet& wallet) = 0;
+    //! Stops delivery to wallet, waiting for a delivery in progress to finish.
+    virtual void Unregister(CWallet& wallet) = 0;
+    //! Waits until the events queued before the call are delivered.
+    virtual void Sync() = 0;
+};
+
 bool AddWallet(const std::shared_ptr<CWallet>& wallet);
 bool RemoveWallet(const std::shared_ptr<CWallet>& wallet);
 bool HasWallets();
@@ -673,6 +686,8 @@ private:
     bool fBroadcastTransactions = false;
     // Local time that the tip block was received. Used to schedule wallet rebroadcasts.
     std::atomic<int64_t> m_best_block_time {0};
+    //! The queue delivering this wallet's validation events; null while it gets none.
+    std::atomic<WalletEvents*> m_event_queue{nullptr};
 
     /**
      * Used to keep track of spent outpoints, and
@@ -1141,7 +1156,7 @@ public:
     static bool Verify(std::string wallet_file, bool salvage_wallet, std::string& error_string, std::optional<SalvagedWalletFile>& salvaged);
 
     /* Initializes the wallet, returns a new CWallet instance or a null pointer in case of an error */
-    static std::shared_ptr<CWallet> CreateWalletFromFile(interfaces::Chain* chain, const std::string& name, const fs::path& path, uint64_t wallet_creation_flags = 0);
+    static std::shared_ptr<CWallet> CreateWalletFromFile(interfaces::Chain* chain, WalletEvents& events, const std::string& name, const fs::path& path, uint64_t wallet_creation_flags = 0);
 
     /**
      * Wallet post-init setup
@@ -1177,6 +1192,9 @@ public:
      * deadlock
      */
     void BlockUntilSyncedToCurrentChain() LOCKS_EXCLUDED(cs_wallet);
+
+    //! Set by WalletEvents when it starts or stops delivering to this wallet.
+    void SetEventQueue(WalletEvents* queue) { m_event_queue = queue; }
 
     /** set a single wallet flag */
     void SetWalletFlag(uint64_t flags);
@@ -1306,10 +1324,4 @@ public:
 // be IsAllFromMe).
 int64_t CalculateMaximumSignedTxSize(const CTransaction &tx, const CWallet *wallet, bool use_max_sig = false);
 int64_t CalculateMaximumSignedTxSize(const CTransaction &tx, const CWallet *wallet, const std::vector<CTxOut>& txouts, bool use_max_sig = false);
-
-/**
- * Called periodically by the schedule thread. Prompts individual wallets to resend
- * their transactions. Actual rebroadcast schedule is managed by the wallets themselves.
- */
-void MaybeResendWalletTxs();
 #endif // BITCOIN_WALLET_WALLET_H

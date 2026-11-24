@@ -1241,6 +1241,11 @@ void CWallet::BlockUntilSyncedToCurrentChain() {
     AssertLockNotHeld(cs_main);
     AssertLockNotHeld(cs_wallet);
 
+    // A wallet that gets no events cannot catch up by waiting. This also keeps a
+    // release on the wallet thread from waiting on the node's queue.
+    WalletEvents* queue = m_event_queue;
+    if (!queue) return;
+
     {
         // Skip the queue-draining stuff if we know we're caught up with
         // the active tip...
@@ -1259,6 +1264,8 @@ void CWallet::BlockUntilSyncedToCurrentChain() {
     // for the queue to drain enough to execute it (indicating we are caught up
     // at least with the time we entered this function).
     SyncWithValidationInterfaceQueue();
+    // The node's queue has handed its events on to the wallet thread; wait for those too.
+    queue->Sync();
 }
 
 
@@ -2041,13 +2048,6 @@ void CWallet::ResendWalletTransactions()
     }
     if (!relayed.empty())
         WalletLogPrintf("%s: rebroadcast %u unconfirmed transactions\n", __func__, relayed.size());
-}
-
-void MaybeResendWalletTxs()
-{
-    for (const std::shared_ptr<CWallet>& pwallet : GetWallets()) {
-        pwallet->ResendWalletTransactions();
-    }
 }
 
 /** @} */ // end of mapWallet
@@ -4090,7 +4090,7 @@ bool CWallet::Verify(std::string wallet_file, bool salvage_wallet, std::string& 
     return WalletBatch::VerifyDatabaseFile(wallet_path, salvaged, error_string);
 }
 
-std::shared_ptr<CWallet> CWallet::CreateWalletFromFile(interfaces::Chain* chain, const std::string& name, const fs::path& path, uint64_t wallet_creation_flags)
+std::shared_ptr<CWallet> CWallet::CreateWalletFromFile(interfaces::Chain* chain, WalletEvents& events, const std::string& name, const fs::path& path, uint64_t wallet_creation_flags)
 {
     const std::string& walletFile = name;
     WalletNotifications* notifications = chain ? &chain->notifications() : nullptr;
@@ -4301,6 +4301,11 @@ std::shared_ptr<CWallet> CWallet::CreateWalletFromFile(interfaces::Chain* chain,
     // Try to top up keypool. No-op if the wallet is locked.
     walletInstance->TopUpKeyPool();
 
+    // Register before the rescan, as Core does, so no block connected meanwhile is missed.
+    events.Register(*walletInstance);
+
+    // Unregister waits for a delivery, which takes cs_main, so a failed rescan returns here first.
+    const bool rescanned = [&]() -> bool {
     LOCK(cs_main);
 
     CBlockIndex *pindexRescan = g_chainstate_manager.ActiveChain().Genesis();
@@ -4327,7 +4332,7 @@ std::shared_ptr<CWallet> CWallet::CreateWalletFromFile(interfaces::Chain* chain,
 
             if (pindexRescan != block) {
                 InitError(_("Prune: last wallet synchronisation goes beyond pruned data. You need to -reindex (download the whole blockchain again in case of pruned node)"));
-                return nullptr;
+                return false;
             }
         }
 
@@ -4345,7 +4350,7 @@ std::shared_ptr<CWallet> CWallet::CreateWalletFromFile(interfaces::Chain* chain,
             WalletRescanReserver reserver(walletInstance.get());
             if (!reserver.reserve()) {
                 InitError(_("Failed to rescan the wallet during initialization"));
-                return nullptr;
+                return false;
             }
             walletInstance->ScanForWalletTransactions(pindexRescan, nullptr, reserver, true);
         }
@@ -4378,11 +4383,14 @@ std::shared_ptr<CWallet> CWallet::CreateWalletFromFile(interfaces::Chain* chain,
             }
         }
     }
+    return true;
+    }();
+    if (!rescanned) {
+        events.Unregister(*walletInstance);
+        return nullptr;
+    }
 
     uiInterface.LoadWallet(walletInstance);
-
-    // Register with the validation interface. It's ok to do this after rescan since we're still holding cs_main.
-    RegisterValidationInterface(walletInstance.get());
 
     walletInstance->SetBroadcastTransactions(gArgs.GetBoolArg("-walletbroadcast", DEFAULT_WALLETBROADCAST));
 
