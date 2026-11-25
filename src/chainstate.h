@@ -28,6 +28,7 @@ class CBlockTreeDB;
 class CCoinsViewDB;
 class ChainstateManager;
 class CIssuedColorIds;
+struct DisconnectedBlockTransactions;
 
 
 enum class FlushStateMode {

@@ -200,6 +200,7 @@ endif()
 # tapyrus_chainstate/leveldb onto their link line just by needing tapyrus_util.
 add_library(tapyrus_util STATIC EXCLUDE_FROM_ALL
         fs.cpp
+        hasher.cpp
         interfaces/handler.cpp
         logging.cpp
         policy/feerate.cpp
@@ -356,6 +357,8 @@ add_library(tapyrus_chainstate STATIC EXCLUDE_FROM_ALL
   index/base.cpp
   index/txindex.cpp
   issuedcolorids.cpp
+  mempoolentry.cpp
+  mempoolremovalreason.cpp
   miner.cpp
   policy/fees.cpp
   policy/packages.cpp

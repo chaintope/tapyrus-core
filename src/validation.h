@@ -15,6 +15,7 @@
 #include <coinsviewcache.h>
 #include <fs.h>
 #include <policy/feerate.h>
+#include <policy/packages.h>
 #include <script/script_error.h>
 #include <sync.h>
 #include <chainparams.h>
@@ -282,5 +283,32 @@ int GetSpendHeight(const CCoinsViewCache& inputs);
 static const unsigned int REJECT_INTERNAL = 0x100;
 /** Too high fee. Can not be triggered by P2P transactions */
 static const unsigned int REJECT_HIGHFEE = 0x100;
+
+/** Puts the transactions not already in the mempool into package; the others get a duplicate rejection in results. */
+void FilterMempoolDuplicates(const std::vector<CTransaction>& txns, Package& package, PackageValidationState& results);
+
+/**
+ * SubmitPackageToMempool is used to submit the package to mempool after validation checks.
+ * It gives granular results with the state of each transaction in the package and
+ * the state of the package as a whole.
+ *
+ * Admission is NOT atomic. Transactions are evaluated and admitted individually in
+ * package order. A false return value means at least one transaction was rejected, but
+ * earlier transactions in the package may already have been admitted. This is intentional:
+ * packages are a submission convenience, not an all-or-nothing commit. Callers must
+ * inspect per-transaction results to determine which transactions were admitted.
+ * Results describe the mempool after the whole package: a transaction a later one
+ * trimmed is "mempool full", and one a later one replaced is "replaced-in-package".
+ *
+ * @param package The package of transactions to be submitted.
+ * @param state A reference to the validation state that tracks the package validation results.
+ * @param results A reference to the package validation state that records the validation outcome of each transaction.
+ * @param opt Options that control how the mempool accepts transactions.
+ * @return True if all transactions in the package were successfully accepted, false otherwise.
+ */
+bool SubmitPackageToMempool(const Package& package,
+                                  CValidationState& state,
+                                  PackageValidationState& results,
+                                  CTxMempoolAcceptanceOptions& opt);
 
 #endif // BITCOIN_VALIDATION_H

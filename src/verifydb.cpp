@@ -6,7 +6,7 @@
 
 #include <chainstatemanager.h>
 #include <checkblock.h>
-#include <policy/packages.h>
+#include <validation.h>
 #include <shutdown.h>
 #include <ui_interface.h>
 #include <blockfilemanager.h>

@@ -9,6 +9,7 @@
 #include <chainparams.h>
 #include <checkblock.h>
 #include <consensussettings.h>
+#include <disconnectedtransactions.h>
 #include <util.h>
 #include <issuedcolorids.h>
 
@@ -22,6 +23,7 @@
 #include <transactioncolorchecker.h>
 #include <ui_interface.h>
 #include <chainnotifications.h>
+#include <validation.h>
 #include <xfieldhistory.h>
 
 #include <deque>

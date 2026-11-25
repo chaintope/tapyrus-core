@@ -8,10 +8,11 @@
 #include <policy/policy.h>
 
 #include <clientversion.h>
+#include <cmath>
+#include <mempoolentry.h>
 #include <primitives/transaction.h>
 #include <stdexcept>
 #include <streams.h>
-#include <txmempool.h>
 #include <util.h>
 
 static constexpr double INF_FEERATE = 1e99;

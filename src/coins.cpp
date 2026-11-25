@@ -31,4 +31,3 @@ bool CCoinsViewBacked::BatchWrite(CoinsViewCacheCursor& cursor, const uint256 &h
 CCoinsViewCursor *CCoinsViewBacked::Cursor() const { return base->Cursor(); }
 size_t CCoinsViewBacked::EstimateSize() const { return base->EstimateSize(); }
 
-SaltedOutpointHasher::SaltedOutpointHasher() : k0(GetRand(std::numeric_limits<uint64_t>::max())), k1(GetRand(std::numeric_limits<uint64_t>::max())) {}
