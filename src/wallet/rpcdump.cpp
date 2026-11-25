@@ -4,11 +4,11 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <chain.h>
-#include <interfaces/chain.h>
 #include <blockindex.h>
 #include <clientversion.h>
 #include <key_io.h>
 #include <rpc/protocol.h>
+#include <interfaces/chain.h>
 #include <rpc/server.h>
 #include <rpc/jsonrpcrequest.h>
 #include <validation.h>
@@ -401,12 +401,10 @@ UniValue importprunedfunds(const JSONRPCRequest& request)
     int height = 0;
     if (merkleBlock.txn.ExtractMatches(vMatch, vIndex) == merkleBlock.header.hashImMerkleRoot) {
 
-        LOCK(cs_main);
-        const CBlockIndex* pindex = pwallet->chain().lookupBlockIndex(merkleBlock.header.GetHash());
-        if (!pindex || !pwallet->chain().isInActiveChain(pindex)) {
+        bool in_active_chain{false};
+        if (!pwallet->chain().findBlock(merkleBlock.header.GetHash(), interfaces::FoundBlock().height(height).inActiveChain(in_active_chain)) || !in_active_chain) {
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Block not found in chain");
         }
-        height = pindex->nHeight;
 
         std::vector<uint256>::const_iterator it;
         if ((it = std::find(vMatch.begin(), vMatch.end(), hashTx))==vMatch.end()) {
@@ -584,7 +582,9 @@ UniValue importwallet(const JSONRPCRequest& request)
         if (!file.is_open()) {
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Cannot open wallet dump file");
         }
-        nTimeBegin = pwallet->chain().getTip()->GetBlockTime();
+        if (!pwallet->chain().findBlock(pwallet->GetLastBlockHash(), interfaces::FoundBlock().time(nTimeBegin))) {
+            throw JSONRPCError(RPC_INTERNAL_ERROR, "The wallet's last block is not in the block index");
+        }
 
         int64_t nFilesize = std::max((int64_t)1, (int64_t)file.tellg());
         file.seekg(0, file.beg);
@@ -797,8 +797,12 @@ UniValue dumpwallet(const JSONRPCRequest& request)
     // produce output
     file << strprintf("# Wallet dump created by Tapyrus %s\n", FormatFullVersion());
     file << strprintf("# * Created on %s\n", FormatISO8601DateTime(GetTime()));
-    file << strprintf("# * Best block at time of backup was %i (%s),\n", pwallet->chain().getHeight(), pwallet->chain().getTip()->GetBlockHash().ToString());
-    file << strprintf("#   mined on %s\n", FormatISO8601DateTime(pwallet->chain().getTip()->GetBlockTime()));
+    file << strprintf("# * Best block at time of backup was %i (%s),\n", pwallet->GetLastBlockHeight(), pwallet->GetLastBlockHash().ToString());
+    int64_t block_time = 0;
+    if (!pwallet->chain().findBlock(pwallet->GetLastBlockHash(), interfaces::FoundBlock().time(block_time))) {
+        throw JSONRPCError(RPC_INTERNAL_ERROR, "The wallet's last block is not in the block index");
+    }
+    file << strprintf("#   mined on %s\n", FormatISO8601DateTime(block_time));
     file << "\n";
 
     // add the base58check encoded extended master if the wallet uses HD
@@ -1260,15 +1264,18 @@ UniValue importmulti(const JSONRPCRequest& mainRequest)
         EnsureWalletIsUnlocked(pwallet);
 
         // Verify all timestamps are present before importing any keys.
-        now = pwallet->chain().getTip() ? pwallet->chain().getTip()->GetMedianTimePast() : 0;
+        int64_t tip_time = 0;
+        if (!pwallet->chain().findBlock(pwallet->GetLastBlockHash(), interfaces::FoundBlock().time(tip_time).mtpTime(now))) {
+            now = 0;
+        }
         for (const UniValue& data : requests.getValues()) {
             GetImportTimestamp(data, now);
         }
 
         const int64_t minimumTimestamp = 1;
 
-        if (fRescan && pwallet->chain().getTip()) {
-            nLowestTimestamp = pwallet->chain().getTip()->GetBlockTime();
+        if (fRescan && now) {
+            nLowestTimestamp = tip_time;
         } else {
             fRescan = false;
         }

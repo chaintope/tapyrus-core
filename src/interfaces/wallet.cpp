@@ -7,8 +7,8 @@
 
 #include <amount.h>
 #include <blockfilemanager.h>
-#include <interfaces/chain.h>
 #include <coloridentifier.h>
+#include <interfaces/chain.h>
 #include <key_io.h>
 #include <univalue.h>
 #include <utilstrencodings.h>
@@ -103,15 +103,14 @@ WalletTx MakeWalletTx(CWallet& wallet, const CWalletTx& wtx)
 }
 
 //! Construct wallet tx status struct.
-WalletTxStatus MakeWalletTxStatus(interfaces::Chain& chain, const CWalletTx& wtx) EXCLUSIVE_LOCKS_REQUIRED(cs_main)
+WalletTxStatus MakeWalletTxStatus(CWallet& wallet, const CWalletTx& wtx)
 {
     WalletTxStatus result;
-    CBlockIndex* block = chain.lookupBlockIndex(wtx.m_confirm.hashBlock);
-    result.block_height = (block ? block->nHeight : std::numeric_limits<int>::max());
+    result.block_height = wtx.m_confirm.block_height > 0 ? wtx.m_confirm.block_height : std::numeric_limits<int>::max();
     result.depth_in_main_chain = wtx.GetDepthInMainChain();
     result.time_received = wtx.nTimeReceived;
     result.lock_time = wtx.tx->nLockTime;
-    result.is_final = chain.checkFinalTx(*wtx.tx);
+    result.is_final = wallet.chain().checkFinalTx(*wtx.tx);
     result.is_trusted = wtx.IsTrusted();
     result.is_abandoned = wtx.isAbandoned();
     result.is_coinbase = wtx.IsCoinBase();
@@ -325,9 +324,9 @@ public:
         if (mi == m_wallet.mapWallet.end()) {
             return false;
         }
-        num_blocks = m_wallet.chain().getHeight();
+        num_blocks = m_wallet.GetLastBlockHeight();
         adjusted_time = GetAdjustedTime();
-        tx_status = MakeWalletTxStatus(m_wallet.chain(), mi->second);
+        tx_status = MakeWalletTxStatus(m_wallet, mi->second);
         return true;
     }
     WalletTx getWalletTxDetails(const uint256& txid,
@@ -340,11 +339,11 @@ public:
         LOCK2(::cs_main, m_wallet.cs_wallet);
         auto mi = m_wallet.mapWallet.find(txid);
         if (mi != m_wallet.mapWallet.end()) {
-            num_blocks = m_wallet.chain().getHeight();
+            num_blocks = m_wallet.GetLastBlockHeight();
             adjusted_time = GetAdjustedTime();
             in_mempool = mi->second.InMempool();
             order_form = mi->second.vOrderForm;
-            tx_status = MakeWalletTxStatus(m_wallet.chain(), mi->second);
+            tx_status = MakeWalletTxStatus(m_wallet, mi->second);
             return MakeWalletTx(m_wallet, mi->second);
         }
         return {};
@@ -370,7 +369,7 @@ public:
             return false;
         }
         balances = getBalances();
-        num_blocks = m_wallet.chain().getHeight();
+        num_blocks = m_wallet.GetLastBlockHeight();
         return true;
     }
     CAmount getBalance(ColorIdentifier colorId) override { return m_wallet.GetBalance()[colorId]; }

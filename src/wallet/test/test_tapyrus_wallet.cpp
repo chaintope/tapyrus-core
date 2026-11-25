@@ -83,7 +83,7 @@ bool TestWalletSetup::ProcessBlockAndScanForWalletTxns(const CTransactionRef tx)
     WalletRescanReserver reserver(wallet.get());
     reserver.reserve();
 
-    if(wallet->ScanForWalletTransactions(g_chainstate_manager.ActiveChain().Genesis(), nullptr, reserver, true)) {
+    if (wallet->ScanForWalletTransactions(g_chainstate_manager.ActiveChain().Genesis()->GetBlockHash(), 0, {}, reserver, true).status != CWallet::ScanResult::SUCCESS) {
         return false;
     }
 
