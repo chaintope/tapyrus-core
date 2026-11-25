@@ -36,7 +36,6 @@
 #include <wallet/walletutil.h>
 #include <trace.h>
 #include <blockfilemanager.h>
-#include <chainstatemanager.h>
 
 #include <algorithm>
 #include <assert.h>
@@ -1121,13 +1120,12 @@ bool CWallet::AbandonTransaction(const uint256& hashTx)
 
 void CWallet::MarkConflicted(const uint256& hashBlock, const uint256& hashTx)
 {
-    BlockIndexMap& blockIndex = g_chainstate_manager.BlockIndex();
     LOCK2(cs_main, cs_wallet);
 
     int conflictconfirms = 0;
-    CBlockIndex* pindex = blockIndex.LookupBlockIndex(hashBlock);
-    if (pindex && g_chainstate_manager.ActiveChain().Contains(pindex)) {
-        conflictconfirms = -(g_chainstate_manager.ActiveChain().Height() - pindex->nHeight + 1);
+    CBlockIndex* pindex = chain().lookupBlockIndex(hashBlock);
+    if (pindex && chain().isInActiveChain(pindex)) {
+        conflictconfirms = -(chain().getHeight() - pindex->nHeight + 1);
     }
     // If number of conflict confirms cannot be determined, this means
     // that the block is still unknown or not yet part of the main chain,
@@ -1253,7 +1251,7 @@ void CWallet::BlockUntilSyncedToCurrentChain() {
         // protected by cs_wallet instead of cs_main, but as long as we need
         // cs_main here anyway, it's easier to just call it cs_main-protected.
         LOCK(cs_main);
-        const CBlockIndex* initialChainTip = g_chainstate_manager.ActiveChain().Tip();
+        const CBlockIndex* initialChainTip = chain().getTip();
 
         if (m_last_block_processed && m_last_block_processed->GetAncestor(initialChainTip->nHeight) == initialChainTip) {
             return;
@@ -1670,8 +1668,8 @@ int64_t CWallet::RescanFromTime(int64_t startTime, const WalletRescanReserver& r
     CBlockIndex* startBlock = nullptr;
     {
         LOCK(cs_main);
-        startBlock = g_chainstate_manager.ActiveChain().FindEarliestAtLeast(startTime - TIMESTAMP_WINDOW);
-        WalletLogPrintf("%s: Rescanning last %i blocks\n", __func__, startBlock ? g_chainstate_manager.ActiveChain().Height() - startBlock->nHeight + 1 : 0);
+        startBlock = chain().findEarliestAtLeast(startTime - TIMESTAMP_WINDOW);
+        WalletLogPrintf("%s: Rescanning last %i blocks\n", __func__, startBlock ? chain().getHeight() - startBlock->nHeight + 1 : 0);
     }
 
     if (startBlock) {
@@ -1721,12 +1719,12 @@ CBlockIndex* CWallet::ScanForWalletTransactions(CBlockIndex* pindexStart, CBlock
         double progress_end;
         {
             LOCK(cs_main);
-            progress_begin = g_chainstate_manager.Progress().Guess(pindex);
+            progress_begin = chain().guessVerificationProgress(pindex);
             if (pindexStop == nullptr) {
-                tip = g_chainstate_manager.ActiveChain().Tip();
-                progress_end = g_chainstate_manager.Progress().Guess(tip);
+                tip = chain().getTip();
+                progress_end = chain().guessVerificationProgress(tip);
             } else {
-                progress_end = g_chainstate_manager.Progress().Guess(pindexStop);
+                progress_end = chain().guessVerificationProgress(pindexStop);
             }
         }
         double progress_current = progress_begin;
@@ -1741,9 +1739,9 @@ CBlockIndex* CWallet::ScanForWalletTransactions(CBlockIndex* pindexStart, CBlock
             }
 
             CBlock block;
-            if (g_chainstate_manager.ReadBlock(block, pindex)) {
+            if (chain().readBlock(block, pindex)) {
                 LOCK2(cs_main, cs_wallet);
-                if (pindex && !g_chainstate_manager.ActiveChain().Contains(pindex)) {
+                if (pindex && !chain().isInActiveChain(pindex)) {
                     // Abort scan if current block is no longer active, to prevent
                     // marking transactions as coming from the wrong block.
                     ret = pindex;
@@ -1760,12 +1758,12 @@ CBlockIndex* CWallet::ScanForWalletTransactions(CBlockIndex* pindexStart, CBlock
             }
             {
                 LOCK(cs_main);
-                pindex = g_chainstate_manager.ActiveChain().Next(pindex);
-                progress_current = g_chainstate_manager.Progress().Guess(pindex);
-                if (pindexStop == nullptr && tip != g_chainstate_manager.ActiveChain().Tip()) {
-                    tip = g_chainstate_manager.ActiveChain().Tip();
+                pindex = chain().getNext(pindex);
+                progress_current = chain().guessVerificationProgress(pindex);
+                if (pindexStop == nullptr && tip != chain().getTip()) {
+                    tip = chain().getTip();
                     // in case the tip has changed, update progress max
-                    progress_end = g_chainstate_manager.Progress().Guess(tip);
+                    progress_end = chain().guessVerificationProgress(tip);
                 }
             }
         }
@@ -1955,7 +1953,7 @@ bool CWalletTx::InMempool() const
 bool CWalletTx::IsTrusted() const
 {
     // Quick answer in most cases
-    if (!CheckFinalTx(*tx))
+    if (pwallet->HaveChain() && !pwallet->chain().checkFinalTx(*tx))
         return false;
     int nDepth = GetDepthInMainChain();
     if (nDepth >= 1)
@@ -2133,7 +2131,7 @@ CAmount CWallet::GetLegacyBalance(const isminefilter& filter, int minDepth, cons
     for (const auto& entry : mapWallet) {
         const CWalletTx& wtx = entry.second;
         const int depth = wtx.GetDepthInMainChain();
-        if (depth < 0 || !CheckFinalTx(*wtx.tx)) {
+        if (depth < 0 || (HaveChain() && !chain().checkFinalTx(*wtx.tx))) {
             continue;
         }
 
@@ -2195,7 +2193,7 @@ void CWallet::AvailableCoins(std::vector<COutput> &vCoins, bool fOnlySafe, const
         const uint256& wtxid = entry.first;
         const CWalletTx* pcoin = &entry.second;
 
-        if (!CheckFinalTx(*pcoin->tx))
+        if (HaveChain() && !chain().checkFinalTx(*pcoin->tx))
             continue;
 
         int nDepth = pcoin->GetDepthInMainChain();
@@ -2705,7 +2703,7 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
     // enough, that fee sniping isn't a problem yet, but by implementing a fix
     // now we ensure code won't be written that makes assumptions about
     // nLockTime that preclude a fix later.
-    txNew.nLockTime = g_chainstate_manager.ActiveChain().Height();
+    txNew.nLockTime = chain().getHeight();
 
     // Secondly occasionally randomly pick a nLockTime even further back, so
     // that transactions that are delayed after signing for whatever reason,
@@ -2714,7 +2712,7 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
     if (GetRandInt(10) == 0)
         txNew.nLockTime = std::max(0, (int)txNew.nLockTime - GetRandInt(100));
 
-    assert(txNew.nLockTime <= (unsigned int)g_chainstate_manager.ActiveChain().Height());
+    assert(txNew.nLockTime <= (unsigned int)chain().getHeight());
     assert(txNew.nLockTime < ConsensusConstants::LOCKTIME_THRESHOLD);
     FeeCalculation feeCalc;
     CAmount nFeeNeeded;
@@ -3847,7 +3845,6 @@ void CWallet::ListLockedCoins(std::vector<COutPoint>& vOutpts) const
 /** @} */ // end of Actions
 
 void CWallet::GetKeyBirthTimes(std::map<CTxDestination, int64_t> &mapKeyBirth) const {
-    BlockIndexMap& blockIndex = g_chainstate_manager.BlockIndex();
     AssertLockHeld(cs_wallet); // mapKeyMetadata
     AssertLockHeld(cs_main);
     mapKeyBirth.clear();
@@ -3860,7 +3857,7 @@ void CWallet::GetKeyBirthTimes(std::map<CTxDestination, int64_t> &mapKeyBirth) c
     }
 
     // map in which we'll infer heights of other keys
-    CBlockIndex *pindexMax = g_chainstate_manager.ActiveChain()[std::max(0, g_chainstate_manager.ActiveChain().Height() - 144)]; // the tip can be reorganized; use a 144-block safety margin
+    CBlockIndex *pindexMax = chain().getBlockAtHeight(std::max(0, chain().getHeight() - 144)); // the tip can be reorganized; use a 144-block safety margin
     std::map<CKeyID, CBlockIndex*> mapKeyFirstBlock;
     for (const CKeyID &keyid : GetKeys()) {
         if (mapKeyBirth.count(keyid) == 0)
@@ -3876,8 +3873,8 @@ void CWallet::GetKeyBirthTimes(std::map<CTxDestination, int64_t> &mapKeyBirth) c
     for (const auto& entry : mapWallet) {
         // iterate over all wallet transactions...
         const CWalletTx &wtx = entry.second;
-        CBlockIndex* pindex = blockIndex.LookupBlockIndex(wtx.hashBlock);
-        if (pindex && g_chainstate_manager.ActiveChain().Contains(pindex)) {
+        CBlockIndex* pindex = chain().lookupBlockIndex(wtx.hashBlock);
+        if (pindex && chain().isInActiveChain(pindex)) {
             // ... which are already in a block
             int nHeight = pindex->nHeight;
             for (const CTxOut &txout : wtx.tx->vout) {
@@ -3922,11 +3919,10 @@ void CWallet::GetKeyBirthTimes(std::map<CTxDestination, int64_t> &mapKeyBirth) c
  */
 unsigned int CWallet::ComputeTimeSmart(const CWalletTx& wtx, bool rescanning_old_block) const
 {
-    BlockIndexMap& blockIndex = g_chainstate_manager.BlockIndex();
     unsigned int nTimeSmart = wtx.nTimeReceived;
     if (!wtx.hashUnset()) {
         AssertLockHeld(cs_main);
-        if (const CBlockIndex* pindex = blockIndex.LookupBlockIndex(wtx.hashBlock)) {
+        if (const CBlockIndex* pindex = chain().lookupBlockIndex(wtx.hashBlock)) {
             if(rescanning_old_block)
                 return pindex->nTimeMax;
 
@@ -4219,7 +4215,7 @@ std::shared_ptr<CWallet> CWallet::CreateWalletFromFile(interfaces::Chain* chain,
             return nullptr;
         }
 
-        walletInstance->ChainStateFlushed(g_chainstate_manager.ActiveChain().GetLocator());
+        walletInstance->ChainStateFlushed(walletInstance->chain().getTipLocator());
     } else if (wallet_creation_flags & WALLET_FLAG_DISABLE_PRIVATE_KEYS) {
         // Make it impossible to disable private keys after creation
         InitError(strprintf(_("Error loading %s: Private keys can only be disabled during creation"), walletFile));
@@ -4308,25 +4304,25 @@ std::shared_ptr<CWallet> CWallet::CreateWalletFromFile(interfaces::Chain* chain,
     const bool rescanned = [&]() -> bool {
     LOCK(cs_main);
 
-    CBlockIndex *pindexRescan = g_chainstate_manager.ActiveChain().Genesis();
+    CBlockIndex *pindexRescan = walletInstance->chain().getGenesis();
     if (!gArgs.GetBoolArg("-rescan", false))
     {
         WalletBatch batch(*walletInstance->database);
         CBlockLocator locator;
         if (batch.ReadBestBlock(locator))
-            pindexRescan = FindForkInGlobalIndex(g_chainstate_manager.ActiveChain(), locator);
+            pindexRescan = walletInstance->chain().findLocatorFork(locator);
     }
 
-    walletInstance->m_last_block_processed = g_chainstate_manager.ActiveChain().Tip();
+    walletInstance->m_last_block_processed = walletInstance->chain().getTip();
 
-    if (g_chainstate_manager.ActiveChain().Tip() && g_chainstate_manager.ActiveChain().Tip() != pindexRescan)
+    if (walletInstance->chain().getTip() && walletInstance->chain().getTip() != pindexRescan)
     {
         //We can't rescan beyond non-pruned blocks, stop and throw an error
         //this might happen if a user uses an old wallet within a pruned node
         // or if he ran -disablewallet for a longer time, then decided to re-enable
-        if (g_chainstate_manager.GetBlockFileManager().GetOptions().fPruneMode)
+        if (walletInstance->chain().isPruneMode())
         {
-            CBlockIndex *block = g_chainstate_manager.ActiveChain().Tip();
+            CBlockIndex *block = walletInstance->chain().getTip();
             while (block && block->pprev && (block->pprev->nStatus & BLOCK_HAVE_DATA) && block->pprev->nTx > 0 && pindexRescan != block)
                 block = block->pprev;
 
@@ -4337,12 +4333,12 @@ std::shared_ptr<CWallet> CWallet::CreateWalletFromFile(interfaces::Chain* chain,
         }
 
         uiInterface.InitMessage(_("Rescanning..."));
-        walletInstance->WalletLogPrintf("Rescanning last %i blocks (from block %i)...\n", g_chainstate_manager.ActiveChain().Height() - pindexRescan->nHeight, pindexRescan->nHeight);
+        walletInstance->WalletLogPrintf("Rescanning last %i blocks (from block %i)...\n", walletInstance->chain().getHeight() - pindexRescan->nHeight, pindexRescan->nHeight);
 
         // No need to read and scan block if block was created before
         // our wallet birthday (as adjusted for block time variability)
         while (pindexRescan && walletInstance->nTimeFirstKey && (pindexRescan->GetBlockTime() < (walletInstance->nTimeFirstKey - TIMESTAMP_WINDOW))) {
-            pindexRescan = g_chainstate_manager.ActiveChain().Next(pindexRescan);
+            pindexRescan = walletInstance->chain().getNext(pindexRescan);
         }
 
         nStart = GetTimeMillis();
@@ -4355,7 +4351,7 @@ std::shared_ptr<CWallet> CWallet::CreateWalletFromFile(interfaces::Chain* chain,
             walletInstance->ScanForWalletTransactions(pindexRescan, nullptr, reserver, true);
         }
         walletInstance->WalletLogPrintf("Rescan completed in %15dms\n", GetTimeMillis() - nStart);
-        walletInstance->ChainStateFlushed(g_chainstate_manager.ActiveChain().GetLocator());
+        walletInstance->ChainStateFlushed(walletInstance->chain().getTipLocator());
         walletInstance->database->IncrementUpdateCounter();
 
         // Restore wallet transaction metadata after -zapwallettxes=1
@@ -4446,20 +4442,19 @@ void CMerkleTx::SetMerkleBranch(const CBlockIndex* pindex, int posInBlock)
     nIndex = posInBlock;
 }
 
-int CMerkleTx::GetDepthInMainChain() const
+int CWalletTx::GetDepthInMainChain() const
 {
-    BlockIndexMap& blockIndex = g_chainstate_manager.BlockIndex();
-    if (hashUnset())
+    if (hashUnset() || !pwallet->HaveChain())
         return 0;
 
     AssertLockHeld(cs_main);
 
     // Find the block it claims to be in
-    CBlockIndex* pindex = blockIndex.LookupBlockIndex(hashBlock);
-    if (!pindex || !g_chainstate_manager.ActiveChain().Contains(pindex))
+    CBlockIndex* pindex = pwallet->chain().lookupBlockIndex(hashBlock);
+    if (!pindex || !pwallet->chain().isInActiveChain(pindex))
         return 0;
 
-    return ((nIndex == -1) ? (-1) : 1) * (g_chainstate_manager.ActiveChain().Height() - pindex->nHeight + 1);
+    return ((nIndex == -1) ? (-1) : 1) * (pwallet->chain().getHeight() - pindex->nHeight + 1);
 }
 
 

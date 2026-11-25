@@ -261,14 +261,6 @@ public:
 
     void SetMerkleBranch(const CBlockIndex* pIndex, int posInBlock);
 
-    /**
-     * Return depth of transaction in blockchain:
-     * <0  : conflicts with a transaction this deep in the blockchain
-     *  0  : in memory pool, waiting to be included in a block
-     * >=1 : this many blocks deep in the main chain
-     */
-    int GetDepthInMainChain() const;
-    bool IsInMainChain() const { return GetDepthInMainChain() > 0; }
     bool hashUnset() const { return (hashBlock.IsNull() || hashBlock == ABANDON_HASH); }
     bool isAbandoned() const { return (hashBlock == ABANDON_HASH); }
     void setAbandoned() { hashBlock = ABANDON_HASH; }
@@ -467,6 +459,15 @@ public:
 
     // True if only scriptSigs are different
     bool IsEquivalentTo(const CWalletTx& tx) const;
+
+    /**
+     * Return depth of transaction in blockchain:
+     * <0  : conflicts with a transaction this deep in the blockchain
+     *  0  : in memory pool, waiting to be included in a block, or the wallet has no node
+     * >=1 : this many blocks deep in the main chain
+     */
+    int GetDepthInMainChain() const;
+    bool IsInMainChain() const { return GetDepthInMainChain() > 0; }
 
     bool InMempool() const;
     bool IsTrusted() const;
