@@ -106,10 +106,8 @@ BasicTestingSetup::BasicTestingSetup(const std::string& chainName)
         chainman.InitOptions(ChainstateOptionsOverride::TestOptions({}));
         chainman.InitBlockFileManager(BlockFileManager::Options(gArgs, Params().PruneAfterHeight()));
         m_node.fee_estimator = std::make_unique<CBlockPolicyEstimator>();
-        CTxMemPool::Options mempool_options;
+        CTxMemPool::Options mempool_options(gArgs, /*default_consistency_checks=*/true);
         mempool_options.check_ratio = 1;
-        mempool_options.expiry = m_node.policy->mempoolExpiry;
-        mempool_options.max_size = m_node.policy->maxMempool;
         m_node.mempool = std::make_unique<CTxMemPool>(mempool_options);
         // Recreated for each test, as it holds a reference to this test's mempool.
         chainman.InitializeChainstate(*m_node.mempool);

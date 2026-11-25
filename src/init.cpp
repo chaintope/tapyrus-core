@@ -1065,12 +1065,12 @@ bool AppInitParameterInteraction(NodeContext& node)
         return InitError(e.what());
     }
     node.fee_estimator = std::make_unique<CBlockPolicyEstimator>();
-    CTxMemPool::Options mempool_options;
-    // Checkmempool and checkblockindex default to true in dev mode
-    mempool_options.check_ratio = std::min<int32_t>(std::max<int32_t>(gArgs.GetArg("-checkmempool", chainparams.DefaultConsistencyChecks() ? 1 : 0), 0), 1000000);
-    mempool_options.expiry = node.policy->mempoolExpiry;
-    mempool_options.max_size = node.policy->maxMempool;
-    node.mempool = std::make_unique<CTxMemPool>(mempool_options);
+    try {
+        // Checkmempool and checkblockindex default to true in dev mode
+        node.mempool = std::make_unique<CTxMemPool>(CTxMemPool::Options(gArgs, chainparams.DefaultConsistencyChecks()));
+    } catch (const std::exception& e) {
+        return InitError(e.what());
+    }
     chainman.InitializeChainstate(*node.mempool);
 
     // Option to startup with mocktime set (used for regression testing):

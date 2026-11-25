@@ -78,7 +78,7 @@ BOOST_AUTO_TEST_CASE(SimpleRoundTripTest)
     CBlock block(BuildBlockTestCase());
 
     LOCK(pool.cs);
-    pool.addUnchecked(block.vtx[2]->GetHashMalFix(), entry.FromTx(block.vtx[2]));
+    pool.addUnchecked(entry.FromTx(block.vtx[2]));
     BOOST_CHECK_EQUAL(pool.mapTx.find(block.vtx[2]->GetHashMalFix())->GetSharedTx().use_count(), SHARED_TX_OFFSET + 0);
 
     // Do a simple ShortTxIDs RT
@@ -180,7 +180,7 @@ BOOST_AUTO_TEST_CASE(NonCoinbasePreforwardRTTest)
     CBlock block(BuildBlockTestCase());
 
     LOCK(pool.cs);
-    pool.addUnchecked(block.vtx[2]->GetHashMalFix(), entry.FromTx(block.vtx[2]));
+    pool.addUnchecked(entry.FromTx(block.vtx[2]));
     BOOST_CHECK_EQUAL(pool.mapTx.find(block.vtx[2]->GetHashMalFix())->GetSharedTx().use_count(), SHARED_TX_OFFSET + 0);
 
     uint256 txhash;
@@ -252,7 +252,7 @@ BOOST_AUTO_TEST_CASE(SufficientPreforwardRTTest)
     CBlock block(BuildBlockTestCase());
 
     LOCK(pool.cs);
-    pool.addUnchecked(block.vtx[1]->GetHashMalFix(), entry.FromTx(block.vtx[1]));
+    pool.addUnchecked(entry.FromTx(block.vtx[1]));
     BOOST_CHECK_EQUAL(pool.mapTx.find(block.vtx[1]->GetHashMalFix())->GetSharedTx().use_count(), SHARED_TX_OFFSET + 0);
 
     uint256 txhash;

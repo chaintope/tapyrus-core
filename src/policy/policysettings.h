@@ -133,10 +133,6 @@ struct PolicySettings : PolicyConstants
     const bool acceptNonStdTxn;
     const bool enableReplacement;
 
-    /** Mempool memory limit, in bytes. */
-    const int64_t maxMempool;
-    /** Mempool transaction expiry, in seconds. */
-    const int64_t mempoolExpiry;
     const bool persistMempool;
     const int64_t ancestorLimit;
     /** In bytes. */
@@ -192,7 +188,6 @@ private:
     static uint32_t ParseMaxDatacarrierBytes(const ArgsManager& args);
     static bool ParseAcceptNonStdTxn(const ArgsManager& args, TAPYRUS_OP_MODE mode);
     static bool ParseEnableReplacement(const ArgsManager& args);
-    static int64_t ParseMaxMempool(const ArgsManager& args);
     /** A -<name>=<n> option that must lie in [min, max]. */
     static int64_t ParseInRange(const ArgsManager& args, const std::string& name, int64_t defaultValue, int64_t min, int64_t max);
     static uint32_t ParseMinStandardTxSize(const ArgsManager& args, uint32_t maxStandardTxSize);

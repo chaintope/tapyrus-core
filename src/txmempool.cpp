@@ -16,6 +16,9 @@
 #include <utilmoneystr.h>
 #include <utiltime.h>
 
+#include <cmath>
+#include <stdexcept>
+
 
 // Update the given tx for any in-mempool descendants.
 // Assumes that setMemPoolChildren is correct for the given tx and all
@@ -270,6 +273,22 @@ void CTxMemPool::UpdateForRemoveFromMempool(const setEntries &entriesToRemove, b
 
 CTxMemPool::CTxMemPool() : CTxMemPool(Options{}) {}
 
+CTxMemPool::Options::Options(const ArgsManager& args, bool default_consistency_checks)
+    : check_ratio(std::min<int32_t>(std::max<int32_t>(args.GetArg("-checkmempool", default_consistency_checks ? 1 : 0), 0), 1000000)),
+      expiry(args.GetArg("-mempoolexpiry", DEFAULT_MEMPOOL_EXPIRY) * 60 * 60),
+      max_size(ParseMaxSize(args))
+{
+}
+
+int64_t CTxMemPool::Options::ParseMaxSize(const ArgsManager& args)
+{
+    const int64_t nMempoolSizeMax = args.GetArg("-maxmempool", DEFAULT_MAX_MEMPOOL_SIZE) * 1000000;
+    const int64_t nMempoolSizeMin = args.GetArg("-limitdescendantsize", DEFAULT_DESCENDANT_SIZE_LIMIT) * 1000 * 40;
+    if (nMempoolSizeMax < 0 || nMempoolSizeMax < nMempoolSizeMin)
+        throw std::runtime_error(strprintf(_("-maxmempool must be at least %d MB"), std::ceil(nMempoolSizeMin / 1000000.0)));
+    return nMempoolSizeMax;
+}
+
 CTxMemPool::CTxMemPool(const Options& options) :
     // Sanity checks are off unless asked for, because they make accepting
     // transactions O(N^2) where N is the number of transactions in the pool.
@@ -297,8 +316,9 @@ void CTxMemPool::AddTransactionsUpdated(unsigned int n)
     nTransactionsUpdated += n;
 }
 
-void CTxMemPool::addUnchecked(const uint256& hash, const CTxMemPoolEntry &entry, setEntries &setAncestors, bool validFeeEstimate)
+void CTxMemPool::addUnchecked(const CTxMemPoolEntry &entry, setEntries &setAncestors, bool validFeeEstimate)
 {
+    const uint256 hash{entry.GetTx().GetHashMalFix()};
     NotifyEntryAdded(entry.GetSharedTx());
     // Add to memory pool without checking anything.
     // Used by AcceptToMemoryPool(), which DOES do
@@ -890,7 +910,8 @@ void CTxMemPool::RemoveStaged(setEntries &stage, bool updateDescendants, MemPool
     }
 }
 
-int CTxMemPool::Expire(int64_t time) {
+int CTxMemPool::Expire() {
+    const int64_t time{GetTime() - m_expiry};
     LOCK(cs);
     indexed_transaction_set::index<entry_time>::type::iterator it = mapTx.get<entry_time>().begin();
     setEntries toremove;
@@ -906,13 +927,13 @@ int CTxMemPool::Expire(int64_t time) {
     return stage.size();
 }
 
-void CTxMemPool::addUnchecked(const uint256&hash, const CTxMemPoolEntry &entry, bool validFeeEstimate)
+void CTxMemPool::addUnchecked(const CTxMemPoolEntry &entry, bool validFeeEstimate)
 {
     setEntries setAncestors;
     uint64_t nNoLimit = std::numeric_limits<uint64_t>::max();
     std::string dummy;
     CalculateMemPoolAncestors(entry, setAncestors, nNoLimit, nNoLimit, nNoLimit, nNoLimit, dummy);
-    return addUnchecked(hash, entry, setAncestors, validFeeEstimate);
+    return addUnchecked(entry, setAncestors, validFeeEstimate);
 }
 
 void CTxMemPool::UpdateChild(txiter entry, txiter child, bool add)

@@ -201,13 +201,13 @@ bool Chainstate::CheckSequenceLocks(const CTransaction &tx, int flags, CCoinsVie
 }
 void Chainstate::LimitMempoolSize() {
     CCoinsViewCache& coins_cache{CoinsTip()};
-    int expired = m_mempool.Expire(GetTime() - m_mempool.Expiry());
+    int expired = m_mempool.Expire();
     if (expired != 0) {
         LogPrint(BCLog::MEMPOOL, "Expired %i transactions from the memory pool\n", expired);
     }
 
     std::vector<COutPoint> vNoSpendsRemaining;
-    m_mempool.TrimToSize(m_mempool.MaxSize(), &vNoSpendsRemaining);
+    m_mempool.TrimToMaxSize(&vNoSpendsRemaining);
     for (const COutPoint& removed : vNoSpendsRemaining)
         coins_cache.Uncache(removed);
 }
@@ -667,7 +667,7 @@ bool Chainstate::AcceptToMemoryPoolWorker(const CTransactionRef &ptx, const Memp
         bool validForFeeEstimation = !fReplacementTransaction && !options.bypass_limits && IsCurrentForFeeEstimation() && m_mempool.HasNoInputsOf(tx);
 
         // Store transaction in memory
-        m_mempool.addUnchecked(hash, entry, setAncestors, validForFeeEstimation);
+        m_mempool.addUnchecked(entry, setAncestors, validForFeeEstimation);
 
         // trim mempool and check if tx was trimmed
         if (!options.bypass_limits) {

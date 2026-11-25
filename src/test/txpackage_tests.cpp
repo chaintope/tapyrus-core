@@ -120,7 +120,7 @@ CMutableTransaction CreateValidMempoolTransaction(CTxMemPool& mempool, COutPoint
     {
         LOCK(cs_main);
         LOCK(mempool.cs);
-        mempool.addUnchecked(tx.GetHashMalFix(), entry.Time(GetTime()).FromTx(tx));
+        mempool.addUnchecked(entry.Time(GetTime()).FromTx(tx));
 
     }
     return tx;

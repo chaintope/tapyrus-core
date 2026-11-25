@@ -36,6 +36,7 @@
 #include <boost/multi_index/ordered_index.hpp>
 #include <boost/signals2/signal.hpp>
 
+class ArgsManager;
 class CBlockIndex;
 
 /** Fake height value used in Coin to signify they are only in the memory pool (since 0.8) */
@@ -402,6 +403,13 @@ public:
         int64_t expiry{int64_t{DEFAULT_MEMPOOL_EXPIRY} * 60 * 60};
         //! Bytes of memory the pool is trimmed to.
         int64_t max_size{int64_t{DEFAULT_MAX_MEMPOOL_SIZE} * 1000000};
+
+        Options() = default;
+        //! From -checkmempool, -mempoolexpiry and -maxmempool; throws if -maxmempool is too small.
+        Options(const ArgsManager& args, bool default_consistency_checks);
+
+    private:
+        static int64_t ParseMaxSize(const ArgsManager& args);
     };
 
     CTxMemPool();
@@ -427,8 +435,8 @@ public:
     // Note that addUnchecked is ONLY called from ATMP outside of tests
     // and any other callers may break wallet's in-mempool tracking (due to
     // lack of CValidationInterface::TransactionAddedToMempool callbacks).
-    void addUnchecked(const uint256& hash, const CTxMemPoolEntry& entry, bool validFeeEstimate = true) EXCLUSIVE_LOCKS_REQUIRED(cs);
-    void addUnchecked(const uint256& hash, const CTxMemPoolEntry& entry, setEntries& setAncestors, bool validFeeEstimate = true) EXCLUSIVE_LOCKS_REQUIRED(cs);
+    void addUnchecked(const CTxMemPoolEntry& entry, bool validFeeEstimate = true) EXCLUSIVE_LOCKS_REQUIRED(cs);
+    void addUnchecked(const CTxMemPoolEntry& entry, setEntries& setAncestors, bool validFeeEstimate = true) EXCLUSIVE_LOCKS_REQUIRED(cs);
 
     void removeRecursive(const CTransaction &tx, MemPoolRemovalReason reason = MemPoolRemovalReason::UNKNOWN);
     /** After a reorg, removes (with their descendants) the transactions is_final rejects and
@@ -511,9 +519,11 @@ public:
       *  which are not in mempool which no longer have any spends in this mempool.
       */
     void TrimToSize(size_t sizelimit, std::vector<COutPoint>* pvNoSpendsRemaining=nullptr);
+    //! TrimToSize to the pool's own max size.
+    void TrimToMaxSize(std::vector<COutPoint>* pvNoSpendsRemaining = nullptr) { TrimToSize(m_max_size, pvNoSpendsRemaining); }
 
-    /** Expire all transaction (and their dependencies) in the mempool older than time. Return the number of removed transactions. */
-    int Expire(int64_t time);
+    /** Expire all transactions (and their dependencies) that have been in the mempool longer than its expiry. Return the number of removed transactions. */
+    int Expire();
 
     /**
      * Calculate the ancestor and descendant count for the given transaction.

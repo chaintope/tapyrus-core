@@ -106,15 +106,6 @@ bool PolicySettings::ParseEnableReplacement(const ArgsManager& args)
     return enableReplacement;
 }
 
-int64_t PolicySettings::ParseMaxMempool(const ArgsManager& args)
-{
-    const int64_t nMempoolSizeMax = args.GetArg("-maxmempool", DEFAULT_MAX_MEMPOOL_SIZE) * 1000000;
-    const int64_t nMempoolSizeMin = args.GetArg("-limitdescendantsize", DEFAULT_DESCENDANT_SIZE_LIMIT) * 1000 * 40;
-    if (nMempoolSizeMax < 0 || nMempoolSizeMax < nMempoolSizeMin)
-        throw std::runtime_error(strprintf(_("-maxmempool must be at least %d MB"), std::ceil(nMempoolSizeMin / 1000000.0)));
-    return nMempoolSizeMax;
-}
-
 int64_t PolicySettings::ParseInRange(const ArgsManager& args, const std::string& name, int64_t defaultValue, int64_t min, int64_t max)
 {
     const int64_t value = args.GetArg("-" + name, defaultValue);
@@ -143,8 +134,6 @@ PolicySettings::PolicySettings(const ArgsManager& args, TAPYRUS_OP_MODE mode)
       acceptMultipleDatacarrier(args.GetBoolArg("-datacarriermultiple", DEFAULT_ACCEPT_MULTIPLE_DATACARRIER)),
       acceptNonStdTxn(ParseAcceptNonStdTxn(args, mode)),
       enableReplacement(ParseEnableReplacement(args)),
-      maxMempool(ParseMaxMempool(args)),
-      mempoolExpiry(args.GetArg("-mempoolexpiry", DEFAULT_MEMPOOL_EXPIRY) * 60 * 60),
       persistMempool(args.GetBoolArg("-persistmempool", DEFAULT_PERSIST_MEMPOOL)),
       ancestorLimit(args.GetArg("-limitancestorcount", DEFAULT_ANCESTOR_LIMIT)),
       ancestorSizeLimit(args.GetArg("-limitancestorsize", DEFAULT_ANCESTOR_SIZE_LIMIT) * 1000),
