@@ -301,7 +301,9 @@ BOOST_AUTO_TEST_CASE(a_rescan_holding_cs_main_finishes_while_add_waits)
 
         WalletRescanReserver reserver(&m_wallet);
         BOOST_REQUIRE(reserver.reserve());
-        BOOST_CHECK(m_wallet.ScanForWalletTransactions(g_chainstate_manager.ActiveChain().Genesis(), nullptr, reserver, true) == nullptr);
+        const CBlockIndex* genesis{g_chainstate_manager.ActiveChain().Genesis()};
+        const CWallet::ScanResult result{m_wallet.ScanForWalletTransactions(genesis->GetBlockHash(), genesis->nHeight, {} /* max_height */, reserver, true)};
+        BOOST_CHECK(result.status == CWallet::ScanResult::SUCCESS);
     }
     SyncBoth();
     BOOST_CHECK(InWallet(held));

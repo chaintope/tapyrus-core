@@ -60,7 +60,6 @@ BOOST_FIXTURE_TEST_CASE(rescan, TestChainSetup)
 {
     std::unique_ptr<interfaces::Chain> chain = interfaces::MakeChain(m_node);
     // Cap last block file size, and mine new block in a new block file.
-    CBlockIndex* const nullBlock = nullptr;
     CBlockIndex* oldTip = g_chainstate_manager.ActiveChain().Tip();
     {
         BlockFileManager& blockFileManager = g_chainstate_manager.GetBlockFileManager();
@@ -83,7 +82,11 @@ BOOST_FIXTURE_TEST_CASE(rescan, TestChainSetup)
         AddKey(wallet, coinbaseKey);
         WalletRescanReserver reserver(&wallet);
         reserver.reserve();
-        BOOST_CHECK_EQUAL(nullBlock, wallet.ScanForWalletTransactions(oldTip, nullptr, reserver));
+        CWallet::ScanResult result = wallet.ScanForWalletTransactions(oldTip->GetBlockHash(), oldTip->nHeight, {} /* max_height */, reserver);
+        BOOST_CHECK_EQUAL(result.status, CWallet::ScanResult::SUCCESS);
+        BOOST_CHECK(result.last_failed_block.IsNull());
+        BOOST_CHECK_EQUAL(result.last_scanned_block, newTip->GetBlockHash());
+        BOOST_CHECK_EQUAL(*result.last_scanned_height, newTip->nHeight);
         BOOST_CHECK_EQUAL(wallet.GetBalance()[ColorIdentifier()], 100 * ConsensusConstants::COIN);
     }
 
@@ -102,7 +105,11 @@ BOOST_FIXTURE_TEST_CASE(rescan, TestChainSetup)
         AddKey(wallet, coinbaseKey);
         WalletRescanReserver reserver(&wallet);
         reserver.reserve();
-        BOOST_CHECK_EQUAL(oldTip, wallet.ScanForWalletTransactions(oldTip, nullptr, reserver));
+        CWallet::ScanResult result = wallet.ScanForWalletTransactions(oldTip->GetBlockHash(), oldTip->nHeight, {} /* max_height */, reserver);
+        BOOST_CHECK_EQUAL(result.status, CWallet::ScanResult::FAILURE);
+        BOOST_CHECK_EQUAL(result.last_failed_block, oldTip->GetBlockHash());
+        BOOST_CHECK_EQUAL(result.last_scanned_block, newTip->GetBlockHash());
+        BOOST_CHECK_EQUAL(*result.last_scanned_height, newTip->nHeight);
         BOOST_CHECK_EQUAL(wallet.GetBalance()[ColorIdentifier()], 50 * ConsensusConstants::COIN);
     }
 
@@ -314,7 +321,7 @@ public:
         AddKey(*wallet, coinbaseKey);
         WalletRescanReserver reserver(wallet.get());
         reserver.reserve();
-        wallet->ScanForWalletTransactions(g_chainstate_manager.ActiveChain().Genesis(), nullptr, reserver);
+        wallet->ScanForWalletTransactions(g_chainstate_manager.ActiveChain().Genesis()->GetBlockHash(), 0, {}, reserver);
     }
 
     ~ListCoinsTestingSetup()
@@ -456,14 +463,13 @@ namespace
 }
 
 BOOST_FIXTURE_TEST_CASE(ismine_wallet_tokentx, TestChainSetup) {
-    std::unique_ptr<interfaces::Chain> chain = interfaces::MakeChain(m_node);
     initKeys();
     std::vector<unsigned char> vchPubKey0(pubkey0.begin(), pubkey0.end());
     std::vector<unsigned char> vchPubKey1(pubkey1.begin(), pubkey1.end());
     std::vector<unsigned char> vchPubKey2(pubkey2.begin(), pubkey2.end());
 
     // create a dummy wallet add key pubkey
-    CWallet wallet(chain.get(), "dummy", WalletDatabase::CreateDummy());
+    CWallet wallet(nullptr, "dummy", WalletDatabase::CreateDummy());
     {
         LOCK(wallet.cs_wallet);
         wallet.SetLastBlockProcessed(g_chainstate_manager.ActiveChain().Height(), g_chainstate_manager.ActiveChain().Tip()->GetBlockHash());
@@ -564,7 +570,7 @@ public:
         AddKey(*wallet, key2);
         WalletRescanReserver reserver(wallet.get());
         reserver.reserve();
-        wallet->ScanForWalletTransactions(g_chainstate_manager.ActiveChain().Genesis(), nullptr, reserver);
+        wallet->ScanForWalletTransactions(g_chainstate_manager.ActiveChain().Genesis()->GetBlockHash(), 0, {}, reserver);
     }
 
     ~BalanceTestingSetup()
@@ -587,7 +593,7 @@ public:
 
         WalletRescanReserver reserver(wallet.get());
         reserver.reserve();
-        if(!wallet->ScanForWalletTransactions(g_chainstate_manager.ActiveChain().Genesis(), nullptr, reserver, true)) {
+        if (wallet->ScanForWalletTransactions(g_chainstate_manager.ActiveChain().Genesis()->GetBlockHash(), 0, {}, reserver, true).status != CWallet::ScanResult::SUCCESS) {
             return false;
         }
 
@@ -844,7 +850,7 @@ BOOST_FIXTURE_TEST_CASE(wallet_tx_getdebit_and_getcredit, TestChainSetup)
     AddKey(wallet, key0);
     WalletRescanReserver reserver(&wallet);
     reserver.reserve();
-    wallet.ScanForWalletTransactions(g_chainstate_manager.ActiveChain().Genesis(), nullptr, reserver);
+    wallet.ScanForWalletTransactions(g_chainstate_manager.ActiveChain().Genesis()->GetBlockHash(), 0, {}, reserver);
 
     ColorIdentifier defaultColorId;
     ColorIdentifier colorId(ColorIdentifier(m_coinbase_txns[0]->vout[0].scriptPubKey));
@@ -912,7 +918,7 @@ BOOST_FIXTURE_TEST_CASE(wallet_tx_getdebit_and_getcredit_with_watch_only, TestCh
     AddKey(wallet, coinbaseKey);
     WalletRescanReserver reserver(&wallet);
     reserver.reserve();
-    wallet.ScanForWalletTransactions(g_chainstate_manager.ActiveChain().Genesis(), nullptr, reserver);
+    wallet.ScanForWalletTransactions(g_chainstate_manager.ActiveChain().Genesis()->GetBlockHash(), 0, {}, reserver);
 
     ColorIdentifier defaultColorId;
     ColorIdentifier colorId(ColorIdentifier(m_coinbase_txns[0]->vout[0].scriptPubKey));
@@ -999,7 +1005,7 @@ BOOST_FIXTURE_TEST_CASE(wallet_tx_getchange, TestChainSetup)
     AddKey(wallet, key0);
     WalletRescanReserver reserver(&wallet);
     reserver.reserve();
-    wallet.ScanForWalletTransactions(g_chainstate_manager.ActiveChain().Genesis(), nullptr, reserver);
+    wallet.ScanForWalletTransactions(g_chainstate_manager.ActiveChain().Genesis()->GetBlockHash(), 0, {}, reserver);
 
     ColorIdentifier defaultColorId;
     ColorIdentifier colorId(ColorIdentifier(m_coinbase_txns[0]->vout[0].scriptPubKey));
@@ -1047,7 +1053,7 @@ BOOST_FIXTURE_TEST_CASE(a_rescanning_wallet_reports_its_transactions, TestChainS
         LOCK(cs_main);
         WalletRescanReserver reserver(&wallet);
         reserver.reserve();
-        wallet.ScanForWalletTransactions(g_chainstate_manager.ActiveChain().Genesis(), nullptr, reserver);
+        wallet.ScanForWalletTransactions(g_chainstate_manager.ActiveChain().Genesis()->GetBlockHash(), 0, {}, reserver);
     }
     m_node.notifications.Unsubscribe(reports);
     BOOST_CHECK_EQUAL(reports.m_changed.size(), m_coinbase_txns.size());
