@@ -34,7 +34,7 @@ public:
     bool Open() const override;
 
     //! Complete startup of wallets.
-    void Start(CScheduler& scheduler) const override;
+    void Start() const override;
 
     //! Flush all wallets in preparation for shutdown.
     void Flush() const override;

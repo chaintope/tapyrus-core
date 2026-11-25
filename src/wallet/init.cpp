@@ -7,7 +7,6 @@
 #include <init.h>
 #include <interfaces/chain.h>
 #include <net.h>
-#include <scheduler.h>
 #include <outputtype.h>
 #include <policy/policysettings.h>
 #include <util.h>
@@ -196,14 +195,14 @@ bool WalletInit::Open() const
     return true;
 }
 
-void WalletInit::Start(CScheduler& scheduler) const
+void WalletInit::Start() const
 {
     for (const std::shared_ptr<CWallet>& pwallet : GetWallets()) {
         pwallet->postInitProcess();
     }
 
-    // Schedule periodic wallet flushes, and tx rebroadcasts on the wallet thread
-    scheduler.scheduleEvery(MaybeCompactWalletDB, 500);
+    // Periodic wallet flushes and tx rebroadcasts run on the wallet thread
+    m_events.ScheduleEvery(MaybeCompactWalletDB, std::chrono::milliseconds{500});
     m_events.ScheduleEvery([this] { m_events.ResendWalletTransactions(); }, std::chrono::milliseconds{1000});
 }
 

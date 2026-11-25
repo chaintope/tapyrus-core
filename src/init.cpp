@@ -106,7 +106,7 @@ public:
     interfaces::Chain* GetChainInterface() const override {return nullptr;}
     WalletEvents* GetWalletEvents() const override {return nullptr;}
     bool Open() const override {LogPrintf("No wallet support compiled in!\n"); return true;}
-    void Start(CScheduler& scheduler) const override {}
+    void Start() const override {}
     void Flush() const override {}
     void Stop() const override {}
     void Close() const override {}
@@ -1806,7 +1806,7 @@ bool AppInitMain(NodeContext& node)
     SetRPCWarmupFinished();
     uiInterface.InitMessage(_("Done loading"));
 
-    g_wallet_init_interface.Start(scheduler);
+    g_wallet_init_interface.Start();
 
     return true;
 }

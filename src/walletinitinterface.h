@@ -7,7 +7,6 @@
 
 #include <string>
 
-class CScheduler;
 class CRPCTable;
 class WalletEvents;
 
@@ -34,7 +33,7 @@ public:
     /** Open wallets*/
     virtual bool Open() const = 0;
     /** Start wallets*/
-    virtual void Start(CScheduler& scheduler) const = 0;
+    virtual void Start() const = 0;
     /** Flush Wallets*/
     virtual void Flush() const = 0;
     /** Stop Wallets*/
