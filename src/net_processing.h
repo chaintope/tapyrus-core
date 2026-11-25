@@ -106,6 +106,8 @@ public:
     bool GetNodeStateStats(NodeId nodeid, CNodeStateStats &stats);
     /** Increment a peer's misbehavior score; past `-banscore` the peer is disconnected and discouraged. */
     void Misbehaving(NodeId pnode, int howmuch, const std::string& message = "") EXCLUSIVE_LOCKS_REQUIRED(cs_main);
+    //! Announces tx to every connected peer.
+    void RelayTransaction(const CTransaction& tx);
     /** Sets a peer's last block announcement time; used by the stale-tip eviction tests. */
     void UpdateLastBlockAnnounceTime(NodeId node, int64_t time_in_seconds);
     //! Sets the height sent in version messages until the next tip update.
@@ -195,7 +197,7 @@ private:
     uint256 most_recent_block_hash GUARDED_BY(cs_most_recent_block);
 
     CNodeState* State(NodeId pnode) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
-    void UpdatePreferredDownload(CNode* node, CNodeState* state) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
+    void UpdatePreferredDownload(CNode* node) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
     bool MarkBlockAsReceived(const uint256& hash, std::optional<NodeId> from_peer) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
     bool MarkBlockAsInFlight(NodeId nodeid, const uint256& hash, const CBlockIndex* pindex = nullptr, std::list<QueuedBlock>::iterator** pit = nullptr) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
     void ProcessBlockAvailability(NodeId nodeid) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
@@ -230,8 +232,5 @@ struct CNodeStateStats {
     uint64_t m_addr_processed = 0;
     uint64_t m_addr_rate_limited = 0;
 };
-
-/** Relay a transaction to all our peers*/
-void RelayTransaction(const CTransaction& tx, CConnman* connman);
 
 #endif // BITCOIN_NET_PROCESSING_H

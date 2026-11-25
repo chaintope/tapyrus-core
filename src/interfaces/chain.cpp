@@ -90,8 +90,8 @@ public:
                 return false;
             }
         }
-        if (relay && m_node.connman) {
-            RelayTransaction(*tx, m_node.connman.get());
+        if (relay && m_node.peerman) {
+            m_node.peerman->RelayTransaction(*tx);
         }
         return true;
     }

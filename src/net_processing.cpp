@@ -108,8 +108,9 @@ CNodeState* PeerManager::State(NodeId pnode) {
     return &it->second;
 }
 
-void PeerManager::UpdatePreferredDownload(CNode* node, CNodeState* state)
+void PeerManager::UpdatePreferredDownload(CNode* node)
 {
+    CNodeState* state = State(node->GetId());
     nPreferredDownload -= state->fPreferredDownload;
 
     // Whether this node should be marked as a preferred download node.
@@ -650,7 +651,7 @@ void PeerManager::NewValidBlock(const CBlockIndex *pindex, const std::shared_ptr
 
 void PeerManager::PackageTransactionsRelay(const std::vector<CTransactionRef>& txns) {
     for (const auto& tx : txns) {
-        RelayTransaction(*tx, &m_connman);
+        RelayTransaction(*tx);
     }
 }
 
@@ -764,10 +765,10 @@ bool PeerManager::AlreadyHave(const CInv& inv)
     return true;
 }
 
-void RelayTransaction(const CTransaction& tx, CConnman* connman)
+void PeerManager::RelayTransaction(const CTransaction& tx)
 {
     CInv inv(MSG_TX, tx.GetHashMalFix());
-    connman->ForEachNode([&inv](CNode* pnode)
+    m_connman.ForEachNode([&inv](CNode* pnode)
     {
         pnode->PushInventory(inv);
     });
@@ -1295,7 +1296,7 @@ void PeerManager::ProcessOrphanTx(std::set<uint256>& orphan_work_set)
 
         if (m_chainman.ActiveChainstate().AcceptToMemoryPool(porphanTx, MempoolAcceptOptions{}, result)) {
             LogPrint(BCLog::MEMPOOL, "   accepted orphan tx %s\n", orphanHash.ToString());
-            RelayTransaction(orphanTx, &m_connman);
+            RelayTransaction(orphanTx);
             m_orphan_tx_pool.AddChildrenToWorkSet(orphanTx, orphan_work_set);
             m_orphan_tx_pool.EraseOrphanTx(orphanHash);
             done = true;
@@ -1484,7 +1485,7 @@ bool PeerManager::ProcessMessage(CNode* pfrom, const std::string& strCommand, CD
         // Potentially mark this peer as a preferred download peer.
         {
         LOCK(cs_main);
-        UpdatePreferredDownload(pfrom, State(pfrom->GetId()));
+        UpdatePreferredDownload(pfrom);
         }
 
         if (!pfrom->fInbound)
@@ -2006,7 +2007,7 @@ bool PeerManager::ProcessMessage(CNode* pfrom, const std::string& strCommand, CD
         if (!AlreadyHave(inv) &&
             m_chainman.ActiveChainstate().AcceptToMemoryPool(ptx, MempoolAcceptOptions{}, result)) {
             m_chainman.ActiveChainstate().CheckMempool();
-            RelayTransaction(tx, &m_connman);
+            RelayTransaction(tx);
             m_orphan_tx_pool.AddChildrenToWorkSet(tx, pfrom->orphan_work_set);
 
             pfrom->nLastTXTime = GetTime();
@@ -2069,7 +2070,7 @@ bool PeerManager::ProcessMessage(CNode* pfrom, const std::string& strCommand, CD
                 int nDoS = 0;
                 if (!result.state.IsInvalid(nDoS) || nDoS == 0) {
                     LogPrintf("Force relaying tx %s from whitelisted peer=%d\n", tx.GetHashMalFix().ToString(), pfrom->GetId());
-                    RelayTransaction(tx, &m_connman);
+                    RelayTransaction(tx);
                 } else {
                     LogPrintf("Not relaying invalid transaction %s from whitelisted peer=%d (%s)\n", tx.GetHashMalFix().ToString(), pfrom->GetId(), FormatStateMessage(result.state));
                 }
