@@ -90,6 +90,7 @@ private:
     bool m_subscribed{false};
     bool m_stop{false};
     bool m_running{false};
+    //! Set by the wallet thread itself: m_thread is assigned only after the thread starts.
     std::thread::id m_thread_id;
     std::thread m_thread;
 };

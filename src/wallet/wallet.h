@@ -1148,6 +1148,8 @@ public:
     TxColoredCoinBalancesMap GetCredit(const CTransaction& tx, const isminefilter& filter) const;
     TxColoredCoinBalancesMap GetChange(const CTransaction& tx) const;
     void ChainStateFlushed(const CBlockLocator& loc) override;
+    //! Records the node's current tip as the wallet's best block.
+    void WriteBestBlockAtTip();
 
     DBErrors LoadWallet(bool& fFirstRunRet);
     DBErrors ZapWalletTx(std::vector<CWalletTx>& vWtx);

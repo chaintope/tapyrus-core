@@ -165,6 +165,7 @@ BOOST_AUTO_TEST_CASE(a_non_signalling_transaction_outside_the_mempool_has_unknow
 BOOST_AUTO_TEST_CASE(without_data_there_is_no_fee_estimate_or_mempool_minimum)
 {
     BOOST_CHECK(m_chain->estimateSmartFee(2, false, nullptr) == CFeeRate(0));
+    BOOST_CHECK(m_chain->estimateSmartFeeAtMaxBlocks(false) == CFeeRate(0));
     BOOST_CHECK(m_chain->mempoolMinFee() == CFeeRate(0));
 }
 

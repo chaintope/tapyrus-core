@@ -44,6 +44,11 @@ public:
         return m_node.fee_estimator->HighestTargetTracked(FeeEstimateHorizon::LONG_HALFLIFE);
     }
 
+    CFeeRate estimateSmartFeeAtMaxBlocks(bool conservative) const override
+    {
+        return estimateSmartFee(estimateMaxBlocks(), conservative, nullptr);
+    }
+
     CFeeRate mempoolMinFee() const override
     {
         return m_node.mempool->GetMinFee();
@@ -85,7 +90,7 @@ public:
             MempoolAcceptOptions options;
             options.max_tx_fee = max_tx_fee;
             MempoolAcceptResult result;
-            if (!m_node.chainman->ActiveChainstate().AcceptToMemoryPool(tx, options, result)) {
+            if (!Chainman().ActiveChainstate().AcceptToMemoryPool(tx, options, result)) {
                 state = result.state;
                 return false;
             }

@@ -172,6 +172,9 @@ public:
     //! The highest confirmation target the fee estimator tracks.
     virtual unsigned int estimateMaxBlocks() const = 0;
 
+    //! estimateSmartFee at the highest confirmation target the fee estimator tracks.
+    virtual CFeeRate estimateSmartFeeAtMaxBlocks(bool conservative) const = 0;
+
     //! The lowest fee rate the mempool accepts.
     virtual CFeeRate mempoolMinFee() const = 0;
 

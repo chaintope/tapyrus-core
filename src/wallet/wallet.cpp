@@ -474,6 +474,11 @@ void CWallet::ChainStateFlushed(const CBlockLocator& loc)
     batch.WriteBestBlock(loc);
 }
 
+void CWallet::WriteBestBlockAtTip()
+{
+    ChainStateFlushed(chain().getTipLocator());
+}
+
 void CWallet::SetMinVersion(int nVersion, WalletBatch* batch_in)
 {
     LOCK(cs_wallet); // nWalletVersion
@@ -4263,7 +4268,7 @@ std::shared_ptr<CWallet> CWallet::CreateWalletFromFile(interfaces::Chain* chain,
             return nullptr;
         }
 
-        walletInstance->ChainStateFlushed(walletInstance->chain().getTipLocator());
+        walletInstance->WriteBestBlockAtTip();
     } else if (wallet_creation_flags & WALLET_FLAG_DISABLE_PRIVATE_KEYS) {
         // Make it impossible to disable private keys after creation
         InitError(strprintf(_("Error loading %s: Private keys can only be disabled during creation"), walletFile));
@@ -4416,7 +4421,7 @@ std::shared_ptr<CWallet> CWallet::CreateWalletFromFile(interfaces::Chain* chain,
             walletInstance->ScanForWalletTransactions(wallet_chain.getBlockHash(rescan_height), rescan_height, {} /* max height */, reserver, true);
         }
         walletInstance->WalletLogPrintf("Rescan completed in %15dms\n", GetTimeMillis() - nStart);
-        walletInstance->ChainStateFlushed(walletInstance->chain().getTipLocator());
+        walletInstance->WriteBestBlockAtTip();
         walletInstance->database->IncrementUpdateCounter();
 
         // Restore wallet transaction metadata after -zapwallettxes=1
