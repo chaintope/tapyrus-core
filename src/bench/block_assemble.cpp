@@ -12,8 +12,11 @@
 #include <consensus/validation.h>
 #include <consensussettings.h>
 #include <genesisfile.h>
+#include <mempoolaccept.h>
 #include <miner.h>
 #include <notificationhub.h>
+#include <policy/fees.h>
+#include <policy/mempoolfeelistener.h>
 #include <policy/policy.h>
 #include <scheduler.h>
 #include <txdb.h>
@@ -34,14 +37,14 @@
 #include <array>
 #include <thread>
 
-static std::shared_ptr<CBlock> PrepareBlock(const CScript& coinbase_scriptPubKey)
+static std::shared_ptr<CBlock> PrepareBlock(const CTxMemPool& mempool, const CScript& coinbase_scriptPubKey)
 {
     std::shared_ptr<CBlock> block;
     {
         // Held across both, so the template builds on the tip the options read.
         LOCK(cs_main);
         const BlockAssembler::Options options(*g_policy_settings, gArgs, g_chainstate_manager);
-        block = std::make_shared<CBlock>(BlockAssembler(g_chainstate_manager, options).CreateNewBlock(coinbase_scriptPubKey)->block);
+        block = std::make_shared<CBlock>(BlockAssembler(g_chainstate_manager, mempool, options).CreateNewBlock(coinbase_scriptPubKey)->block);
     }
 
     block->nTime = g_chainstate_manager.ActiveChain().Tip()->GetMedianTimePast() + 1;
@@ -64,9 +67,9 @@ static std::shared_ptr<CBlock> PrepareBlock(const CScript& coinbase_scriptPubKey
 }
 
 
-static CTxIn MineBlock(const CScript& coinbase_scriptPubKey)
+static CTxIn MineBlock(const CTxMemPool& mempool, const CScript& coinbase_scriptPubKey)
 {
-    auto block = PrepareBlock(coinbase_scriptPubKey);
+    auto block = PrepareBlock(mempool, coinbase_scriptPubKey);
 
     bool processed{ProcessNewBlock(block, true, nullptr)};
     assert(processed);
@@ -91,7 +94,10 @@ static void AssembleBlock(benchmark::State& state)
     g_chainstate_manager.SetNotifications(&notifications);
     g_chainstate_manager.InitBlockFileManager(BlockFileManager::Options(gArgs, Params().PruneAfterHeight()), notifications);
     BlockIndexMap& blockIndex = g_chainstate_manager.BlockIndex();
-    g_chainstate_manager.InitializeChainstate();
+    CBlockPolicyEstimator fee_estimator;
+    CTxMemPool mempool;
+    const MempoolFeeListener fee_listener(mempool, fee_estimator);
+    g_chainstate_manager.InitializeChainstate(mempool);
 
     const CKey privKey(DecodeSecret(SIGN_BLOCK_PRIVKEY));
     const CPubKey pubkey(privKey.GetPubKey());
@@ -117,6 +123,7 @@ static void AssembleBlock(benchmark::State& state)
         }
 
         GetMainSignals().RegisterBackgroundSignalScheduler(scheduler);
+        GetMainSignals().RegisterWithMempoolSignals(mempool);
 
         LoadGenesisBlock();
         CValidationState state;
@@ -129,7 +136,7 @@ static void AssembleBlock(benchmark::State& state)
     std::array<CTransactionRef, NUM_BLOCKS> txs;
     for (size_t b{0}; b < NUM_BLOCKS; ++b) {
         CMutableTransaction tx;
-        tx.vin.push_back(MineBlock(SCRIPT_PUB));
+        tx.vin.push_back(MineBlock(mempool, SCRIPT_PUB));
         tx.vout.emplace_back(1337, SCRIPT_PUB);
 
         SignatureData sigdata;
@@ -143,21 +150,23 @@ static void AssembleBlock(benchmark::State& state)
         LOCK(::cs_main); // Required for ::AcceptToMemoryPool.
 
         for (const auto& txr : txs) {
-            CTxMempoolAcceptanceOptions opt;
-            opt.flags = MempoolAcceptanceFlags::BYPASSS_LIMITS;
-            bool ret{::AcceptToMemoryPool(txr, opt)};
+            MempoolAcceptOptions options;
+            options.bypass_limits = true;
+            MempoolAcceptResult result;
+            bool ret{g_chainstate_manager.ActiveChainstate().AcceptToMemoryPool(txr, options, result)};
             assert(ret);
         }
     }
 
     while (state.KeepRunning()) {
-        PrepareBlock(SCRIPT_PUB);
+        PrepareBlock(mempool, SCRIPT_PUB);
     }
 
     scheduler.stop();
     if(thread.joinable())
         thread.join();
     GetMainSignals().FlushBackgroundCallbacks();
+    GetMainSignals().UnregisterWithMempoolSignals(mempool);
     GetMainSignals().UnregisterBackgroundSignalScheduler();
 }
 

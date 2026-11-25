@@ -5,6 +5,7 @@
 
 #include <policy/policy.h>
 #include <policy/fees.h>
+#include <policy/mempoolfeelistener.h>
 #include <txmempool.h>
 #include <uint256.h>
 #include <util.h>
@@ -13,12 +14,13 @@
 
 #include <boost/test/unit_test.hpp>
 
-BOOST_FIXTURE_TEST_SUITE(policyestimator_tests, BasicTestingSetup)
+BOOST_FIXTURE_TEST_SUITE(policyestimator_tests, TestingSetup)
 
 BOOST_AUTO_TEST_CASE(BlockPolicyEstimates)
 {
     CBlockPolicyEstimator feeEst;
-    CTxMemPool mpool(&feeEst);
+    CTxMemPool mpool;
+    const MempoolFeeListener fee_listener(mpool, feeEst);
     LOCK(mpool.cs);
     TestMemPoolEntryHelper entry;
     CAmount basefee(2000);

@@ -6,6 +6,7 @@
 #include <cachesettings.h>
 #include <consensus/validation.h>
 #include <key.h>
+#include <mempoolaccept.h>
 #include <policy/policyconstants.h>
 #include <script/transactionsignatureserializer.h>
 #include <validation.h>
@@ -25,13 +26,14 @@
 BOOST_AUTO_TEST_SUITE(tx_validationcache_tests)
 
 static bool
-ToMemPool(const CMutableTransaction& tx)
+ToMemPool(CTxMemPool& pool, const CMutableTransaction& tx)
 {
     LOCK(cs_main);
 
-    CTxMempoolAcceptanceOptions opt;
-    opt.flags = MempoolAcceptanceFlags::BYPASSS_LIMITS;
-    return AcceptToMemoryPool(MakeTransactionRef(tx), opt);
+    MempoolAcceptOptions opt;
+    opt.bypass_limits = true;
+    MempoolAcceptResult accept_result;
+    return g_chainstate_manager.ActiveChainstate().AcceptToMemoryPool(MakeTransactionRef(tx), opt, accept_result);
 }
 
 BOOST_FIXTURE_TEST_CASE(tx_mempool_block_doublespend, TestChainSetup)
@@ -83,29 +85,29 @@ BOOST_FIXTURE_TEST_CASE(tx_mempool_block_doublespend, TestChainSetup)
         BOOST_CHECK_EQUAL(block.proof.size(), CPubKey::SCHNORR_SIGNATURE_SIZE);
 
         // Test 2: ... and should be rejected if spend1 is in the memory pool
-        BOOST_CHECK(ToMemPool(spends[0]));
+        BOOST_CHECK(ToMemPool(*m_node.mempool, spends[0]));
         block = CreateAndProcessBlock(spends, scriptPubKey);
         BOOST_CHECK(g_chainstate_manager.ActiveChain().Tip()->GetBlockHash() != block.GetHash());
-        mempool.clear();
+        m_node.mempool->clear();
         BOOST_CHECK_EQUAL(block.proof.size(), CPubKey::SCHNORR_SIGNATURE_SIZE);
 
         // Test 3: ... and should be rejected if spend2 is in the memory pool
-        BOOST_CHECK(ToMemPool(spends[1]));
+        BOOST_CHECK(ToMemPool(*m_node.mempool, spends[1]));
         block = CreateAndProcessBlock(spends, scriptPubKey);
         BOOST_CHECK(g_chainstate_manager.ActiveChain().Tip()->GetBlockHash() != block.GetHash());
-        mempool.clear();
+        m_node.mempool->clear();
         BOOST_CHECK_EQUAL(block.proof.size(), CPubKey::SCHNORR_SIGNATURE_SIZE);
 
         // Final sanity test: first spend in mempool, second in block, that's OK:
         std::vector<CMutableTransaction> oneSpend;
         oneSpend.push_back(spends[0]);
-        BOOST_CHECK(ToMemPool(spends[1]));
+        BOOST_CHECK(ToMemPool(*m_node.mempool, spends[1]));
         block = CreateAndProcessBlock(oneSpend, scriptPubKey);
         BOOST_CHECK(g_chainstate_manager.ActiveChain().Tip()->GetBlockHash() == block.GetHash());
         BOOST_CHECK_EQUAL(block.proof.size(), CPubKey::SCHNORR_SIGNATURE_SIZE);
         // spends[1] should have been removed from the mempool when the
         // block with spends[0] is accepted:
-        BOOST_CHECK_EQUAL(mempool.size(), 0U);
+        BOOST_CHECK_EQUAL(m_node.mempool->size(), 0U);
     }
 }
 

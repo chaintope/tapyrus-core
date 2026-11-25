@@ -99,6 +99,12 @@ bool EnsureWalletIsAvailable(CWallet * const pwallet, bool avoidException)
         "Wallet file not specified (must request wallet RPC through /wallet/<filename> uri-path).");
 }
 
+unsigned int ParseConfirmTarget(const CWallet& wallet, const UniValue& value)
+{
+    if (!wallet.HaveChain()) throw JSONRPCError(RPC_WALLET_ERROR, "Fee estimation is not available without a node");
+    return ParseConfirmTarget(value, wallet.chain().estimateMaxBlocks());
+}
+
 void EnsureWalletIsUnlocked(CWallet * const pwallet)
 {
     if (pwallet->IsLocked()) {
@@ -486,7 +492,7 @@ static UniValue sendtoaddress(const JSONRPCRequest& request)
     }
 
     if (!request.params[6].isNull()) {
-        coin_control.m_confirm_target = ParseConfirmTarget(request.params[6]);
+        coin_control.m_confirm_target = ParseConfirmTarget(*pwallet, request.params[6]);
     }
 
     if (!request.params[7].isNull()) {
@@ -930,7 +936,7 @@ static UniValue sendmany(const JSONRPCRequest& request)
     }
 
     if (!request.params[4].isNull()) {
-        coin_control.m_confirm_target = ParseConfirmTarget(request.params[4]);
+        coin_control.m_confirm_target = ParseConfirmTarget(*pwallet, request.params[4]);
     }
 
     if (!request.params[5].isNull()) {
@@ -2980,7 +2986,7 @@ void FundTransaction(CWallet* const pwallet, CMutableTransaction& tx, CAmount& f
             if (options.exists("feeRate")) {
                 throw JSONRPCError(RPC_INVALID_PARAMETER, "Cannot specify both conf_target and feeRate");
             }
-            coinControl.m_confirm_target = ParseConfirmTarget(options["conf_target"]);
+            coinControl.m_confirm_target = ParseConfirmTarget(*pwallet, options["conf_target"]);
         }
         if (options.exists("estimate_mode")) {
             if (options.exists("feeRate")) {
@@ -3186,7 +3192,8 @@ UniValue signrawtransactionwithwallet(const JSONRPCRequest& request)
 
     // Sign the transaction
     LOCK2(cs_main, pwallet->cs_wallet);
-    return SignTransaction(mtx, request.params[1], pwallet, false, request.params[2], sigScheme);
+    assert(request.context.mempool);
+    return SignTransaction(*request.context.mempool, mtx, request.params[1], pwallet, false, request.params[2], sigScheme);
 }
 
 static UniValue bumpfee(const JSONRPCRequest& request)
@@ -3267,7 +3274,7 @@ static UniValue bumpfee(const JSONRPCRequest& request)
         if (options.exists("confTarget") && options.exists("totalFee")) {
             throw JSONRPCError(RPC_INVALID_PARAMETER, "confTarget and totalFee options should not both be set. Please provide either a confirmation target for fee estimation or an explicit total fee for the transaction.");
         } else if (options.exists("confTarget")) { // TODO: alias this to conf_target
-            coin_control.m_confirm_target = ParseConfirmTarget(options["confTarget"]);
+            coin_control.m_confirm_target = ParseConfirmTarget(*pwallet, options["confTarget"]);
         } else if (options.exists("totalFee")) {
             totalFee = options["totalFee"].get_int64();
             if (totalFee <= 0) {
@@ -3425,7 +3432,8 @@ UniValue generate(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_INTERNAL_ERROR, "No coinbase script available");
     }
 
-    return generateBlocks(coinbase_script, num_generate, true, cPrivKey);
+    assert(request.context.mempool);
+    return generateBlocks(*request.context.mempool, coinbase_script, num_generate, true, cPrivKey);
 }
 
 UniValue rescanblockchain(const JSONRPCRequest& request)
@@ -4396,7 +4404,7 @@ UniValue walletfundpsttfee(const JSONRPCRequest& request)
         // no-wallet-required Signer path.
         CTransactionRef feeTx;
         uint256 hashBlock;
-        if (!GetTransaction(txid, feeTx, hashBlock, true)) {
+        if (!GetTransaction(request.context.mempool.get(), txid, feeTx, hashBlock, true)) {
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "fee_input's txid not found");
         }
         if ((unsigned int)nOutput >= feeTx->vout.size()) {

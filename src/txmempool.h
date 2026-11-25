@@ -7,6 +7,7 @@
 #ifndef BITCOIN_TXMEMPOOL_H
 #define BITCOIN_TXMEMPOOL_H
 
+#include <functional>
 #include <memory>
 #include <set>
 #include <map>
@@ -18,10 +19,12 @@
 #include <coin.h>
 #include <coinsview.h>
 #include <coinsviewcache.h>
+#include <cs_main.h>
 #include <hasher.h>
 #include <indirectmap.h>
 #include <mempoolentry.h>
 #include <mempoolremovalreason.h>
+#include <policy/policysettings.h>
 #include <policy/feerate.h>
 #include <primitives/transaction.h>
 #include <sync.h>
@@ -216,7 +219,6 @@ struct descendant_score {};
 struct entry_time {};
 struct ancestor_score {};
 
-class CBlockPolicyEstimator;
 
 /**
  * Information about a mempool transaction.
@@ -311,9 +313,10 @@ struct TxMempoolInfo
 class CTxMemPool
 {
 private:
-    uint32_t nCheckFrequency GUARDED_BY(cs); //!< Value n means that n times in 2^32 we check.
+    const uint32_t nCheckFrequency; //!< Value n means that n times in 2^32 we check.
     unsigned int nTransactionsUpdated; //!< Used by getblocktemplate to trigger CreateNewBlock() invocation
-    CBlockPolicyEstimator* minerPolicyEstimator;
+    const int64_t m_expiry;
+    const int64_t m_max_size;
 
     uint64_t totalTxSize GUARDED_BY(cs);      //!< sum of all mempool tx's serialized sizes.
     uint64_t cachedInnerUsage; //!< sum of dynamic memory usage of all the map elements (NOT the maps themselves)
@@ -391,7 +394,23 @@ public:
 
     /** Create a new CTxMemPool.
      */
-    explicit CTxMemPool(CBlockPolicyEstimator* estimator = nullptr);
+    /** What the mempool is configured with when it is created. */
+    struct Options {
+        //! check() sanity-checks the pool on one call in this many; 0 never.
+        int32_t check_ratio{0};
+        //! Seconds a transaction may stay in the pool before it expires.
+        int64_t expiry{int64_t{DEFAULT_MEMPOOL_EXPIRY} * 60 * 60};
+        //! Bytes of memory the pool is trimmed to.
+        int64_t max_size{int64_t{DEFAULT_MAX_MEMPOOL_SIZE} * 1000000};
+    };
+
+    CTxMemPool();
+    explicit CTxMemPool(const Options& options);
+
+    /** Seconds a transaction may stay in the pool before it expires. */
+    int64_t Expiry() const { return m_expiry; }
+    /** Bytes of memory the pool is trimmed to. */
+    int64_t MaxSize() const { return m_max_size; }
 
     /**
      * If sanity-checking is turned on, check makes sure the pool is
@@ -399,8 +418,7 @@ public:
      * all inputs are in the mapNextTx array). If sanity-checking is turned off,
      * check does nothing.
      */
-    void check(const CCoinsViewCache *pcoins) const;
-    void setSanityCheck(double dFrequency = 1.0) { LOCK(cs); nCheckFrequency = static_cast<uint32_t>(dFrequency * 4294967295.0); }
+    void check(const CCoinsViewCache *pcoins, int64_t spendheight) const;
 
     // addUnchecked must updated state for all ancestors of a given transaction,
     // to track size/count of descendant transactions.  First version of
@@ -413,13 +431,14 @@ public:
     void addUnchecked(const uint256& hash, const CTxMemPoolEntry& entry, setEntries& setAncestors, bool validFeeEstimate = true) EXCLUSIVE_LOCKS_REQUIRED(cs);
 
     void removeRecursive(const CTransaction &tx, MemPoolRemovalReason reason = MemPoolRemovalReason::UNKNOWN);
-    void removeForReorg(const CCoinsViewCache *pcoins, unsigned int nMemPoolHeight, int flags);
+    /** After a reorg, removes (with their descendants) the transactions is_final rejects and
+     *  those spending a coinbase output pcoins no longer has. is_final may refresh the entry's
+     *  lock points. */
+    void removeForReorg(const CCoinsViewCache *pcoins, const std::function<bool(txiter)>& is_final) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
     void removeConflicts(const CTransaction &tx) EXCLUSIVE_LOCKS_REQUIRED(cs);
     void removeForBlock(const std::vector<CTransactionRef>& vtx, unsigned int nBlockHeight);
-    /** Evict mempool entries that fail script checks or colored-coin consensus rules
-     *  under the flags/height active at the next block after a softfork activation.
-     *  Called when crossing a softfork activation boundary. Caller must hold cs_main. */
-    void removeForScriptFlagChange(unsigned int newMempoolScriptFlags, int32_t newBlockHeight);
+    /** Removes, with their descendants, the transactions should_remove picks. */
+    void removeIf(const std::function<bool(txiter)>& should_remove, MemPoolRemovalReason reason);
 
     void clear();
     void _clear() EXCLUSIVE_LOCKS_REQUIRED(cs); //lock free
@@ -484,6 +503,8 @@ public:
       *  would otherwise be half of this, it is set to 0 instead.
       */
     CFeeRate GetMinFee(size_t sizelimit) const;
+    /** The minimum fee to get into the pool at its own max size. */
+    CFeeRate GetMinFee() const { return GetMinFee(m_max_size); }
 
     /** Remove transactions from the mempool until its dynamic size is <= sizelimit.
       *  pvNoSpendsRemaining, if set, will be populated with the list of outpoints
@@ -526,6 +547,11 @@ public:
 
     boost::signals2::signal<void (CTransactionRef)> NotifyEntryAdded;
     boost::signals2::signal<void (CTransactionRef, MemPoolRemovalReason)> NotifyEntryRemoved;
+    /** Raised under cs for the fee estimator: an entry was added (and whether fee estimation
+     *  may use it), an entry was erased, and the entries a block confirms, before they are removed. */
+    boost::signals2::signal<void (const CTxMemPoolEntry&, bool validFeeEstimate)> NotifyEntryAddedForFees;
+    boost::signals2::signal<void (const uint256& txid)> NotifyEntryErasedForFees;
+    boost::signals2::signal<void (unsigned int nBlockHeight, const std::vector<const CTxMemPoolEntry*>& entries)> NotifyBlockForFees;
 
 private:
     /** UpdateForDescendants is used by UpdateTransactionsFromBlock to update
@@ -590,7 +616,7 @@ public:
 /**
  * CCoinsViewVirtualMemPool extends CCoinsViewMemPool with an in-memory map of
  * "virtual" coins — outputs of transactions that have been validated but not yet
- * added to the real mempool.  Used by SubmitPackageToMempool in TEST_ONLY mode so
+ * added to the real mempool.  Used by SubmitPackageToMempool for a test-only package so
  * that subsequent transactions in a chained package can resolve inputs against
  * earlier package transactions without requiring actual mempool admission.
  */
@@ -602,46 +628,6 @@ public:
     using CCoinsViewMemPool::CCoinsViewMemPool;
     bool GetCoin(const COutPoint& outpoint, Coin& coin) const override;
     void AddVirtualTx(const CTransaction& tx);
-};
-
-/* is the tx validation stand alone or part of a bigger entity */
-enum class ValidationContext {
-    TRANSACTION,
-    BLOCK,
-    INDEX,
-    PACKAGE
-};
-
-/* Options to change the behaviour of Accept to mempool
-* these are intended to be consolidated in one integer as flag
-* int flags = BYPASSS_LIMITS | TEST_ONLY
-*/
-enum class MempoolAcceptanceFlags
-{
-    NONE = 0,
-    BYPASSS_LIMITS = 1,
-    TEST_ONLY = 2
-};
-
-/* All configurable inputs and outputs of accept to mempool are consolidated here for ease of use*/
-struct CTxMempoolAcceptanceOptions {
-    ValidationContext context;
-    MempoolAcceptanceFlags flags;
-    CAmount nAbsurdFee;
-    CValidationState state;
-    int64_t nAcceptTime;
-    /** Resolves inputs against the mempool and the coins tip. AcceptToMemoryPool sets
-     *  the default one, under cs_main, unless the caller has set its own. */
-    CCoinsViewMemPool* mempool_view;
-    std::vector<CTransactionRef> txnReplaced;
-    std::vector<COutPoint> coins_to_uncache;
-    std::vector<COutPoint> missingInputs;
-
-    CTxMempoolAcceptanceOptions();
-    ~CTxMempoolAcceptanceOptions() {
-        delete mempool_view;
-        mempool_view = nullptr;
-    }
 };
 
 #endif // BITCOIN_TXMEMPOOL_H

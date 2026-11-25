@@ -2,6 +2,7 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
+#include <mempoolaccept.h>
 #include <script/transactionsignatureserializer.h>
 #include <wallet/test/test_tapyrus_wallet.h>
 
@@ -61,10 +62,11 @@ void TestWalletSetup::initWallet()
 }
 
 bool TestWalletSetup::ProcessBlockAndScanForWalletTxns(const CTransactionRef tx) {
-    CTxMempoolAcceptanceOptions opt;
+    MempoolAcceptOptions opt;
+    MempoolAcceptResult accept_result;
     {
         LOCK(cs_main);
-        if(!AcceptToMemoryPool(tx, opt)) {
+        if(!g_chainstate_manager.ActiveChainstate().AcceptToMemoryPool(tx, opt, accept_result)) {
             return false;
         }
     }

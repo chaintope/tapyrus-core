@@ -15,6 +15,8 @@
 #include <genesisblock.h>
 #include <issuedcolorids.h>
 #include <notificationhub.h>
+#include <policy/fees.h>
+#include <policy/mempoolfeelistener.h>
 #include <validation.h>
 #include <miner.h>
 #include <net_processing.h>
@@ -100,8 +102,14 @@ BasicTestingSetup::BasicTestingSetup(const std::string& chainName)
         pxFieldHistory = &g_chainstate_manager.XFieldHistory();
         g_chainstate_manager.InitOptions(ChainstateOptionsOverride::TestOptions({}));
         g_chainstate_manager.InitBlockFileManager(BlockFileManager::Options(gArgs, Params().PruneAfterHeight()), m_node.notifications);
-        // Created once per test binary, as the global chainstate it replaces was.
-        if (!g_chainstate_manager.HasChainstate()) g_chainstate_manager.InitializeChainstate();
+        m_node.fee_estimator = std::make_unique<CBlockPolicyEstimator>();
+        CTxMemPool::Options mempool_options;
+        mempool_options.check_ratio = 1;
+        mempool_options.expiry = m_node.policy->mempoolExpiry;
+        mempool_options.max_size = m_node.policy->maxMempool;
+        m_node.mempool = std::make_unique<CTxMemPool>(mempool_options);
+        // Recreated for each test, as it holds a reference to this test's mempool.
+        g_chainstate_manager.InitializeChainstate(*m_node.mempool);
         {
             LOCK(cs_main);
             g_chainstate_manager.IssuedColorIds() = CIssuedColorIds();
@@ -122,6 +130,7 @@ BasicTestingSetup::~BasicTestingSetup()
         g_chainstate_manager.IssuedColorIds() = CIssuedColorIds();
     }
     g_chainstate_manager.ReleaseBlockFileManager();
+    g_chainstate_manager.ReleaseChainstate();
     // The xfield history is left alone: it belongs to g_chainstate_manager,
     // which lives for the whole test binary. See pxFieldHistory in test_tapyrus.h.
     ClearDatadirCache();
@@ -197,9 +206,10 @@ TestingSetup::TestingSetup(const std::string& chainName) : BasicTestingSetup(cha
         CScheduler::Function serviceLoop = std::bind(&CScheduler::serviceQueue, &scheduler);
         scheduler.m_service_thread = std::thread(&TraceThread, "scheduler", serviceLoop);
         GetMainSignals().RegisterBackgroundSignalScheduler(scheduler);
+        GetMainSignals().RegisterWithMempoolSignals(*m_node.mempool);
+        m_node.mempool_fee_listener = std::make_unique<MempoolFeeListener>(*m_node.mempool, *m_node.fee_estimator);
 
         try {
-            mempool.setSanityCheck(1.0);
             {
                 LOCK(cs_main);
                 blockIndex.pblocktreedb.reset(new CBlockTreeDB(1 << 20, true));
@@ -219,7 +229,7 @@ TestingSetup::TestingSetup(const std::string& chainName) : BasicTestingSetup(cha
             g_chainstate_manager.InitOptions(ChainstateOptionsOverride::TestOptions({{"-par", SCRIPT_CHECK_PAR}}));
             StartScriptCheckWorkerThreads(g_chainstate_manager.GetOptions().nScriptCheckThreads);
             m_node.connman = std::unique_ptr<CConnman>(new CConnman(0x1337, 0x1337)); // Deterministic randomness for tests.
-            m_node.peerman.reset(new PeerManager(*m_node.connman, scheduler, m_node.notifications));
+            m_node.peerman.reset(new PeerManager(*m_node.connman, *m_node.mempool, scheduler, m_node.notifications));
         } catch (...) {
             // ~TestingSetup() never runs for a throwing constructor, so the
             // scheduler thread started above must be stopped here. Left
@@ -239,10 +249,12 @@ void TestingSetup::TearDown()
         BlockIndexMap& blockIndex = g_chainstate_manager.BlockIndex();
         scheduler.stop();
         GetMainSignals().FlushBackgroundCallbacks();
+        m_node.mempool_fee_listener.reset();
+        GetMainSignals().UnregisterWithMempoolSignals(*m_node.mempool);
         GetMainSignals().UnregisterBackgroundSignalScheduler();
         m_node.peerman.reset();
         m_node.connman.reset();
-        UnloadBlockIndex();
+        UnloadBlockIndex(m_node.mempool.get());
         LOCK(cs_main);
         g_chainstate_manager.ActiveChainstate().ResetCoinsViews();
         blockIndex.pblocktreedb.reset();
@@ -292,7 +304,7 @@ TestChainSetup::CreateAndProcessBlock(const std::vector<CMutableTransaction>& tx
         // Held across both, so the template builds on the tip the options read.
         LOCK(cs_main);
         const BlockAssembler::Options options(*m_node.policy, gArgs, g_chainstate_manager);
-        pblocktemplate = BlockAssembler(g_chainstate_manager, options).CreateNewBlock(scriptPubKey);
+        pblocktemplate = BlockAssembler(g_chainstate_manager, *m_node.mempool, options).CreateNewBlock(scriptPubKey);
     }
     CBlock& block = pblocktemplate->block;
 

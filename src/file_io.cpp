@@ -8,6 +8,7 @@
 #include <checkblock.h>
 #include <index/txindex.h>
 #include <chainnotifications.h>
+#include <mempoolaccept.h>
 #include <policy/policy.h>
 #include <shutdown.h>
 #include <trace.h>
@@ -19,9 +20,10 @@
 
 static const uint64_t MEMPOOL_DUMP_VERSION = 1;
 
-bool LoadMempool(void)
+bool Chainstate::LoadMempool()
 {
-    int64_t nExpiryTimeout = g_policy_settings->mempoolExpiry;
+    CTxMemPool& pool = m_mempool;
+    int64_t nExpiryTimeout = pool.Expiry();
     FILE* filestr = fsbridge::fopen(GetDataDir() / "mempool.dat", "rb");
     CAutoFile file(filestr, SER_DISK, CLIENT_VERSION);
     if (file.IsNull()) {
@@ -53,21 +55,22 @@ bool LoadMempool(void)
 
             CAmount amountdelta = nFeeDelta;
             if (amountdelta) {
-                mempool.PrioritiseTransaction(tx->GetHashMalFix(), amountdelta);
+                pool.PrioritiseTransaction(tx->GetHashMalFix(), amountdelta);
             }
-            CTxMempoolAcceptanceOptions opt;
+            MempoolAcceptResult result;
             if (nTime + nExpiryTimeout > nNow) {
                 LOCK(cs_main);
-                opt.nAcceptTime = nTime;
-                AcceptToMemoryPool(tx, opt);
-                if (opt.state.IsValid()) {
+                MempoolAcceptOptions options;
+                options.accept_time = nTime;
+                AcceptToMemoryPool(tx, options, result);
+                if (result.state.IsValid()) {
                     ++count;
                 } else {
                     // mempool may contain the transaction already, e.g. from
                     // wallet(s) having loaded it while we were processing
                     // mempool transactions; consider these as valid, instead of
                     // failed, but mark them as 'already there'
-                    if (mempool.exists(tx->GetHashMalFix())) {
+                    if (pool.exists(tx->GetHashMalFix())) {
                         ++already_there;
                     } else {
                         ++failed;
@@ -83,7 +86,7 @@ bool LoadMempool(void)
         file >> mapDeltas;
 
         for (const auto& i : mapDeltas) {
-            mempool.PrioritiseTransaction(i.first, i.second);
+            pool.PrioritiseTransaction(i.first, i.second);
         }
     } catch (const std::exception& e) {
         LogPrintf("Failed to deserialize mempool data on disk: %s. Continuing anyway.\n", e.what());
@@ -94,7 +97,7 @@ bool LoadMempool(void)
     return true;
 }
 
-bool DumpMempool(void)
+bool DumpMempool(const CTxMemPool& pool)
 {
     int64_t start = GetTimeMicros();
 
@@ -102,11 +105,11 @@ bool DumpMempool(void)
     std::vector<TxMempoolInfo> vinfo;
 
     {
-        LOCK(mempool.cs);
-        for (const auto &i : mempool.mapDeltas) {
+        LOCK(pool.cs);
+        for (const auto &i : pool.mapDeltas) {
             mapDeltas[i.first] = i.second;
         }
-        vinfo = mempool.infoAll();
+        vinfo = pool.infoAll();
     }
 
     int64_t mid = GetTimeMicros();
@@ -295,7 +298,7 @@ bool ChainstateManager::LoadExternalBlockFile(FILE* fileIn, CDiskBlockPos *dbp, 
 
 bool Chainstate::FlushStateToDisk(CValidationState& state, FlushStateMode mode, int nManualPruneHeight)
 {
-    int64_t nMempoolUsage = mempool.DynamicMemoryUsage();
+    int64_t nMempoolUsage = MempoolUsage();
     LOCK(cs_main);
     std::set<int> setFilesToPrune;
     bool full_flush_completed = false;
@@ -320,7 +323,7 @@ bool Chainstate::FlushStateToDisk(CValidationState& state, FlushStateMode mode, 
         if (m_last_flush == 0) {
             m_last_flush = nNow;
         }
-        int64_t nMempoolSizeMax = g_policy_settings->maxMempool;
+        int64_t nMempoolSizeMax = m_mempool.MaxSize();
         int64_t cacheSize = CoinsTip().DynamicMemoryUsage();
         int64_t nTotalSpace = m_chainman.GetOptions().nCoinCacheUsage + std::max<int64_t>(nMempoolSizeMax - nMempoolUsage, 0);
         // The cache is large and we're within 10% and 10 MiB of the limit, but we have time now (not in the middle of a block processing).

@@ -2,8 +2,12 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
+#include <chainstate.h>
+#include <chainstatemanager.h>
 #include <core_io.h>
 #include <consensus/validation.h>
+#include <mempoolaccept.h>
+#include <nodecontext.h>
 #include <policy/packages.h>
 #include <policy/policy.h>
 #include <rpc/mempool.h>
@@ -113,15 +117,14 @@ static UniValue testmempoolaccept(const JSONRPCRequest& request)
     CValidationState state;
     PackageValidationState pkg_results;
 
-    FilterMempoolDuplicates(transactions, package, pkg_results);
+    g_chainstate_manager.ActiveChainstate().FilterMempoolDuplicates(transactions, package, pkg_results);
 
     bool success = false;
-    CTxMempoolAcceptanceOptions opt;
-    opt.context = ValidationContext::PACKAGE;
-    opt.nAbsurdFee = max_raw_tx_fee;
-    opt.flags = MempoolAcceptanceFlags::TEST_ONLY;
+    MempoolAcceptOptions options;
+    options.max_tx_fee = max_raw_tx_fee;
+    options.test_only = true;
 
-    success = SubmitPackageToMempool(package, state, pkg_results, opt);
+    success = g_chainstate_manager.ActiveChainstate().SubmitPackageToMempool(package, state, pkg_results, options);
 
     UniValue result(UniValue::VOBJ);
 
@@ -184,13 +187,12 @@ static UniValue submitpackage(const JSONRPCRequest& request)
     CValidationState state;
     PackageValidationState pkg_results;
 
-    FilterMempoolDuplicates(transactions, package, pkg_results);
+    g_chainstate_manager.ActiveChainstate().FilterMempoolDuplicates(transactions, package, pkg_results);
 
-    CTxMempoolAcceptanceOptions opt;
-    opt.context = ValidationContext::PACKAGE;
-    opt.nAbsurdFee = max_raw_tx_fee;
+    MempoolAcceptOptions options;
+    options.max_tx_fee = max_raw_tx_fee;
 
-    bool success = SubmitPackageToMempool(package, state, pkg_results, opt);
+    bool success = g_chainstate_manager.ActiveChainstate().SubmitPackageToMempool(package, state, pkg_results, options);
 
     UniValue result(UniValue::VOBJ);
 
@@ -227,9 +229,9 @@ static std::string EntryDescriptionString()
            "       ... ]\n";
 }
 
-static void entryToJSON(UniValue &info, const CTxMemPoolEntry &e) EXCLUSIVE_LOCKS_REQUIRED(::mempool.cs)
+static void entryToJSON(const CTxMemPool& pool, UniValue &info, const CTxMemPoolEntry &e) EXCLUSIVE_LOCKS_REQUIRED(pool.cs)
 {
-    AssertLockHeld(mempool.cs);
+    AssertLockHeld(pool.cs);
 
     UniValue fees(UniValue::VOBJ);
     fees.pushKV("base", ValueFromAmount(e.GetFee()));
@@ -249,12 +251,12 @@ static void entryToJSON(UniValue &info, const CTxMemPoolEntry &e) EXCLUSIVE_LOCK
     info.pushKV("ancestorcount", e.GetCountWithAncestors());
     info.pushKV("ancestorsize", e.GetSizeWithAncestors());
     info.pushKV("ancestorfees", e.GetModFeesWithAncestors());
-    info.pushKV("txid", mempool.vTxHashes[e.vTxHashesIdx].first.ToString());
+    info.pushKV("txid", pool.vTxHashes[e.vTxHashesIdx].first.ToString());
     const CTransaction& tx = e.GetTx();
     std::set<std::string> setDepends;
     for (const CTxIn& txin : tx.vin)
     {
-        if (mempool.exists(txin.prevout.hashMalFix))
+        if (pool.exists(txin.prevout.hashMalFix))
             setDepends.insert(txin.prevout.hashMalFix.ToString());
     }
 
@@ -267,8 +269,8 @@ static void entryToJSON(UniValue &info, const CTxMemPoolEntry &e) EXCLUSIVE_LOCK
     info.pushKV("depends", depends);
 
     UniValue spent(UniValue::VARR);
-    const CTxMemPool::txiter &it = mempool.mapTx.find(tx.GetHashMalFix());
-    const CTxMemPool::setEntries &setChildren = mempool.GetMemPoolChildren(it);
+    const CTxMemPool::txiter &it = pool.mapTx.find(tx.GetHashMalFix());
+    const CTxMemPool::setEntries &setChildren = pool.GetMemPoolChildren(it);
     for (const CTxMemPool::txiter &childiter : setChildren) {
         spent.push_back(childiter->GetTx().GetHashMalFix().ToString());
     }
@@ -276,17 +278,17 @@ static void entryToJSON(UniValue &info, const CTxMemPoolEntry &e) EXCLUSIVE_LOCK
     info.pushKV("spentby", spent);
 }
 
-UniValue mempoolToJSON(bool fVerbose)
+UniValue mempoolToJSON(CTxMemPool& pool, bool fVerbose)
 {
     if (fVerbose)
     {
-        LOCK(mempool.cs);
+        LOCK(pool.cs);
         UniValue o(UniValue::VOBJ);
-        for (const CTxMemPoolEntry& e : mempool.mapTx)
+        for (const CTxMemPoolEntry& e : pool.mapTx)
         {
             const uint256& hash = e.GetTx().GetHashMalFix();
             UniValue info(UniValue::VOBJ);
-            entryToJSON(info, e);
+            entryToJSON(pool, info, e);
             o.pushKV(hash.ToString(), info);
         }
         return o;
@@ -294,7 +296,7 @@ UniValue mempoolToJSON(bool fVerbose)
     else
     {
         std::vector<uint256> vtxid;
-        mempool.queryHashes(vtxid);
+        pool.queryHashes(vtxid);
 
         UniValue a(UniValue::VARR);
         for (const uint256& hash : vtxid)
@@ -333,7 +335,8 @@ static UniValue getrawmempool(const JSONRPCRequest& request)
     if (!request.params[0].isNull())
         fVerbose = request.params[0].get_bool();
 
-    return mempoolToJSON(fVerbose);
+    assert(request.context.mempool);
+    return mempoolToJSON(*request.context.mempool, fVerbose);
 }
 
 static UniValue getmempoolancestors(const JSONRPCRequest& request)
@@ -368,6 +371,8 @@ static UniValue getmempoolancestors(const JSONRPCRequest& request)
 
     uint256 hash = ParseHashV(request.params[0], "parameter 1");
 
+    assert(request.context.mempool);
+    CTxMemPool& mempool = *request.context.mempool;
     LOCK(mempool.cs);
 
     CTxMemPool::txiter it = mempool.mapTx.find(hash);
@@ -393,7 +398,7 @@ static UniValue getmempoolancestors(const JSONRPCRequest& request)
             const CTxMemPoolEntry &e = *ancestorIt;
             const uint256& _hash = e.GetTx().GetHashMalFix();
             UniValue info(UniValue::VOBJ);
-            entryToJSON(info, e);
+            entryToJSON(mempool, info, e);
             o.pushKV(_hash.ToString(), info);
         }
         return o;
@@ -432,6 +437,8 @@ static UniValue getmempooldescendants(const JSONRPCRequest& request)
 
     uint256 hash = ParseHashV(request.params[0], "parameter 1");
 
+    assert(request.context.mempool);
+    CTxMemPool& mempool = *request.context.mempool;
     LOCK(mempool.cs);
 
     CTxMemPool::txiter it = mempool.mapTx.find(hash);
@@ -457,7 +464,7 @@ static UniValue getmempooldescendants(const JSONRPCRequest& request)
             const CTxMemPoolEntry &e = *descendantIt;
             const uint256& _hash = e.GetTx().GetHashMalFix();
             UniValue info(UniValue::VOBJ);
-            entryToJSON(info, e);
+            entryToJSON(mempool, info, e);
             o.pushKV(_hash.ToString(), info);
         }
         return o;
@@ -484,6 +491,8 @@ static UniValue getmempoolentry(const JSONRPCRequest& request)
 
     uint256 hash = ParseHashV(request.params[0], "parameter 1");
 
+    assert(request.context.mempool);
+    CTxMemPool& mempool = *request.context.mempool;
     LOCK(mempool.cs);
 
     CTxMemPool::txiter it = mempool.mapTx.find(hash);
@@ -493,19 +502,18 @@ static UniValue getmempoolentry(const JSONRPCRequest& request)
 
     const CTxMemPoolEntry &e = *it;
     UniValue info(UniValue::VOBJ);
-    entryToJSON(info, e);
+    entryToJSON(mempool, info, e);
     return info;
 }
 
-UniValue mempoolInfoToJSON()
+UniValue mempoolInfoToJSON(CTxMemPool& pool)
 {
     UniValue ret(UniValue::VOBJ);
-    ret.pushKV("size", (int64_t) mempool.size());
-    ret.pushKV("bytes", (int64_t) mempool.GetTotalTxSize());
-    ret.pushKV("usage", (int64_t) mempool.DynamicMemoryUsage());
-    size_t maxmempool = g_policy_settings->maxMempool;
-    ret.pushKV("maxmempool", (int64_t) maxmempool);
-    ret.pushKV("mempoolminfee", ValueFromAmount(std::max(mempool.GetMinFee(maxmempool), g_policy_settings->minRelayTxFee).GetFeePerK()));
+    ret.pushKV("size", (int64_t) pool.size());
+    ret.pushKV("bytes", (int64_t) pool.GetTotalTxSize());
+    ret.pushKV("usage", (int64_t) pool.DynamicMemoryUsage());
+    ret.pushKV("maxmempool", pool.MaxSize());
+    ret.pushKV("mempoolminfee", ValueFromAmount(std::max(pool.GetMinFee(), g_policy_settings->minRelayTxFee).GetFeePerK()));
     ret.pushKV("minrelaytxfee", ValueFromAmount(g_policy_settings->minRelayTxFee.GetFeePerK()));
 
     return ret;
@@ -531,7 +539,8 @@ static UniValue getmempoolinfo(const JSONRPCRequest& request)
             + HelpExampleRpc("getmempoolinfo", "")
         );
 
-    return mempoolInfoToJSON();
+    assert(request.context.mempool);
+    return mempoolInfoToJSON(*request.context.mempool);
 }
 
 static UniValue savemempool(const JSONRPCRequest& request)
@@ -546,11 +555,12 @@ static UniValue savemempool(const JSONRPCRequest& request)
         );
     }
 
-    if (!g_is_mempool_loaded) {
+    assert(request.context.mempool);
+    if (!request.context.mempool_loaded) {
         throw JSONRPCError(RPC_MISC_ERROR, "The mempool was not loaded yet");
     }
 
-    if (!DumpMempool()) {
+    if (!DumpMempool(*request.context.mempool)) {
         throw JSONRPCError(RPC_MISC_ERROR, "Unable to dump mempool to disk");
     }
 

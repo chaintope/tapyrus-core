@@ -11,6 +11,7 @@
 
 #include <functional>
 #include <memory>
+#include <vector>
 
 class CBlock;
 class CBlockIndex;

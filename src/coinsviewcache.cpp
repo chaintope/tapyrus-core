@@ -10,6 +10,7 @@
 #include <coloridentifier.h>
 #include <consensusconstants.h>
 #include <trace.h>
+#include <undo.h>
 
 #include <stdexcept>
 
@@ -315,4 +316,25 @@ const Coin& AccessByTxid(const CCoinsViewCache& view, const uint256& txid)
         ++iter.n;
     }
     return coinEmpty;
+}
+
+void CCoinsViewCache::UpdateCoins(const CTransaction& tx, CTxUndo& txundo, int nHeight)
+{
+    // mark inputs spent
+    if (!tx.IsCoinBase()) {
+        txundo.vprevout.reserve(tx.vin.size());
+        for (const CTxIn &txin : tx.vin) {
+            txundo.vprevout.emplace_back();
+            bool is_spent = SpendCoin(txin.prevout, &txundo.vprevout.back());
+            assert(is_spent);
+        }
+    }
+    // add outputs
+    AddCoins(*this, tx, nHeight);
+}
+
+void CCoinsViewCache::UpdateCoins(const CTransaction& tx, int nHeight)
+{
+    CTxUndo txundo;
+    UpdateCoins(tx, txundo, nHeight);
 }

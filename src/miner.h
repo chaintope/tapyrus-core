@@ -164,6 +164,8 @@ public:
 
 private:
     ChainstateManager& m_chainman;
+    //! The transactions the block is filled from.
+    const CTxMemPool& m_mempool;
     const Options m_options;
 
     // The constructed block template
@@ -189,7 +191,7 @@ private:
     };
 
 public:
-    BlockAssembler(ChainstateManager& chainman, const Options& options);
+    BlockAssembler(ChainstateManager& chainman, const CTxMemPool& mempool, const Options& options);
 
     /** Size and transaction count of the last block template built, for
      *  getmininginfo. An assembler lives for one template, so these outlive it;
@@ -209,7 +211,7 @@ private:
     /** Add transactions based on feerate including unconfirmed ancestors
       * Increments nPackagesSelected / nDescendantsUpdated with corresponding
       * statistics from the package selection (for logging statistics). */
-    void addPackageTxs(BlockAssemblerStats& newBlockStats, int &nPackagesSelected, int &nDescendantsUpdated, int required_age_in_secs=0) EXCLUSIVE_LOCKS_REQUIRED(mempool.cs);
+    void addPackageTxs(BlockAssemblerStats& newBlockStats, int &nPackagesSelected, int &nDescendantsUpdated, int required_age_in_secs=0) EXCLUSIVE_LOCKS_REQUIRED(m_mempool.cs);
 
     // helper functions for addPackageTxs()
     /** Remove confirmed (inBlock) entries from given set */
@@ -223,13 +225,13 @@ private:
     bool TestPackageTransactions(const CTxMemPool::setEntries& package);
     /** Return true if given transaction from mapTx has already been evaluated,
       * or if the transaction's cached data in mapTx is incorrect. */
-    bool SkipMapTxEntry(CTxMemPool::txiter it, indexed_modified_transaction_set &mapModifiedTx, CTxMemPool::setEntries &failedTx) EXCLUSIVE_LOCKS_REQUIRED(mempool.cs);
+    bool SkipMapTxEntry(CTxMemPool::txiter it, indexed_modified_transaction_set &mapModifiedTx, CTxMemPool::setEntries &failedTx) EXCLUSIVE_LOCKS_REQUIRED(m_mempool.cs);
     /** Sort the package in an order that is valid to appear in a block */
     void SortForBlock(const CTxMemPool::setEntries& package, std::vector<CTxMemPool::txiter>& sortedEntries);
     /** Add descendants of given transactions to mapModifiedTx with ancestor
       * state updated assuming given transactions are inBlock. Returns number
       * of updated descendants. */
-    int UpdatePackagesForAdded(const CTxMemPool::setEntries& alreadyAdded, indexed_modified_transaction_set &mapModifiedTx) EXCLUSIVE_LOCKS_REQUIRED(mempool.cs);
+    int UpdatePackagesForAdded(const CTxMemPool::setEntries& alreadyAdded, indexed_modified_transaction_set &mapModifiedTx) EXCLUSIVE_LOCKS_REQUIRED(m_mempool.cs);
 };
 
 /** Modify the extranonce in a block */

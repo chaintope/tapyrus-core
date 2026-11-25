@@ -32,6 +32,7 @@ class CBlockIndex;
 class CChain;
 class Chainstate;
 class ChainNotifications;
+class CTxMemPool;
 
 static const int64_t DEFAULT_MAX_TIP_AGE = 24 * 60 * 60;
 static const bool DEFAULT_CHECKPOINTS_ENABLED = true;
@@ -166,9 +167,11 @@ public:
     /** Whether the block of this index entry has been pruned. */
     bool IsBlockPruned(const CBlockIndex* pblockindex) const EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 
-    /** Creates the chainstate; replaces any earlier one. */
-    void InitializeChainstate();
+    /** Creates the chainstate, which updates mempool as the tip moves; replaces any earlier one. */
+    void InitializeChainstate(CTxMemPool& mempool);
     bool HasChainstate() const { return m_active_chainstate != nullptr; }
+    /** Destroys the chainstate before the mempool it refers to. */
+    void ReleaseChainstate();
 
     Chainstate& ActiveChainstate() const;
     CChain& ActiveChain() const;

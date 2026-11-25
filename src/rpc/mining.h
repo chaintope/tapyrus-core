@@ -10,11 +10,13 @@
 
 #include <univalue.h>
 
-/** Generate blocks (mine) */
-UniValue generateBlocks(std::shared_ptr<CReserveScript> coinbaseScript, int nGenerate, bool keepScript, const CKey& vecPrivKeys);
+class CTxMemPool;
 
-/** Check bounds on a command line confirm target */
-unsigned int ParseConfirmTarget(const UniValue& value);
+/** Generate blocks (mine) */
+UniValue generateBlocks(const CTxMemPool& mempool, std::shared_ptr<CReserveScript> coinbaseScript, int nGenerate, bool keepScript, const CKey& vecPrivKeys);
+
+/** Check bounds on a command line confirm target; max_target is the longest the fee estimator tracks */
+unsigned int ParseConfirmTarget(const UniValue& value, unsigned int max_target);
 
 /** parse list of privatekeys from unival hex string into a vector */
 void ParsePrivateKeyList(const UniValue& privkeys_hex, std::vector<CKey>& vecKeys);

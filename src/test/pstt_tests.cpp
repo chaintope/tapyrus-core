@@ -2,6 +2,7 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
+#include <mempoolaccept.h>
 #include <pstt.h>
 
 #include <amount.h>
@@ -499,20 +500,21 @@ static void SignInputForTest(PartiallySignedTapyrusTransaction& pstt, unsigned i
 static void CheckMempoolResult(TestChainSetup& setup, const CTransactionRef& tx, bool expect_success,
                                 const std::string& expect_reject_reason = "")
 {
-    CTxMempoolAcceptanceOptions opt;
-    opt.flags = MempoolAcceptanceFlags::BYPASSS_LIMITS;
+    MempoolAcceptOptions opt;
+    opt.bypass_limits = true;
+    MempoolAcceptResult accept_result;
     {
         LOCK(cs_main);
-        BOOST_CHECK_EQUAL(expect_success, AcceptToMemoryPool(tx, opt));
+        BOOST_CHECK_EQUAL(expect_success, g_chainstate_manager.ActiveChainstate().AcceptToMemoryPool(tx, opt, accept_result));
     }
     if (expect_success) {
-        BOOST_CHECK(opt.state.IsValid());
+        BOOST_CHECK(accept_result.state.IsValid());
         std::vector<CMutableTransaction> txs{CMutableTransaction(*tx)};
         setup.CreateAndProcessBlock(txs, CScript() << ToByteVector(setup.coinbaseKey.GetPubKey()) << OP_CHECKSIG);
     } else {
-        BOOST_CHECK(opt.state.IsInvalid());
+        BOOST_CHECK(accept_result.state.IsInvalid());
         if (!expect_reject_reason.empty()) {
-            BOOST_CHECK_EQUAL(opt.state.GetRejectReason(), expect_reject_reason);
+            BOOST_CHECK_EQUAL(accept_result.state.GetRejectReason(), expect_reject_reason);
         }
     }
 }
