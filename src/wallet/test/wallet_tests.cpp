@@ -1115,6 +1115,36 @@ BOOST_AUTO_TEST_CASE(a_wallet_transaction_reads_back_as_written)
     BOOST_CHECK(rewritten.str() == written.str());
 }
 
+//! A wallet transaction record as Tapyrus wrote it before the Confirmation struct: position -1 with the given block hash.
+static CDataStream OldTapyrusRecord(const uint256& hash_block)
+{
+    CMutableTransaction mtx;
+    mtx.vout.emplace_back(1 * ConsensusConstants::COIN, CScript() << OP_TRUE);
+    CDataStream stream(SER_DISK, CLIENT_VERSION);
+    stream << MakeTransactionRef(mtx) << hash_block << std::vector<uint256>() << int{-1};
+    WriteCompactSize(stream, 0);
+    stream << mapValue_t() << std::vector<std::pair<std::string, std::string>>() << (unsigned int){0} << (unsigned int){0} << false << char{0};
+    return stream;
+}
+
+BOOST_AUTO_TEST_CASE(an_unconfirmed_transaction_from_an_older_tapyrus_wallet_reads_as_unconfirmed)
+{
+    CDataStream stream{OldTapyrusRecord(uint256())};
+    CWalletTx read(nullptr, MakeTransactionRef());
+    stream >> read;
+    BOOST_CHECK(read.isUnconfirmed());
+}
+
+// Negative case: with a block hash, position -1 still marks a conflict.
+BOOST_AUTO_TEST_CASE(a_conflicted_transaction_from_an_older_tapyrus_wallet_reads_as_conflicted)
+{
+    CDataStream stream{OldTapyrusRecord(uint256S("02"))};
+    CWalletTx read(nullptr, MakeTransactionRef());
+    stream >> read;
+    BOOST_CHECK(read.isConflicted());
+    BOOST_CHECK_EQUAL(read.m_confirm.hashBlock, uint256S("02"));
+}
+
 // Negative case: the slot that used to hold vtxPrev must be empty.
 BOOST_AUTO_TEST_CASE(a_wallet_transaction_with_vtxprev_entries_is_rejected)
 {
