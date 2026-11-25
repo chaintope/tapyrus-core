@@ -398,12 +398,13 @@ public:
          * with. If nIndex == -1 and hashBlock is ABANDON_HASH, it means transaction is abandoned.
          * In same context, an nIndex >= 0 refers to a confirmed transaction (if hashBlock set) or
          * unconfirmed one. Older clients interpret nIndex == -1 as unconfirmed for backward
-         * compatibility (pre-commit 9ac63d6).
+         * compatibility (pre-commit 9ac63d6). Tapyrus wrote nIndex == -1 with a null hashBlock
+         * for every unconfirmed transaction, so that reads as unconfirmed, as it always has.
          */
         if (serializedIndex == -1 && m_confirm.hashBlock == ABANDON_HASH) {
             m_confirm.hashBlock = uint256();
             setAbandoned();
-        } else if (serializedIndex == -1) {
+        } else if (serializedIndex == -1 && !m_confirm.hashBlock.IsNull()) {
             setConflicted();
         } else if (!m_confirm.hashBlock.IsNull()) {
             m_confirm.nIndex = serializedIndex;
