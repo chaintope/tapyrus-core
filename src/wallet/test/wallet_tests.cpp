@@ -1115,6 +1115,29 @@ BOOST_AUTO_TEST_CASE(a_wallet_transaction_reads_back_as_written)
     BOOST_CHECK(rewritten.str() == written.str());
 }
 
+BOOST_FIXTURE_TEST_CASE(key_birth_times_come_from_the_wallets_last_block_when_it_lags_the_node, TestChainSetup)
+{
+    std::unique_ptr<interfaces::Chain> chain = interfaces::MakeChain(m_node);
+    const CScript script{CScript() << ToByteVector(coinbaseKey.GetPubKey()) << OP_CHECKSIG};
+    for (int i = 0; i < 150; ++i) CreateAndProcessBlock({}, script);
+
+    CWallet wallet(chain.get(), "dummy", WalletDatabase::CreateDummy());
+    CKey key;
+    key.MakeNewKey(true);
+    LOCK2(cs_main, wallet.cs_wallet);
+    // Far behind the node, as a wallet catching up from its event queue is.
+    const CBlockIndex* lagging = g_chainstate_manager.ActiveChain()[2];
+    wallet.SetLastBlockProcessed(lagging->nHeight, lagging->GetBlockHash());
+    // A key without metadata takes its birth time from the chain.
+    BOOST_REQUIRE(wallet.LoadKey(key, key.GetPubKey()));
+
+    std::map<CTxDestination, int64_t> birth_times;
+    BOOST_CHECK_NO_THROW(wallet.GetKeyBirthTimes(birth_times));
+    const auto it = birth_times.find(CKeyID(key.GetPubKey().GetID()));
+    BOOST_REQUIRE(it != birth_times.end());
+    BOOST_CHECK_EQUAL(it->second, g_chainstate_manager.ActiveChain().Genesis()->GetBlockTime() - TIMESTAMP_WINDOW);
+}
+
 //! A wallet transaction record as Tapyrus wrote it before the Confirmation struct: position -1 with the given block hash.
 static CDataStream OldTapyrusRecord(const uint256& hash_block)
 {
