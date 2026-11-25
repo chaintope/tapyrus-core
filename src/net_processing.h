@@ -108,6 +108,8 @@ public:
     void Misbehaving(NodeId pnode, int howmuch, const std::string& message = "") EXCLUSIVE_LOCKS_REQUIRED(cs_main);
     /** Sets a peer's last block announcement time; used by the stale-tip eviction tests. */
     void UpdateLastBlockAnnounceTime(NodeId node, int64_t time_in_seconds);
+    //! Sets the height sent in version messages until the next tip update.
+    void SetBestHeight(int height) { m_best_height = height; }
 
 private:
     int64_t m_stale_tip_check_time; //! Next time to check for stale tip
@@ -165,6 +167,8 @@ private:
 
     /** When our tip was last updated. */
     std::atomic<int64_t> m_last_tip_update{0};
+    //! The height of the best chain, for the version message.
+    std::atomic<int> m_best_height{-1};
 
     /** Relay map */
     typedef std::map<uint256, CTransactionRef> MapRelay;

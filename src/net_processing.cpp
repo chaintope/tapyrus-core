@@ -355,7 +355,7 @@ void PeerManager::PushNodeVersion(CNode* pnode, int64_t nTime)
 {
     ServiceFlags nLocalNodeServices = pnode->GetLocalServices();
     uint64_t nonce = pnode->GetLocalNonce();
-    int nNodeStartingHeight = pnode->GetMyStartingHeight();
+    const int nNodeStartingHeight{m_best_height};
     NodeId nodeid = pnode->GetId();
     CAddress addr = pnode->addr;
 
@@ -660,7 +660,7 @@ void PeerManager::PackageTransactionsRelay(const std::vector<CTransactionRef>& t
  */
 void PeerManager::UpdatedBlockTip(const CBlockIndex *pindexNew, const CBlockIndex *pindexFork, bool fInitialDownload) {
     const int nNewHeight = pindexNew->nHeight;
-    m_connman.SetBestHeight(nNewHeight);
+    m_best_height = nNewHeight;
 
     SetServiceFlagsIBDCache(!fInitialDownload);
     if (!fInitialDownload) {

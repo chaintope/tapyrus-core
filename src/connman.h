@@ -58,7 +58,6 @@ public:
         int nMaxOutbound = 0;
         int nMaxAddnode = 0;
         int nMaxFeeler = 0;
-        int nBestHeight = 0;
         CClientUIInterface* uiInterface = nullptr;
         NetEventsInterface* m_msgproc = nullptr;
         unsigned int nSendBufferMaxSize = 0;
@@ -90,7 +89,6 @@ public:
         nMaxOutbound = std::min(connOptions.nMaxOutbound, connOptions.nMaxConnections);
         nMaxAddnode = connOptions.nMaxAddnode;
         nMaxFeeler = connOptions.nMaxFeeler;
-        nBestHeight = connOptions.nBestHeight;
         clientInterface = connOptions.uiInterface;
         m_msgproc = connOptions.m_msgproc;
         nSendBufferMaxSize = connOptions.nSendBufferMaxSize;
@@ -242,8 +240,6 @@ public:
     uint64_t GetTotalBytesRecv();
     uint64_t GetTotalBytesSent();
 
-    void SetBestHeight(int height);
-    int GetBestHeight() const;
 
     /** Get a unique deterministic randomizer. */
     CSipHasher GetDeterministicRandomizer(uint64_t id) const;
@@ -359,7 +355,6 @@ private:
     int nMaxOutbound;
     int nMaxAddnode;
     int nMaxFeeler;
-    std::atomic<int> nBestHeight;
     CClientUIInterface* clientInterface;
     NetEventsInterface* m_msgproc;
 

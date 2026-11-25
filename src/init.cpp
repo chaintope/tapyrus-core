@@ -1661,6 +1661,7 @@ bool AppInitMain(NodeContext& node)
         chain_active_height = chainman.ActiveChain().Height();
     }
     LogPrintf("nBestHeight = %d\n", chain_active_height);
+    if (node.peerman) node.peerman->SetBestHeight(chain_active_height);
 
     Discover();
 
@@ -1675,7 +1676,6 @@ bool AppInitMain(NodeContext& node)
     connOptions.nMaxOutbound = std::min(MAX_OUTBOUND_CONNECTIONS, connOptions.nMaxConnections);
     connOptions.nMaxAddnode = MAX_ADDNODE_CONNECTIONS;
     connOptions.nMaxFeeler = 1;
-    connOptions.nBestHeight = chain_active_height;
     connOptions.uiInterface = &uiInterface;
     connOptions.m_msgproc = node.peerman.get();
     connOptions.nSendBufferMaxSize = 1000*gArgs.GetArg("-maxsendbuffer", DEFAULT_MAXSENDBUFFER);

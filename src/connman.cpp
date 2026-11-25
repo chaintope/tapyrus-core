@@ -274,7 +274,7 @@ CNode* CConnman::ConnectNode(CAddress addrConnect, const char *pszDest, bool fCo
     NodeId id = GetNewNodeId();
     uint64_t nonce = GetDeterministicRandomizer(RANDOMIZER_ID_LOCALHOSTNONCE).Write(id).Finalize();
     CAddress addr_bind = GetBindAddress(hSocket);
-    CNode* pnode = new CNode(id, nLocalServices, GetBestHeight(), hSocket, addrConnect, CalculateKeyedNetGroup(addrConnect), nonce, addr_bind, pszDest ? pszDest : "", false);
+    CNode* pnode = new CNode(id, nLocalServices, hSocket, addrConnect, CalculateKeyedNetGroup(addrConnect), nonce, addr_bind, pszDest ? pszDest : "", false);
     pnode->AddRef();
 
     // We're making a new connection, harvest entropy from the time (and our peer count)
@@ -781,7 +781,7 @@ void CConnman::AcceptConnection(const ListenSocket& hListenSocket) {
     uint64_t nonce = GetDeterministicRandomizer(RANDOMIZER_ID_LOCALHOSTNONCE).Write(id).Finalize();
     CAddress addr_bind = GetBindAddress(hSocket);
 
-    CNode* pnode = new CNode(id, nLocalServices, GetBestHeight(), hSocket, addr, CalculateKeyedNetGroup(addr), nonce, addr_bind, "", true);
+    CNode* pnode = new CNode(id, nLocalServices, hSocket, addr, CalculateKeyedNetGroup(addr), nonce, addr_bind, "", true);
     pnode->AddRef();
     pnode->fWhitelisted = whitelisted;
     // Set only here: a peer discouraged later in its session is disconnected
@@ -1673,7 +1673,9 @@ void CConnman::SetNetworkActive(bool active)
 
     fNetworkActive = active;
 
-    uiInterface.NotifyNetworkActiveChanged(fNetworkActive);
+    if (clientInterface) {
+        clientInterface->NotifyNetworkActiveChanged(fNetworkActive);
+    }
 }
 
 CConnman::CConnman(uint64_t nSeed0In, uint64_t nSeed1In) : nSeed0(nSeed0In), nSeed1(nSeed1In)
@@ -1815,7 +1817,9 @@ bool CConnman::Start(CScheduler& scheduler, const Options& connOptions)
         DumpBanlist();
     }
 
-    uiInterface.InitMessage(_("Starting network threads..."));
+    if (clientInterface) {
+        clientInterface->InitMessage(_("Starting network threads..."));
+    }
 
     fAddressesInitialized = true;
 
@@ -2176,16 +2180,6 @@ uint64_t CConnman::GetTotalBytesSent()
 ServiceFlags CConnman::GetLocalServices() const
 {
     return nLocalServices;
-}
-
-void CConnman::SetBestHeight(int height)
-{
-    nBestHeight.store(height, std::memory_order_release);
-}
-
-int CConnman::GetBestHeight() const
-{
-    return nBestHeight.load(std::memory_order_acquire);
 }
 
 unsigned int CConnman::GetReceiveFloodSize() const { return nReceiveFloodSize; }
