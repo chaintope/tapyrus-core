@@ -26,6 +26,8 @@
 #include <qt/walletmodel.h>
 #endif
 
+#include <init.h>
+#include <interfaces/chain.h>
 #include <interfaces/handler.h>
 #include <interfaces/node.h>
 #include <nodecontext.h>
@@ -596,6 +598,8 @@ int main(int argc, char *argv[])
     SetupEnvironment();
 
     NodeContext node_context;
+    std::unique_ptr<interfaces::Chain> chain = interfaces::MakeChain(node_context);
+    g_wallet_init_interface.SetChainInterface(chain.get());
     std::unique_ptr<interfaces::Node> node = interfaces::MakeNode(node_context);
 
     // Do not refer to data directory yet, this can be overridden by Intro::pickDataDirectory

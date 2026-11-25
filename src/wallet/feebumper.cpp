@@ -5,6 +5,7 @@
 
 #include <coloridentifier.h>
 #include <consensus/validation.h>
+#include <interfaces/chain.h>
 #include <wallet/coincontrol.h>
 #include <wallet/feebumper.h>
 #include <wallet/fees.h>
@@ -13,7 +14,6 @@
 #include <policy/policy.h>
 #include <policy/rbf.h>
 #include <validation.h> //for mempool access
-#include <txmempool.h>
 #include <utilmoneystr.h>
 #include <util.h>
 
@@ -26,13 +26,9 @@ static feebumper::Result PreconditionChecks(const CWallet* wallet, const CWallet
         return feebumper::Result::INVALID_PARAMETER;
     }
 
-    {
-        LOCK(mempool.cs);
-        auto it_mp = mempool.mapTx.find(wtx.GetHash());
-        if (it_mp != mempool.mapTx.end() && it_mp->GetCountWithDescendants() > 1) {
-            errors.push_back("Transaction has descendants in the mempool");
-            return feebumper::Result::INVALID_PARAMETER;
-        }
+    if (wallet->HaveChain() && wallet->chain().hasDescendantsInMempool(wtx.GetHash())) {
+        errors.push_back("Transaction has descendants in the mempool");
+        return feebumper::Result::INVALID_PARAMETER;
     }
 
     if (wtx.GetDepthInMainChain() != 0) {
@@ -194,7 +190,7 @@ Result CreateTransaction(const CWallet* wallet, const uint256& txid, const CCoin
         new_fee = total_fee;
         nNewFeeRate = CFeeRate(total_fee, maxNewTxSize);
     } else {
-        new_fee = GetMinimumFee(*wallet, maxNewTxSize, coin_control, mempool, ::feeEstimator, nullptr /* FeeCalculation */);
+        new_fee = GetMinimumFee(*wallet, maxNewTxSize, coin_control, nullptr /* FeeCalculation */);
         nNewFeeRate = CFeeRate(new_fee, maxNewTxSize);
 
         // New fee rate must be at least old rate + minimum incremental relay rate
@@ -220,7 +216,7 @@ Result CreateTransaction(const CWallet* wallet, const uint256& txid, const CCoin
     // This may occur if the user set TotalFee or paytxfee too low, if fallbackfee is too low, or, perhaps,
     // in a rare situation where the mempool minimum fee increased significantly since the fee estimation just a
     // moment earlier. In this case, we report an error to the user, who may use total_fee to make an adjustment.
-    CFeeRate minMempoolFeeRate = mempool.GetMinFee(g_policy_settings->maxMempool);
+    CFeeRate minMempoolFeeRate = wallet->HaveChain() ? wallet->chain().mempoolMinFee() : CFeeRate(0);
     if (nNewFeeRate.GetFeePerK() < minMempoolFeeRate.GetFeePerK()) {
         errors.push_back(strprintf(
             "New fee rate (%s) is lower than the minimum fee rate (%s) to get into the mempool -- "
@@ -243,7 +239,7 @@ Result CreateTransaction(const CWallet* wallet, const uint256& txid, const CCoin
             return Result::WALLET_ERROR;
         }
         poutput->nValue -= nDelta;
-        if (poutput->nValue <= GetDustThreshold(*poutput, GetDiscardRate(*wallet, ::feeEstimator))) {
+        if (poutput->nValue <= GetDustThreshold(*poutput, GetDiscardRate(*wallet))) {
             wallet->WalletLogPrintf("Bumping fee and discarding dust output\n");
             new_fee += poutput->nValue;
             mtx.vout.erase(mtx.vout.begin() + nOutput);
@@ -257,7 +253,7 @@ Result CreateTransaction(const CWallet* wallet, const uint256& txid, const CCoin
         CAmount changeValue = newInputValue - nDelta;
         CTxOut& changeOut = mtx.vout.back();
         changeOut.nValue = changeValue;
-        if (changeValue <= GetDustThreshold(changeOut, GetDiscardRate(*wallet, ::feeEstimator))) {
+        if (changeValue <= GetDustThreshold(changeOut, GetDiscardRate(*wallet))) {
             wallet->WalletLogPrintf("Bumping fee: discarding dust change from new TPC input\n");
             new_fee += changeValue;
             mtx.vout.pop_back();
@@ -279,7 +275,7 @@ bool SignTransaction(CWallet* wallet, CMutableTransaction& mtx) {
     return wallet->SignTransaction(mtx);
 }
 
-Result CommitTransaction(CWallet* wallet, const uint256& txid, CMutableTransaction&& mtx, CConnman* connman, std::vector<std::string>& errors, uint256& bumped_txid)
+Result CommitTransaction(CWallet* wallet, const uint256& txid, CMutableTransaction&& mtx, std::vector<std::string>& errors, uint256& bumped_txid)
 {
     LOCK2(cs_main, wallet->cs_wallet);
     if (!errors.empty()) {
@@ -305,7 +301,7 @@ Result CommitTransaction(CWallet* wallet, const uint256& txid, CMutableTransacti
 
     CReserveKey reservekey(wallet);
     CValidationState state;
-    if (!wallet->CommitTransaction(tx, std::move(mapValue), oldWtx.vOrderForm, reservekey, connman, state)) {
+    if (!wallet->CommitTransaction(tx, std::move(mapValue), oldWtx.vOrderForm, reservekey, state)) {
         // NOTE: CommitTransaction never returns false, so this should never happen.
         errors.push_back(strprintf("The transaction was rejected: %s", FormatStateMessage(state)));
         return Result::WALLET_ERROR;

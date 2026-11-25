@@ -40,6 +40,13 @@ public:
     void ReportStopHeightReached(int height) override;
     /** Shows the upgrade's progress in the GUI. */
     void ReportUpgradeProgress(int percent) override;
+    /** Each of the four below shows its warning to the user as a start-up warning. */
+    void ReportFeeSettingHigh(WalletFeeSetting setting) override;
+    void ReportWalletFileSalvaged(const std::string& wallet_file, const std::string& backup_file, const std::string& wallet_dir) override;
+    void ReportTransactionDataUnreadable(const std::string& wallet_file) override;
+    void ReportPrivateKeysInDisabledWallet(const std::string& wallet_file) override;
+    /** Runs the -walletnotify command with the transaction id. */
+    void ReportTransactionChanged(const std::string& wallet_name, const uint256& txid) override;
 
     /** Format a string that describes several potential problems detected by the core.
      * @param[in] strFor can have the following values:

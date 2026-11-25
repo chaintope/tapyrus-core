@@ -17,6 +17,7 @@
 #include <atomic>
 #include <map>
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -27,6 +28,14 @@
 
 static const unsigned int DEFAULT_WALLET_DBLOGSIZE = 100;
 static const bool DEFAULT_WALLET_PRIVDB = true;
+
+/** A corrupt wallet file that was salvaged: the original was saved as backup_file in wallet_dir.
+ *  The file and directory are formatted as paths, as the user sees them. */
+struct SalvagedWalletFile {
+    std::string wallet_file;
+    std::string backup_file;
+    std::string wallet_dir;
+};
 
 class BerkeleyEnvironment
 {
@@ -193,8 +202,8 @@ public:
     static bool PeriodicFlush(BerkeleyDatabase& database);
     /* verifies the database environment */
     static bool VerifyEnvironment(const fs::path& file_path, std::string& errorStr);
-    /* verifies the database file */
-    static bool VerifyDatabaseFile(const fs::path& file_path, std::string& warningStr, std::string& errorStr, BerkeleyEnvironment::recoverFunc_type recoverFunc);
+    /* verifies the database file; salvaged is set when a corrupt file was salvaged */
+    static bool VerifyDatabaseFile(const fs::path& file_path, std::optional<SalvagedWalletFile>& salvaged, std::string& errorStr, BerkeleyEnvironment::recoverFunc_type recoverFunc);
 
 public:
     template <typename K, typename T>

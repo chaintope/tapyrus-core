@@ -101,6 +101,8 @@ public:
     bool ParameterInteraction() const override {return true;}
     void RegisterRPC(CRPCTable &) const override {}
     bool Verify() const override {return true;}
+    void SetChainInterface(interfaces::Chain* chain) const override {}
+    interfaces::Chain* GetChainInterface() const override {return nullptr;}
     bool Open() const override {LogPrintf("No wallet support compiled in!\n"); return true;}
     void Start(CScheduler& scheduler) const override {}
     void Flush() const override {}
@@ -286,6 +288,8 @@ void Shutdown(NodeContext& node)
     GetMainSignals().UnregisterBackgroundSignalScheduler();
     GetMainSignals().UnregisterWithMempoolSignals(mempool);
     g_wallet_init_interface.Close();
+    // The chain interface reads the NodeContext, which the caller destroys after this.
+    g_wallet_init_interface.SetChainInterface(nullptr);
     globalVerifyHandle.reset();
     ECC_Stop();
     LogPrintf("%s: done\n", __func__);

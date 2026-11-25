@@ -11,6 +11,8 @@
 #include <consensus/validation.h>
 #include <core_io.h>
 #include <httpserver.h>
+#include <init.h>
+#include <interfaces/chain.h>
 #include <validation.h>
 #include <key_io.h>
 #include <messagemagic.h>
@@ -40,7 +42,9 @@
 #include <wallet/rpcwallet.h>
 #include <wallet/wallet.h>
 #include <wallet/walletdb.h>
+#include <wallet/walletmessages.h>
 #include <wallet/walletutil.h>
+#include <walletinitinterface.h>
 #include <xfieldhistory.h>
 #include <blockfilemanager.h>
 
@@ -102,7 +106,7 @@ void EnsureWalletIsUnlocked(CWallet * const pwallet)
     }
 }
 
-static void WalletTxToJSON(const CWalletTx& wtx, UniValue& entry)
+static void WalletTxToJSON(const CWallet* const pwallet, const CWalletTx& wtx, UniValue& entry)
 {
     BlockIndexMap& blockIndex = g_chainstate_manager.BlockIndex();
     int confirms = wtx.GetDepthInMainChain();
@@ -130,8 +134,7 @@ static void WalletTxToJSON(const CWalletTx& wtx, UniValue& entry)
     // Add opt-in RBF status
     std::string rbfStatus = "no";
     if (confirms <= 0) {
-        LOCK(mempool.cs);
-        RBFTransactionState rbfState = IsRBFOptIn(*wtx.tx, mempool);
+        RBFTransactionState rbfState = pwallet->HaveChain() ? pwallet->chain().isRBFOptIn(*wtx.tx) : RBFTransactionState::UNKNOWN;
         if (rbfState == RBFTransactionState::UNKNOWN)
             rbfStatus = "unknown";
         else if (rbfState == RBFTransactionState::REPLACEABLE_BIP125)
@@ -362,7 +365,7 @@ static UniValue setlabel(const JSONRPCRequest& request)
 }
 
 
-static CTransactionRef SendMoney(CWallet * const pwallet, const CTxDestination &address, CAmount nValue, bool fSubtractFeeFromAmount, const CCoinControl& coin_control, mapValue_t mapValue, const ColorIdentifier& colorId, CConnman* connman)
+static CTransactionRef SendMoney(CWallet * const pwallet, const CTxDestination &address, CAmount nValue, bool fSubtractFeeFromAmount, const CCoinControl& coin_control, mapValue_t mapValue, const ColorIdentifier& colorId)
 {
     CAmount curBalance = pwallet->GetBalance()[colorId];
 
@@ -392,7 +395,7 @@ static CTransactionRef SendMoney(CWallet * const pwallet, const CTxDestination &
         throw JSONRPCError(RPC_WALLET_ERROR, strError);
     }
     CValidationState state;
-    if (!pwallet->CommitTransaction(tx, std::move(mapValue), {} /* orderForm */, reservekey, connman, state)) {
+    if (!pwallet->CommitTransaction(tx, std::move(mapValue), {} /* orderForm */, reservekey, state)) {
         strError = strprintf("Error: The transaction was rejected! Reason given: %s", FormatStateMessage(state));
         throw JSONRPCError(RPC_WALLET_ERROR, strError);
     }
@@ -503,8 +506,7 @@ static UniValue sendtoaddress(const JSONRPCRequest& request)
     if(pwallet->GetBalance()[colorId] < nAmount)
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Insufficient token balance in wallet");
 
-    assert(request.context.connman);
-    CTransactionRef tx = SendMoney(pwallet, dest, nAmount, fSubtractFeeFromAmount, coin_control, std::move(mapValue), colorId, request.context.connman.get());
+    CTransactionRef tx = SendMoney(pwallet, dest, nAmount, fSubtractFeeFromAmount, coin_control, std::move(mapValue), colorId);
     return tx->GetHashMalFix().GetHex();
 }
 
@@ -912,8 +914,6 @@ static UniValue sendmany(const JSONRPCRequest& request)
 
     LOCK2(cs_main, pwallet->cs_wallet);
 
-    assert(request.context.connman);
-    CConnman* connman = request.context.connman.get();
     UniValue sendTo = request.params[0].get_obj();
 
     mapValue_t mapValue;
@@ -997,7 +997,7 @@ static UniValue sendmany(const JSONRPCRequest& request)
     if (!fCreated)
         throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS, strFailReason);
     CValidationState state;
-    if (!pwallet->CommitTransaction(tx, std::move(mapValue), {} /* orderForm */, keyChange, connman, state)) {
+    if (!pwallet->CommitTransaction(tx, std::move(mapValue), {} /* orderForm */, keyChange, state)) {
         strFailReason = strprintf("Transaction commit failed:: %s", FormatStateMessage(state));
         throw JSONRPCError(RPC_WALLET_ERROR, strFailReason);
     }
@@ -1393,7 +1393,7 @@ static void ListTransactions(CWallet* const pwallet, const CWalletTx& wtx, int n
                 entry.pushKV("fee", ValueFromAmount(-nFee));
             }
             if (fLong)
-                WalletTxToJSON(wtx, entry);
+                WalletTxToJSON(pwallet, wtx, entry);
             entry.pushKV("abandoned", wtx.isAbandoned());
             ret.push_back(entry);
         }
@@ -1434,7 +1434,7 @@ static void ListTransactions(CWallet* const pwallet, const CWalletTx& wtx, int n
             if (!hasTokenInvolvement && listSent.empty())
                 entry.pushKV("fee", ValueFromAmount(-nFee));
             if (fLong)
-                WalletTxToJSON(wtx, entry);
+                WalletTxToJSON(pwallet, wtx, entry);
             ret.push_back(entry);
         }
     }
@@ -1465,7 +1465,7 @@ static void ListTransactions(CWallet* const pwallet, const CWalletTx& wtx, int n
                     if (pwallet->mapAddressBook.count(address))
                         entry.pushKV("label", pwallet->mapAddressBook[address].name);
                     entry.pushKV("vout", (int)i);
-                    if (fLong) WalletTxToJSON(wtx, entry);
+                    if (fLong) WalletTxToJSON(pwallet, wtx, entry);
                     ret.push_back(entry);
                 }
             }
@@ -1476,7 +1476,7 @@ static void ListTransactions(CWallet* const pwallet, const CWalletTx& wtx, int n
                 feeEntry.pushKV("category", "fee");
                 feeEntry.pushKV("token", ColorIdentifier().toHexString()); // always TPC
                 feeEntry.pushKV("amount", ValueFromAmount(-nFee));
-                if (fLong) WalletTxToJSON(wtx, feeEntry);
+                if (fLong) WalletTxToJSON(pwallet, wtx, feeEntry);
                 ret.push_back(feeEntry);
             }
         }
@@ -1827,7 +1827,7 @@ static UniValue gettransaction(const JSONRPCRequest& request)
     }
     const CWalletTx& wtx = it->second;
 
-    WalletTxToJSON(wtx, entry);
+    WalletTxToJSON(pwallet, wtx, entry);
 
     UniValue details(UniValue::VARR);
     ListTransactions(pwallet, wtx, 0, false, details, filter);
@@ -2568,12 +2568,12 @@ static UniValue loadwallet(const JSONRPCRequest& request)
         }
     }
 
-    std::string warning;
-    if (!CWallet::Verify(wallet_file, false, error, warning)) {
+    std::optional<SalvagedWalletFile> salvaged;
+    if (!CWallet::Verify(wallet_file, false, error, salvaged)) {
         throw JSONRPCError(RPC_WALLET_ERROR, "Wallet file verification failed: " + error);
     }
 
-    std::shared_ptr<CWallet> const wallet = CWallet::CreateWalletFromFile(wallet_file, wallet_path);
+    std::shared_ptr<CWallet> const wallet = CWallet::CreateWalletFromFile(g_wallet_init_interface.GetChainInterface(), wallet_file, wallet_path);
     if (!wallet) {
         throw JSONRPCError(RPC_WALLET_ERROR, "Wallet loading failed.");
     }
@@ -2583,7 +2583,7 @@ static UniValue loadwallet(const JSONRPCRequest& request)
 
     UniValue obj(UniValue::VOBJ);
     obj.pushKV("name", wallet->GetName());
-    obj.pushKV("warning", warning);
+    obj.pushKV("warning", salvaged ? WalletMessages::WalletFileSalvaged(salvaged->wallet_file, salvaged->backup_file, salvaged->wallet_dir) : "");
 
     return obj;
 }
@@ -2609,7 +2609,7 @@ static UniValue createwallet(const JSONRPCRequest& request)
     }
     std::string wallet_name = request.params[0].get_str();
     std::string error;
-    std::string warning;
+    std::optional<SalvagedWalletFile> salvaged;
 
     bool disable_privatekeys = false;
     if (!request.params[1].isNull()) {
@@ -2623,11 +2623,11 @@ static UniValue createwallet(const JSONRPCRequest& request)
     }
 
     // Wallet::Verify will check if we're trying to create a wallet with a duplication name.
-    if (!CWallet::Verify(wallet_name, false, error, warning)) {
+    if (!CWallet::Verify(wallet_name, false, error, salvaged)) {
         throw JSONRPCError(RPC_WALLET_ERROR, "Wallet file verification failed: " + error);
     }
 
-    std::shared_ptr<CWallet> const wallet = CWallet::CreateWalletFromFile(wallet_name, wallet_path, (disable_privatekeys ? (uint64_t)WALLET_FLAG_DISABLE_PRIVATE_KEYS : 0));
+    std::shared_ptr<CWallet> const wallet = CWallet::CreateWalletFromFile(g_wallet_init_interface.GetChainInterface(), wallet_name, wallet_path, (disable_privatekeys ? (uint64_t)WALLET_FLAG_DISABLE_PRIVATE_KEYS : 0));
     if (!wallet) {
         throw JSONRPCError(RPC_WALLET_ERROR, "Wallet creation failed.");
     }
@@ -2637,7 +2637,7 @@ static UniValue createwallet(const JSONRPCRequest& request)
 
     UniValue obj(UniValue::VOBJ);
     obj.pushKV("name", wallet->GetName());
-    obj.pushKV("warning", warning);
+    obj.pushKV("warning", salvaged ? WalletMessages::WalletFileSalvaged(salvaged->wallet_file, salvaged->backup_file, salvaged->wallet_dir) : "");
 
     return obj;
 }
@@ -2710,16 +2710,13 @@ static UniValue resendwallettransactions(const JSONRPCRequest& request)
             "Returns array of transaction ids that were re-broadcast.\n"
             );
 
-    assert(request.context.connman);
-    CConnman& connman = *request.context.connman;
-
     LOCK2(cs_main, pwallet->cs_wallet);
 
     if (!pwallet->GetBroadcastTransactions()) {
         throw JSONRPCError(RPC_WALLET_ERROR, "Error: Wallet transaction broadcasting is disabled with -walletbroadcast");
     }
 
-    std::vector<uint256> txids = pwallet->ResendWalletTransactionsBefore(GetTime(), &connman);
+    std::vector<uint256> txids = pwallet->ResendWalletTransactionsBefore(GetTime());
     UniValue result(UniValue::VARR);
     for (const uint256& txid : txids)
     {
@@ -3354,8 +3351,7 @@ static UniValue bumpfee(const JSONRPCRequest& request)
     }
     // commit the bumped transaction
     uint256 txid;
-    assert(request.context.connman);
-    if (feebumper::CommitTransaction(pwallet, hash, std::move(mtx), request.context.connman.get(), errors, txid) != feebumper::Result::OK) {
+    if (feebumper::CommitTransaction(pwallet, hash, std::move(mtx), errors, txid) != feebumper::Result::OK) {
         throw JSONRPCError(RPC_WALLET_ERROR, errors[0]);
     }
     // Retain the reserved change key only after full commit; any earlier failure
@@ -4630,13 +4626,12 @@ UniValue issuetoken(const JSONRPCRequest& request)
     pwallet->BlockUntilSyncedToCurrentChain();
     EnsureWalletIsUnlocked(pwallet);
 
-    assert(request.context.connman);
     CCoinControl coin_control;
     coin_control.m_colorId = colorId;
 
     // For reissuable tokens try to create a UTXO with the given scriptpubkey first and then issuing transaction using that utxo
     if(coin_control.m_colorId.type == TokenTypes::REISSUABLE)
-        return IssueReissuableToken(pwallet, request.params[2].getValStr(), tokenValue, coin_control, request.context.connman.get());
+        return IssueReissuableToken(pwallet, request.params[2].getValStr(), tokenValue, coin_control);
     else
     {
         uint256 txid = uint256S(request.params[2].get_str());
@@ -4670,7 +4665,7 @@ UniValue issuetoken(const JSONRPCRequest& request)
         //This output is ours. Add it to coin control so that it will be used as an input in transaction creation
         coin_control.Select(out);
         coin_control.m_colorTxType = ColoredTxType::ISSUE;
-        return IssueToken(pwallet, tokenValue, coin_control, request.context.connman.get());
+        return IssueToken(pwallet, tokenValue, coin_control);
     }
 }
 
@@ -4727,8 +4722,7 @@ UniValue reissuetoken(const JSONRPCRequest& request)
 
     CCoinControl coin_control;
     coin_control.m_colorId = colorId;
-    assert(request.context.connman);
-    return IssueReissuableToken(pwallet, HexStr(script.begin(), script.end()), tokenValue, coin_control, request.context.connman.get());
+    return IssueReissuableToken(pwallet, HexStr(script.begin(), script.end()), tokenValue, coin_control);
 }
 
 UniValue transfertoken(const JSONRPCRequest& request)
@@ -4805,8 +4799,7 @@ UniValue burntoken(const JSONRPCRequest& request)
     if (colorId.type != TokenTypes::NONE && (curBalance == 0 || curBalance < nAmount))
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Insufficient token balance in wallet");
 
-    assert(request.context.connman);
-    CTransactionRef tx = BurnToken(pwallet, colorId, nAmount, request.context.connman.get());
+    CTransactionRef tx = BurnToken(pwallet, colorId, nAmount);
 
     return tx->GetHashMalFix().GetHex();
 }

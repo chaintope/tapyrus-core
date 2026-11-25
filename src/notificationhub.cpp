@@ -12,6 +12,7 @@
 #include <ui_interface.h>
 #include <util.h>
 #include <utilstrencodings.h>
+#include <wallet/walletmessages.h>
 
 #include <algorithm>
 #include <cassert>
@@ -134,6 +135,41 @@ void NotificationHub::ReportStopHeightReached(int height)
 {
     LogPrintf("Stopping at height %d as -stopatheight asks\n", height);
     for (Notifications* subscriber : Subscribers()) subscriber->ReportStopHeightReached(height);
+}
+
+void NotificationHub::ReportFeeSettingHigh(WalletFeeSetting setting)
+{
+    InitWarning(WalletMessages::FeeSettingHigh(setting));
+    for (Notifications* subscriber : Subscribers()) subscriber->ReportFeeSettingHigh(setting);
+}
+
+void NotificationHub::ReportWalletFileSalvaged(const std::string& wallet_file, const std::string& backup_file, const std::string& wallet_dir)
+{
+    InitWarning(WalletMessages::WalletFileSalvaged(wallet_file, backup_file, wallet_dir));
+    for (Notifications* subscriber : Subscribers()) subscriber->ReportWalletFileSalvaged(wallet_file, backup_file, wallet_dir);
+}
+
+void NotificationHub::ReportTransactionDataUnreadable(const std::string& wallet_file)
+{
+    InitWarning(WalletMessages::TransactionDataUnreadable(wallet_file));
+    for (Notifications* subscriber : Subscribers()) subscriber->ReportTransactionDataUnreadable(wallet_file);
+}
+
+void NotificationHub::ReportPrivateKeysInDisabledWallet(const std::string& wallet_file)
+{
+    InitWarning(WalletMessages::PrivateKeysInDisabledWallet(wallet_file));
+    for (Notifications* subscriber : Subscribers()) subscriber->ReportPrivateKeysInDisabledWallet(wallet_file);
+}
+
+void NotificationHub::ReportTransactionChanged(const std::string& wallet_name, const uint256& txid)
+{
+    std::string strCmd = gArgs.GetArg("-walletnotify", "");
+    if (!strCmd.empty()) {
+        boost::replace_all(strCmd, "%s", txid.GetHex());
+        std::thread t(runCommand, strCmd);
+        t.detach(); // thread runs free
+    }
+    for (Notifications* subscriber : Subscribers()) subscriber->ReportTransactionChanged(wallet_name, txid);
 }
 
 void NotificationHub::ReportUpgradeProgress(int percent)

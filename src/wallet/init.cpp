@@ -5,6 +5,7 @@
 
 #include <chainparams.h>
 #include <init.h>
+#include <interfaces/chain.h>
 #include <net.h>
 #include <scheduler.h>
 #include <outputtype.h>
@@ -12,7 +13,9 @@
 #include <util.h>
 #include <utilmoneystr.h>
 #include <validation.h>
+#include <wallet/rpcwallet.h>
 #include <wallet/walletinit.h>
+#include <wallet/walletnotifications.h>
 #include <wallet/wallet.h>
 #include <wallet/walletutil.h>
 
@@ -108,8 +111,14 @@ bool WalletInit::ParameterInteraction() const
     return true;
 }
 
-// WalletInit::RegisterRPC() is defined in wallet/walletinit_rpc.cpp, not
-// here -- see the comment on the class declaration in wallet/walletinit.h.
+void WalletInit::RegisterRPC(CRPCTable &t) const
+{
+    if (gArgs.GetBoolArg("-disablewallet", DEFAULT_DISABLE_WALLET)) {
+        return;
+    }
+
+    RegisterWalletRPCCommands(t);
+}
 
 bool WalletInit::Verify() const
 {
@@ -119,8 +128,7 @@ bool WalletInit::Verify() const
 
     // A node setting, so warned about once here rather than for each wallet.
     if (g_policy_settings->minRelayTxFee.GetFeePerK() > HIGH_TX_FEE_PER_KB) {
-        InitWarning(AmountHighWarn("-minrelaytxfee") + " " +
-                    _("The wallet will avoid paying less than the minimum relay fee."));
+        if (m_chain) m_chain->notifications().ReportFeeSettingHigh(WalletFeeSetting::MIN_RELAY_TX_FEE);
     }
 
     if (gArgs.IsArgSet("-walletdir")) {
@@ -156,10 +164,10 @@ bool WalletInit::Verify() const
         }
 
         std::string error_string;
-        std::string warning_string;
-        bool verify_success = CWallet::Verify(wallet_file, salvage_wallet, error_string, warning_string);
+        std::optional<SalvagedWalletFile> salvaged;
+        bool verify_success = CWallet::Verify(wallet_file, salvage_wallet, error_string, salvaged);
         if (!error_string.empty()) InitError(error_string);
-        if (!warning_string.empty()) InitWarning(warning_string);
+        if (salvaged && m_chain) m_chain->notifications().ReportWalletFileSalvaged(salvaged->wallet_file, salvaged->backup_file, salvaged->wallet_dir);
         if (!verify_success) return false;
     }
 
@@ -176,7 +184,7 @@ bool WalletInit::Open() const
     for (const std::string& walletFile : gArgs.GetArgs("-wallet")) {
         fs::path wallet_path = fs::path(walletFile).is_absolute() ? fs::path(walletFile) : GetWalletDir() / fs::path(walletFile);
 
-        std::shared_ptr<CWallet> pwallet = CWallet::CreateWalletFromFile(walletFile, wallet_path);
+        std::shared_ptr<CWallet> pwallet = CWallet::CreateWalletFromFile(m_chain, walletFile, wallet_path);
         if (!pwallet) {
             return false;
         }

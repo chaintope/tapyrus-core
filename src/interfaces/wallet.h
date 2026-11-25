@@ -22,7 +22,6 @@
 #include <vector>
 
 class CCoinControl;
-class CConnman;
 class CFeeRate;
 class CKey;
 class CWallet;
@@ -485,9 +484,8 @@ struct WalletTxOut
 };
 
 //! Return implementation of Wallet interface. This function will be undefined
-//! in builds where ENABLE_WALLET is false. The wallet relays through
-//! connman, the NodeContext's slot, which must outlive the wallet.
-std::unique_ptr<Wallet> MakeWallet(const std::shared_ptr<CWallet>& wallet, const std::unique_ptr<CConnman>& connman);
+//! in builds where ENABLE_WALLET is false.
+std::unique_ptr<Wallet> MakeWallet(const std::shared_ptr<CWallet>& wallet);
 
 } // namespace interfaces
 

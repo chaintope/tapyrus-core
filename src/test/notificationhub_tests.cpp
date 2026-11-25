@@ -10,6 +10,7 @@
 #include <boost/signals2/connection.hpp>
 #include <boost/test/unit_test.hpp>
 
+#include <algorithm>
 #include <chrono>
 #include <fstream>
 #include <string>
@@ -66,6 +67,11 @@ public:
     void ReportForkResolved() override { m_log.push_back(m_name + " fork resolved"); }
     void ReportStopHeightReached(int height) override { m_log.push_back(m_name + " stop at " + std::to_string(height)); }
     void ReportUpgradeProgress(int percent) override { m_log.push_back(m_name + " upgrade " + std::to_string(percent)); }
+    void ReportFeeSettingHigh(WalletFeeSetting setting) override { m_log.push_back(m_name + " fee " + std::to_string(static_cast<int32_t>(setting))); }
+    void ReportWalletFileSalvaged(const std::string& wallet_file, const std::string& backup_file, const std::string& wallet_dir) override { m_log.push_back(m_name + " salvaged " + wallet_file); }
+    void ReportTransactionDataUnreadable(const std::string& wallet_file) override { m_log.push_back(m_name + " unreadable " + wallet_file); }
+    void ReportPrivateKeysInDisabledWallet(const std::string& wallet_file) override { m_log.push_back(m_name + " private keys " + wallet_file); }
+    void ReportTransactionChanged(const std::string& wallet_name, const uint256& txid) override { m_log.push_back(m_name + " tx " + wallet_name + " " + txid.ToString()); }
 
 private:
     const std::string m_name;
@@ -198,6 +204,63 @@ BOOST_AUTO_TEST_CASE(the_dialog_shows_the_user_message_of_a_fatal_error)
     BOOST_CHECK_EQUAL_COLLECTIONS(shown.begin(), shown.end(), expected.begin(), expected.end());
 }
 
+BOOST_AUTO_TEST_CASE(wallet_start_up_warnings_show_as_warnings)
+{
+    std::vector<std::pair<std::string, unsigned int>> shown;
+    const boost::signals2::scoped_connection box{uiInterface.ThreadSafeMessageBox.connect(
+        [&shown](const std::string& message, const std::string& caption, unsigned int style) { shown.emplace_back(message, style); return false; })};
+    std::vector<std::string> log;
+    Recorder recorder{"r", log};
+    NotificationHub notifications;
+    notifications.Subscribe(recorder);
+
+    notifications.ReportFeeSettingHigh(WalletFeeSetting::MIN_RELAY_TX_FEE);
+    notifications.ReportFeeSettingHigh(WalletFeeSetting::PAY_TX_FEE);
+    notifications.ReportWalletFileSalvaged("\"wallet.dat\"", "wallet.dat.1.bak", "\"/w\"");
+    notifications.ReportTransactionDataUnreadable("w1");
+    notifications.ReportPrivateKeysInDisabledWallet("w2");
+
+    const std::vector<std::pair<std::string, unsigned int>> expected{
+        {"-minrelaytxfee is set very high! The wallet will avoid paying less than the minimum relay fee.", CClientUIInterface::MSG_WARNING},
+        {"-paytxfee is set very high! This is the transaction fee you will pay if you send a transaction.", CClientUIInterface::MSG_WARNING},
+        {"Warning: Wallet file corrupt, data salvaged! Original \"wallet.dat\" saved as wallet.dat.1.bak in \"/w\"; if your balance or transactions are incorrect you should restore from a backup.", CClientUIInterface::MSG_WARNING},
+        {"Error reading w1! All keys read correctly, but transaction data or address book entries might be missing or incorrect.", CClientUIInterface::MSG_WARNING},
+        {"Warning: Private keys detected in wallet {w2} with disabled private keys", CClientUIInterface::MSG_WARNING}};
+    BOOST_CHECK(shown == expected);
+    const std::vector<std::string> heard{"r fee 0", "r fee 4", "r salvaged \"wallet.dat\"", "r unreadable w1", "r private keys w2"};
+    BOOST_CHECK_EQUAL_COLLECTIONS(log.begin(), log.end(), heard.begin(), heard.end());
+}
+
+BOOST_AUTO_TEST_CASE(every_fee_setting_has_its_own_warning)
+{
+    std::vector<std::string> shown;
+    const boost::signals2::scoped_connection box{uiInterface.ThreadSafeMessageBox.connect(
+        [&shown](const std::string& message, const std::string& caption, unsigned int style) { shown.push_back(message); return false; })};
+    NotificationHub notifications;
+    for (int32_t setting = 0; setting <= static_cast<int32_t>(WalletFeeSetting::PAY_TX_FEE); ++setting) {
+        notifications.ReportFeeSettingHigh(static_cast<WalletFeeSetting>(setting));
+    }
+    BOOST_REQUIRE_EQUAL(shown.size(), 5U);
+    for (size_t i = 0; i < shown.size(); ++i) {
+        for (size_t j = i + 1; j < shown.size(); ++j) BOOST_CHECK(shown[i] != shown[j]);
+    }
+}
+
+BOOST_AUTO_TEST_CASE(walletnotify_runs_for_each_changed_transaction)
+{
+    const fs::path file{GetDataDir() / "wallet.txt"};
+    gArgs.ForceSetArg("-walletnotify", "echo %s >> " + file.string());
+    NotificationHub notifications;
+    notifications.ReportTransactionChanged("w", uint256S("01"));
+    notifications.ReportTransactionChanged("w", uint256S("02"));
+    const std::vector<std::string> lines{AlertLines(file, 2)};
+    // Before any requirement can end the case, so later tests run no command.
+    gArgs.ForceSetArg("-walletnotify", "");
+    BOOST_REQUIRE_EQUAL(lines.size(), 2U);
+    BOOST_CHECK(std::count(lines.begin(), lines.end(), uint256S("01").GetHex()) == 1);
+    BOOST_CHECK(std::count(lines.begin(), lines.end(), uint256S("02").GetHex()) == 1);
+}
+
 BOOST_AUTO_TEST_CASE(upgrade_progress_reaches_the_gui)
 {
     std::vector<std::tuple<std::string, int, bool>> shown;
@@ -234,6 +297,14 @@ BOOST_AUTO_TEST_CASE(reaching_the_stop_height_is_not_an_error)
     // The subscribers still hear it, so the node stops.
     const std::vector<std::string> expected{"r stop at 100"};
     BOOST_CHECK_EQUAL_COLLECTIONS(log.begin(), log.end(), expected.begin(), expected.end());
+}
+
+BOOST_AUTO_TEST_CASE(wallet_warnings_are_not_kept_for_the_status_bar)
+{
+    NotificationHub notifications;
+    notifications.ReportFeeSettingHigh(WalletFeeSetting::MIN_TX_FEE);
+    notifications.ReportTransactionDataUnreadable("w1");
+    BOOST_CHECK_EQUAL(notifications.GetWarnings("gui"), GuiText(""));
 }
 
 BOOST_AUTO_TEST_CASE(resolving_without_a_fork_changes_nothing)
@@ -327,6 +398,7 @@ BOOST_AUTO_TEST_CASE(every_subscriber_hears_each_publish_in_order)
     notifications.ReportForkResolved();
     notifications.ReportStopHeightReached(100);
     notifications.ReportUpgradeProgress(42);
+    notifications.ReportTransactionChanged("w", uint256S("02"));
 
     const std::string fork{uint256S("01").ToString()};
     const std::vector<std::string> expected{
@@ -337,7 +409,8 @@ BOOST_AUTO_TEST_CASE(every_subscriber_hears_each_publish_in_order)
         "first invalid chain", "second invalid chain",
         "first fork resolved", "second fork resolved",
         "first stop at 100", "second stop at 100",
-        "first upgrade 42", "second upgrade 42"};
+        "first upgrade 42", "second upgrade 42",
+        "first tx w " + uint256S("02").ToString(), "second tx w " + uint256S("02").ToString()};
     BOOST_CHECK_EQUAL_COLLECTIONS(log.begin(), log.end(), expected.begin(), expected.end());
 }
 
