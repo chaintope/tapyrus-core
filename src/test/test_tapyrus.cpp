@@ -101,10 +101,10 @@ BasicTestingSetup::BasicTestingSetup(const std::string& chainName)
         noui_connect();
         m_node.policy = std::make_unique<const PolicySettings>(gArgs, TAPYRUS_OP_MODE::PROD);
         g_policy_settings = m_node.policy.get();
-        chainman.InitXFieldHistory(chainman.Settings().GenesisBlock());
+        chainman.InitXFieldHistory();
         pxFieldHistory = &chainman.XFieldHistory();
         chainman.InitOptions(ChainstateOptionsOverride::TestOptions({}));
-        chainman.InitBlockFileManager(BlockFileManager::Options(gArgs, Params().PruneAfterHeight()), m_node.notifications);
+        chainman.InitBlockFileManager(BlockFileManager::Options(gArgs, Params().PruneAfterHeight()));
         m_node.fee_estimator = std::make_unique<CBlockPolicyEstimator>();
         CTxMemPool::Options mempool_options;
         mempool_options.check_ratio = 1;
@@ -220,7 +220,7 @@ TestingSetup::TestingSetup(const std::string& chainName) : BasicTestingSetup(cha
                 LOCK(cs_main);
                 blockIndex.pblocktreedb.reset(new CBlockTreeDB(1 << 20, true));
                 Chainstate& chainstate = m_node.chainman->ActiveChainstate();
-                chainstate.InitCoinsDB(m_node.chainman->IssuedColorIds(), 1 << 23, true, false);
+                chainstate.InitCoinsDB(1 << 23, true, false);
                 chainstate.InitCoinsCache();
             }
             if (!m_node.chainman->ActiveChainstate().LoadGenesisBlock()) {

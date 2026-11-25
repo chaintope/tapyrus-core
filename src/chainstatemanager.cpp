@@ -50,9 +50,9 @@ void ChainstateManager::InitOptions(const Options& options)
     m_options = std::make_unique<const Options>(options);
 }
 
-void ChainstateManager::InitXFieldHistory(const CBlock& genesis)
+void ChainstateManager::InitXFieldHistory()
 {
-    m_xfield_history.Init(genesis);
+    m_xfield_history.Init(Settings().GenesisBlock());
 }
 
 void ChainstateManager::InitConsensusSettings(std::unique_ptr<const ConsensusSettings> settings)
@@ -107,24 +107,36 @@ HeightDerivedConsensusRules ChainstateManager::BuildRules(std::optional<int32_t>
     return HeightDerivedConsensusRules(height, maxBlockSize.data, aggregatePubKey.getPubKey(), Settings().ScriptFlagsAt(flagsHeight));
 }
 
-void ChainstateManager::InitBlockFileManager(const BlockFileManager::Options& options, ChainNotifications& notifications)
+void ChainstateManager::InitBlockFileManager(const BlockFileManager::Options& options)
 {
-    m_block_file_manager = std::make_unique<BlockFileManager>(options, m_block_index, notifications);
+    m_block_file_manager = std::make_unique<BlockFileManager>(options, m_block_index, Notifications());
+}
+
+double ChainstateManager::GuessTipProgress()
+{
+    LOCK(cs_main);
+    return m_progress.Guess(ActiveChain().Tip());
+}
+
+CBlockLocator ChainstateManager::BestHeaderLocator() const
+{
+    AssertLockHeld(cs_main);
+    return ActiveChain().GetLocator(m_best_header);
 }
 
 bool ChainstateManager::ShouldWipeBlockTree()
 {
-    return m_reindexing || GetOptions().fReloadXField;
+    return m_reindexing || m_options->fReloadXField;
 }
 
 bool ChainstateManager::LoadingBlocks()
 {
-    return GetBlockFileManager().IsImporting() || m_reindexing;
+    return m_block_file_manager->IsImporting() || m_reindexing;
 }
 
 bool ChainstateManager::ReadBlock(CBlock& block, const CBlockIndex* pindex)
 {
-    return GetBlockFileManager().ReadBlockFromDisk(block, pindex, RulesAt(*pindex));
+    return m_block_file_manager->ReadBlockFromDisk(block, pindex, RulesAt(*pindex));
 }
 
 bool ChainstateManager::IsBlockPruned(const CBlockIndex* pblockindex) const

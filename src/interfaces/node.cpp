@@ -189,12 +189,7 @@ public:
     }
     double getVerificationProgress() override
     {
-        const CBlockIndex* tip;
-        {
-            LOCK(::cs_main);
-            tip = m_context.chainman->ActiveChain().Tip();
-        }
-        return m_context.chainman->Progress().Guess(tip);
+        return m_context.chainman->GuessTipProgress();
     }
     bool isInitialBlockDownload() override { return m_context.chainman->ActiveChainstate().IsInitialBlockDownload(); }
     bool getReindex() override { return m_context.chainman->IsReindexing(); }

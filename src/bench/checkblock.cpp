@@ -48,7 +48,7 @@ static void DeserializeAndCheckBlockTest(benchmark::State& state)
     const auto chainParams = CreateChainParams(TAPYRUS_OP_MODE::PROD);
     ChainstateManager chainman;
     chainman.InitConsensusSettings(std::make_unique<const ConsensusSettings>(ReadGenesisBlock(), TAPYRUS_OP_MODE::PROD, FederationParams().NetworkId()));
-    chainman.InitXFieldHistory(chainman.Settings().GenesisBlock());
+    chainman.InitXFieldHistory();
 
     while (state.KeepRunning()) {
         CBlock block; // Note that CBlock caches its checked state, so we need to recreate it here

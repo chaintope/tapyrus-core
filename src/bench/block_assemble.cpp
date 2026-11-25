@@ -90,12 +90,12 @@ static void AssembleBlock(benchmark::State& state)
     const MempoolFeeListener fee_listener(mempool, fee_estimator);
     ChainstateManager chainman;
     chainman.InitConsensusSettings(std::make_unique<const ConsensusSettings>(ReadGenesisBlock(), TAPYRUS_OP_MODE::DEV, FederationParams().NetworkId()));
-    chainman.InitXFieldHistory(chainman.Settings().GenesisBlock());
+    chainman.InitXFieldHistory();
     // No script-check worker threads are started, so -par=1 checks scripts on the connecting thread.
     gArgs.ForceSetArg("-par", "1");
     chainman.InitOptions(ChainstateManager::Options(gArgs, /*defaultConsistencyChecks=*/false, /*coinCacheUsage=*/size_t{5000} * 300));
     chainman.SetNotifications(&notifications);
-    chainman.InitBlockFileManager(BlockFileManager::Options(gArgs, Params().PruneAfterHeight()), notifications);
+    chainman.InitBlockFileManager(BlockFileManager::Options(gArgs, Params().PruneAfterHeight()));
     BlockIndexMap& blockIndex = chainman.BlockIndex();
     chainman.InitializeChainstate(mempool);
 
@@ -118,7 +118,7 @@ static void AssembleBlock(benchmark::State& state)
             LOCK(cs_main);
             blockIndex.pblocktreedb.reset(new CBlockTreeDB(1 << 20, true));
             Chainstate& chainstate = chainman.ActiveChainstate();
-            chainstate.InitCoinsDB(chainman.IssuedColorIds(), 1 << 23, true, false);
+            chainstate.InitCoinsDB(1 << 23, true, false);
             chainstate.InitCoinsCache();
         }
 

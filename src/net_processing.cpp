@@ -1097,7 +1097,7 @@ bool PeerManager::ProcessHeadersMessage(CNode* pfrom, const std::vector<CBlockHe
         //   nUnconnectingHeaders gets reset back to 0.
         if (!blockIndex.LookupBlockIndex(headers[0].hashPrevBlock) && nCount < MAX_BLOCKS_TO_ANNOUNCE) {
             nodestate->nUnconnectingHeaders++;
-            m_connman.PushMessage(pfrom, msgMaker.Make(NetMsgType::GETHEADERS, m_chainman.ActiveChain().GetLocator(m_chainman.BestHeader()), uint256()));
+            m_connman.PushMessage(pfrom, msgMaker.Make(NetMsgType::GETHEADERS, m_chainman.BestHeaderLocator(), uint256()));
             LogPrint(BCLog::NET, "received header %s: missing prev block %s, sending getheaders (%d) to end (peer=%d, nUnconnectingHeaders=%d)\n",
                     headers[0].GetHash().ToString(),
                     headers[0].hashPrevBlock.ToString(),
@@ -1317,7 +1317,7 @@ void PeerManager::ProcessOrphanTx(std::set<uint256>& orphan_work_set)
             m_orphan_tx_pool.EraseOrphanTx(orphanHash);
             done = true;
         }
-        m_mempool.check(&m_chainman.ActiveChainstate().CoinsTip(), m_chainman.ActiveChain().Height() + 1);
+        m_chainman.ActiveChainstate().CheckMempool();
 
         for(auto& tx:result.replaced) {
             AddToCompactExtraTransactions(tx);
@@ -1762,7 +1762,7 @@ bool PeerManager::ProcessMessage(CNode* pfrom, const std::string& strCommand, CD
         }
 
         if (best_block != nullptr) {
-            m_connman.PushMessage(pfrom, msgMaker.Make(NetMsgType::GETHEADERS, m_chainman.ActiveChain().GetLocator(m_chainman.BestHeader()), *best_block));
+            m_connman.PushMessage(pfrom, msgMaker.Make(NetMsgType::GETHEADERS, m_chainman.BestHeaderLocator(), *best_block));
             LogPrint(BCLog::NET, "getheaders (%d) %s to peer=%d\n", m_chainman.BestHeader()->nHeight, best_block->ToString(), pfrom->GetId());
         }
 
@@ -2005,7 +2005,7 @@ bool PeerManager::ProcessMessage(CNode* pfrom, const std::string& strCommand, CD
         MempoolAcceptResult result;
         if (!AlreadyHave(inv) &&
             m_chainman.ActiveChainstate().AcceptToMemoryPool(ptx, MempoolAcceptOptions{}, result)) {
-            m_mempool.check(&m_chainman.ActiveChainstate().CoinsTip(), m_chainman.ActiveChain().Height() + 1);
+            m_chainman.ActiveChainstate().CheckMempool();
             RelayTransaction(tx, &m_connman);
             m_orphan_tx_pool.AddChildrenToWorkSet(tx, pfrom->orphan_work_set);
 
@@ -2106,7 +2106,7 @@ bool PeerManager::ProcessMessage(CNode* pfrom, const std::string& strCommand, CD
         if (!blockIndex.LookupBlockIndex(cmpctblock.header.hashPrevBlock)) {
             // Doesn't connect (or is genesis), instead of DoSing in AcceptBlockHeader, request deeper headers
             if (!m_chainman.ActiveChainstate().IsInitialBlockDownload())
-                m_connman.PushMessage(pfrom, msgMaker.Make(NetMsgType::GETHEADERS, m_chainman.ActiveChain().GetLocator(m_chainman.BestHeader()), uint256()));
+                m_connman.PushMessage(pfrom, msgMaker.Make(NetMsgType::GETHEADERS, m_chainman.BestHeaderLocator(), uint256()));
             return true;
         }
 

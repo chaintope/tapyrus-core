@@ -1060,7 +1060,7 @@ bool AppInitParameterInteraction(NodeContext& node)
     else
         LogPrintf("Validating signatures for all blocks.\n");
     try {
-        chainman.InitBlockFileManager(BlockFileManager::Options(gArgs, Params().PruneAfterHeight()), node.notifications);
+        chainman.InitBlockFileManager(BlockFileManager::Options(gArgs, Params().PruneAfterHeight()));
     } catch (const std::exception& e) {
         return InitError(e.what());
     }
@@ -1175,7 +1175,7 @@ bool AppInitMain(NodeContext& node)
     try {
         SelectFederationParams(gArgs.GetChainMode());
         chainman.InitConsensusSettings(std::make_unique<const ConsensusSettings>(ReadGenesisBlock(), gArgs.GetChainMode(), FederationParams().NetworkId()));
-        chainman.InitXFieldHistory(chainman.Settings().GenesisBlock());
+        chainman.InitXFieldHistory();
     } catch (const std::exception& e) {
         fprintf(stderr, "Error: %s\n", e.what());
         return false;
@@ -1441,13 +1441,13 @@ bool AppInitMain(NodeContext& node)
                 } else {
                     // Initialize xfieldHistory here as it is not initialized
                     // when genesis block is loaded from the file during reindex
-                    chainman.InitXFieldHistory(chainman.Settings().GenesisBlock());
+                    chainman.InitXFieldHistory();
                 }
 
                 // At this point we're either in reindex or we've loaded a useful
                 // block tree into mapBlockIndex!
 
-                chainman.ActiveChainstate().InitCoinsDB(chainman.IssuedColorIds(), cache.nCoinDBCache, false, wipeBlockTree || chainman.GetOptions().fReindexChainState);
+                chainman.ActiveChainstate().InitCoinsDB(cache.nCoinDBCache, false, wipeBlockTree || chainman.GetOptions().fReindexChainState);
 
                 // Reset the issued colorIds before ReplayBlocks so that DisconnectBlock
                 // inside the replay can stage erases that CommitToBatch writes atomically
@@ -1462,7 +1462,7 @@ bool AppInitMain(NodeContext& node)
                 }
 
                 // ReplayBlocks is a no-op if we cleared the coinsviewdb with -reindex or -reindex-chainstate
-                if (!chainman.ActiveChainstate().ReplayBlocks(&chainman.ActiveChainstate().CoinsDB(), chainman.IssuedColorIds())) {
+                if (!chainman.ActiveChainstate().ReplayBlocks()) {
                     strLoadError = _("Unable to replay blocks. You will need to rebuild the database using -reindex-chainstate.");
                     break;
                 }

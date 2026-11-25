@@ -116,7 +116,7 @@ void ChainstateManager::NotifyHeaderTip() {
             fInitialBlockDownload = ActiveChainstate().IsInitialBlockDownload();
             m_last_notified_header = pindexHeader;
             // The header's block may still be connecting, which writes its nChainTx under cs_main.
-            verification_progress = Progress().Guess(pindexHeader);
+            verification_progress = m_progress.Guess(pindexHeader);
         }
     }
     // Send block tip changed notifications without cs_main
@@ -125,9 +125,16 @@ void ChainstateManager::NotifyHeaderTip() {
     }
 }
 
-void Chainstate::InitCoinsDB(CIssuedColorIds& issuedColorIds, size_t cache_size_bytes, bool in_memory, bool should_wipe)
+void Chainstate::InitCoinsDB(size_t cache_size_bytes, bool in_memory, bool should_wipe)
 {
-    m_coins_views = std::make_unique<CoinsViews>(issuedColorIds, cache_size_bytes, in_memory, should_wipe, m_chainman.Notifications());
+    LOCK(cs_main);
+    m_coins_views = std::make_unique<CoinsViews>(m_chainman.IssuedColorIds(), cache_size_bytes, in_memory, should_wipe, m_chainman.Notifications());
+}
+
+void Chainstate::CheckMempool()
+{
+    AssertLockHeld(cs_main);
+    m_mempool.check(&CoinsTip(), m_chain.Height() + 1);
 }
 
 void Chainstate::InitCoinsCache()
@@ -282,9 +289,10 @@ DisconnectResult Chainstate::DisconnectBlock(const CBlock& block, const CBlockIn
 }
 
 /** Check warning conditions and do some notifications on new chain tip set. */
-void Chainstate::UpdateTip(const CBlockIndex *pindexNew)
+void Chainstate::UpdateTip()
 {
     AssertLockHeld(::cs_main);
+    const CBlockIndex* pindexNew = m_chain.Tip();
 
     // New best block
     m_mempool.AddTransactionsUpdated(1);
@@ -295,13 +303,13 @@ void Chainstate::UpdateTip(const CBlockIndex *pindexNew)
         m_chainman.m_best_block_cv.notify_all();
     }
 
-    m_chainman.Progress().Refresh(pindexNew, m_chainman.BestHeader());
+    m_chainman.Progress().Refresh(m_chain.Tip(), m_chainman.BestHeader());
 
     LogPrintf("%s: new best=%s height=%d version=0x%08x xfield=%s tx=%lu date='%s' progress=%f cache=%.1fMiB(%utxo)", __func__, /* Continued */
       pindexNew->GetBlockHash().ToString(), pindexNew->nHeight, pindexNew->nFeatures,
       pindexNew->xfield.ToString(),
       (unsigned long)pindexNew->nChainTx, FormatISO8601DateTime(pindexNew->GetBlockTime()),
-      m_chainman.Progress().Guess(pindexNew), CoinsTip().DynamicMemoryUsage() * (1.0 / (1<<20)), CoinsTip().GetCacheSize());
+      m_chainman.Progress().Guess(m_chain.Tip()), CoinsTip().DynamicMemoryUsage() * (1.0 / (1<<20)), CoinsTip().GetCacheSize());
     LogPrintf("\n");
 
 }
@@ -459,6 +467,16 @@ void Chainstate::UpdateMempoolForReorg(DisconnectedBlockTransactions &disconnect
     m_mempool.removeForReorg(&CoinsTip(), is_final);
     // Re-limit mempool size, in case we added any transactions
     LimitMempoolSize();
+}
+
+DisconnectResult Chainstate::DisconnectBlock(const CBlock& block, const CBlockIndex* pindex, CCoinsViewCache& view)
+{
+    return DisconnectBlock(block, pindex, view, m_chainman.IssuedColorIds());
+}
+
+bool Chainstate::ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pindex, CCoinsViewCache& view, bool fJustCheck)
+{
+    return ConnectBlock(block, state, pindex, view, m_chainman.IssuedColorIds(), fJustCheck);
 }
 
 /** Apply the effects of this block (with given index) on the UTXO set represented by coins.
@@ -750,7 +768,7 @@ bool Chainstate::DisconnectTip(CValidationState& state, DisconnectedBlockTransac
     {
         CCoinsViewCache view(&CoinsTip());
         assert(view.GetBestBlock() == pindexDelete->GetBlockHash());
-        if (DisconnectBlock(block, pindexDelete, view, m_chainman.IssuedColorIds()) != DISCONNECT_OK)
+        if (DisconnectBlock(block, pindexDelete, view) != DISCONNECT_OK)
             return error("DisconnectTip(): DisconnectBlock %s failed", pindexDelete->GetBlockHash().ToString());
         bool flushed = view.Flush();
         assert(flushed);
@@ -775,7 +793,7 @@ bool Chainstate::DisconnectTip(CValidationState& state, DisconnectedBlockTransac
 
     m_chain.SetTip(pindexDelete->pprev);
 
-    UpdateTip(pindexDelete->pprev);
+    UpdateTip();
 
     if (pindexDelete->nHeight > 0
         && std::find(XFIELDTYPES_INIT_LIST.begin(), XFIELDTYPES_INIT_LIST.end(), block.xfield.xfieldType) != XFIELDTYPES_INIT_LIST.end())
@@ -825,7 +843,7 @@ bool Chainstate::ConnectTip(CValidationState& state, CBlockIndex* pindexNew, con
     LogPrint(BCLog::BENCH, "  - Load block from disk: %.2fms [%.2fs]\n", (nTime2 - nTime1) * MILLI, nTimeReadFromDisk * MICRO);
     {
         CCoinsViewCache view(&CoinsTip());
-        bool rv = ConnectBlock(blockConnecting, state, pindexNew, view, m_chainman.IssuedColorIds());
+        bool rv = ConnectBlock(blockConnecting, state, pindexNew, view);
         GetMainSignals().BlockChecked(blockConnecting, state);
         if (!rv) {
             if (state.IsInvalid())
@@ -880,7 +898,7 @@ bool Chainstate::ConnectTip(CValidationState& state, CBlockIndex* pindexNew, con
 
     // Update the active chain & related variables.
     m_chain.SetTip(pindexNew);
-    UpdateTip(pindexNew);
+    UpdateTip();
 
     int64_t nTime6 = GetTimeMicros(); nTimePostConnect += nTime6 - nTime5; nTimeTotal += nTime6 - nTime1;
     LogPrint(BCLog::BENCH, "  - Connect postprocess: %.2fms [%.2fs (%.2fms/blk)]\n", (nTime6 - nTime5) * MILLI, nTimePostConnect * MICRO, nTimePostConnect * MILLI / nBlocksTotal);
@@ -1039,7 +1057,7 @@ bool Chainstate::ActivateBestChainStep(CValidationState& state, CBlockIndex* pin
         // any disconnected transactions back to the mempool.
         UpdateMempoolForReorg(disconnectpool, true);
     }
-    m_mempool.check(&CoinsTip(), m_chain.Height() + 1);
+    CheckMempool();
 
     // Callbacks/notifications for a new best chain.
     if (fInvalidFound)
@@ -1492,7 +1510,7 @@ bool Chainstate::LoadBlockIndex()
 
 
 /** Apply the effects of a block on the utxo cache, ignoring that it may already have been applied. */
-bool Chainstate::RollforwardBlock(const CBlockIndex* pindex, CCoinsViewCache& inputs, CIssuedColorIds& issuedColorIds)
+bool Chainstate::RollforwardBlock(const CBlockIndex* pindex, CCoinsViewCache& inputs)
 {
     AssertLockHeld(cs_main);
     // TODO: merge with ConnectBlock
@@ -1535,14 +1553,15 @@ bool Chainstate::RollforwardBlock(const CBlockIndex* pindex, CCoinsViewCache& in
         AddCoins(inputs, *tx, pindex->nHeight, true);
     }
 
-    issuedColorIds.Insert(allNewIssuances);
+    m_chainman.IssuedColorIds().Insert(allNewIssuances);
     return true;
 }
 
-bool Chainstate::ReplayBlocks(CCoinsView* view, CIssuedColorIds& issuedColorIds)
+bool Chainstate::ReplayBlocks()
 {
     BlockIndexMap& blockIndex = m_chainman.BlockIndex();
     LOCK(cs_main);
+    CCoinsView* view = &CoinsDB();
 
     CCoinsViewCache cache(view);
 
@@ -1579,7 +1598,7 @@ bool Chainstate::ReplayBlocks(CCoinsView* view, CIssuedColorIds& issuedColorIds)
                 return error("RollbackBlock(): ReadBlockFromDisk() failed at %d, hash=%s", pindexOld->nHeight, pindexOld->GetBlockHash().ToString());
             }
             LogPrintf("Rolling back %s (%i)\n", pindexOld->GetBlockHash().ToString(), pindexOld->nHeight);
-            DisconnectResult res = DisconnectBlock(block, pindexOld, cache, issuedColorIds);
+            DisconnectResult res = DisconnectBlock(block, pindexOld, cache);
             if (res == DISCONNECT_FAILED) {
                 return error("RollbackBlock(): DisconnectBlock failed at %d, hash=%s", pindexOld->nHeight, pindexOld->GetBlockHash().ToString());
             }
@@ -1596,7 +1615,7 @@ bool Chainstate::ReplayBlocks(CCoinsView* view, CIssuedColorIds& issuedColorIds)
     for (int nHeight = nForkHeight + 1; nHeight <= pindexNew->nHeight; ++nHeight) {
         const CBlockIndex* pindex = pindexNew->GetAncestor(nHeight);
         LogPrintf("Rolling forward %s (%i)\n", pindex->GetBlockHash().ToString(), nHeight);
-        if (!RollforwardBlock(pindex, cache, issuedColorIds)) return false;
+        if (!RollforwardBlock(pindex, cache)) return false;
     }
 
     cache.SetBestBlock(pindexNew->GetBlockHash());
@@ -1688,7 +1707,7 @@ bool Chainstate::LoadGenesisBlock()
         CBlockIndex *pindex = blockIndex.AddToBlockIndex(block, m_chainman.BestHeader());
         ReceivedBlockTransactions(block, pindex, blockPos);
 
-        m_chainman.InitXFieldHistory(m_chainman.Settings().GenesisBlock());
+        m_chainman.InitXFieldHistory();
     } catch (const std::runtime_error& e) {
         return error("%s: failed to write genesis block: %s", __func__, e.what());
     }

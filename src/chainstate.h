@@ -168,6 +168,8 @@ public:
     /** Expires old mempool transactions, then trims the mempool to its max size, dropping
      *  the coins the removed transactions spent from the coins tip. */
     void LimitMempoolSize() EXCLUSIVE_LOCKS_REQUIRED(cs_main);
+    //! Runs the mempool's consistency check, if enabled, against the coins tip and the next height.
+    void CheckMempool() EXCLUSIVE_LOCKS_REQUIRED(cs_main);
     //! Checks block is completely valid from start to finish, built on the active tip.
     bool TestBlockValidity(CValidationState& state, const CBlock& block, bool fCheckPOW = true, bool fCheckMerkleRoot = true) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 
@@ -208,7 +210,7 @@ public:
     std::unique_ptr< CCheckQueue<CScriptCheck> >scriptcheckqueue;
 
     /** Opens the coins database; replaces any earlier coins views. */
-    void InitCoinsDB(CIssuedColorIds& issuedColorIds, size_t cache_size_bytes, bool in_memory, bool should_wipe);
+    void InitCoinsDB(size_t cache_size_bytes, bool in_memory, bool should_wipe);
     /** Creates the coins cache once the database is consistent. */
     void InitCoinsCache() EXCLUSIVE_LOCKS_REQUIRED(cs_main);
     bool CanFlushToDisk() const EXCLUSIVE_LOCKS_REQUIRED(cs_main) { return m_coins_views && m_coins_views->m_cacheview; }
@@ -243,6 +245,9 @@ public:
     DisconnectResult DisconnectBlock(const CBlock& block, const CBlockIndex* pindex, CCoinsViewCache& view, CIssuedColorIds& issuedColorIds, bool fDryRun = false) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
     bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pindex,
                     CCoinsViewCache& view, CIssuedColorIds& issuedColorIds, bool fJustCheck = false);
+    //! As above, on the manager's live issued colorIds.
+    DisconnectResult DisconnectBlock(const CBlock& block, const CBlockIndex* pindex, CCoinsViewCache& view) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
+    bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pindex, CCoinsViewCache& view, bool fJustCheck = false) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 
     // Block disconnection on our coins tip:
     bool DisconnectTip(CValidationState& state, DisconnectedBlockTransactions *disconnectpool);
@@ -252,7 +257,8 @@ public:
     bool InvalidateBlock(CValidationState& state, CBlockIndex* pindex) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
     void ResetBlockFailureFlags(CBlockIndex* pindex) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 
-    bool ReplayBlocks(CCoinsView* view, CIssuedColorIds& issuedColorIds);
+    //! Brings the coins database to a consistent tip after an interrupted flush.
+    bool ReplayBlocks();
     bool RewindBlockIndex();
     bool LoadGenesisBlock();
 
@@ -283,11 +289,12 @@ private:
     /** False, with missing_inputs set, if an input is in neither view nor the coins tip. */
     bool DoAllInputsExist(const CTransaction& tx, CValidationState& state, std::vector<COutPoint>& coins_to_uncache, std::vector<COutPoint>& missing_inputs, CCoinsViewCache& view) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
     /** Checks tx's scripts against view, first making sure each input view returns is the coins tip's or a mempool transaction's output. */
-    bool CheckInputsFromMempoolAndCache(bool in_package, const CTransaction& tx, CValidationState& state, const CCoinsViewCache& view, const CTxMemPool& pool,
+    bool CheckInputsFromMempoolAndCache(bool in_package, const CTransaction& tx, CValidationState& state, const CCoinsViewCache& view,
                                         unsigned int flags, bool cacheSigStore) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
     /** Whether the tip is recent enough for mempool entries to feed the fee estimator. */
     bool IsCurrentForFeeEstimation() EXCLUSIVE_LOCKS_REQUIRED(cs_main);
-    void UpdateTip(const CBlockIndex* pindexNew) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
+    //! Notifies and logs the active chain's new tip.
+    void UpdateTip() EXCLUSIVE_LOCKS_REQUIRED(cs_main);
     void UpdateMempoolForReorg(DisconnectedBlockTransactions& disconnectpool, bool fAddToMempool) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
     /** Evicts the mempool transactions that fail the script checks or colored-coin rules
      *  in force at newBlockHeight, once a soft fork activates there. */
@@ -311,7 +318,7 @@ private:
     void ReceivedBlockTransactions(const CBlock& block, CBlockIndex* pindexNew, const CDiskBlockPos& pos) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 
 
-    bool RollforwardBlock(const CBlockIndex* pindex, CCoinsViewCache& inputs, CIssuedColorIds& issuedColorIds) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
+    bool RollforwardBlock(const CBlockIndex* pindex, CCoinsViewCache& inputs) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 } ;
 
 #endif //BITCOIN_CHAINSTATE_H

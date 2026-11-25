@@ -55,7 +55,6 @@ extern RecursiveMutex cs_main;
 CBlockIndex* Chainstate::FindForkInGlobalIndex(const CBlockLocator& locator) const
 {
     BlockIndexMap& blockIndex = m_chainman.BlockIndex();
-    const CChain& chain = m_chain;
     AssertLockHeld(cs_main);
 
     // Find the latest block common to locator and chain - we expect that
@@ -63,27 +62,26 @@ CBlockIndex* Chainstate::FindForkInGlobalIndex(const CBlockLocator& locator) con
     for (const uint256& hash : locator.vHave) {
         CBlockIndex* pindex = blockIndex.LookupBlockIndex(hash);
         if (pindex) {
-            if (chain.Contains(pindex))
+            if (m_chain.Contains(pindex))
                 return pindex;
-            if (pindex->GetAncestor(chain.Height()) == chain.Tip()) {
-                return chain.Tip();
+            if (pindex->GetAncestor(m_chain.Height()) == m_chain.Tip()) {
+                return m_chain.Tip();
             }
         }
     }
-    return chain.Genesis();
+    return m_chain.Genesis();
 }
 
 
 const CBlockIndex* ChainstateManager::GetLastCheckpointIfEnabled()
 {
     AssertLockHeld(cs_main);
-    return GetOptions().fCheckpointsEnabled ? Checkpoints::GetLastCheckpoint(BlockIndex(), Settings().Checkpoints()) : nullptr;
+    return m_options->fCheckpointsEnabled ? Checkpoints::GetLastCheckpoint(m_block_index, Settings().Checkpoints()) : nullptr;
 }
 
 bool Chainstate::CheckFinalTx(const CTransaction &tx, int flags) const
 {
     AssertLockHeld(cs_main);
-    const CChain& active_chain{m_chain};
 
     // By convention a negative value for flags indicates that the
     // current network-enforced consensus rules should be used. In
@@ -99,7 +97,7 @@ bool Chainstate::CheckFinalTx(const CTransaction &tx, int flags) const
     // evaluated is what is used. Thus if we want to know if a
     // transaction can be part of the *next* block, we need to call
     // IsFinalTx() with one more than the active chain height.
-    const int nBlockHeight = active_chain.Height() + 1;
+    const int nBlockHeight = m_chain.Height() + 1;
 
     // BIP113 requires that time-locked transactions have nLockTime set to
     // less than the median time of the previous block they're contained in.
@@ -107,7 +105,7 @@ bool Chainstate::CheckFinalTx(const CTransaction &tx, int flags) const
     // chain tip, so we use that to calculate the median time passed to
     // IsFinalTx() if LOCKTIME_MEDIAN_TIME_PAST is set.
     const int64_t nBlockTime = (flags & ConsensusConstants::LOCKTIME_MEDIAN_TIME_PAST)
-                             ? active_chain.Tip()->GetMedianTimePast()
+                             ? m_chain.Tip()->GetMedianTimePast()
                              : GetAdjustedTime();
 
     return IsFinalTx(tx, nBlockHeight, nBlockTime);
@@ -116,14 +114,13 @@ bool Chainstate::CheckFinalTx(const CTransaction &tx, int flags) const
 bool Chainstate::TestLockPointValidity(const LockPoints* lp) const
 {
     AssertLockHeld(cs_main);
-    const CChain& active_chain{m_chain};
     assert(lp);
     // If there are relative lock times then the maxInputBlock will be set
     // If there are no relative lock times, the LockPoints don't depend on the chain
     if (lp->maxInputBlock) {
         // Check whether the active chain is an extension of the block at which the LockPoints
         // calculation was valid.  If not LockPoints are no longer valid
-        if (!active_chain.Contains(lp->maxInputBlock)) {
+        if (!m_chain.Contains(lp->maxInputBlock)) {
             return false;
         }
     }
@@ -203,15 +200,14 @@ bool Chainstate::CheckSequenceLocks(const CTransaction &tx, int flags, CCoinsVie
     return ContextualConsensusRules::EvaluateSequenceLocks(index, lockPair);
 }
 void Chainstate::LimitMempoolSize() {
-    CTxMemPool& pool{m_mempool};
     CCoinsViewCache& coins_cache{CoinsTip()};
-    int expired = pool.Expire(GetTime() - pool.Expiry());
+    int expired = m_mempool.Expire(GetTime() - m_mempool.Expiry());
     if (expired != 0) {
         LogPrint(BCLog::MEMPOOL, "Expired %i transactions from the memory pool\n", expired);
     }
 
     std::vector<COutPoint> vNoSpendsRemaining;
-    pool.TrimToSize(pool.MaxSize(), &vNoSpendsRemaining);
+    m_mempool.TrimToSize(m_mempool.MaxSize(), &vNoSpendsRemaining);
     for (const COutPoint& removed : vNoSpendsRemaining)
         coins_cache.Uncache(removed);
 }
@@ -234,14 +230,14 @@ bool Chainstate::IsCurrentForFeeEstimation()
 
 // Used to avoid mempool polluting consensus critical paths if CCoinsViewMempool
 // were somehow broken and returning the wrong scriptPubKeys
-bool Chainstate::CheckInputsFromMempoolAndCache(bool in_package, const CTransaction& tx, CValidationState& state, const CCoinsViewCache& view, const CTxMemPool& pool,
+bool Chainstate::CheckInputsFromMempoolAndCache(bool in_package, const CTransaction& tx, CValidationState& state, const CCoinsViewCache& view,
                  unsigned int flags, bool cacheSigStore) {
     AssertLockHeld(cs_main);
 
-    // pool.cs should be locked already, but go ahead and re-take the lock here
+    // m_mempool.cs should be locked already, but go ahead and re-take the lock here
     // to enforce that mempool doesn't change between when we check the view
     // and when we actually call through to CheckInputs
-    LOCK(pool.cs);
+    LOCK(m_mempool.cs);
 
     assert(!tx.IsCoinBase());
     for (const CTxIn& txin : tx.vin) {
@@ -253,7 +249,7 @@ bool Chainstate::CheckInputsFromMempoolAndCache(bool in_package, const CTransact
         // and then only have to check equivalence for available inputs.
         if (coin.IsSpent()) return false;
 
-        const CTransactionRef& txFrom = pool.get(txin.prevout.hashMalFix);
+        const CTransactionRef& txFrom = m_mempool.get(txin.prevout.hashMalFix);
         if (txFrom) {
             assert(txFrom->GetHashMalFix() == txin.prevout.hashMalFix);
             assert(txFrom->vout.size() > txin.prevout.n);
@@ -339,13 +335,12 @@ bool Chainstate::DoAllInputsExist(const CTransaction& tx, CValidationState& stat
 bool Chainstate::AcceptToMemoryPoolWorker(const CTransactionRef &ptx, const MempoolAcceptOptions& options, CCoinsViewMemPool& mempool_view, bool in_package,
                                           std::vector<COutPoint>& coins_to_uncache, MempoolAcceptResult& result)
 {
-    CTxMemPool& pool = m_mempool;
     const CTransaction& tx = *ptx;
     const uint256 hash = tx.GetHashMalFix();
     AssertLockHeld(cs_main);
 
     CValidationState& state = result.state;
-    LOCK(pool.cs); // mempool "read lock" (held through GetMainSignals().TransactionAddedToMempool())
+    LOCK(m_mempool.cs); // mempool "read lock" (held through GetMainSignals().TransactionAddedToMempool())
 
     if (!CheckTransaction(tx, state, m_chainman.XFieldHistory().GetCurrentMaxBlockSize()))
         return false; // state filled in by CheckTransaction
@@ -370,13 +365,13 @@ bool Chainstate::AcceptToMemoryPoolWorker(const CTransactionRef &ptx, const Memp
         return state.DoS(0, false, REJECT_NONSTANDARD, "non-final");
 
     // is it already in the memory pool?
-    if (pool.exists(hash)) {
+    if (m_mempool.exists(hash)) {
         return state.Invalid(false, REJECT_DUPLICATE, "txn-already-in-mempool");
     }
 
     // Check for conflicts with in-memory transactions
     std::set<uint256> setConflicts;
-    if(!CheckConflictsInMempool(pool, tx, setConflicts, state))
+    if(!CheckConflictsInMempool(m_mempool, tx, setConflicts, state))
         return false;
 
     {
@@ -406,7 +401,7 @@ bool Chainstate::AcceptToMemoryPoolWorker(const CTransactionRef &ptx, const Memp
         // Only accept BIP68 sequence locked transactions that can be mined in the next
         // block; we don't want our mempool filled up with transactions that can't
         // be mined yet.
-        // Must keep pool.cs for this unless we change CheckSequenceLocks to take a
+        // Must keep m_mempool.cs for this unless we change CheckSequenceLocks to take a
         // CoinsViewCache instead of create its own
         LockPoints lp;
         if (!CheckSequenceLocks(tx, PolicyConstants::STANDARD_LOCKTIME_VERIFY_FLAGS, mempool_view, &lp))
@@ -425,7 +420,7 @@ bool Chainstate::AcceptToMemoryPoolWorker(const CTransactionRef &ptx, const Memp
 
         // nModifiedFees includes any fee deltas from PrioritiseTransaction
         CAmount nModifiedFees = nFees;
-        pool.ApplyDelta(hash, nModifiedFees);
+        m_mempool.ApplyDelta(hash, nModifiedFees);
 
         // Keep track of transactions that spend a coinbase, which we re-scan
         // during reorgs to ensure COINBASE_MATURITY is still met.
@@ -443,7 +438,7 @@ bool Chainstate::AcceptToMemoryPoolWorker(const CTransactionRef &ptx, const Memp
                               fSpendsCoinbase, nSigOps, lp);
         unsigned int nSize = entry.GetTxSize();
 
-        CAmount mempoolRejectFee = pool.GetMinFee().GetFee(nSize);
+        CAmount mempoolRejectFee = m_mempool.GetMinFee().GetFee(nSize);
         if (!options.bypass_limits
           && mempoolRejectFee > 0
           && nModifiedFees < mempoolRejectFee) {
@@ -468,7 +463,7 @@ bool Chainstate::AcceptToMemoryPoolWorker(const CTransactionRef &ptx, const Memp
         size_t nLimitDescendants = g_policy_settings->descendantLimit;
         size_t nLimitDescendantSize = g_policy_settings->descendantSizeLimit;
         std::string errString;
-        if (!pool.CalculateMemPoolAncestors(entry, setAncestors, nLimitAncestors, nLimitAncestorSize, nLimitDescendants, nLimitDescendantSize, errString)) {
+        if (!m_mempool.CalculateMemPoolAncestors(entry, setAncestors, nLimitAncestors, nLimitAncestorSize, nLimitDescendants, nLimitDescendantSize, errString)) {
             return state.DoS(0, false, REJECT_NONSTANDARD, "too-long-mempool-chain", false, errString);
         }
 
@@ -508,8 +503,8 @@ bool Chainstate::AcceptToMemoryPoolWorker(const CTransactionRef &ptx, const Memp
             CTxMemPool::setEntries setIterConflicting;
             for (const uint256 &hashConflicting : setConflicts)
             {
-                CTxMemPool::txiter mi = pool.mapTx.find(hashConflicting);
-                if (mi == pool.mapTx.end())
+                CTxMemPool::txiter mi = m_mempool.mapTx.find(hashConflicting);
+                if (mi == m_mempool.mapTx.end())
                     continue;
 
                 // Save these to avoid repeated lookups
@@ -554,7 +549,7 @@ bool Chainstate::AcceptToMemoryPoolWorker(const CTransactionRef &ptx, const Memp
                 // If not too many to replace, then calculate the set of
                 // transactions that would have to be evicted
                 for (CTxMemPool::txiter it : setIterConflicting) {
-                    pool.CalculateDescendants(it, allConflicting);
+                    m_mempool.CalculateDescendants(it, allConflicting);
                 }
                 for (CTxMemPool::txiter it : allConflicting) {
                     nConflictingFees += it->GetModifiedFee();
@@ -580,7 +575,7 @@ bool Chainstate::AcceptToMemoryPoolWorker(const CTransactionRef &ptx, const Memp
                     // Rather than check the UTXO set - potentially expensive -
                     // it's cheaper to just check if the new input refers to a
                     // tx that's in the mempool.
-                    if (pool.mapTx.find(tx.vin[j].prevout.hashMalFix) != pool.mapTx.end())
+                    if (m_mempool.mapTx.find(tx.vin[j].prevout.hashMalFix) != m_mempool.mapTx.end())
                         return state.DoS(0, false,
                                          REJECT_NONSTANDARD, "replacement-adds-unconfirmed", false,
                                          strprintf("replacement %s adds unconfirmed input, idx %d",
@@ -630,7 +625,7 @@ bool Chainstate::AcceptToMemoryPoolWorker(const CTransactionRef &ptx, const Memp
 
         // Cache script execution results using the same next-block flags so the
         // cache entries are valid when ConnectBlock runs at height nextBlockHeight.
-        if (!CheckInputsFromMempoolAndCache(in_package, tx, state, view, pool, tipScriptFlags, true)) {
+        if (!CheckInputsFromMempoolAndCache(in_package, tx, state, view, tipScriptFlags, true)) {
             return error("%s: BUG! PLEASE REPORT THIS! CheckInputs failed against latest-block but not STANDARD flags %s, %s",
                     __func__, hash.ToString(), FormatStateMessage(state));
         }
@@ -662,22 +657,22 @@ bool Chainstate::AcceptToMemoryPoolWorker(const CTransactionRef &ptx, const Memp
             );
             result.replaced.push_back(it->GetSharedTx());
         }
-        pool.RemoveStaged(allConflicting, false, MemPoolRemovalReason::REPLACED);
+        m_mempool.RemoveStaged(allConflicting, false, MemPoolRemovalReason::REPLACED);
 
         // This transaction should only count for fee estimation if:
         // - it isn't a BIP 125 replacement transaction (may not be widely supported)
         // - it's not being re-added during a reorg which bypasses typical mempool fee limits
         // - the node is not behind
         // - the transaction is not dependent on any other transactions in the mempool
-        bool validForFeeEstimation = !fReplacementTransaction && !options.bypass_limits && IsCurrentForFeeEstimation() && pool.HasNoInputsOf(tx);
+        bool validForFeeEstimation = !fReplacementTransaction && !options.bypass_limits && IsCurrentForFeeEstimation() && m_mempool.HasNoInputsOf(tx);
 
         // Store transaction in memory
-        pool.addUnchecked(hash, entry, setAncestors, validForFeeEstimation);
+        m_mempool.addUnchecked(hash, entry, setAncestors, validForFeeEstimation);
 
         // trim mempool and check if tx was trimmed
         if (!options.bypass_limits) {
             LimitMempoolSize();
-            if (!pool.exists(hash))
+            if (!m_mempool.exists(hash))
                 return state.DoS(0, false, REJECT_INSUFFICIENTFEE, "mempool full");
         }
     }
@@ -995,7 +990,7 @@ bool CheckInputs(const CTransaction& tx, CValidationState &state, const CCoinsVi
 
 void ChainstateManager::StartScriptCheckWorkerThreads()
 {
-    ActiveChainstate().scriptcheckqueue = std::make_unique< CCheckQueue<CScriptCheck> >(128, GetOptions().nScriptCheckThreads);
+    ActiveChainstate().scriptcheckqueue = std::make_unique< CCheckQueue<CScriptCheck> >(128, m_options->nScriptCheckThreads);
 }
 
 void Chainstate::ForceFlushStateToDisk() {
@@ -1026,7 +1021,7 @@ void PruneBlockFilesManual(Chainstate& active_chainstate, int nManualPruneHeight
 bool ChainstateManager::ProcessNewBlockHeaders(const std::vector<CBlockHeader>& headers, CValidationState& state, const CBlockIndex** ppindex, CBlockHeader *first_invalid)
 {
     // copy of the active chain's xfield history, used until we finish processing this headers message
-    CTempXFieldHistory tempFieldHistory(XFieldHistory());
+    CTempXFieldHistory tempFieldHistory(m_xfield_history);
     if (first_invalid != nullptr) first_invalid->SetNull();
     {
         LOCK(cs_main);
@@ -1081,7 +1076,6 @@ bool ChainstateManager::ProcessNewBlock(const std::shared_ptr<const CBlock> pblo
 bool Chainstate::TestBlockValidity(CValidationState& state, const CBlock& block, bool fCheckPOW, bool fCheckMerkleRoot)
 {
     AssertLockHeld(cs_main);
-    ChainstateManager& chainman{m_chainman};
     CBlockIndex* const pindexPrev{m_chain.Tip()};
     assert(pindexPrev);
     CCoinsViewCache viewNew(&CoinsTip());
@@ -1092,13 +1086,13 @@ bool Chainstate::TestBlockValidity(CValidationState& state, const CBlock& block,
     indexDummy.phashBlock = &block_hash;
 
     // NOTE: CheckBlockHeader is called by CheckBlock
-    if (!ContextualConsensusRules::ContextualCheckBlockHeader(block, state, *pindexPrev, GetAdjustedTime(), chainman.GetLastCheckpointIfEnabled()))
+    if (!ContextualConsensusRules::ContextualCheckBlockHeader(block, state, *pindexPrev, GetAdjustedTime(), m_chainman.GetLastCheckpointIfEnabled()))
         return error("%s: Consensus::ContextualCheckBlockHeader: %s", __func__, FormatStateMessage(state));
-    if (!CheckBlock(block, state, chainman.RulesAfter(*pindexPrev), fCheckPOW, fCheckMerkleRoot))
+    if (!CheckBlock(block, state, m_chainman.RulesAfter(*pindexPrev), fCheckPOW, fCheckMerkleRoot))
         return error("%s: Consensus::CheckBlock: %s", __func__, FormatStateMessage(state));
     if (!ContextualConsensusRules::ContextualCheckBlock(block, state, *pindexPrev))
         return error("%s: Consensus::ContextualCheckBlock: %s", __func__, FormatStateMessage(state));
-    if (!ConnectBlock(block, state, &indexDummy, viewNew, chainman.IssuedColorIds(), true))
+    if (!ConnectBlock(block, state, &indexDummy, viewNew, true))
         return false;
     assert(state.IsValid());
 
@@ -1110,7 +1104,7 @@ bool ChainstateManager::LoadBlockIndexDB()
     if (!ActiveChainstate().LoadBlockIndex())
         return false;
 
-    if (!GetBlockFileManager().LoadBlockFileInfo())
+    if (!m_block_file_manager->LoadBlockFileInfo())
         return false;
     LoadPersistentFlags();
     return true;
@@ -1179,8 +1173,8 @@ void ChainstateManager::UnloadBlockIndex()
     BestInvalid() = nullptr;
     BestHeader() = nullptr;
     ActiveChainstate().GetMempool().clear();
-    BlockIndex().Unload();
-    GetBlockFileManager().Unload();
+    m_block_index.Unload();
+    m_block_file_manager->Unload();
     UnloadPersistentFlags();
 
     ActiveChainstate().UnloadBlockIndex();
@@ -1188,13 +1182,12 @@ void ChainstateManager::UnloadBlockIndex()
 
 bool ChainstateManager::LoadBlockIndex()
 {
-    BlockIndexMap& blockIndex = BlockIndex();
     // Load block index from databases
     bool needs_init = IsReindexing();
     if (!needs_init) {
         bool ret = LoadBlockIndexDB();
         if (!ret) return false;
-        needs_init = blockIndex.mapBlockIndex.empty();
+        needs_init = m_block_index.mapBlockIndex.empty();
     }
 
     if (needs_init) {

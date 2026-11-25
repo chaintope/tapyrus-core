@@ -96,8 +96,8 @@ public:
 
     const Options& GetOptions() const { assert(m_options); return *m_options; }
 
-    /** Adds the genesis block's xfield entries; safe to call again (entries already present are kept). */
-    void InitXFieldHistory(const CBlock& genesis);
+    /** Adds the network's genesis block's xfield entries; safe to call again (entries already present are kept). */
+    void InitXFieldHistory();
 
     CXFieldHistory& XFieldHistory() { return m_xfield_history; }
 
@@ -135,6 +135,10 @@ public:
 
     /** How far chain sync has got; readable without cs_main. */
     VerificationProgress& Progress() { return m_progress; }
+    //! The estimated progress of the active tip.
+    double GuessTipProgress();
+    //! A locator for the best header, built on the active chain.
+    CBlockLocator BestHeaderLocator() const EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 
     /** Where fatal errors and the fork warnings are reported; NodeContext owns it.
      *  Set at start-up, before anything can fail. */
@@ -142,8 +146,8 @@ public:
     ChainNotifications& Notifications() const { assert(m_notifications); return *m_notifications; }
 
     /** Creates the block file manager once -prune is known; replaces any earlier one, keeping the block index.
-     *  notifications receives its fatal file errors. */
-    void InitBlockFileManager(const BlockFileManager::Options& options, ChainNotifications& notifications);
+     *  Requires SetNotifications first; the block file manager reports its fatal file errors through them. */
+    void InitBlockFileManager(const BlockFileManager::Options& options);
 
     BlockFileManager& GetBlockFileManager() { assert(m_block_file_manager); return *m_block_file_manager; }
     /** Destroys the block file manager before the notifications it reports to. */

@@ -755,7 +755,7 @@ UniValue getblockchaininfo(const JSONRPCRequest& request)
     obj.pushKV("headers",               chainman.BestHeader() ? chainman.BestHeader()->nHeight : -1);
     obj.pushKV("bestblockhash",         chainman.ActiveChain().Tip()->GetBlockHash().GetHex());
     obj.pushKV("mediantime",            (int64_t)chainman.ActiveChain().Tip()->GetMedianTimePast());
-    obj.pushKV("verificationprogress",  chainman.Progress().Guess(chainman.ActiveChain().Tip()));
+    obj.pushKV("verificationprogress",  chainman.GuessTipProgress());
     obj.pushKV("initialblockdownload",  chainman.ActiveChainstate().IsInitialBlockDownload());
     obj.pushKV("size_on_disk",          chainman.GetBlockFileManager().CalculateCurrentUsage());
     obj.pushKV("pruned",                chainman.GetBlockFileManager().GetOptions().fPruneMode);
