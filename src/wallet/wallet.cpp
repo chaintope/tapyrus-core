@@ -35,7 +35,6 @@
 #include <wallet/walletnotifications.h>
 #include <wallet/walletutil.h>
 #include <trace.h>
-#include <blockfilemanager.h>
 
 #include <algorithm>
 #include <assert.h>

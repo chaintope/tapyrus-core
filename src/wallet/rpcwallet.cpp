@@ -45,7 +45,6 @@
 #include <wallet/walletutil.h>
 #include <walletinitinterface.h>
 #include <xfieldhistory.h>
-#include <blockfilemanager.h>
 
 #include <stdexcept>
 #include <stdint.h>
@@ -3402,7 +3401,7 @@ UniValue generate(const JSONRPCRequest& request)
     int num_generate = request.params[0].get_int();
 
     // Skip IBD check in DEV mode
-    if (gArgs.GetChainMode() != TAPYRUS_OP_MODE::DEV && IsInitialBlockDownload()) {
+    if (gArgs.GetChainMode() != TAPYRUS_OP_MODE::DEV && pwallet->chain().isInitialBlockDownload()) {
         throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Tapyrus is in initial sync and waiting for blocks...");
     }
 

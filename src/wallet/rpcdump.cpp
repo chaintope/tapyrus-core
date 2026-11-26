@@ -4,7 +4,6 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <chain.h>
-#include <blockfilemanager.h>
 #include <interfaces/chain.h>
 #include <blockindex.h>
 #include <clientversion.h>
