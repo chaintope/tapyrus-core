@@ -201,7 +201,7 @@ BOOST_AUTO_TEST_CASE(chainstate_initialization_edge_cases)
     LOCK(cs_main);
 
     // Verify mapBlockIndex is accessible and has entries (genesis + chain blocks loaded by fixture)
-    BOOST_CHECK(!blockIndex.mapBlockIndex.empty());
+    BOOST_CHECK(!blockIndex.Entries().empty());
 
     // Verify the active chain is accessible
     BOOST_CHECK(chainstate.m_chain.Height() >= 0);
@@ -210,7 +210,7 @@ BOOST_AUTO_TEST_CASE(chainstate_initialization_edge_cases)
     BOOST_CHECK(m_node.chainman->BestInvalid() == nullptr);
 
     // Test mapBlocksUnlinked (multimap) - should be empty in a clean chain
-    BOOST_CHECK(blockIndex.mapBlocksUnlinked.empty());
+    BOOST_CHECK(blockIndex.UnlinkedCount() == 0);
 
     // Verify scriptcheckqueue is initialized
     // Note: scriptcheckqueue is a unique_ptr, so we check if it's set up
@@ -616,8 +616,8 @@ BOOST_AUTO_TEST_CASE(block_sequence_id_edge_cases)
     CBlockIndex* pindex1 = nullptr;
     {
         LOCK(cs_main);
-        auto it = blockIndex.mapBlockIndex.find(hash1);
-        BOOST_REQUIRE(it != blockIndex.mapBlockIndex.end());
+        auto it = blockIndex.Entries().find(hash1);
+        BOOST_REQUIRE(it != blockIndex.Entries().end());
         pindex1 = it->second;
     }
 
@@ -647,8 +647,8 @@ BOOST_AUTO_TEST_CASE(block_sequence_id_edge_cases)
     CBlockIndex* pindex2 = nullptr;
     {
         LOCK(cs_main);
-        auto it = blockIndex.mapBlockIndex.find(hash2);
-        BOOST_REQUIRE(it != blockIndex.mapBlockIndex.end());
+        auto it = blockIndex.Entries().find(hash2);
+        BOOST_REQUIRE(it != blockIndex.Entries().end());
         pindex2 = it->second;
     }
 

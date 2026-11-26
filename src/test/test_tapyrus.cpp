@@ -216,7 +216,7 @@ TestingSetup::TestingSetup(const std::string& chainName) : BasicTestingSetup(cha
         try {
             {
                 LOCK(cs_main);
-                blockIndex.pblocktreedb.reset(new CBlockTreeDB(1 << 20, true));
+                blockIndex.OpenDB(1 << 20, true, false);
                 Chainstate& chainstate = m_node.chainman->ActiveChainstate();
                 chainstate.InitCoinsDB(1 << 23, true, false);
                 chainstate.InitCoinsCache();
@@ -261,7 +261,7 @@ void TestingSetup::TearDown()
         m_node.chainman->UnloadBlockIndex();
         LOCK(cs_main);
         m_node.chainman->ActiveChainstate().ResetCoinsViews();
-        blockIndex.pblocktreedb.reset();
+        blockIndex.CloseDB();
 }
 
 TestingSetup::~TestingSetup()

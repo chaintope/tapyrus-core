@@ -186,14 +186,14 @@ bool ChainstateManager::IsBlockPruned(const CBlockIndex* pblockindex) const
 void ChainstateManager::RecordPruned()
 {
     if (!m_have_pruned) {
-        m_block_index.pblocktreedb->WriteFlag("prunedblockfiles", true);
+        m_block_index.DB().WriteFlag("prunedblockfiles", true);
         m_have_pruned = true;
     }
 }
 
 void ChainstateManager::LoadPersistentFlags()
 {
-    CBlockTreeDB& blocktree = *m_block_index.pblocktreedb;
+    CBlockTreeDB& blocktree = m_block_index.DB();
 
     // Check whether we have ever pruned block & undo files
     blocktree.ReadFlag("prunedblockfiles", m_have_pruned);

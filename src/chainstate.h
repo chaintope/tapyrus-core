@@ -114,17 +114,17 @@ private:
       * blocks which we tried to connect and found to be invalid here (ie which
       * were set to BLOCK_FAILED_VALID since the last restart). We can then
       * walk this set and check if a new header is a descendant of something in
-      * this set, preventing us from having to walk mapBlockIndex when we try
+      * this set, preventing us from having to walk the block index when we try
       * to connect a bad block and fail.
       *
       * While this is more complicated than marking everything which descends
       * from an invalid block as invalid at the time we discover it to be
-      * invalid, doing so would require walking all of mapBlockIndex to find all
+      * invalid, doing so would require walking all of the block index to find all
       * descendants. Since this case should be very rare, keeping track of all
       * BLOCK_FAILED_VALID blocks in a set should be just fine and work just as
       * well.
       *
-      * Because we already walk mapBlockIndex in height-order at startup, we go
+      * Because we already walk the block index in height-order at startup, we go
       * ahead and mark descendants of invalid blocks as FAILED_CHILD at that time,
       * instead of putting things in this set.
       */
@@ -236,7 +236,7 @@ public:
 
     /**
      * If a block header hasn't already been seen, call CheckBlockHeader on it, ensure
-     * that it doesn't descend from an invalid block, and then add it to mapBlockIndex.
+     * that it doesn't descend from an invalid block, and then add it to the block index.
      */
     bool AcceptBlockHeader(const CBlockHeader& block, CValidationState& state, CBlockIndex** ppindex, CXFieldHistoryMap* pxfieldHistory = nullptr) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
     bool AcceptBlock(const std::shared_ptr<const CBlock>& pblock, CValidationState& state, CBlockIndex** ppindex, bool fRequested, const CDiskBlockPos* dbp, bool* fNewBlock, CXFieldHistoryMap* pxfieldHistory = nullptr) EXCLUSIVE_LOCKS_REQUIRED(cs_main);

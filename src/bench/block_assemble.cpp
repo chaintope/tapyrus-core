@@ -116,7 +116,7 @@ static void AssembleBlock(benchmark::State& state)
     {
         {
             LOCK(cs_main);
-            blockIndex.pblocktreedb.reset(new CBlockTreeDB(1 << 20, true));
+            blockIndex.OpenDB(1 << 20, true, false);
             Chainstate& chainstate = chainman.ActiveChainstate();
             chainstate.InitCoinsDB(1 << 23, true, false);
             chainstate.InitCoinsCache();

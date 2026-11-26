@@ -270,7 +270,7 @@ void Shutdown(NodeContext& node)
             chainstate.ResetCoinsViews();
         }
         chainman.IssuedColorIds() = CIssuedColorIds();
-        chainman.BlockIndex().pblocktreedb.reset();
+        chainman.BlockIndex().CloseDB();
         chainman.ReleaseBlockFileManager();
     }
 
@@ -655,7 +655,7 @@ static void ThreadImport(NodeContext& node, std::vector<fs::path> vImportFiles)
         }
         {
             LOCK(cs_main);
-            blockIndex.pblocktreedb->WriteReindexing(false);
+            blockIndex.DB().WriteReindexing(false);
         }
         chainman.SetReindexing(false);
         LogPrintf("Reindexing finished\n");
@@ -703,7 +703,7 @@ static void ThreadImport(NodeContext& node, std::vector<fs::path> vImportFiles)
             XFieldChangeList changes = xfieldHistory.GetListCopy(type);
             if (!changes.empty()) {
                 LOCK(cs_main);
-                blockIndex.pblocktreedb->RewriteXField(changes);
+                blockIndex.DB().RewriteXField(changes);
             }
         }
     }
@@ -1395,13 +1395,13 @@ bool AppInitMain(NodeContext& node)
             try {
                 chainman.UnloadBlockIndex();
                 chainman.ActiveChainstate().ResetCoinsViews();
-                // new CBlockTreeDB tries to delete the existing file, which
-                // fails if it's still open from the previous loop. Close it first:
-                blockIndex.pblocktreedb.reset();
-                blockIndex.pblocktreedb.reset(new CBlockTreeDB(cache.nBlockTreeDBCache, false, wipeBlockTree));
+                // Close the previous loop's block tree database; opening one that
+                // wipes deletes the existing files, which fails while they are open.
+                blockIndex.CloseDB();
+                blockIndex.OpenDB(cache.nBlockTreeDBCache, false, wipeBlockTree);
 
                 if (wipeBlockTree) {
-                    blockIndex.pblocktreedb->WriteReindexing(true);
+                    blockIndex.DB().WriteReindexing(true);
                     //If we're reindexing in prune mode, wipe away unusable block files and all undo data files
                     if (blockFileManager.GetOptions().fPruneMode)
                         blockFileManager.CleanupBlockRevFiles();
@@ -1420,7 +1420,7 @@ bool AppInitMain(NodeContext& node)
 
                 // If the loaded chain has a wrong genesis, bail out immediately
                 // (we're likely using a testnet datadir, or the other way around).
-                if (!blockIndex.mapBlockIndex.empty() && !blockIndex.LookupBlockIndex(chainman.Settings().GenesisBlock().GetHash())) {
+                if (!blockIndex.Entries().empty() && !blockIndex.LookupBlockIndex(chainman.Settings().GenesisBlock().GetHash())) {
                     return InitError(_("Incorrect or no genesis block found. Wrong datadir for network?"));
                 }
 
@@ -1445,7 +1445,7 @@ bool AppInitMain(NodeContext& node)
                 }
 
                 // At this point we're either in reindex or we've loaded a useful
-                // block tree into mapBlockIndex!
+                // block tree into the block index!
 
                 chainman.ActiveChainstate().InitCoinsDB(cache.nCoinDBCache, false, wipeBlockTree || chainman.GetOptions().fReindexChainState);
 
@@ -1482,7 +1482,7 @@ bool AppInitMain(NodeContext& node)
 
                 if (!wipeBlockTree) {
                     // Note that RewindBlockIndex MUST run even if we're about to -reindex-chainstate.
-                    // It reduces validity/have-data flags in mapBlockIndex and rebuilds
+                    // It reduces validity/have-data flags in the block index and rebuilds
                     // setBlockIndexCandidates for the current active chain.
                     uiInterface.InitMessage(_("Rewinding blocks..."));
                     if (!chainman.RewindBlockIndex()) {
@@ -1496,7 +1496,7 @@ bool AppInitMain(NodeContext& node)
                 {
                     const char key = xFieldHistory.DBKey(x);
                     XFieldChangeListWrapper xFieldListDB(key);
-                    blockIndex.pblocktreedb->ReadXField(key, xFieldListDB);
+                    blockIndex.DB().ReadXField(key, xFieldListDB);
                     for(auto &XFieldDB:xFieldListDB)
                         xFieldHistory.Add(x, XFieldDB);
                 }
@@ -1657,7 +1657,7 @@ bool AppInitMain(NodeContext& node)
     //// debug print
     {
         LOCK(cs_main);
-        LogPrintf("mapBlockIndex.size() = %u\n", blockIndex.mapBlockIndex.size());
+        LogPrintf("mapBlockIndex.size() = %u\n", blockIndex.Entries().size());
         chain_active_height = chainman.ActiveChain().Height();
     }
     LogPrintf("nBestHeight = %d\n", chain_active_height);

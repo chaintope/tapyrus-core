@@ -1125,7 +1125,7 @@ bool Chainstate::LoadChainTip()
 
     if (m_chain.Tip() && m_chain.Tip()->GetBlockHash() == CoinsTip().GetBestBlock()) return true;
 
-    if (CoinsTip().GetBestBlock().IsNull() && blockIndex.mapBlockIndex.size() == 1) {
+    if (CoinsTip().GetBestBlock().IsNull() && blockIndex.Entries().size() == 1) {
         // In case we just added the genesis block, connect it now, so
         // that we always have an active tip when we return.
         LogPrintf("%s: Connecting genesis block...\n", __func__);
@@ -1195,7 +1195,7 @@ bool ChainstateManager::LoadBlockIndex()
     if (!needs_init) {
         bool ret = LoadBlockIndexDB();
         if (!ret) return false;
-        needs_init = m_block_index.mapBlockIndex.empty();
+        needs_init = m_block_index.Entries().empty();
     }
 
     if (needs_init) {

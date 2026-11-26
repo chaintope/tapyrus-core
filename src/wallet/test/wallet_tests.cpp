@@ -37,6 +37,13 @@ extern UniValue dumpwallet(const JSONRPCRequest& request);
 extern UniValue importwallet(const JSONRPCRequest& request);
 extern UniValue generate(const JSONRPCRequest& request);
 
+//! Declared a friend of BlockIndexMap; defined here so that only the tests build it.
+CBlockIndex* InsertBlockIndexForTest(BlockIndexMap& block_index, const uint256& hash) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
+CBlockIndex* InsertBlockIndexForTest(BlockIndexMap& block_index, const uint256& hash)
+{
+    return block_index.InsertBlockIndex(hash);
+}
+
 BOOST_FIXTURE_TEST_SUITE(wallet_tests, WalletTestingSetup)
 
 static void AddKey(CWallet& wallet, const CKey& key)
@@ -238,12 +245,8 @@ static int64_t AddTx(ChainstateManager& chainman, CWallet& wallet, uint32_t lock
     CBlockIndex* block = nullptr;
     if (blockTime > 0) {
         LOCK(cs_main);
-        auto inserted = blockIndex.mapBlockIndex.emplace(GetRandHash(), new CBlockIndex);
-        assert(inserted.second);
-        const uint256& hash = inserted.first->first;
-        block = inserted.first->second;
+        block = InsertBlockIndexForTest(blockIndex, GetRandHash());
         block->nTime = blockTime;
-        block->phashBlock = &hash;
     }
 
     CWalletTx wtx(&wallet, MakeTransactionRef(tx));
