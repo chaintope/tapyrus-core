@@ -105,6 +105,7 @@ public:
     void SetChainInterface(interfaces::Chain* chain) const override {}
     interfaces::Chain* GetChainInterface() const override {return nullptr;}
     WalletEvents* GetWalletEvents() const override {return nullptr;}
+    void SyncWalletEvents() const override {}
     bool Open() const override {LogPrintf("No wallet support compiled in!\n"); return true;}
     void Start() const override {}
     void Flush() const override {}

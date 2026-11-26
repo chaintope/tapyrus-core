@@ -29,6 +29,7 @@ public:
     void SetChainInterface(interfaces::Chain* chain) const override { m_chain = chain; }
     interfaces::Chain* GetChainInterface() const override { return m_chain; }
     WalletEvents* GetWalletEvents() const override { return &m_events; }
+    void SyncWalletEvents() const override { m_events.Sync(); }
 
     //! Load wallet databases.
     bool Open() const override;

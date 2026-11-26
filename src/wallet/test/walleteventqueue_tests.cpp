@@ -16,6 +16,7 @@
 #include <future>
 #include <thread>
 
+#include <boost/signals2/connection.hpp>
 #include <boost/test/unit_test.hpp>
 
 /** Sends the node's mempool events for transactions paying the fixture's wallet. */
@@ -100,6 +101,8 @@ BOOST_AUTO_TEST_CASE(a_periodic_task_runs_on_the_wallet_thread_and_may_sync)
     }, std::chrono::milliseconds{1});
     std::future<std::thread::id> future = ran.get_future();
     BOOST_REQUIRE(future.wait_for(std::chrono::seconds{10}) == std::future_status::ready);
+    // The task captures locals by reference.
+    m_wallet_events.CancelTasks();
     BOOST_CHECK(future.get() != std::this_thread::get_id());
 }
 
@@ -111,6 +114,35 @@ BOOST_AUTO_TEST_CASE(stop_delivers_the_events_already_queued)
     SyncWithValidationInterfaceQueue();
     m_wallet_events.Stop();
     BOOST_CHECK(InWallet(tx));
+}
+
+BOOST_AUTO_TEST_CASE(unregister_waits_for_the_delivery_in_progress)
+{
+    std::promise<void> entered;
+    std::promise<void> release;
+    const std::shared_future<void> released{release.get_future()};
+    std::atomic<bool> once{false};
+    std::atomic<bool> finished{false};
+    // Blocks the delivery inside the wallet until the test releases it.
+    const boost::signals2::scoped_connection blocker{m_wallet.NotifyTransactionChanged.connect(
+        [&](CWallet*, const uint256&, ChangeType) {
+            if (once.exchange(true)) return;
+            entered.set_value();
+            released.wait();
+            finished = true;
+        })};
+    GetMainSignals().TransactionAddedToMempool(Payment(0));
+    const bool blocked{entered.get_future().wait_for(std::chrono::seconds{10}) == std::future_status::ready};
+    if (!blocked) release.set_value();
+    BOOST_REQUIRE(blocked);
+
+    std::future<bool> unregistered = std::async(std::launch::async, [&] {
+        m_wallet_events.Unregister(m_wallet);
+        return finished.load();
+    });
+    BOOST_CHECK(unregistered.wait_for(std::chrono::milliseconds{100}) == std::future_status::timeout);
+    release.set_value();
+    BOOST_CHECK(unregistered.get());
 }
 
 // Negative cases: wallets the queue does not deliver to.
@@ -137,6 +169,27 @@ BOOST_AUTO_TEST_CASE(a_wallet_registered_twice_is_gone_after_one_unregister)
 {
     m_wallet_events.Register(m_wallet);
     m_wallet_events.Unregister(m_wallet);
+    const CTransactionRef tx{Payment(0)};
+    GetMainSignals().TransactionAddedToMempool(tx);
+    SyncBoth();
+    BOOST_CHECK(!InWallet(tx));
+}
+
+BOOST_AUTO_TEST_CASE(unregister_on_the_wallet_thread_returns_without_waiting)
+{
+    std::promise<void> unregistered;
+    std::atomic<bool> once{false};
+    m_wallet_events.ScheduleEvery([&] {
+        if (once.exchange(true)) return;
+        // Would deadlock if Unregister waited for the task it runs in.
+        m_wallet_events.Unregister(m_wallet);
+        unregistered.set_value();
+    }, std::chrono::milliseconds{1});
+    std::future<void> future = unregistered.get_future();
+    BOOST_REQUIRE(future.wait_for(std::chrono::seconds{10}) == std::future_status::ready);
+    // The task captures locals by reference.
+    m_wallet_events.CancelTasks();
+
     const CTransactionRef tx{Payment(0)};
     GetMainSignals().TransactionAddedToMempool(tx);
     SyncBoth();

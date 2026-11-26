@@ -30,6 +30,8 @@ public:
     virtual interfaces::Chain* GetChainInterface() const = 0;
     /** The queue the wallet thread delivers the wallets' validation events from; null without wallets */
     virtual WalletEvents* GetWalletEvents() const = 0;
+    /** Waits until the wallet thread has delivered the events queued before the call */
+    virtual void SyncWalletEvents() const = 0;
     /** Open wallets*/
     virtual bool Open() const = 0;
     /** Start wallets*/
@@ -43,5 +45,7 @@ public:
 
     virtual ~WalletInitInterface() {}
 };
+
+extern const WalletInitInterface& g_wallet_init_interface;
 
 #endif // BITCOIN_WALLETINITINTERFACE_H

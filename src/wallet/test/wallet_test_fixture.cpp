@@ -5,6 +5,7 @@
 #include <wallet/test/wallet_test_fixture.h>
 
 #include <rpc/rpctable.h>
+#include <validationinterface.h>
 #include <wallet/db.h>
 #include <wallet/rpcwallet.h>
 
@@ -22,5 +23,7 @@ WalletTestingSetup::WalletTestingSetup(const std::string& chainName):
 WalletTestingSetup::~WalletTestingSetup()
 {
     m_wallet_events.Unregister(m_wallet);
+    // Stop does not wait for a node callback already inside the queue, so let those finish first.
+    SyncWithValidationInterfaceQueue();
     m_wallet_events.Stop();
 }

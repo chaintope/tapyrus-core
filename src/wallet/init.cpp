@@ -4,7 +4,6 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <chainparams.h>
-#include <init.h>
 #include <interfaces/chain.h>
 #include <net.h>
 #include <outputtype.h>
