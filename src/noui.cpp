@@ -8,6 +8,8 @@
 #include <ui_interface.h>
 #include <util.h>
 
+#include <boost/signals2/connection.hpp>
+
 #include <cstdio>
 #include <stdint.h>
 #include <string>
@@ -49,10 +51,52 @@ static void noui_InitMessage(const std::string& message)
     LogPrintf("init message: %s\n", message);
 }
 
+static boost::signals2::connection noui_ThreadSafeMessageBoxConn;
+static boost::signals2::connection noui_ThreadSafeQuestionConn;
+static boost::signals2::connection noui_InitMessageConn;
+
+static void noui_disconnect()
+{
+    noui_ThreadSafeMessageBoxConn.disconnect();
+    noui_ThreadSafeQuestionConn.disconnect();
+    noui_InitMessageConn.disconnect();
+}
+
 void noui_connect()
 {
-    // Connect bitcoind signal handlers
-    uiInterface.ThreadSafeMessageBox.connect(noui_ThreadSafeMessageBox);
-    uiInterface.ThreadSafeQuestion.connect(noui_ThreadSafeQuestion);
-    uiInterface.InitMessage.connect(noui_InitMessage);
+    // Each test fixture connects again; drop the earlier handlers so messages are not repeated.
+    noui_disconnect();
+    noui_ThreadSafeMessageBoxConn = uiInterface.ThreadSafeMessageBox.connect(noui_ThreadSafeMessageBox);
+    noui_ThreadSafeQuestionConn = uiInterface.ThreadSafeQuestion.connect(noui_ThreadSafeQuestion);
+    noui_InitMessageConn = uiInterface.InitMessage.connect(noui_InitMessage);
+}
+
+static bool noui_ThreadSafeMessageBoxRedirect(const std::string& message, const std::string& caption, unsigned int style)
+{
+    LogPrintf("%s: %s\n", caption, message);
+    return false;
+}
+
+static bool noui_ThreadSafeQuestionRedirect(const std::string& /* ignored interactive message */, const std::string& message, const std::string& caption, unsigned int style)
+{
+    LogPrintf("%s: %s\n", caption, message);
+    return false;
+}
+
+static void noui_InitMessageRedirect(const std::string& message)
+{
+    LogPrintf("init message: %s\n", message);
+}
+
+void noui_test_redirect()
+{
+    noui_disconnect();
+    noui_ThreadSafeMessageBoxConn = uiInterface.ThreadSafeMessageBox.connect(noui_ThreadSafeMessageBoxRedirect);
+    noui_ThreadSafeQuestionConn = uiInterface.ThreadSafeQuestion.connect(noui_ThreadSafeQuestionRedirect);
+    noui_InitMessageConn = uiInterface.InitMessage.connect(noui_InitMessageRedirect);
+}
+
+void noui_reconnect()
+{
+    noui_connect();
 }

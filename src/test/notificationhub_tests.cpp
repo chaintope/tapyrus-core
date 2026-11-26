@@ -3,6 +3,7 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <clientversion.h>
+#include <noui.h>
 #include <notificationhub.h>
 #include <test/test_tapyrus.h>
 #include <ui_interface.h>
@@ -77,9 +78,16 @@ private:
     const std::string m_name;
     std::vector<std::string>& m_log;
 };
+/** These tests raise warnings on purpose; they go to the debug log, not the console. */
+class QuietUiTestingSetup : public BasicTestingSetup
+{
+public:
+    QuietUiTestingSetup() { noui_test_redirect(); }
+    ~QuietUiTestingSetup() { noui_reconnect(); }
+};
 } // namespace
 
-BOOST_FIXTURE_TEST_SUITE(notificationhub_tests, BasicTestingSetup)
+BOOST_FIXTURE_TEST_SUITE(notificationhub_tests, QuietUiTestingSetup)
 
 BOOST_AUTO_TEST_CASE(later_warnings_take_the_status_bar)
 {
