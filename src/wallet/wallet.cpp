@@ -1264,6 +1264,15 @@ void CWallet::BlockUntilSyncedToCurrentChain() {
         LOCK(cs_wallet);
         last_block_hash = m_last_block_processed;
     }
+    // Checked here too, since the wait below also drains the wallet thread's queue.
+    // findBlock, not getBlockHash, as the tip can move back between the two lookups.
+    int last_block_height;
+    bool last_block_active{false};
+    if (!last_block_hash.IsNull() &&
+        chain().findBlock(last_block_hash, interfaces::FoundBlock().height(last_block_height).inActiveChain(last_block_active)) &&
+        last_block_active && chain().getHeight() == last_block_height) {
+        return;
+    }
     chain().waitForNotificationsIfTipChanged(last_block_hash);
     // The node's queue has handed its events on to the wallet thread; wait for those too.
     queue->Sync();
