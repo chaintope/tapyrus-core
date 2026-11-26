@@ -1101,8 +1101,16 @@ bool Chainstate::TestBlockValidity(CValidationState& state, const CBlock& block,
 
 bool ChainstateManager::LoadBlockIndexDB()
 {
-    if (!ActiveChainstate().LoadBlockIndex())
+    std::vector<CBlockIndex*> sorted_by_height;
+    if (!m_block_index.LoadBlockIndex(sorted_by_height))
         return false;
+    for (CBlockIndex* pindex : sorted_by_height) {
+        if (pindex->nStatus & BLOCK_FAILED_MASK) ConsiderBestInvalid(pindex);
+        // Ties at the top height go by CBlockIndexWorkComparator here, unlike ConsiderBestHeader.
+        if (pindex->IsValid(BLOCK_VALID_TREE) && (m_best_header == nullptr || CBlockIndexWorkComparator()(m_best_header, pindex)))
+            m_best_header = pindex;
+    }
+    ActiveChainstate().LoadBlockIndexCandidates(sorted_by_height);
 
     if (!m_block_file_manager->LoadBlockFileInfo())
         return false;
@@ -1170,8 +1178,8 @@ void ChainstateManager::UnloadBlockIndex()
 {
     LOCK(cs_main);
     ActiveChain().SetTip(nullptr);
-    BestInvalid() = nullptr;
-    BestHeader() = nullptr;
+    m_best_invalid = nullptr;
+    m_best_header = nullptr;
     ActiveChainstate().GetMempool().clear();
     m_block_index.Unload();
     m_block_file_manager->Unload();

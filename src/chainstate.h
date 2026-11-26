@@ -218,8 +218,8 @@ public:
     CCoinsViewDB& CoinsDB() EXCLUSIVE_LOCKS_REQUIRED(cs_main) { assert(m_coins_views); return *m_coins_views->m_dbview; }
     void ResetCoinsViews() EXCLUSIVE_LOCKS_REQUIRED(cs_main) { m_coins_views.reset(); }
 
-    /** Loads the block index, then the candidates, best invalid and best header from it. */
-    bool LoadBlockIndex() EXCLUSIVE_LOCKS_REQUIRED(cs_main);
+    /** Adds the loaded blocks that could become the tip to the candidates. */
+    void LoadBlockIndexCandidates(const std::vector<CBlockIndex*>& sorted_by_height) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 
     bool ActivateBestChain(CValidationState &state, std::shared_ptr<const CBlock> pblock);
 

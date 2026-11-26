@@ -49,8 +49,8 @@ public:
 
     CBlockIndex* LookupBlockIndex(const uint256& hash) const EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 
-    /** Adds a header unless it is known, and raises pindexBestHeader if the new entry is higher. */
-    CBlockIndex* AddToBlockIndex(const CBlockHeader& block, CBlockIndex*& pindexBestHeader) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
+    /** Adds a header unless it is known; returns its entry. */
+    CBlockIndex* AddToBlockIndex(const CBlockHeader& block) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 
     /**
      * Loads the index from pblocktreedb and links it: chain transaction counts,

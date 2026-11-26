@@ -500,10 +500,9 @@ static UniValue getblocktemplate(const JSONRPCRequest& request)
         {
             checktxtime = std::chrono::steady_clock::now() + std::chrono::minutes(1);
 
-            UniqueLock lock(chainman.m_best_block_mutex);
-            while (chainman.m_best_block == hashWatchedChain && IsRPCRunning())
+            while (IsRPCRunning() && chainman.WaitForBestBlock(hashWatchedChain, checktxtime) == hashWatchedChain)
             {
-                if (chainman.m_best_block_cv.wait_until(lock, checktxtime) == std::cv_status::timeout)
+                if (std::chrono::steady_clock::now() >= checktxtime)
                 {
                     // Timeout: Check transactions for update
                     if (mempool.GetTransactionsUpdated() != nTransactionsUpdatedLastLP)

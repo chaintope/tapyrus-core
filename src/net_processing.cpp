@@ -3124,7 +3124,7 @@ bool PeerManager::SendMessages(CNode* pto)
 
         // Start block sync
         if (m_chainman.BestHeader() == nullptr)
-            m_chainman.BestHeader() = m_chainman.ActiveChain().Tip();
+            m_chainman.ConsiderBestHeader(m_chainman.ActiveChain().Tip());
         bool fFetch = state.fPreferredDownload || (nPreferredDownload == 0 && !pto->fClient && !pto->fOneShot); // Download if this is a nice peer, or we have no nice peers and this one might do.
         if (!state.fSyncStarted && !pto->fClient && !m_chainman.LoadingBlocks()) {
             // Only actively request headers from a single peer, unless we're close to today.

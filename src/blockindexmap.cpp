@@ -24,7 +24,7 @@ CBlockIndex* BlockIndexMap::LookupBlockIndex(const uint256& hash) const
     return it == mapBlockIndex.end() ? nullptr : it->second;
 }
 
-CBlockIndex* BlockIndexMap::AddToBlockIndex(const CBlockHeader& block, CBlockIndex*& pindexBestHeader)
+CBlockIndex* BlockIndexMap::AddToBlockIndex(const CBlockHeader& block)
 {
     AssertLockHeld(cs_main);
 
@@ -51,8 +51,6 @@ CBlockIndex* BlockIndexMap::AddToBlockIndex(const CBlockHeader& block, CBlockInd
     }
     pindexNew->nTimeMax = (pindexNew->pprev ? std::max(pindexNew->pprev->nTimeMax, pindexNew->nTime) : pindexNew->nTime);
     pindexNew->RaiseValidity(BLOCK_VALID_TREE);
-    if (pindexBestHeader == nullptr || pindexBestHeader->nHeight < pindexNew->nHeight)
-        pindexBestHeader = pindexNew;
 
     setDirtyBlockIndex.insert(pindexNew);
 

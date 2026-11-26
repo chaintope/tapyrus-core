@@ -348,7 +348,7 @@ static void OnRPCStopped(NodeContext& node)
 {
     uiInterface.NotifyBlockTip.disconnect(&RPCNotifyBlockChange);
     RPCNotifyBlockChange(false, nullptr);
-    if (node.chainman) node.chainman->m_best_block_cv.notify_all();
+    if (node.chainman) node.chainman->InterruptBestBlockWaits();
     LogPrint(BCLog::RPC, "RPC stopped.\n");
 }
 

@@ -19,6 +19,7 @@
 
 #include <atomic>
 #include <cassert>
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
@@ -126,9 +127,15 @@ public:
     BlockIndexMap& BlockIndex() { return m_block_index; }
 
     /** The best header we've seen so far; getheaders requests start from it. */
-    CBlockIndex*& BestHeader() EXCLUSIVE_LOCKS_REQUIRED(cs_main) { return m_best_header; }
+    CBlockIndex* BestHeader() const EXCLUSIVE_LOCKS_REQUIRED(cs_main) { return m_best_header; }
+    /** Makes pindex the best header if it is higher than the current one, or there is none. */
+    void ConsiderBestHeader(CBlockIndex* pindex) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
     /** The highest block found invalid. */
-    CBlockIndex*& BestInvalid() EXCLUSIVE_LOCKS_REQUIRED(cs_main) { return m_best_invalid; }
+    CBlockIndex* BestInvalid() const EXCLUSIVE_LOCKS_REQUIRED(cs_main) { return m_best_invalid; }
+    /** Makes pindex the best invalid block if it is higher than the current one, or there is none. */
+    void ConsiderBestInvalid(CBlockIndex* pindex) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
+    /** Forgets the best invalid block if it is pindex, which is valid again. */
+    void ClearBestInvalid(const CBlockIndex* pindex) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 
     /** The signature and script execution caches; init sizes them with ValidationCache::Resize. */
     ValidationCache& ValidationCaches() { return m_validation_cache; }
@@ -211,13 +218,19 @@ public:
     /** The last checkpoint in the block index, or null when -checkpoints is off. */
     const CBlockIndex* GetLastCheckpointIfEnabled() EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 
-    //! The hash of the active tip. getblocktemplate long-polls on it; the tip
-    //! update sets it and RPC stop wakes the waiters.
+    //! Records hash as the active tip and wakes the waiters; the tip update calls it.
+    void NotifyBestBlock(const uint256& hash) LOCKS_EXCLUDED(m_best_block_mutex);
+    //! Waits until deadline, a tip other than old_tip, or a wake-up; returns the tip.
+    uint256 WaitForBestBlock(const uint256& old_tip, std::chrono::steady_clock::time_point deadline) LOCKS_EXCLUDED(m_best_block_mutex);
+    //! Wakes every waiter so it can see that RPC has stopped.
+    void InterruptBestBlockWaits();
+
+private:
+    //! The hash of the active tip; getblocktemplate long-polls on it.
     Mutex m_best_block_mutex;
     CConditionVariable m_best_block_cv;
     uint256 m_best_block GUARDED_BY(m_best_block_mutex);
 
-private:
     bool LoadBlockIndexDB() EXCLUSIVE_LOCKS_REQUIRED(cs_main);
     /** Tells the GUI when the best header changes. */
     void NotifyHeaderTip() LOCKS_EXCLUDED(cs_main);

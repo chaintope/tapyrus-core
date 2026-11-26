@@ -90,8 +90,7 @@ void Chainstate::CheckForkWarningConditions()
 
 void Chainstate::InvalidChainFound(CBlockIndex* pindexNew)
 {
-    if (!m_chainman.BestInvalid() || pindexNew->nHeight > m_chainman.BestInvalid()->nHeight)
-        m_chainman.BestInvalid() = pindexNew;
+    m_chainman.ConsiderBestInvalid(pindexNew);
 
     LogPrintf("%s: invalid block=%s  height=%d  date=%s\n", __func__,
       pindexNew->GetBlockHash().ToString(), pindexNew->nHeight, FormatISO8601DateTime(pindexNew->GetBlockTime()));
@@ -297,11 +296,7 @@ void Chainstate::UpdateTip()
     // New best block
     m_mempool.AddTransactionsUpdated(1);
 
-    {
-        UniqueLock lock(m_chainman.m_best_block_mutex);
-        m_chainman.m_best_block = pindexNew->GetBlockHash();
-        m_chainman.m_best_block_cv.notify_all();
-    }
+    m_chainman.NotifyBestBlock(pindexNew->GetBlockHash());
 
     m_chainman.Progress().Refresh(m_chain.Tip(), m_chainman.BestHeader());
 
@@ -941,8 +936,7 @@ CBlockIndex* Chainstate::FindMostWorkChain() {
             bool fMissingData = !(pindexTest->nStatus & BLOCK_HAVE_DATA);
             if (fFailedChain || fMissingData) {
                 // Candidate chain is not usable (either invalid or missing data)
-                if (fFailedChain && (m_chainman.BestInvalid() == nullptr || pindexNew->nHeight > m_chainman.BestInvalid()->nHeight))
-                    m_chainman.BestInvalid() = pindexNew;
+                if (fFailedChain) m_chainman.ConsiderBestInvalid(pindexNew);
                 CBlockIndex *pindexFailed = pindexNew;
                 // Remove the entire chain from the set.
                 while (pindexTest != pindexFailed) {
@@ -1258,10 +1252,8 @@ void Chainstate::ResetBlockFailureFlags(CBlockIndex *pindex) {
             if (it->second->IsValid(BLOCK_VALID_TRANSACTIONS) && it->second->nChainTx && setBlockIndexCandidates.value_comp()(m_chain.Tip(), it->second)) {
                 setBlockIndexCandidates.insert(it->second);
             }
-            if (it->second == m_chainman.BestInvalid()) {
-                // Reset invalid block marker if it was pointing to one of those.
-                m_chainman.BestInvalid() = nullptr;
-            }
+            // Reset invalid block marker if it was pointing to one of those.
+            m_chainman.ClearBestInvalid(it->second);
             m_failed_blocks.erase(it->second);
         }
         it++;
@@ -1384,7 +1376,10 @@ bool Chainstate::AcceptBlockHeader(const CBlockHeader& block, CValidationState& 
         }
     }
     if (pindex == nullptr)
-        pindex = blockIndex.AddToBlockIndex(block, m_chainman.BestHeader());
+    {
+        pindex = blockIndex.AddToBlockIndex(block);
+        m_chainman.ConsiderBestHeader(pindex);
+    }
 
     //if this header was valid and has any xfield change remember it until we finish processing the headers message
     if(pxfieldHistory
@@ -1489,23 +1484,12 @@ bool Chainstate::AcceptBlock(const std::shared_ptr<const CBlock>& pblock, CValid
 }
 
 
-bool Chainstate::LoadBlockIndex()
+void Chainstate::LoadBlockIndexCandidates(const std::vector<CBlockIndex*>& sorted_by_height)
 {
-    std::vector<CBlockIndex*> vSortedByHeight;
-    if (!m_chainman.BlockIndex().LoadBlockIndex(vSortedByHeight))
-        return false;
-
-    for (CBlockIndex* pindex : vSortedByHeight)
-    {
+    for (CBlockIndex* pindex : sorted_by_height) {
         if (pindex->IsValid(BLOCK_VALID_TRANSACTIONS) && (pindex->nChainTx || pindex->pprev == nullptr))
             setBlockIndexCandidates.insert(pindex);
-        if (pindex->nStatus & BLOCK_FAILED_MASK && (!m_chainman.BestInvalid() || pindex->nHeight > m_chainman.BestInvalid()->nHeight))
-            m_chainman.BestInvalid() = pindex;
-        if (pindex->IsValid(BLOCK_VALID_TREE) && (m_chainman.BestHeader() == nullptr || CBlockIndexWorkComparator()(m_chainman.BestHeader(), pindex)))
-            m_chainman.BestHeader() = pindex;
     }
-
-    return true;
 }
 
 
@@ -1704,7 +1688,8 @@ bool Chainstate::LoadGenesisBlock()
 
         if (blockPos.IsNull())
             return error("%s: writing genesis block to disk failed", __func__);
-        CBlockIndex *pindex = blockIndex.AddToBlockIndex(block, m_chainman.BestHeader());
+        CBlockIndex *pindex = blockIndex.AddToBlockIndex(block);
+        m_chainman.ConsiderBestHeader(pindex);
         ReceivedBlockTransactions(block, pindex, blockPos);
 
         m_chainman.InitXFieldHistory();

@@ -112,6 +112,45 @@ void ChainstateManager::InitBlockFileManager(const BlockFileManager::Options& op
     m_block_file_manager = std::make_unique<BlockFileManager>(options, m_block_index, Notifications());
 }
 
+void ChainstateManager::ConsiderBestHeader(CBlockIndex* pindex)
+{
+    AssertLockHeld(cs_main);
+    if (m_best_header == nullptr || m_best_header->nHeight < pindex->nHeight) m_best_header = pindex;
+}
+
+void ChainstateManager::ConsiderBestInvalid(CBlockIndex* pindex)
+{
+    AssertLockHeld(cs_main);
+    if (m_best_invalid == nullptr || pindex->nHeight > m_best_invalid->nHeight) m_best_invalid = pindex;
+}
+
+void ChainstateManager::ClearBestInvalid(const CBlockIndex* pindex)
+{
+    AssertLockHeld(cs_main);
+    if (m_best_invalid == pindex) m_best_invalid = nullptr;
+}
+
+void ChainstateManager::NotifyBestBlock(const uint256& hash)
+{
+    {
+        UniqueLock lock(m_best_block_mutex);
+        m_best_block = hash;
+    }
+    m_best_block_cv.notify_all();
+}
+
+uint256 ChainstateManager::WaitForBestBlock(const uint256& old_tip, std::chrono::steady_clock::time_point deadline)
+{
+    UniqueLock lock(m_best_block_mutex);
+    if (m_best_block == old_tip) m_best_block_cv.wait_until(lock, deadline);
+    return m_best_block;
+}
+
+void ChainstateManager::InterruptBestBlockWaits()
+{
+    m_best_block_cv.notify_all();
+}
+
 double ChainstateManager::GuessTipProgress()
 {
     LOCK(cs_main);
