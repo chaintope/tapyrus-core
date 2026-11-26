@@ -951,8 +951,7 @@ BOOST_AUTO_TEST_CASE(duplicate_nonreissuable_issuance_rejected)
         reissueTx.vout[0].scriptPubKey = colorScript;
 
         CValidationState state;
-        PrecomputedColorData colorData(CTransaction(reissueTx), syntheticView, m_node.chainman->Settings(), m_node.chainman->ActiveChain().Tip()->nHeight);
-        colorData.SetIssued(m_node.chainman->IssuedColorIds());
+        PrecomputedColorData colorData(CTransaction(reissueTx), syntheticView, m_node.chainman->Settings(), m_node.chainman->ActiveChain().Tip()->nHeight, m_node.chainman->IssuedColorIds());
         bool valid = TransactionColorChecker(colorData).CheckOutputColorIds(state);
 
         BOOST_CHECK(!valid);
@@ -1113,8 +1112,7 @@ BOOST_AUTO_TEST_CASE(duplicate_nft_issuance_after_burn_rejected)
         reissueTx.vout[0].scriptPubKey = colorScript;
 
         CValidationState state;
-        PrecomputedColorData colorData(CTransaction(reissueTx), syntheticView, m_node.chainman->Settings(), m_node.chainman->ActiveChain().Tip()->nHeight);
-        colorData.SetIssued(m_node.chainman->IssuedColorIds());
+        PrecomputedColorData colorData(CTransaction(reissueTx), syntheticView, m_node.chainman->Settings(), m_node.chainman->ActiveChain().Tip()->nHeight, m_node.chainman->IssuedColorIds());
         bool valid = TransactionColorChecker(colorData).CheckOutputColorIds(state);
 
         BOOST_CHECK(!valid);
@@ -1182,7 +1180,7 @@ BOOST_AUTO_TEST_CASE(verifytoken_no_tpc_input_dos_score_is_zero)
     CValidationState state;
     CAmount minRelayFee = 1000;
     LOCK(cs_main);
-    const PrecomputedColorData colorData(CTransaction(tx), view, m_node.chainman->Settings(), std::numeric_limits<int32_t>::max());
+    const PrecomputedColorData colorData(CTransaction(tx), view, m_node.chainman->Settings(), std::numeric_limits<int32_t>::max(), CIssuedColorIds{});
     bool ok = TransactionColorChecker(colorData).CheckTokenBalances(state, minRelayFee);
 
     // Must be rejected …
@@ -1229,7 +1227,7 @@ public:
     {
         const CAmount minRelayFee{1000};
         LOCK(cs_main);
-        const PrecomputedColorData colorData(CTransaction(m_tx), m_view, m_settings, std::numeric_limits<int32_t>::max());
+        const PrecomputedColorData colorData(CTransaction(m_tx), m_view, m_settings, std::numeric_limits<int32_t>::max(), CIssuedColorIds{});
         return TransactionColorChecker(colorData).CheckTokenBalances(state, minRelayFee);
     }
 

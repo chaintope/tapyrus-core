@@ -50,11 +50,11 @@ public:
         bool issued{false};
     };
 
-    /** settings tells whether the CP2SH colored soft fork is active at blockHeight. */
-    PrecomputedColorData(const CTransaction& tx, const CCoinsViewCache& inputs, const ConsensusSettings& settings, int32_t blockHeight) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
-
-    /** Mark the outputs whose non-reissuable or NFT colorid is already issued. */
-    void SetIssued(const CIssuedColorIds& issued) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
+    /**
+     * settings tells whether the CP2SH colored soft fork is active at blockHeight;
+     * issued marks the outputs whose non-reissuable or NFT colorid is already issued.
+     */
+    PrecomputedColorData(const CTransaction& tx, const CCoinsViewCache& inputs, const ConsensusSettings& settings, int32_t blockHeight, const CIssuedColorIds& issued) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 
     const std::vector<Input>& Inputs() const { return m_inputs; }
     const std::vector<Output>& Outputs() const { return m_outputs; }

@@ -386,8 +386,7 @@ bool Chainstate::AcceptToMemoryPoolWorker(const CTransactionRef &ptx, const Memp
 
         // Read once here; the balance check below reuses it after the view
         // is switched away from the mempool.
-        PrecomputedColorData colorData(tx, view, m_chainman.Settings(), m_chain.Tip()->nHeight + 1);
-        colorData.SetIssued(m_chainman.IssuedColorIds());
+        PrecomputedColorData colorData(tx, view, m_chainman.Settings(), m_chain.Tip()->nHeight + 1, m_chainman.IssuedColorIds());
         const TransactionColorChecker colorChecker(colorData);
         if (!colorChecker.CheckOutputColorIds(state))
             return false;

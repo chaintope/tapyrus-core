@@ -382,8 +382,7 @@ BOOST_AUTO_TEST_CASE(checker_matches_legacy_functions)
         const CAmount minFee = InsecureRandBool() ? CAmount{0} : CAmount{1000};
 
         LOCK(cs_main);
-        PrecomputedColorData data(tx, view, m_node.chainman->Settings(), height);
-        data.SetIssued(m_node.chainman->IssuedColorIds());
+        PrecomputedColorData data(tx, view, m_node.chainman->Settings(), height, m_node.chainman->IssuedColorIds());
         const TransactionColorChecker checker(data);
 
         CValidationState legacyOutputState, checkerOutputState;
@@ -440,17 +439,17 @@ BOOST_AUTO_TEST_CASE(precomputed_issuable_colorids_only_when_needed)
 
     LOCK(cs_main);
     const CTransaction plain = build({tpc});
-    const PrecomputedColorData plainData(plain, view, m_node.chainman->Settings(), int32_t{0});
+    const PrecomputedColorData plainData(plain, view, m_node.chainman->Settings(), int32_t{0}, CIssuedColorIds{});
     BOOST_CHECK(plainData.Inputs()[0].scriptColorId == ColorIdentifier());
     BOOST_CHECK(plainData.Inputs()[0].outpointColorId == ColorIdentifier());
 
     const CTransaction reissue = build({reissuableOut});
-    const PrecomputedColorData reissueData(reissue, view, m_node.chainman->Settings(), int32_t{0});
+    const PrecomputedColorData reissueData(reissue, view, m_node.chainman->Settings(), int32_t{0}, CIssuedColorIds{});
     BOOST_CHECK(reissueData.Inputs()[0].scriptColorId == reissuable);
     BOOST_CHECK(reissueData.Inputs()[0].outpointColorId == ColorIdentifier());
 
     const CTransaction issue = build({nonReissuableOut});
-    const PrecomputedColorData issueData(issue, view, m_node.chainman->Settings(), int32_t{0});
+    const PrecomputedColorData issueData(issue, view, m_node.chainman->Settings(), int32_t{0}, CIssuedColorIds{});
     BOOST_CHECK(issueData.Inputs()[0].scriptColorId == ColorIdentifier());
     BOOST_CHECK(issueData.Inputs()[0].outpointColorId == nonReissuable);
 }

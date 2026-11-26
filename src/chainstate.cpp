@@ -385,8 +385,7 @@ void Chainstate::RemoveForScriptFlagChange(unsigned int newMempoolScriptFlags, i
         // Evict txs that break colour rules now active at newBlockHeight (e.g.
         // bad-txns-nonstandard-opcolor); CheckInputs does not cover them.
         // Colour checks run before the scripts, as in mempool acceptance.
-        PrecomputedColorData colorData(tx, view, m_chainman.Settings(), newBlockHeight);
-        colorData.SetIssued(m_chainman.IssuedColorIds());
+        PrecomputedColorData colorData(tx, view, m_chainman.Settings(), newBlockHeight, m_chainman.IssuedColorIds());
         const TransactionColorChecker colorChecker(colorData);
         CValidationState colorState;
         if (!colorChecker.CheckOutputColorIds(colorState)) {
@@ -621,8 +620,7 @@ bool Chainstate::ConnectBlock(const CBlock& block, CValidationState& state, CBlo
                              REJECT_INVALID, "bad-blk-sigops");
 
         // Colour checks run before the scripts, as in mempool acceptance.
-        PrecomputedColorData colorData(tx, view, m_chainman.Settings(), pindex->nHeight);
-        colorData.SetIssued(issuedColorIds);
+        PrecomputedColorData colorData(tx, view, m_chainman.Settings(), pindex->nHeight, issuedColorIds);
         const TransactionColorChecker colorChecker(colorData);
         if (!colorChecker.CheckOutputColorIds(state))
             return false;
