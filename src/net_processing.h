@@ -169,8 +169,6 @@ private:
     /** Expiration-time ordered list of (expire time, relay map entry) pairs. */
     std::deque<std::pair<int64_t, MapRelay::iterator>> vRelayExpiration GUARDED_BY(cs_main);
 
-    std::atomic<int64_t> nTimeBestReceived{0}; // Used only to inform the wallet of when we last received a block
-
     /** Guards the orphan pool and the compact-block extra-transaction ring.
      *  Taken after cs_main and before mempool.cs. Never held across ProcessNewBlock,
      *  whose BlockConnected callback takes it. */

@@ -4,7 +4,11 @@
 
 #include <wallet/test/wallet_test_fixture.h>
 
+#include <chain.h>
+#include <chainstatemanager.h>
+
 #include <rpc/rpctable.h>
+#include <validationinterface.h>
 #include <wallet/db.h>
 #include <wallet/rpcwallet.h>
 
@@ -13,12 +17,20 @@ WalletTestingSetup::WalletTestingSetup(const std::string& chainName):
 {
     bool fFirstRun;
     m_wallet.LoadWallet(fFirstRun);
-    RegisterValidationInterface(&m_wallet);
+    {
+        LOCK(m_wallet.cs_wallet);
+        m_wallet.SetLastBlockProcessed(g_chainstate_manager.ActiveChain().Height(), g_chainstate_manager.ActiveChain().Tip()->GetBlockHash());
+    }
+    m_wallet_events.Start();
+    m_wallet_events.Register(m_wallet);
 
     RegisterWalletRPCCommands(tableRPC);
 }
 
 WalletTestingSetup::~WalletTestingSetup()
 {
-    UnregisterValidationInterface(&m_wallet);
+    m_wallet_events.Unregister(m_wallet);
+    // Stop does not wait for a node callback already inside the queue, so let those finish first.
+    SyncWithValidationInterfaceQueue();
+    m_wallet_events.Stop();
 }

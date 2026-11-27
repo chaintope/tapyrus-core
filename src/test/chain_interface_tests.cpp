@@ -2,12 +2,16 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
+#include <chain.h>
+#include <chainstatemanager.h>
 #include <consensus/validation.h>
 #include <consensusconstants.h>
 #include <interfaces/chain.h>
 #include <policy/fees.h>
 #include <policy/rbf.h>
+#include <primitives/block.h>
 #include <primitives/transaction.h>
+#include <pubkey.h>
 #include <script/script.h>
 #include <script/transactionsignatureserializer.h>
 #include <test/test_tapyrus.h>
@@ -24,6 +28,13 @@ public:
     static constexpr CAmount MAX_TX_FEE{ConsensusConstants::COIN};
 
     std::unique_ptr<interfaces::Chain> m_chain{interfaces::MakeChain(m_node)};
+
+    //! The active tip, read under cs_main.
+    const CBlockIndex* Tip()
+    {
+        LOCK(cs_main);
+        return g_chainstate_manager.ActiveChain().Tip();
+    }
 
     //! Spends output 0 of parent, paying it less FEE back to the coinbase key.
     CTransactionRef Spend(const CTransactionRef& parent, uint32_t sequence = ConsensusConstants::SEQUENCE_FINAL)
@@ -152,6 +163,132 @@ BOOST_AUTO_TEST_CASE(without_data_there_is_no_fee_estimate_or_mempool_minimum)
 {
     BOOST_CHECK(m_chain->estimateSmartFee(2, false, nullptr) == CFeeRate(0));
     BOOST_CHECK(m_chain->mempoolMinFee() == CFeeRate(0));
+}
+
+BOOST_AUTO_TEST_CASE(a_synced_node_is_ready_to_broadcast)
+{
+    BOOST_REQUIRE(!IsInitialBlockDownload());
+    BOOST_CHECK(m_chain->isReadyToBroadcast());
+}
+
+// Negative case: a node loading blocks must not rebroadcast.
+
+BOOST_AUTO_TEST_CASE(a_node_importing_or_reindexing_is_not_ready_to_broadcast)
+{
+    g_chainstate_manager.GetBlockFileManager().SetImporting(true);
+    BOOST_CHECK(!m_chain->isReadyToBroadcast());
+    g_chainstate_manager.GetBlockFileManager().SetImporting(false);
+
+    g_chainstate_manager.SetReindexing(true);
+    BOOST_CHECK(!m_chain->isReadyToBroadcast());
+    g_chainstate_manager.SetReindexing(false);
+    BOOST_CHECK(m_chain->isReadyToBroadcast());
+}
+
+// The chain lookups, read against the fixture's active chain.
+
+BOOST_AUTO_TEST_CASE(the_tip_and_heights_match_the_active_chain)
+{
+    LOCK(cs_main);
+    const CChain& active = g_chainstate_manager.ActiveChain();
+    BOOST_CHECK_EQUAL(*m_chain->getHeight(), active.Height());
+    BOOST_CHECK_EQUAL(m_chain->getBlockHash(active.Height()), active.Tip()->GetBlockHash());
+    BOOST_CHECK(m_chain->haveBlockOnDisk(active.Height()));
+    BOOST_CHECK_EQUAL(*m_chain->findLocatorFork(m_chain->getTipLocator()), active.Height());
+}
+
+BOOST_AUTO_TEST_CASE(a_known_block_returns_what_was_asked_for)
+{
+    const CBlockIndex* tip = Tip();
+    uint256 hash;
+    int height{-1};
+    int64_t time{0}, max_time{0}, mtp_time{0};
+    bool in_active_chain{false};
+    CBlock block;
+    BOOST_CHECK(m_chain->findBlock(tip->GetBlockHash(), interfaces::FoundBlock().hash(hash).height(height).time(time).maxTime(max_time).mtpTime(mtp_time).inActiveChain(in_active_chain).data(block)));
+    BOOST_CHECK_EQUAL(hash, tip->GetBlockHash());
+    BOOST_CHECK_EQUAL(height, tip->nHeight);
+    BOOST_CHECK_EQUAL(time, tip->GetBlockTime());
+    BOOST_CHECK_EQUAL(max_time, tip->GetBlockTimeMax());
+    BOOST_CHECK_EQUAL(mtp_time, tip->GetMedianTimePast());
+    BOOST_CHECK(in_active_chain);
+    BOOST_CHECK_EQUAL(block.GetHash(), tip->GetBlockHash());
+}
+
+BOOST_AUTO_TEST_CASE(ancestors_are_found_by_height_hash_and_common_descent)
+{
+    const CBlockIndex* tip = Tip();
+    const CBlockIndex* lower = tip->GetAncestor(tip->nHeight - 3);
+    uint256 hash;
+    BOOST_CHECK(m_chain->findAncestorByHeight(tip->GetBlockHash(), lower->nHeight, interfaces::FoundBlock().hash(hash)));
+    BOOST_CHECK_EQUAL(hash, lower->GetBlockHash());
+    int height{-1};
+    BOOST_CHECK(m_chain->findAncestorByHash(tip->GetBlockHash(), lower->GetBlockHash(), interfaces::FoundBlock().height(height)));
+    BOOST_CHECK_EQUAL(height, lower->nHeight);
+    uint256 ancestor;
+    BOOST_CHECK(m_chain->findCommonAncestor(tip->GetBlockHash(), lower->GetBlockHash(), interfaces::FoundBlock().hash(ancestor)));
+    BOOST_CHECK_EQUAL(ancestor, lower->GetBlockHash());
+    BOOST_CHECK(m_chain->findFirstBlockWithTimeAndHeight(0, lower->nHeight, interfaces::FoundBlock().hash(hash)));
+    BOOST_CHECK_EQUAL(hash, lower->GetBlockHash());
+}
+
+BOOST_AUTO_TEST_CASE(the_progress_size_and_key_come_from_the_chain)
+{
+    const uint256 tip = Tip()->GetBlockHash();
+    const double progress{m_chain->guessVerificationProgress(tip)};
+    BOOST_CHECK(progress > 0.0 && progress <= 1.0);
+    BOOST_CHECK(!m_chain->havePruned());
+    BOOST_CHECK(!m_chain->isPruneMode());
+    BOOST_CHECK_EQUAL(m_chain->getMaxBlockSize(), g_chainstate_manager.XFieldHistory().GetCurrentMaxBlockSize());
+    BOOST_CHECK(m_chain->getAggregatePubkey().IsFullyValid());
+}
+
+BOOST_AUTO_TEST_CASE(the_next_block_and_block_data_follow_the_active_chain)
+{
+    const CBlockIndex* tip = Tip();
+    const CBlockIndex* prev = tip->pprev;
+    uint256 next;
+    bool reorg{true};
+    BOOST_CHECK(m_chain->findNextBlock(prev->GetBlockHash(), prev->nHeight, interfaces::FoundBlock().hash(next), &reorg));
+    BOOST_CHECK(!reorg);
+    BOOST_CHECK_EQUAL(next, tip->GetBlockHash());
+    BOOST_CHECK(m_chain->hasBlocks(tip->GetBlockHash(), 0, tip->nHeight));
+    // Returns at once when the tip is the one given.
+    m_chain->waitForNotificationsIfTipChanged(tip->GetBlockHash());
+}
+
+// Negative cases: what the lookups must report as not found.
+
+BOOST_AUTO_TEST_CASE(the_tip_has_no_next_block_and_an_off_chain_block_reports_a_reorg)
+{
+    const CBlockIndex* tip = Tip();
+    bool reorg{true};
+    BOOST_CHECK(!m_chain->findNextBlock(tip->GetBlockHash(), tip->nHeight, {}, &reorg));
+    BOOST_CHECK(!reorg);
+    BOOST_CHECK(!m_chain->findNextBlock(uint256S("01"), tip->nHeight - 1, {}, &reorg));
+    BOOST_CHECK(reorg);
+    BOOST_CHECK(!m_chain->hasBlocks(uint256S("01")));
+}
+
+BOOST_AUTO_TEST_CASE(an_unknown_block_is_not_found_and_leaves_the_outputs)
+{
+    int height{-7};
+    CBlock block;
+    BOOST_CHECK(!m_chain->findBlock(uint256S("01"), interfaces::FoundBlock().height(height).data(block)));
+    BOOST_CHECK_EQUAL(height, -7);
+    BOOST_CHECK(!m_chain->findAncestorByHeight(uint256S("01"), 0));
+    BOOST_CHECK(!m_chain->findCommonAncestor(uint256S("01"), uint256S("02")));
+}
+
+BOOST_AUTO_TEST_CASE(lookups_past_the_tip_or_off_the_ancestry_fail)
+{
+    const CBlockIndex* tip = Tip();
+    BOOST_CHECK(!m_chain->haveBlockOnDisk(tip->nHeight + 1));
+    BOOST_CHECK(!m_chain->findAncestorByHeight(tip->GetBlockHash(), tip->nHeight + 1));
+    BOOST_CHECK(!m_chain->findFirstBlockWithTimeAndHeight(0, tip->nHeight + 1));
+    // The tip does not descend from a later block.
+    const CBlockIndex* lower = tip->GetAncestor(tip->nHeight - 3);
+    BOOST_CHECK(!m_chain->findAncestorByHash(lower->GetBlockHash(), tip->GetBlockHash()));
 }
 
 BOOST_AUTO_TEST_SUITE_END()
