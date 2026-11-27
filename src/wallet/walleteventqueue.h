@@ -5,6 +5,8 @@
 #ifndef TAPYRUS_WALLET_WALLETEVENTQUEUE_H
 #define TAPYRUS_WALLET_WALLETEVENTQUEUE_H
 
+#include <consensusconstants.h>
+#include <policy/policysettings.h>
 #include <validationinterface.h>
 #include <wallet/wallet.h>
 
@@ -20,14 +22,23 @@
  * The wallets' own queue of validation events, run by the wallet thread.
  *
  * It subscribes to the node's validation interface once, and each callback
- * only queues the event, so the node never waits on wallet work. The queue
- * is unbounded: a wallet that falls behind holds the pending blocks. The
- * wallet thread delivers the events to the registered wallets in the order
- * the node sent them, and runs the wallets' periodic tasks between events.
+ * only queues the event. The queue holds at most MAX_PENDING_BLOCK_EVENTS
+ * block events and MAX_PENDING_OTHER_EVENTS others: while either kind is full, its callback
+ * waits on the scheduler thread, so the node's queue grows and
+ * ActivateBestChain waits for the wallet. Blocks are bounded tightly because
+ * each one holds its CBlock; the others only share data the node already holds,
+ * so the wallet may lag behind a busy mempool while a block is validated. The wallet
+ * thread delivers the events to the registered wallets in the order the node
+ * sent them, and runs the wallets' periodic tasks between events.
  */
 class WalletEventQueue final : public CValidationInterface, public WalletEvents
 {
 public:
+    //! Block events queued before Add waits; the node's own queue throttles at the same depth.
+    static constexpr uint32_t MAX_PENDING_BLOCK_EVENTS{CMainSignals::MAX_PENDING_CALLBACKS};
+    //! Events without a block queued before Add waits: every transaction the chain can confirm in half a block interval.
+    static constexpr uint32_t MAX_PENDING_OTHER_EVENTS{ConsensusConstants::MAX_BLOCK_SIZE / (2 * DEFAULT_MIN_STANDARD_TX_SIZE)};
+
     WalletEventQueue() = default;
     ~WalletEventQueue();
 
@@ -68,8 +79,14 @@ private:
         std::chrono::steady_clock::time_point next;
     };
 
-    //! Queues event for every wallet registered when it is delivered.
-    void Add(Event event);
+    struct QueuedEvent {
+        Event event;
+        //! Holds a block, so counts against MAX_PENDING_BLOCK_EVENTS.
+        bool block;
+    };
+
+    //! Queues event for every wallet registered when it is delivered; waits while its kind is full.
+    void Add(Event event, bool block);
     void ThreadMain();
     //! Requires m_mutex.
     bool OnWalletThread() const { return m_thread_id == std::this_thread::get_id(); }
@@ -77,7 +94,9 @@ private:
     //! Guards every member below except m_thread.
     std::mutex m_mutex;
     std::condition_variable m_cond;
-    std::deque<Event> m_events;
+    std::deque<QueuedEvent> m_events;
+    //! Queued events that hold a block.
+    uint32_t m_pending_blocks{0};
     std::vector<CWallet*> m_wallets;
     std::vector<PeriodicTask> m_tasks;
     //! Number of events ever queued, and of those fully delivered.

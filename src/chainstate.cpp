@@ -1069,7 +1069,7 @@ bool Chainstate::ActivateBestChain(CValidationState &state, std::shared_ptr<cons
     CBlockIndex *pindexNewTip = nullptr;
     int nStopAtHeight = gArgs.GetArg("-stopatheight", DEFAULT_STOPATHEIGHT);
     do {
-        if (GetMainSignals().CallbacksPending() > 10) {
+        if (GetMainSignals().CallbacksPending() > CMainSignals::MAX_PENDING_CALLBACKS) {
             // Block until the validation queue drains. This should largely
             // never happen in normal operation, however may happen during
             // reindex, causing memory blowup if we run too far ahead.

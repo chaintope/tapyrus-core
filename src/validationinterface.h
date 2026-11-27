@@ -181,6 +181,9 @@ private:
     void MempoolEntryRemoved(CTransactionRef tx, MemPoolRemovalReason reason);
 
 public:
+    //! Callbacks left pending before block connection waits for them; the wallets' queue holds as many blocks.
+    static constexpr uint32_t MAX_PENDING_CALLBACKS{10};
+
     /** Register a CScheduler to give callbacks which should run in the background (may only be called once) */
     void RegisterBackgroundSignalScheduler(CScheduler& scheduler);
     /** Unregister a CScheduler to give callbacks which should run in the background - these callbacks will now be dropped! */

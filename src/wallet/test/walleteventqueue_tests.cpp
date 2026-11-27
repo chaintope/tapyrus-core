@@ -2,7 +2,10 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
+#include <chain.h>
+#include <chainstatemanager.h>
 #include <consensusconstants.h>
+#include <cs_main.h>
 #include <key.h>
 #include <mempoolremovalreason.h>
 #include <primitives/transaction.h>
@@ -13,22 +16,57 @@
 #include <wallet/walleteventqueue.h>
 
 #include <atomic>
+#include <chrono>
 #include <future>
 #include <thread>
+#include <vector>
 
 #include <boost/signals2/connection.hpp>
 #include <boost/test/unit_test.hpp>
+
+/** Holds the wallet thread inside the wallet's first transaction delivery until released. */
+class DeliveryBlocker
+{
+public:
+    explicit DeliveryBlocker(CWallet& wallet)
+        : m_released{m_release.get_future()},
+          m_connection{wallet.NotifyTransactionChanged.connect([this](CWallet*, const uint256&, ChangeType) {
+              if (m_once.exchange(true)) return;
+              m_entered.set_value();
+              m_released.wait();
+          })}
+    {
+    }
+    ~DeliveryBlocker() { Release(); }
+
+    //! True once the wallet thread is held, within ten seconds.
+    bool WaitEntered() { return m_entered.get_future().wait_for(std::chrono::seconds{10}) == std::future_status::ready; }
+    void Release()
+    {
+        if (!m_done.exchange(true)) m_release.set_value();
+    }
+
+private:
+    std::promise<void> m_entered;
+    std::promise<void> m_release;
+    std::shared_future<void> m_released;
+    std::atomic<bool> m_once{false};
+    std::atomic<bool> m_done{false};
+    boost::signals2::scoped_connection m_connection;
+};
 
 /** Sends the node's mempool events for transactions paying the fixture's wallet. */
 class WalletEventQueueSetup : public WalletTestingSetup
 {
 public:
     CKey m_key;
+    const CBlockIndex* m_tip;
 
     WalletEventQueueSetup()
     {
         m_key.MakeNewKey(true);
-        LOCK(m_wallet.cs_wallet);
+        LOCK2(cs_main, m_wallet.cs_wallet);
+        m_tip = g_chainstate_manager.ActiveChain().Tip();
         m_wallet.AddKeyPubKey(m_key, m_key.GetPubKey());
     }
 
@@ -39,6 +77,37 @@ public:
         mtx.vin.emplace_back(COutPoint(uint256S("01"), seed));
         mtx.vout.emplace_back(ConsensusConstants::COIN, GetScriptForDestination(m_key.GetPubKey().GetID()));
         return MakeTransactionRef(std::move(mtx));
+    }
+
+    //! Sends count payments to the node's queue, seeded from first.
+    std::vector<CTransactionRef> SendPayments(uint32_t first, size_t count)
+    {
+        std::vector<CTransactionRef> txs;
+        for (size_t i = 0; i < count; ++i) {
+            txs.push_back(Payment(first + static_cast<uint32_t>(i)));
+            GetMainSignals().TransactionAddedToMempool(txs.back());
+        }
+        return txs;
+    }
+
+    //! Sends count empty blocks connected at the tip, as block events for the queue's bound.
+    //! Takes no lock: a held delivery holds cs_main.
+    void SendBlocks(size_t count)
+    {
+        for (size_t i = 0; i < count; ++i) {
+            GetMainSignals().BlockConnected(std::make_shared<const CBlock>(), m_tip, std::make_shared<const std::vector<CTransactionRef>>());
+        }
+    }
+
+    //! True once the node's queue has exactly pending callbacks left, within ten seconds.
+    bool WaitForCallbacksPending(size_t pending)
+    {
+        const auto deadline{std::chrono::steady_clock::now() + std::chrono::seconds{10}};
+        while (GetMainSignals().CallbacksPending() != pending) {
+            if (std::chrono::steady_clock::now() > deadline) return false;
+            std::this_thread::sleep_for(std::chrono::milliseconds{10});
+        }
+        return true;
     }
 
     //! Waits until the node's queue has handed its events on and the wallet thread has delivered them.
@@ -145,7 +214,130 @@ BOOST_AUTO_TEST_CASE(unregister_waits_for_the_delivery_in_progress)
     BOOST_CHECK(unregistered.get());
 }
 
-// Negative cases: wallets the queue does not deliver to.
+// The bounds: with one delivery held, MAX_PENDING_BLOCK_EVENTS block events fill the
+// queue, the next one waits in Add on the scheduler thread, and the one after
+// that stays in the node's queue. Other events have their own, larger bound.
+static constexpr size_t FILL_BLOCKS{WalletEventQueue::MAX_PENDING_BLOCK_EVENTS + 2};
+
+BOOST_AUTO_TEST_CASE(add_waits_while_the_block_events_are_full_and_resumes_as_they_drain)
+{
+    DeliveryBlocker blocker{m_wallet};
+    const CTransactionRef held{SendPayments(0, 1).front()};
+    BOOST_REQUIRE(blocker.WaitEntered());
+
+    SendBlocks(FILL_BLOCKS);
+    BOOST_CHECK(WaitForCallbacksPending(1));
+    std::this_thread::sleep_for(std::chrono::milliseconds{100});
+    BOOST_CHECK_EQUAL(GetMainSignals().CallbacksPending(), 1U);
+
+    blocker.Release();
+    SyncBoth();
+    BOOST_CHECK_EQUAL(GetMainSignals().CallbacksPending(), 0U);
+    BOOST_CHECK(InWallet(held));
+}
+
+BOOST_AUTO_TEST_CASE(add_waits_once_the_other_events_are_full)
+{
+    DeliveryBlocker blocker{m_wallet};
+    const CTransactionRef held{SendPayments(0, 1).front()};
+    BOOST_REQUIRE(blocker.WaitEntered());
+
+    const std::vector<CTransactionRef> txs{SendPayments(1, WalletEventQueue::MAX_PENDING_OTHER_EVENTS + 2)};
+    BOOST_CHECK(WaitForCallbacksPending(1));
+
+    blocker.Release();
+    SyncBoth();
+    BOOST_CHECK_EQUAL(GetMainSignals().CallbacksPending(), 0U);
+    for (const CTransactionRef& tx : txs) BOOST_CHECK(InWallet(tx));
+}
+
+BOOST_AUTO_TEST_CASE(stop_wakes_a_waiting_add)
+{
+    DeliveryBlocker blocker{m_wallet};
+    const CTransactionRef held{SendPayments(0, 1).front()};
+    BOOST_REQUIRE(blocker.WaitEntered());
+    SendBlocks(FILL_BLOCKS);
+    BOOST_REQUIRE(WaitForCallbacksPending(1));
+
+    std::future<void> stopped = std::async(std::launch::async, [&] { m_wallet_events.Stop(); });
+    // The scheduler thread is free again although the delivery is still held.
+    std::future<void> node_synced = std::async(std::launch::async, [] { SyncWithValidationInterfaceQueue(); });
+    const bool synced{node_synced.wait_for(std::chrono::seconds{10}) == std::future_status::ready};
+    blocker.Release();
+    BOOST_CHECK(synced);
+    stopped.get();
+    BOOST_CHECK(InWallet(held));
+}
+
+BOOST_AUTO_TEST_CASE(unregister_completes_while_add_waits)
+{
+    DeliveryBlocker blocker{m_wallet};
+    const CTransactionRef held{SendPayments(0, 1).front()};
+    BOOST_REQUIRE(blocker.WaitEntered());
+    SendBlocks(FILL_BLOCKS);
+    const std::vector<CTransactionRef> txs{SendPayments(1, 2)};
+    BOOST_REQUIRE(WaitForCallbacksPending(1 + txs.size()));
+
+    // As unloadwallet does: waits only for the delivery in progress, not for the full queue.
+    std::future<void> unregistered = std::async(std::launch::async, [&] { m_wallet_events.Unregister(m_wallet); });
+    BOOST_CHECK(unregistered.wait_for(std::chrono::milliseconds{100}) == std::future_status::timeout);
+    blocker.Release();
+    BOOST_CHECK(unregistered.wait_for(std::chrono::seconds{10}) == std::future_status::ready);
+
+    SyncBoth();
+    BOOST_CHECK(InWallet(held));
+    for (const CTransactionRef& tx : txs) BOOST_CHECK(!InWallet(tx));
+}
+
+BOOST_AUTO_TEST_CASE(a_rescan_holding_cs_main_finishes_while_add_waits)
+{
+    CTransactionRef held;
+    {
+        // As a wallet load rescans: the delivery waits for cs_main, so the queue fills.
+        LOCK(cs_main);
+        held = SendPayments(0, 1).front();
+        SendBlocks(FILL_BLOCKS);
+        BOOST_REQUIRE(WaitForCallbacksPending(1));
+
+        WalletRescanReserver reserver(&m_wallet);
+        BOOST_REQUIRE(reserver.reserve());
+        BOOST_CHECK(m_wallet.ScanForWalletTransactions(g_chainstate_manager.ActiveChain().Genesis(), nullptr, reserver, true) == nullptr);
+    }
+    SyncBoth();
+    BOOST_CHECK(InWallet(held));
+}
+
+// Negative cases: no wait below the bounds, and wallets the queue does not deliver to.
+
+BOOST_AUTO_TEST_CASE(add_does_not_wait_below_the_block_bound)
+{
+    DeliveryBlocker blocker{m_wallet};
+    const CTransactionRef held{SendPayments(0, 1).front()};
+    BOOST_REQUIRE(blocker.WaitEntered());
+
+    SendBlocks(WalletEventQueue::MAX_PENDING_BLOCK_EVENTS);
+    // Every event leaves the node's queue although none is delivered yet.
+    BOOST_CHECK(WaitForCallbacksPending(0));
+
+    blocker.Release();
+    SyncBoth();
+    BOOST_CHECK(InWallet(held));
+}
+
+BOOST_AUTO_TEST_CASE(transactions_beyond_the_block_bound_do_not_wait)
+{
+    DeliveryBlocker blocker{m_wallet};
+    const CTransactionRef held{SendPayments(0, 1).front()};
+    BOOST_REQUIRE(blocker.WaitEntered());
+
+    // The wallet may lag behind the mempool while a block is validated.
+    const std::vector<CTransactionRef> txs{SendPayments(1, 10 * WalletEventQueue::MAX_PENDING_BLOCK_EVENTS)};
+    BOOST_CHECK(WaitForCallbacksPending(0));
+
+    blocker.Release();
+    SyncBoth();
+    for (const CTransactionRef& tx : txs) BOOST_CHECK(InWallet(tx));
+}
 
 BOOST_AUTO_TEST_CASE(an_unregistered_wallet_gets_no_events)
 {

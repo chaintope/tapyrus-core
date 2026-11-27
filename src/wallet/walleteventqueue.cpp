@@ -114,12 +114,18 @@ void WalletEventQueue::Sync()
     m_cond.wait(lock, [this, target] { return m_delivered >= target || !m_running; });
 }
 
-void WalletEventQueue::Add(Event event)
+void WalletEventQueue::Add(Event event, bool block)
 {
     {
-        std::lock_guard<std::mutex> lock(m_mutex);
+        std::unique_lock<std::mutex> lock(m_mutex);
+        // The wallet thread cannot wait for itself to drain the queue.
+        m_cond.wait(lock, [this, block] {
+            const bool room{block ? m_pending_blocks < MAX_PENDING_BLOCK_EVENTS : m_events.size() - m_pending_blocks < MAX_PENDING_OTHER_EVENTS};
+            return room || m_stop || !m_running || OnWalletThread();
+        });
         if (!m_running) return;
-        m_events.push_back(std::move(event));
+        m_events.push_back({std::move(event), block});
+        if (block) ++m_pending_blocks;
         ++m_queued;
     }
     m_cond.notify_all();
@@ -131,7 +137,8 @@ void WalletEventQueue::ThreadMain()
     m_thread_id = std::this_thread::get_id();
     while (true) {
         if (!m_events.empty()) {
-            Event event{std::move(m_events.front())};
+            Event event{std::move(m_events.front().event)};
+            if (m_events.front().block) --m_pending_blocks;
             m_events.pop_front();
             const std::vector<CWallet*> wallets{m_wallets};
             m_delivering = true;
@@ -183,30 +190,30 @@ void WalletEventQueue::ThreadMain()
 
 void WalletEventQueue::UpdatedBlockTip(const CBlockIndex* pindexNew, const CBlockIndex* pindexFork, bool fInitialDownload)
 {
-    Add([pindexNew, pindexFork, fInitialDownload](CWallet& wallet) { wallet.UpdatedBlockTip(pindexNew, pindexFork, fInitialDownload); });
+    Add([pindexNew, pindexFork, fInitialDownload](CWallet& wallet) { wallet.UpdatedBlockTip(pindexNew, pindexFork, fInitialDownload); }, false);
 }
 
 void WalletEventQueue::TransactionAddedToMempool(const CTransactionRef& ptx)
 {
-    Add([ptx](CWallet& wallet) { wallet.TransactionAddedToMempool(ptx); });
+    Add([ptx](CWallet& wallet) { wallet.TransactionAddedToMempool(ptx); }, false);
 }
 
 void WalletEventQueue::BlockConnected(const std::shared_ptr<const CBlock>& block, const CBlockIndex* pindex, const std::vector<CTransactionRef>& txnConflicted)
 {
-    Add([block, pindex, txnConflicted](CWallet& wallet) { wallet.BlockConnected(block, pindex, txnConflicted); });
+    Add([block, pindex, txnConflicted](CWallet& wallet) { wallet.BlockConnected(block, pindex, txnConflicted); }, true);
 }
 
 void WalletEventQueue::BlockDisconnected(const std::shared_ptr<const CBlock>& block)
 {
-    Add([block](CWallet& wallet) { wallet.BlockDisconnected(block); });
+    Add([block](CWallet& wallet) { wallet.BlockDisconnected(block); }, true);
 }
 
 void WalletEventQueue::TransactionRemovedFromMempool(const CTransactionRef& ptx)
 {
-    Add([ptx](CWallet& wallet) { wallet.TransactionRemovedFromMempool(ptx); });
+    Add([ptx](CWallet& wallet) { wallet.TransactionRemovedFromMempool(ptx); }, false);
 }
 
 void WalletEventQueue::ChainStateFlushed(const CBlockLocator& locator)
 {
-    Add([locator](CWallet& wallet) { wallet.ChainStateFlushed(locator); });
+    Add([locator](CWallet& wallet) { wallet.ChainStateFlushed(locator); }, false);
 }
