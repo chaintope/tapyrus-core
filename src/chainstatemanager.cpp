@@ -16,8 +16,6 @@
 #include <limits>
 #include <utility>
 
-ChainstateManager g_chainstate_manager;
-
 ChainstateManager::ChainstateManager() = default;
 
 ChainstateManager::~ChainstateManager() = default;
@@ -52,9 +50,9 @@ void ChainstateManager::InitOptions(const Options& options)
     m_options = std::make_unique<const Options>(options);
 }
 
-void ChainstateManager::InitXFieldHistory(const CBlock& genesis)
+void ChainstateManager::InitXFieldHistory()
 {
-    m_xfield_history.Init(genesis);
+    m_xfield_history.Init(Settings().GenesisBlock());
 }
 
 void ChainstateManager::InitConsensusSettings(std::unique_ptr<const ConsensusSettings> settings)
@@ -109,24 +107,75 @@ HeightDerivedConsensusRules ChainstateManager::BuildRules(std::optional<int32_t>
     return HeightDerivedConsensusRules(height, maxBlockSize.data, aggregatePubKey.getPubKey(), Settings().ScriptFlagsAt(flagsHeight));
 }
 
-void ChainstateManager::InitBlockFileManager(const BlockFileManager::Options& options, ChainNotifications& notifications)
+void ChainstateManager::InitBlockFileManager(const BlockFileManager::Options& options)
 {
-    m_block_file_manager = std::make_unique<BlockFileManager>(options, m_block_index, notifications);
+    m_block_file_manager = std::make_unique<BlockFileManager>(options, m_block_index, Notifications());
+}
+
+void ChainstateManager::ConsiderBestHeader(CBlockIndex* pindex)
+{
+    AssertLockHeld(cs_main);
+    if (m_best_header == nullptr || m_best_header->nHeight < pindex->nHeight) m_best_header = pindex;
+}
+
+void ChainstateManager::ConsiderBestInvalid(CBlockIndex* pindex)
+{
+    AssertLockHeld(cs_main);
+    if (m_best_invalid == nullptr || pindex->nHeight > m_best_invalid->nHeight) m_best_invalid = pindex;
+}
+
+void ChainstateManager::ClearBestInvalid(const CBlockIndex* pindex)
+{
+    AssertLockHeld(cs_main);
+    if (m_best_invalid == pindex) m_best_invalid = nullptr;
+}
+
+void ChainstateManager::NotifyBestBlock(const uint256& hash)
+{
+    {
+        UniqueLock lock(m_best_block_mutex);
+        m_best_block = hash;
+    }
+    m_best_block_cv.notify_all();
+}
+
+uint256 ChainstateManager::WaitForBestBlock(const uint256& old_tip, std::chrono::steady_clock::time_point deadline)
+{
+    UniqueLock lock(m_best_block_mutex);
+    if (m_best_block == old_tip) m_best_block_cv.wait_until(lock, deadline);
+    return m_best_block;
+}
+
+void ChainstateManager::InterruptBestBlockWaits()
+{
+    m_best_block_cv.notify_all();
+}
+
+double ChainstateManager::GuessTipProgress()
+{
+    LOCK(cs_main);
+    return m_progress.Guess(ActiveChain().Tip());
+}
+
+CBlockLocator ChainstateManager::BestHeaderLocator() const
+{
+    AssertLockHeld(cs_main);
+    return ActiveChain().GetLocator(m_best_header);
 }
 
 bool ChainstateManager::ShouldWipeBlockTree()
 {
-    return m_reindexing || GetOptions().fReloadXField;
+    return m_reindexing || m_options->fReloadXField;
 }
 
 bool ChainstateManager::LoadingBlocks()
 {
-    return GetBlockFileManager().IsImporting() || m_reindexing;
+    return m_block_file_manager->IsImporting() || m_reindexing;
 }
 
 bool ChainstateManager::ReadBlock(CBlock& block, const CBlockIndex* pindex)
 {
-    return GetBlockFileManager().ReadBlockFromDisk(block, pindex, RulesAt(*pindex));
+    return m_block_file_manager->ReadBlockFromDisk(block, pindex, RulesAt(*pindex));
 }
 
 bool ChainstateManager::IsBlockPruned(const CBlockIndex* pblockindex) const
@@ -137,14 +186,14 @@ bool ChainstateManager::IsBlockPruned(const CBlockIndex* pblockindex) const
 void ChainstateManager::RecordPruned()
 {
     if (!m_have_pruned) {
-        m_block_index.pblocktreedb->WriteFlag("prunedblockfiles", true);
+        m_block_index.DB().WriteFlag("prunedblockfiles", true);
         m_have_pruned = true;
     }
 }
 
 void ChainstateManager::LoadPersistentFlags()
 {
-    CBlockTreeDB& blocktree = *m_block_index.pblocktreedb;
+    CBlockTreeDB& blocktree = m_block_index.DB();
 
     // Check whether we have ever pruned block & undo files
     blocktree.ReadFlag("prunedblockfiles", m_have_pruned);
@@ -160,11 +209,6 @@ void ChainstateManager::LoadPersistentFlags()
 void ChainstateManager::InitializeChainstate(CTxMemPool& mempool)
 {
     m_active_chainstate = std::make_unique<Chainstate>(*this, mempool);
-}
-
-void ChainstateManager::ReleaseChainstate()
-{
-    m_active_chainstate.reset();
 }
 
 Chainstate& ChainstateManager::ActiveChainstate() const

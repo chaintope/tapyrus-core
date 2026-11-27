@@ -191,7 +191,10 @@ private:
     };
 
 public:
-    BlockAssembler(ChainstateManager& chainman, const CTxMemPool& mempool, const Options& options);
+    //! Builds on chainman's active chain with its mempool, using the given options.
+    BlockAssembler(ChainstateManager& chainman, const Options& options);
+    //! As above, with options read from policy, args and chainman's tip.
+    BlockAssembler(ChainstateManager& chainman, const PolicySettings& policy, const ArgsManager& args);
 
     /** Size and transaction count of the last block template built, for
      *  getmininginfo. An assembler lives for one template, so these outlive it;

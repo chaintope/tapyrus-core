@@ -133,10 +133,6 @@ struct PolicySettings : PolicyConstants
     const bool acceptNonStdTxn;
     const bool enableReplacement;
 
-    /** Mempool memory limit, in bytes. */
-    const int64_t maxMempool;
-    /** Mempool transaction expiry, in seconds. */
-    const int64_t mempoolExpiry;
     const bool persistMempool;
     const int64_t ancestorLimit;
     /** In bytes. */
@@ -172,16 +168,16 @@ struct PolicySettings : PolicyConstants
     const int32_t blockFeatures;
 
     /** The largest transaction we relay and mine: -maxstandardtxsize, capped at the latest block size limit. */
-    uint32_t MaxStandardTxSize() const;
+    uint32_t MaxStandardTxSize(uint32_t max_block_size) const;
     /** The smallest transaction we relay and mine: -minstandardtxsize, capped at MaxStandardTxSize(). */
-    uint32_t MinStandardTxSize() const;
+    uint32_t MinStandardTxSize(uint32_t max_block_size) const;
     /** The largest orphan transaction kept: -maxorphantxsize, capped at MaxStandardTxSize(). */
-    uint32_t MaxOrphanTxSize() const;
+    uint32_t MaxOrphanTxSize(uint32_t max_block_size) const;
     /**
      * The start-up error when -minstandardtxsize exceeds MaxStandardTxSize(), or "".
      * Checked once the chainstate has loaded, as the block size limit comes from it.
      */
-    std::string CheckMinStandardTxSize() const;
+    std::string CheckMinStandardTxSize(uint32_t max_block_size) const;
 
 private:
     /** The fee rate of a -<name>=<amt> option, or its default when it is not set. */
@@ -192,7 +188,6 @@ private:
     static uint32_t ParseMaxDatacarrierBytes(const ArgsManager& args);
     static bool ParseAcceptNonStdTxn(const ArgsManager& args, TAPYRUS_OP_MODE mode);
     static bool ParseEnableReplacement(const ArgsManager& args);
-    static int64_t ParseMaxMempool(const ArgsManager& args);
     /** A -<name>=<n> option that must lie in [min, max]. */
     static int64_t ParseInRange(const ArgsManager& args, const std::string& name, int64_t defaultValue, int64_t min, int64_t max);
     static uint32_t ParseMinStandardTxSize(const ArgsManager& args, uint32_t maxStandardTxSize);

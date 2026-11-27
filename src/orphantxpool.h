@@ -35,7 +35,8 @@ class OrphanTxPool
 {
 public:
     /** Stores an orphan from peer; false if it is already stored or too large. */
-    bool AddOrphanTx(const CTransactionRef& tx, NodeId peer);
+    /** Keeps tx unless it is larger than the orphan size limit at max_block_size. */
+    bool AddOrphanTx(const CTransactionRef& tx, NodeId peer, uint32_t max_block_size);
     /** Removes an orphan; returns how many were removed, 0 or 1. */
     int EraseOrphanTx(uint256 hash);
     /** Removes every orphan peer sent. */

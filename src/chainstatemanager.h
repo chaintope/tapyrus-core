@@ -19,20 +19,25 @@
 
 #include <atomic>
 #include <cassert>
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
 #include <map>
 #include <memory>
 #include <optional>
+#include <vector>
 
 class ArgsManager;
 class CBlock;
+class CBlockHeader;
 class CBlockIndex;
 class CChain;
+class CCoinsViewCache;
 class Chainstate;
 class ChainNotifications;
 class CTxMemPool;
+class CValidationState;
 
 static const int64_t DEFAULT_MAX_TIP_AGE = 24 * 60 * 60;
 static const bool DEFAULT_CHECKPOINTS_ENABLED = true;
@@ -92,8 +97,8 @@ public:
 
     const Options& GetOptions() const { assert(m_options); return *m_options; }
 
-    /** Adds the genesis block's xfield entries; safe to call again (entries already present are kept). */
-    void InitXFieldHistory(const CBlock& genesis);
+    /** Adds the network's genesis block's xfield entries; safe to call again (entries already present are kept). */
+    void InitXFieldHistory();
 
     CXFieldHistory& XFieldHistory() { return m_xfield_history; }
 
@@ -122,25 +127,34 @@ public:
     BlockIndexMap& BlockIndex() { return m_block_index; }
 
     /** The best header we've seen so far; getheaders requests start from it. */
-    CBlockIndex*& BestHeader() EXCLUSIVE_LOCKS_REQUIRED(cs_main) { return m_best_header; }
+    CBlockIndex* BestHeader() const EXCLUSIVE_LOCKS_REQUIRED(cs_main) { return m_best_header; }
+    /** Makes pindex the best header if it is higher than the current one, or there is none. */
+    void ConsiderBestHeader(CBlockIndex* pindex) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
     /** The highest block found invalid. */
-    CBlockIndex*& BestInvalid() EXCLUSIVE_LOCKS_REQUIRED(cs_main) { return m_best_invalid; }
+    CBlockIndex* BestInvalid() const EXCLUSIVE_LOCKS_REQUIRED(cs_main) { return m_best_invalid; }
+    /** Makes pindex the best invalid block if it is higher than the current one, or there is none. */
+    void ConsiderBestInvalid(CBlockIndex* pindex) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
+    /** Forgets the best invalid block if it is pindex, which is valid again. */
+    void ClearBestInvalid(const CBlockIndex* pindex) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 
     /** The signature and script execution caches; init sizes them with ValidationCache::Resize. */
     ValidationCache& ValidationCaches() { return m_validation_cache; }
 
     /** How far chain sync has got; readable without cs_main. */
     VerificationProgress& Progress() { return m_progress; }
+    //! The estimated progress of the active tip.
+    double GuessTipProgress();
+    //! A locator for the best header, built on the active chain.
+    CBlockLocator BestHeaderLocator() const EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 
     /** Where fatal errors and the fork warnings are reported; NodeContext owns it.
      *  Set at start-up, before anything can fail. */
     void SetNotifications(ChainNotifications* notifications) { m_notifications = notifications; }
     ChainNotifications& Notifications() const { assert(m_notifications); return *m_notifications; }
-    bool ReportsTo(const ChainNotifications& notifications) const { return m_notifications == &notifications; }
 
     /** Creates the block file manager once -prune is known; replaces any earlier one, keeping the block index.
-     *  notifications receives its fatal file errors. */
-    void InitBlockFileManager(const BlockFileManager::Options& options, ChainNotifications& notifications);
+     *  Requires SetNotifications first; the block file manager reports its fatal file errors through them. */
+    void InitBlockFileManager(const BlockFileManager::Options& options);
 
     BlockFileManager& GetBlockFileManager() { assert(m_block_file_manager); return *m_block_file_manager; }
     /** Destroys the block file manager before the notifications it reports to. */
@@ -170,8 +184,6 @@ public:
     /** Creates the chainstate, which updates mempool as the tip moves; replaces any earlier one. */
     void InitializeChainstate(CTxMemPool& mempool);
     bool HasChainstate() const { return m_active_chainstate != nullptr; }
-    /** Destroys the chainstate before the mempool it refers to. */
-    void ReleaseChainstate();
 
     Chainstate& ActiveChainstate() const;
     CChain& ActiveChain() const;
@@ -179,13 +191,50 @@ public:
     /** Import blocks from an external file */
     bool LoadExternalBlockFile(FILE* fileIn, CDiskBlockPos* dbp = nullptr, CXFieldHistoryMap* pxfieldHistory = nullptr);
 
-    //! The hash of the active tip. getblocktemplate long-polls on it; the tip
-    //! update sets it and RPC stop wakes the waiters.
+    /**
+     * Checks a block, stores it and activates the best chain; the block need not
+     * extend the tip. fForceProcessing stores it even if it was not requested;
+     * fNewBlock, if given, tells whether it was new. Returns false only if the
+     * block could not be stored or activating the best chain failed.
+     */
+    bool ProcessNewBlock(const std::shared_ptr<const CBlock> pblock, bool fForceProcessing, bool* fNewBlock) LOCKS_EXCLUDED(cs_main);
+    /**
+     * Adds the headers to the block index, checking each against its parent; the
+     * headers need not extend the tip. ppindex gets the last one accepted and
+     * first_invalid the first one rejected.
+     */
+    bool ProcessNewBlockHeaders(const std::vector<CBlockHeader>& headers, CValidationState& state, const CBlockIndex** ppindex = nullptr, CBlockHeader* first_invalid = nullptr) LOCKS_EXCLUDED(cs_main);
+
+    /** Loads the block index and the block file info from the block tree, unless the node reindexes. */
+    bool LoadBlockIndex() EXCLUSIVE_LOCKS_REQUIRED(cs_main);
+    /** Forgets the block index, the active tip and mempool's transactions, so the index can be loaded again.
+     *  Not for use once peers are connected, which assume a consistent index. */
+    void UnloadBlockIndex();
+    /** Rewinds the active chain to the blocks it has data for, then flushes. */
+    bool RewindBlockIndex();
+
+    //! Starts the script-check queue with the -par threads from the options.
+    void StartScriptCheckWorkerThreads();
+    /** The last checkpoint in the block index, or null when -checkpoints is off. */
+    const CBlockIndex* GetLastCheckpointIfEnabled() EXCLUSIVE_LOCKS_REQUIRED(cs_main);
+
+    //! Records hash as the active tip and wakes the waiters; the tip update calls it.
+    void NotifyBestBlock(const uint256& hash) LOCKS_EXCLUDED(m_best_block_mutex);
+    //! Waits until deadline, a tip other than old_tip, or a wake-up; returns the tip.
+    uint256 WaitForBestBlock(const uint256& old_tip, std::chrono::steady_clock::time_point deadline) LOCKS_EXCLUDED(m_best_block_mutex);
+    //! Wakes every waiter so it can see that RPC has stopped.
+    void InterruptBestBlockWaits();
+
+private:
+    //! The hash of the active tip; getblocktemplate long-polls on it.
     Mutex m_best_block_mutex;
     CConditionVariable m_best_block_cv;
     uint256 m_best_block GUARDED_BY(m_best_block_mutex);
 
-private:
+    bool LoadBlockIndexDB() EXCLUSIVE_LOCKS_REQUIRED(cs_main);
+    /** Tells the GUI when the best header changes. */
+    void NotifyHeaderTip() LOCKS_EXCLUDED(cs_main);
+
     HeightDerivedConsensusRules BuildRules(std::optional<int32_t> height, const CXFieldHistoryMap& history) const;
 
     std::unique_ptr<const Options> m_options;
@@ -209,8 +258,8 @@ private:
     //! Disk positions of reindexed blocks whose parent is not loaded yet, by parent hash.
     //! Only the import thread uses it.
     std::multimap<uint256, CDiskBlockPos> m_blocks_unknown_parent;
+    //! The best header NotifyHeaderTip last reported.
+    CBlockIndex* m_last_notified_header GUARDED_BY(cs_main){nullptr};
 };
-
-extern ChainstateManager g_chainstate_manager;
 
 #endif // TAPYRUS_CHAINSTATEMANAGER_H

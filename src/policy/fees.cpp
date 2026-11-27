@@ -164,6 +164,13 @@ public:
     /** Return the max number of confirms we're tracking */
     unsigned int GetMaxConfirms() const { return scale * confAvg.size(); }
 
+    /** EstimateMedianVal at the longest target these stats track */
+    double EstimateMedianValAtMaxConfirms(double sufficientTxVal, double minSuccess, bool requireGreater,
+                                          unsigned int nBlockHeight, EstimationResult* result = nullptr) const
+    {
+        return EstimateMedianVal(GetMaxConfirms(), sufficientTxVal, minSuccess, requireGreater, nBlockHeight, result);
+    }
+
     /** Write state of estimation data to a file*/
     void Write(CAutoFile& fileout) const;
 
@@ -775,14 +782,14 @@ double CBlockPolicyEstimator::estimateCombinedFee(unsigned int confTarget, doubl
             EstimationResult tempResult;
             // If a lower confTarget from a more recent horizon returns a lower answer use it.
             if (confTarget > feeStats->GetMaxConfirms()) {
-                double medMax = feeStats->EstimateMedianVal(feeStats->GetMaxConfirms(), SUFFICIENT_FEETXS, successThreshold, true, nBestSeenHeight, &tempResult);
+                double medMax = feeStats->EstimateMedianValAtMaxConfirms(SUFFICIENT_FEETXS, successThreshold, true, nBestSeenHeight, &tempResult);
                 if (medMax > 0 && (estimate == -1 || medMax < estimate)) {
                     estimate = medMax;
                     if (result) *result = tempResult;
                 }
             }
             if (confTarget > shortStats->GetMaxConfirms()) {
-                double shortMax = shortStats->EstimateMedianVal(shortStats->GetMaxConfirms(), SUFFICIENT_TXS_SHORT, successThreshold, true, nBestSeenHeight, &tempResult);
+                double shortMax = shortStats->EstimateMedianValAtMaxConfirms(SUFFICIENT_TXS_SHORT, successThreshold, true, nBestSeenHeight, &tempResult);
                 if (shortMax > 0 && (estimate == -1 || shortMax < estimate)) {
                     estimate = shortMax;
                     if (result) *result = tempResult;

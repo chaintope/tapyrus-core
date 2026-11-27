@@ -20,11 +20,13 @@
 #include <undo.h>
 #include <policy/packages.h>
 #include <scriptcheck.h>
+#include <atomic>
 #include <cassert>
 #include <map>
 #include <memory>
 #include <set>
 
+struct CBlockLocator;
 class CBlockTreeDB;
 class CCoinsViewDB;
 class ChainstateManager;
@@ -112,17 +114,17 @@ private:
       * blocks which we tried to connect and found to be invalid here (ie which
       * were set to BLOCK_FAILED_VALID since the last restart). We can then
       * walk this set and check if a new header is a descendant of something in
-      * this set, preventing us from having to walk mapBlockIndex when we try
+      * this set, preventing us from having to walk the block index when we try
       * to connect a bad block and fail.
       *
       * While this is more complicated than marking everything which descends
       * from an invalid block as invalid at the time we discover it to be
-      * invalid, doing so would require walking all of mapBlockIndex to find all
+      * invalid, doing so would require walking all of the block index to find all
       * descendants. Since this case should be very rare, keeping track of all
       * BLOCK_FAILED_VALID blocks in a set should be just fine and work just as
       * well.
       *
-      * Because we already walk mapBlockIndex in height-order at startup, we go
+      * Because we already walk the block index in height-order at startup, we go
       * ahead and mark descendants of invalid blocks as FAILED_CHILD at that time,
       * instead of putting things in this set.
       */
@@ -144,8 +146,32 @@ private:
     //! Updated as blocks connect and disconnect; NodeContext owns it.
     CTxMemPool& m_mempool;
 
+    //! Set once IsInitialBlockDownload() has returned false; it then stays false.
+    mutable std::atomic<bool> m_cached_finished_ibd{false};
+
 public:
     Chainstate(ChainstateManager& chainman, CTxMemPool& mempool);
+
+    ChainstateManager& Chainman() const { return m_chainman; }
+    //! The mempool this chainstate updates as blocks connect and disconnect.
+    CTxMemPool& GetMempool() const { return m_mempool; }
+
+    /** Whether tx is final in the next block on the active tip, by IsFinalTx with the next
+     *  height and, with LOCKTIME_MEDIAN_TIME_PAST, the tip's median time past. */
+    bool CheckFinalTx(const CTransaction& tx, int flags = -1) const EXCLUSIVE_LOCKS_REQUIRED(cs_main);
+    //! Whether the LockPoints are still valid on the active chain.
+    bool TestLockPointValidity(const LockPoints* lp) const EXCLUSIVE_LOCKS_REQUIRED(cs_main);
+    /** Whether tx is BIP 68 final in the next block on the active tip, with its inputs from
+     *  viewMemPool. Stores the height, time and needed block in lp, or evaluates lp as given
+     *  with useExistingLockPoints. lp is not valid when this returns false. */
+    bool CheckSequenceLocks(const CTransaction& tx, int flags, CCoinsViewMemPool& viewMemPool, LockPoints* lp = nullptr, bool useExistingLockPoints = false) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
+    /** Expires old mempool transactions, then trims the mempool to its max size, dropping
+     *  the coins the removed transactions spent from the coins tip. */
+    void LimitMempoolSize() EXCLUSIVE_LOCKS_REQUIRED(cs_main);
+    //! Runs the mempool's consistency check, if enabled, against the coins tip and the next height.
+    void CheckMempool() EXCLUSIVE_LOCKS_REQUIRED(cs_main);
+    //! Checks block is completely valid from start to finish, built on the active tip.
+    bool TestBlockValidity(CValidationState& state, const CBlock& block, bool fCheckPOW = true, bool fCheckMerkleRoot = true) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 
     /** Loads mempool.dat into this chainstate's mempool. */
     bool LoadMempool();
@@ -184,7 +210,7 @@ public:
     std::unique_ptr< CCheckQueue<CScriptCheck> >scriptcheckqueue;
 
     /** Opens the coins database; replaces any earlier coins views. */
-    void InitCoinsDB(CIssuedColorIds& issuedColorIds, size_t cache_size_bytes, bool in_memory, bool should_wipe);
+    void InitCoinsDB(size_t cache_size_bytes, bool in_memory, bool should_wipe);
     /** Creates the coins cache once the database is consistent. */
     void InitCoinsCache() EXCLUSIVE_LOCKS_REQUIRED(cs_main);
     bool CanFlushToDisk() const EXCLUSIVE_LOCKS_REQUIRED(cs_main) { return m_coins_views && m_coins_views->m_cacheview; }
@@ -192,8 +218,8 @@ public:
     CCoinsViewDB& CoinsDB() EXCLUSIVE_LOCKS_REQUIRED(cs_main) { assert(m_coins_views); return *m_coins_views->m_dbview; }
     void ResetCoinsViews() EXCLUSIVE_LOCKS_REQUIRED(cs_main) { m_coins_views.reset(); }
 
-    /** Loads the block index, then the candidates, best invalid and best header from it. */
-    bool LoadBlockIndex() EXCLUSIVE_LOCKS_REQUIRED(cs_main);
+    /** Adds the loaded blocks that could become the tip to the candidates. */
+    void LoadBlockIndexCandidates(const std::vector<CBlockIndex*>& sorted_by_height) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 
     bool ActivateBestChain(CValidationState &state, std::shared_ptr<const CBlock> pblock);
 
@@ -210,7 +236,7 @@ public:
 
     /**
      * If a block header hasn't already been seen, call CheckBlockHeader on it, ensure
-     * that it doesn't descend from an invalid block, and then add it to mapBlockIndex.
+     * that it doesn't descend from an invalid block, and then add it to the block index.
      */
     bool AcceptBlockHeader(const CBlockHeader& block, CValidationState& state, CBlockIndex** ppindex, CXFieldHistoryMap* pxfieldHistory = nullptr) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
     bool AcceptBlock(const std::shared_ptr<const CBlock>& pblock, CValidationState& state, CBlockIndex** ppindex, bool fRequested, const CDiskBlockPos* dbp, bool* fNewBlock, CXFieldHistoryMap* pxfieldHistory = nullptr) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
@@ -219,6 +245,9 @@ public:
     DisconnectResult DisconnectBlock(const CBlock& block, const CBlockIndex* pindex, CCoinsViewCache& view, CIssuedColorIds& issuedColorIds, bool fDryRun = false) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
     bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pindex,
                     CCoinsViewCache& view, CIssuedColorIds& issuedColorIds, bool fJustCheck = false);
+    //! As above, on the manager's live issued colorIds.
+    DisconnectResult DisconnectBlock(const CBlock& block, const CBlockIndex* pindex, CCoinsViewCache& view) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
+    bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pindex, CCoinsViewCache& view, bool fJustCheck = false) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 
     // Block disconnection on our coins tip:
     bool DisconnectTip(CValidationState& state, DisconnectedBlockTransactions *disconnectpool);
@@ -228,7 +257,8 @@ public:
     bool InvalidateBlock(CValidationState& state, CBlockIndex* pindex) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
     void ResetBlockFailureFlags(CBlockIndex* pindex) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 
-    bool ReplayBlocks(CCoinsView* view, CIssuedColorIds& issuedColorIds);
+    //! Brings the coins database to a consistent tip after an interrupted flush.
+    bool ReplayBlocks();
     bool RewindBlockIndex();
     bool LoadGenesisBlock();
 
@@ -236,12 +266,35 @@ public:
 
     void UnloadBlockIndex();
 
+    /** Sets the tip to the coins database's best block; connects the genesis block first on a new database. */
+    bool LoadChainTip() EXCLUSIVE_LOCKS_REQUIRED(cs_main);
+    /** Fills each coin from the mempool, else from the coins tip; one found in neither is unknown or spent, and cleared. */
+    void FindCoins(std::map<COutPoint, Coin>& coins);
+    /** Whether the node is still catching up: blocks are being loaded, there is no tip,
+     *  or the tip is older than -maxtipage. Once false, it stays false. */
+    bool IsInitialBlockDownload() const;
+    /** Writes the whole state to disk, logging a failure. */
+    void ForceFlushStateToDisk();
+    /** Prunes block files if due and flushes what that needs, logging a failure. */
+    void PruneAndFlush();
+    /** The last block of the locator that is on the active chain, or the genesis block. */
+    CBlockIndex* FindForkInGlobalIndex(const CBlockLocator& locator) const EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 
 private:
     /** AcceptToMemoryPool reading inputs through view; a package shares one view across its transactions,
      *  whose inputs need not be on disk yet. */
     bool AcceptSingleTransaction(const CTransactionRef& tx, const MempoolAcceptOptions& options, CCoinsViewMemPool& view, bool in_package, MempoolAcceptResult& result) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
-    void UpdateTip(const CBlockIndex* pindexNew) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
+    bool AcceptToMemoryPoolWorker(const CTransactionRef& ptx, const MempoolAcceptOptions& options, CCoinsViewMemPool& mempool_view, bool in_package,
+                                  std::vector<COutPoint>& coins_to_uncache, MempoolAcceptResult& result) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
+    /** False, with missing_inputs set, if an input is in neither view nor the coins tip. */
+    bool DoAllInputsExist(const CTransaction& tx, CValidationState& state, std::vector<COutPoint>& coins_to_uncache, std::vector<COutPoint>& missing_inputs, CCoinsViewCache& view) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
+    /** Checks tx's scripts against view, first making sure each input view returns is the coins tip's or a mempool transaction's output. */
+    bool CheckInputsFromMempoolAndCache(bool in_package, const CTransaction& tx, CValidationState& state, const CCoinsViewCache& view,
+                                        unsigned int flags, bool cacheSigStore) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
+    /** Whether the tip is recent enough for mempool entries to feed the fee estimator. */
+    bool IsCurrentForFeeEstimation() EXCLUSIVE_LOCKS_REQUIRED(cs_main);
+    //! Notifies and logs the active chain's new tip.
+    void UpdateTip() EXCLUSIVE_LOCKS_REQUIRED(cs_main);
     void UpdateMempoolForReorg(DisconnectedBlockTransactions& disconnectpool, bool fAddToMempool) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
     /** Evicts the mempool transactions that fail the script checks or colored-coin rules
      *  in force at newBlockHeight, once a soft fork activates there. */
@@ -257,13 +310,15 @@ private:
     void CheckBlockIndex();
 
     void InvalidBlockFound(CBlockIndex *pindex, const CValidationState &state) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
+    void InvalidChainFound(CBlockIndex* pindexNew) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
+    /** Sets or clears the large-fork and invalid-chain warnings. */
+    void CheckForkWarningConditions() EXCLUSIVE_LOCKS_REQUIRED(cs_main);
+    void CheckForkWarningConditionsOnNewFork(CBlockIndex* pindexNewForkTip) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
     CBlockIndex* FindMostWorkChain() EXCLUSIVE_LOCKS_REQUIRED(cs_main);
     void ReceivedBlockTransactions(const CBlock& block, CBlockIndex* pindexNew, const CDiskBlockPos& pos) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 
 
-    bool RollforwardBlock(const CBlockIndex* pindex, CCoinsViewCache& inputs, CIssuedColorIds& issuedColorIds) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
+    bool RollforwardBlock(const CBlockIndex* pindex, CCoinsViewCache& inputs) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 } ;
-
-void NotifyHeaderTip() LOCKS_EXCLUDED(cs_main);
 
 #endif //BITCOIN_CHAINSTATE_H

@@ -7,8 +7,8 @@
 
 #include <string>
 
-class CScheduler;
 class CRPCTable;
+class WalletEvents;
 
 namespace interfaces {
 class Chain;
@@ -28,10 +28,14 @@ public:
     virtual void SetChainInterface(interfaces::Chain* chain) const = 0;
     /** The node set above, for wallets loaded later */
     virtual interfaces::Chain* GetChainInterface() const = 0;
+    /** The queue the wallet thread delivers the wallets' validation events from; null without wallets */
+    virtual WalletEvents* GetWalletEvents() const = 0;
+    /** Waits until the wallet thread has delivered the events queued before the call */
+    virtual void SyncWalletEvents() const = 0;
     /** Open wallets*/
     virtual bool Open() const = 0;
     /** Start wallets*/
-    virtual void Start(CScheduler& scheduler) const = 0;
+    virtual void Start() const = 0;
     /** Flush Wallets*/
     virtual void Flush() const = 0;
     /** Stop Wallets*/
@@ -41,5 +45,7 @@ public:
 
     virtual ~WalletInitInterface() {}
 };
+
+extern const WalletInitInterface& g_wallet_init_interface;
 
 #endif // BITCOIN_WALLETINITINTERFACE_H

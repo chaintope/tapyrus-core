@@ -34,10 +34,10 @@ namespace {
 
 // The colour checks as they were before TransactionColorChecker, kept
 // unchanged as the reference for the differential test below.
-bool LegacyCheckColorIdentifierValidity(const CTransaction& tx, CValidationState& state, CCoinsViewCache &inputs, int32_t blockHeight) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
-bool LegacyVerifyTokenBalances(const CTransaction& tx, CValidationState& state, const CCoinsViewCache& inputs, CAmount minrelayFee, std::set<ColorIdentifier>* newIssuances, int32_t blockHeight);
+bool LegacyCheckColorIdentifierValidity(ChainstateManager& chainman, const CTransaction& tx, CValidationState& state, CCoinsViewCache &inputs, int32_t blockHeight) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
+bool LegacyVerifyTokenBalances(ChainstateManager& chainman, const CTransaction& tx, CValidationState& state, const CCoinsViewCache& inputs, CAmount minrelayFee, std::set<ColorIdentifier>* newIssuances, int32_t blockHeight);
 
-bool LegacyCheckColorIdentifierValidity(const CTransaction& tx, CValidationState& state, CCoinsViewCache &inputs, int32_t blockHeight)
+bool LegacyCheckColorIdentifierValidity(ChainstateManager& chainman, const CTransaction& tx, CValidationState& state, CCoinsViewCache &inputs, int32_t blockHeight)
 {
     // Track NFT colorId output count across the whole tx (must be exactly 1).
     std::map<ColorIdentifier, unsigned int> nftOutputCount;
@@ -52,7 +52,7 @@ bool LegacyCheckColorIdentifierValidity(const CTransaction& tx, CValidationState
         // outColorId is NONE: IsColoredPayToPubkeyHash / IsColoredPayToScriptHash
         // check both structure and type byte; reaching here means neither matched.
         if (outColorId.type == TokenTypes::NONE) {
-            if (g_chainstate_manager.Settings().IsActive(SCRIPT_VERIFY_CP2SH_COLORED, blockHeight))
+            if (chainman.Settings().IsActive(SCRIPT_VERIFY_CP2SH_COLORED, blockHeight))
                 return state.DoS(100, false, REJECT_INVALID, "bad-txns-nonstandard-opcolor");
             continue;
         }
@@ -74,7 +74,7 @@ bool LegacyCheckColorIdentifierValidity(const CTransaction& tx, CValidationState
             ColorIdentifier cid = GetColorIdFromScript(coin.out.scriptPubKey);
 
             if (cid.type == TokenTypes::NONE && coin.out.scriptPubKey.IsColoredScript()) {
-                if (g_chainstate_manager.Settings().IsActive(SCRIPT_VERIFY_CP2SH_COLORED, blockHeight))
+                if (chainman.Settings().IsActive(SCRIPT_VERIFY_CP2SH_COLORED, blockHeight))
                     return state.DoS(100, false, REJECT_INVALID, "bad-txns-nonstandard-opcolor");
                 continue;
             }
@@ -122,7 +122,7 @@ bool LegacyCheckColorIdentifierValidity(const CTransaction& tx, CValidationState
         //  the defining UTXO is consumed and its colorId = Hash(prevout) is globally unique.)
         if(isIssuance && (outColorId.type == TokenTypes::NON_REISSUABLE || outColorId.type == TokenTypes::NFT))
         {
-            if(g_chainstate_manager.IssuedColorIds().IsIssued(outColorId))
+            if(chainman.IssuedColorIds().IsIssued(outColorId))
                 return state.DoS(100, false, REJECT_INVALID, "bad-txns-colorid-already-issued");
         }
     }
@@ -136,7 +136,7 @@ bool LegacyCheckColorIdentifierValidity(const CTransaction& tx, CValidationState
     return true;
 }
 
-bool LegacyVerifyTokenBalances(const CTransaction& tx, CValidationState& state, const CCoinsViewCache& inputs, CAmount minrelayFee, std::set<ColorIdentifier>* newIssuances, int32_t blockHeight)
+bool LegacyVerifyTokenBalances(ChainstateManager& chainman, const CTransaction& tx, CValidationState& state, const CCoinsViewCache& inputs, CAmount minrelayFee, std::set<ColorIdentifier>* newIssuances, int32_t blockHeight)
 {
     // Build input balance map from the UTXO view.
     // Simultaneously collect TPC input outpoints for issuance detection.
@@ -148,7 +148,7 @@ bool LegacyVerifyTokenBalances(const CTransaction& tx, CValidationState& state, 
         // A legacy non-standard OP_COLOR UTXO (colorId resolves to NONE) is rejected
         // post-activation.  Pre-activation its nValue falls through to the TPC bucket.
         if (cid.type == TokenTypes::NONE && coin.out.scriptPubKey.IsColoredScript() &&
-            g_chainstate_manager.Settings().IsActive(SCRIPT_VERIFY_CP2SH_COLORED, blockHeight))
+            chainman.Settings().IsActive(SCRIPT_VERIFY_CP2SH_COLORED, blockHeight))
             return state.DoS(100, false, REJECT_INVALID, "bad-txns-nonstandard-opcolor");
         auto it = inColoredCoinBalances.find(cid);
         if (it == inColoredCoinBalances.end())
@@ -369,25 +369,24 @@ BOOST_AUTO_TEST_CASE(checker_matches_legacy_functions)
 
         {
             LOCK(cs_main);
-            g_chainstate_manager.IssuedColorIds() = CIssuedColorIds();
+            m_node.chainman->IssuedColorIds() = CIssuedColorIds();
             std::set<ColorIdentifier> issued;
             for (const ColorIdentifier& colorId : candidates) {
                 if (InsecureRandRange(4) == 0)
                     issued.insert(colorId);
             }
-            g_chainstate_manager.IssuedColorIds().Insert(issued);
+            m_node.chainman->IssuedColorIds().Insert(issued);
         }
 
         const int32_t height = InsecureRandBool() ? int32_t{0} : std::numeric_limits<int32_t>::max();
         const CAmount minFee = InsecureRandBool() ? CAmount{0} : CAmount{1000};
 
         LOCK(cs_main);
-        PrecomputedColorData data(tx, view, height);
-        data.SetIssued(g_chainstate_manager.IssuedColorIds());
+        PrecomputedColorData data(tx, view, m_node.chainman->Settings(), height, m_node.chainman->IssuedColorIds());
         const TransactionColorChecker checker(data);
 
         CValidationState legacyOutputState, checkerOutputState;
-        const bool legacyOutputOk = LegacyCheckColorIdentifierValidity(tx, legacyOutputState, view, height);
+        const bool legacyOutputOk = LegacyCheckColorIdentifierValidity(*m_node.chainman, tx, legacyOutputState, view, height);
         const bool checkerOutputOk = checker.CheckOutputColorIds(checkerOutputState);
         CheckSame(Capture(legacyOutputOk, legacyOutputState), Capture(checkerOutputOk, checkerOutputState));
         if (checkerOutputOk)
@@ -395,7 +394,7 @@ BOOST_AUTO_TEST_CASE(checker_matches_legacy_functions)
 
         CValidationState legacyBalanceState, checkerBalanceState;
         std::set<ColorIdentifier> legacyIssuances, checkerIssuances;
-        const bool legacyBalanceOk = LegacyVerifyTokenBalances(tx, legacyBalanceState, view, minFee, &legacyIssuances, height);
+        const bool legacyBalanceOk = LegacyVerifyTokenBalances(*m_node.chainman, tx, legacyBalanceState, view, minFee, &legacyIssuances, height);
         const bool checkerBalanceOk = checker.CheckTokenBalances(checkerBalanceState, minFee);
         if (checkerBalanceOk) {
             checker.GetNewIssuances(checkerIssuances);
@@ -440,17 +439,17 @@ BOOST_AUTO_TEST_CASE(precomputed_issuable_colorids_only_when_needed)
 
     LOCK(cs_main);
     const CTransaction plain = build({tpc});
-    const PrecomputedColorData plainData(plain, view, int32_t{0});
+    const PrecomputedColorData plainData(plain, view, m_node.chainman->Settings(), int32_t{0}, CIssuedColorIds{});
     BOOST_CHECK(plainData.Inputs()[0].scriptColorId == ColorIdentifier());
     BOOST_CHECK(plainData.Inputs()[0].outpointColorId == ColorIdentifier());
 
     const CTransaction reissue = build({reissuableOut});
-    const PrecomputedColorData reissueData(reissue, view, int32_t{0});
+    const PrecomputedColorData reissueData(reissue, view, m_node.chainman->Settings(), int32_t{0}, CIssuedColorIds{});
     BOOST_CHECK(reissueData.Inputs()[0].scriptColorId == reissuable);
     BOOST_CHECK(reissueData.Inputs()[0].outpointColorId == ColorIdentifier());
 
     const CTransaction issue = build({nonReissuableOut});
-    const PrecomputedColorData issueData(issue, view, int32_t{0});
+    const PrecomputedColorData issueData(issue, view, m_node.chainman->Settings(), int32_t{0}, CIssuedColorIds{});
     BOOST_CHECK(issueData.Inputs()[0].scriptColorId == ColorIdentifier());
     BOOST_CHECK(issueData.Inputs()[0].outpointColorId == nonReissuable);
 }

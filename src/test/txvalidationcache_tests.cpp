@@ -26,14 +26,14 @@
 BOOST_AUTO_TEST_SUITE(tx_validationcache_tests)
 
 static bool
-ToMemPool(CTxMemPool& pool, const CMutableTransaction& tx)
+ToMemPool(Chainstate& chainstate, const CMutableTransaction& tx)
 {
     LOCK(cs_main);
 
     MempoolAcceptOptions opt;
     opt.bypass_limits = true;
     MempoolAcceptResult accept_result;
-    return g_chainstate_manager.ActiveChainstate().AcceptToMemoryPool(MakeTransactionRef(tx), opt, accept_result);
+    return chainstate.AcceptToMemoryPool(MakeTransactionRef(tx), opt, accept_result);
 }
 
 BOOST_FIXTURE_TEST_CASE(tx_mempool_block_doublespend, TestChainSetup)
@@ -81,29 +81,29 @@ BOOST_FIXTURE_TEST_CASE(tx_mempool_block_doublespend, TestChainSetup)
 
         // Test 1: block with both of those transactions should be rejected.
         block = CreateAndProcessBlock(spends, scriptPubKey);
-        BOOST_CHECK(g_chainstate_manager.ActiveChain().Tip()->GetBlockHash() != block.GetHash());
+        BOOST_CHECK(m_node.chainman->ActiveChain().Tip()->GetBlockHash() != block.GetHash());
         BOOST_CHECK_EQUAL(block.proof.size(), CPubKey::SCHNORR_SIGNATURE_SIZE);
 
         // Test 2: ... and should be rejected if spend1 is in the memory pool
-        BOOST_CHECK(ToMemPool(*m_node.mempool, spends[0]));
+        BOOST_CHECK(ToMemPool(m_node.chainman->ActiveChainstate(), spends[0]));
         block = CreateAndProcessBlock(spends, scriptPubKey);
-        BOOST_CHECK(g_chainstate_manager.ActiveChain().Tip()->GetBlockHash() != block.GetHash());
+        BOOST_CHECK(m_node.chainman->ActiveChain().Tip()->GetBlockHash() != block.GetHash());
         m_node.mempool->clear();
         BOOST_CHECK_EQUAL(block.proof.size(), CPubKey::SCHNORR_SIGNATURE_SIZE);
 
         // Test 3: ... and should be rejected if spend2 is in the memory pool
-        BOOST_CHECK(ToMemPool(*m_node.mempool, spends[1]));
+        BOOST_CHECK(ToMemPool(m_node.chainman->ActiveChainstate(), spends[1]));
         block = CreateAndProcessBlock(spends, scriptPubKey);
-        BOOST_CHECK(g_chainstate_manager.ActiveChain().Tip()->GetBlockHash() != block.GetHash());
+        BOOST_CHECK(m_node.chainman->ActiveChain().Tip()->GetBlockHash() != block.GetHash());
         m_node.mempool->clear();
         BOOST_CHECK_EQUAL(block.proof.size(), CPubKey::SCHNORR_SIGNATURE_SIZE);
 
         // Final sanity test: first spend in mempool, second in block, that's OK:
         std::vector<CMutableTransaction> oneSpend;
         oneSpend.push_back(spends[0]);
-        BOOST_CHECK(ToMemPool(*m_node.mempool, spends[1]));
+        BOOST_CHECK(ToMemPool(m_node.chainman->ActiveChainstate(), spends[1]));
         block = CreateAndProcessBlock(oneSpend, scriptPubKey);
-        BOOST_CHECK(g_chainstate_manager.ActiveChain().Tip()->GetBlockHash() == block.GetHash());
+        BOOST_CHECK(m_node.chainman->ActiveChain().Tip()->GetBlockHash() == block.GetHash());
         BOOST_CHECK_EQUAL(block.proof.size(), CPubKey::SCHNORR_SIGNATURE_SIZE);
         // spends[1] should have been removed from the mempool when the
         // block with spends[0] is accepted:
@@ -122,7 +122,7 @@ BOOST_FIXTURE_TEST_CASE(tx_mempool_block_doublespend, TestChainSetup)
 // should fail.
 // Capture this interaction with the upgraded_nop argument: set it when evaluating
 // any script flag that is implemented as an upgraded NOP code.
-static void ValidateCheckInputsForAllFlags(const CTransaction &tx, uint32_t failing_flags, bool add_to_cache) EXCLUSIVE_LOCKS_REQUIRED(cs_main)
+static void ValidateCheckInputsForAllFlags(ChainstateManager& chainman, const CTransaction &tx, uint32_t failing_flags, bool add_to_cache) EXCLUSIVE_LOCKS_REQUIRED(cs_main)
 {
     constexpr unsigned int test_flags_list[] = {SCRIPT_VERIFY_NONE,
         SCRIPT_VERIFY_SIGPUSHONLY,
@@ -135,19 +135,19 @@ static void ValidateCheckInputsForAllFlags(const CTransaction &tx, uint32_t fail
     for (auto test_flags: test_flags_list) {
         CValidationState state;
 
-        BOOST_CHECK(CheckInputs(tx, state, &g_chainstate_manager.ActiveChainstate().CoinsTip(), true, test_flags, true, add_to_cache, g_chainstate_manager.ValidationCaches(), nullptr));
+        BOOST_CHECK(CheckInputs(tx, state, &chainman.ActiveChainstate().CoinsTip(), true, test_flags, true, add_to_cache, chainman.ValidationCaches(), nullptr));
 
         // Test the caching
         if (add_to_cache) {
             // Check that we get a cache hit if the tx was valid
             std::vector<CScriptCheck> scriptchecks;
-            BOOST_CHECK(CheckInputs(tx, state, &g_chainstate_manager.ActiveChainstate().CoinsTip(), true, test_flags, true, add_to_cache, g_chainstate_manager.ValidationCaches(), &scriptchecks));
+            BOOST_CHECK(CheckInputs(tx, state, &chainman.ActiveChainstate().CoinsTip(), true, test_flags, true, add_to_cache, chainman.ValidationCaches(), &scriptchecks));
             BOOST_CHECK(scriptchecks.empty());
         } else {
             // Check that we get script executions to check, if the transaction
             // was invalid, or we didn't add to cache.
             std::vector<CScriptCheck> scriptchecks;
-            BOOST_CHECK(CheckInputs(tx, state, &g_chainstate_manager.ActiveChainstate().CoinsTip(), true, test_flags, true, add_to_cache, g_chainstate_manager.ValidationCaches(), &scriptchecks));
+            BOOST_CHECK(CheckInputs(tx, state, &chainman.ActiveChainstate().CoinsTip(), true, test_flags, true, add_to_cache, chainman.ValidationCaches(), &scriptchecks));
             BOOST_CHECK_EQUAL(scriptchecks.size(), tx.vin.size());
         }
     }
@@ -159,7 +159,7 @@ BOOST_FIXTURE_TEST_CASE(checkinputs_test, TestChainSetup)
     // that we would pass again with a different set of flags.
     {
         LOCK(cs_main);
-        g_chainstate_manager.ValidationCaches().Resize(m_node.cache->nValidationCacheBytes);
+        m_node.chainman->ValidationCaches().Resize(m_node.cache->nValidationCacheBytes);
     }
 
     CScript p2pk_scriptPubKey = CScript() << ToByteVector(coinbaseKey.GetPubKey()) << OP_CHECKSIG;
@@ -220,9 +220,9 @@ BOOST_FIXTURE_TEST_CASE(checkinputs_test, TestChainSetup)
 
             CValidationState state;
 
-            BOOST_CHECK(!CheckInputs(spend_tx, state, &g_chainstate_manager.ActiveChainstate().CoinsTip(), true, 0, true, true, g_chainstate_manager.ValidationCaches(), nullptr));
-            BOOST_CHECK(!CheckInputs(spend_tx, state, &g_chainstate_manager.ActiveChainstate().CoinsTip(), true, PolicyConstants::STANDARD_NOT_MANDATORY_VERIFY_FLAGS, true, true, g_chainstate_manager.ValidationCaches(), nullptr));
-            BOOST_CHECK(!CheckInputs(spend_tx, state, &g_chainstate_manager.ActiveChainstate().CoinsTip(), true, PolicyConstants::STANDARD_SCRIPT_VERIFY_FLAGS, true, true, g_chainstate_manager.ValidationCaches(), nullptr));
+            BOOST_CHECK(!CheckInputs(spend_tx, state, &m_node.chainman->ActiveChainstate().CoinsTip(), true, 0, true, true, m_node.chainman->ValidationCaches(), nullptr));
+            BOOST_CHECK(!CheckInputs(spend_tx, state, &m_node.chainman->ActiveChainstate().CoinsTip(), true, PolicyConstants::STANDARD_NOT_MANDATORY_VERIFY_FLAGS, true, true, m_node.chainman->ValidationCaches(), nullptr));
+            BOOST_CHECK(!CheckInputs(spend_tx, state, &m_node.chainman->ActiveChainstate().CoinsTip(), true, PolicyConstants::STANDARD_SCRIPT_VERIFY_FLAGS, true, true, m_node.chainman->ValidationCaches(), nullptr));
 
             // Sign, with a DER signature
             {
@@ -247,18 +247,18 @@ BOOST_FIXTURE_TEST_CASE(checkinputs_test, TestChainSetup)
             // ConnectBlock), we should add a script check object for this -- we're
             // not caching invalidity (if that changes, delete this test case).
             std::vector<CScriptCheck> scriptchecks;
-            BOOST_CHECK(CheckInputs(spend_tx, state, &g_chainstate_manager.ActiveChainstate().CoinsTip(), true, 0, true, true, g_chainstate_manager.ValidationCaches(), &scriptchecks));
+            BOOST_CHECK(CheckInputs(spend_tx, state, &m_node.chainman->ActiveChainstate().CoinsTip(), true, 0, true, true, m_node.chainman->ValidationCaches(), &scriptchecks));
             BOOST_CHECK_EQUAL(scriptchecks.size(), 1U);
-            BOOST_CHECK(CheckInputs(spend_tx, state, &g_chainstate_manager.ActiveChainstate().CoinsTip(), true, PolicyConstants::STANDARD_NOT_MANDATORY_VERIFY_FLAGS, true, true, g_chainstate_manager.ValidationCaches(), &scriptchecks));
+            BOOST_CHECK(CheckInputs(spend_tx, state, &m_node.chainman->ActiveChainstate().CoinsTip(), true, PolicyConstants::STANDARD_NOT_MANDATORY_VERIFY_FLAGS, true, true, m_node.chainman->ValidationCaches(), &scriptchecks));
             BOOST_CHECK_EQUAL(scriptchecks.size(), 2U);
-            BOOST_CHECK(CheckInputs(spend_tx, state, &g_chainstate_manager.ActiveChainstate().CoinsTip(), true, PolicyConstants::STANDARD_SCRIPT_VERIFY_FLAGS, true, true, g_chainstate_manager.ValidationCaches(), &scriptchecks));
+            BOOST_CHECK(CheckInputs(spend_tx, state, &m_node.chainman->ActiveChainstate().CoinsTip(), true, PolicyConstants::STANDARD_SCRIPT_VERIFY_FLAGS, true, true, m_node.chainman->ValidationCaches(), &scriptchecks));
             BOOST_CHECK_EQUAL(scriptchecks.size(), 3U);
 
             // Test that CheckInputs returns true iff DERSIG-enforcing flags are
             // not present.  Don't add these checks to the cache, so that we can
             // test later that block validation works fine in the absence of cached
             // successes.
-            ValidateCheckInputsForAllFlags(spend_tx, PolicyConstants::STANDARD_SCRIPT_VERIFY_FLAGS, false);
+            ValidateCheckInputsForAllFlags(*m_node.chainman, spend_tx, PolicyConstants::STANDARD_SCRIPT_VERIFY_FLAGS, false);
         }
 
         // And if we produce a block with this tx, it should be valid (DERSIG not
@@ -268,8 +268,8 @@ BOOST_FIXTURE_TEST_CASE(checkinputs_test, TestChainSetup)
         block = CreateAndProcessBlock({spend_tx}, p2pk_scriptPubKey);
 
         LOCK(cs_main);
-        BOOST_CHECK(g_chainstate_manager.ActiveChain().Tip()->GetBlockHash() == block.GetHash());
-        BOOST_CHECK(g_chainstate_manager.ActiveChainstate().CoinsTip().GetBestBlock() == block.GetHash());
+        BOOST_CHECK(m_node.chainman->ActiveChain().Tip()->GetBlockHash() == block.GetHash());
+        BOOST_CHECK(m_node.chainman->ActiveChainstate().CoinsTip().GetBestBlock() == block.GetHash());
         BOOST_CHECK_EQUAL(block.proof.size(), CPubKey::SCHNORR_SIGNATURE_SIZE);
 
         // Test P2SH: construct a transaction that is valid without P2SH, and
@@ -287,9 +287,9 @@ BOOST_FIXTURE_TEST_CASE(checkinputs_test, TestChainSetup)
             invalid_under_p2sh_tx.vin[0].scriptSig << vchSig2;
 
             CValidationState state;
-            BOOST_CHECK(!CheckInputs(invalid_under_p2sh_tx, state, &g_chainstate_manager.ActiveChainstate().CoinsTip(), true, 0, true, true, g_chainstate_manager.ValidationCaches(), nullptr));
-            BOOST_CHECK(!CheckInputs(invalid_under_p2sh_tx, state, &g_chainstate_manager.ActiveChainstate().CoinsTip(), true, PolicyConstants::STANDARD_NOT_MANDATORY_VERIFY_FLAGS, true, true, g_chainstate_manager.ValidationCaches(), nullptr));
-            BOOST_CHECK(!CheckInputs(invalid_under_p2sh_tx, state, &g_chainstate_manager.ActiveChainstate().CoinsTip(), true, PolicyConstants::STANDARD_SCRIPT_VERIFY_FLAGS, true, true, g_chainstate_manager.ValidationCaches(), nullptr));
+            BOOST_CHECK(!CheckInputs(invalid_under_p2sh_tx, state, &m_node.chainman->ActiveChainstate().CoinsTip(), true, 0, true, true, m_node.chainman->ValidationCaches(), nullptr));
+            BOOST_CHECK(!CheckInputs(invalid_under_p2sh_tx, state, &m_node.chainman->ActiveChainstate().CoinsTip(), true, PolicyConstants::STANDARD_NOT_MANDATORY_VERIFY_FLAGS, true, true, m_node.chainman->ValidationCaches(), nullptr));
+            BOOST_CHECK(!CheckInputs(invalid_under_p2sh_tx, state, &m_node.chainman->ActiveChainstate().CoinsTip(), true, PolicyConstants::STANDARD_SCRIPT_VERIFY_FLAGS, true, true, m_node.chainman->ValidationCaches(), nullptr));
         }
 
         // Test CHECKLOCKTIMEVERIFY
@@ -323,15 +323,15 @@ BOOST_FIXTURE_TEST_CASE(checkinputs_test, TestChainSetup)
             invalid_with_cltv_tx.vin[0].scriptSig = CScript() << vchSig << 101;
 
             CValidationState state;
-            BOOST_CHECK(!CheckInputs(invalid_with_cltv_tx, state, &g_chainstate_manager.ActiveChainstate().CoinsTip(), true, 0, true, true, g_chainstate_manager.ValidationCaches(), nullptr));
-            BOOST_CHECK(!CheckInputs(invalid_with_cltv_tx, state, &g_chainstate_manager.ActiveChainstate().CoinsTip(), true, PolicyConstants::STANDARD_NOT_MANDATORY_VERIFY_FLAGS, true, true, g_chainstate_manager.ValidationCaches(), nullptr));
-            BOOST_CHECK(!CheckInputs(invalid_with_cltv_tx, state, &g_chainstate_manager.ActiveChainstate().CoinsTip(), true, PolicyConstants::STANDARD_SCRIPT_VERIFY_FLAGS, true, true, g_chainstate_manager.ValidationCaches(), nullptr));
+            BOOST_CHECK(!CheckInputs(invalid_with_cltv_tx, state, &m_node.chainman->ActiveChainstate().CoinsTip(), true, 0, true, true, m_node.chainman->ValidationCaches(), nullptr));
+            BOOST_CHECK(!CheckInputs(invalid_with_cltv_tx, state, &m_node.chainman->ActiveChainstate().CoinsTip(), true, PolicyConstants::STANDARD_NOT_MANDATORY_VERIFY_FLAGS, true, true, m_node.chainman->ValidationCaches(), nullptr));
+            BOOST_CHECK(!CheckInputs(invalid_with_cltv_tx, state, &m_node.chainman->ActiveChainstate().CoinsTip(), true, PolicyConstants::STANDARD_SCRIPT_VERIFY_FLAGS, true, true, m_node.chainman->ValidationCaches(), nullptr));
 
             // Make it valid, and check again
             invalid_with_cltv_tx.vin[0].scriptSig = CScript() << vchSig << 100;
-            BOOST_CHECK(CheckInputs(invalid_with_cltv_tx, state, &g_chainstate_manager.ActiveChainstate().CoinsTip(), true, 0, true, true, g_chainstate_manager.ValidationCaches(), nullptr));
-            BOOST_CHECK(CheckInputs(invalid_with_cltv_tx, state, &g_chainstate_manager.ActiveChainstate().CoinsTip(), true, PolicyConstants::STANDARD_NOT_MANDATORY_VERIFY_FLAGS, true, true, g_chainstate_manager.ValidationCaches(), nullptr));
-            BOOST_CHECK(CheckInputs(invalid_with_cltv_tx, state, &g_chainstate_manager.ActiveChainstate().CoinsTip(), true, PolicyConstants::STANDARD_SCRIPT_VERIFY_FLAGS, true, true, g_chainstate_manager.ValidationCaches(), nullptr));
+            BOOST_CHECK(CheckInputs(invalid_with_cltv_tx, state, &m_node.chainman->ActiveChainstate().CoinsTip(), true, 0, true, true, m_node.chainman->ValidationCaches(), nullptr));
+            BOOST_CHECK(CheckInputs(invalid_with_cltv_tx, state, &m_node.chainman->ActiveChainstate().CoinsTip(), true, PolicyConstants::STANDARD_NOT_MANDATORY_VERIFY_FLAGS, true, true, m_node.chainman->ValidationCaches(), nullptr));
+            BOOST_CHECK(CheckInputs(invalid_with_cltv_tx, state, &m_node.chainman->ActiveChainstate().CoinsTip(), true, PolicyConstants::STANDARD_SCRIPT_VERIFY_FLAGS, true, true, m_node.chainman->ValidationCaches(), nullptr));
         }
 
         // TEST CHECKSEQUENCEVERIFY
@@ -365,15 +365,15 @@ BOOST_FIXTURE_TEST_CASE(checkinputs_test, TestChainSetup)
 
             CValidationState state;
 
-            BOOST_CHECK(!CheckInputs(invalid_with_csv_tx, state, &g_chainstate_manager.ActiveChainstate().CoinsTip(), true, 0, true, true, g_chainstate_manager.ValidationCaches(), nullptr));
-            BOOST_CHECK(!CheckInputs(invalid_with_csv_tx, state, &g_chainstate_manager.ActiveChainstate().CoinsTip(), true, PolicyConstants::STANDARD_NOT_MANDATORY_VERIFY_FLAGS, true, true, g_chainstate_manager.ValidationCaches(), nullptr));
-            BOOST_CHECK(!CheckInputs(invalid_with_csv_tx, state, &g_chainstate_manager.ActiveChainstate().CoinsTip(), true, PolicyConstants::STANDARD_SCRIPT_VERIFY_FLAGS, true, true, g_chainstate_manager.ValidationCaches(), nullptr));
+            BOOST_CHECK(!CheckInputs(invalid_with_csv_tx, state, &m_node.chainman->ActiveChainstate().CoinsTip(), true, 0, true, true, m_node.chainman->ValidationCaches(), nullptr));
+            BOOST_CHECK(!CheckInputs(invalid_with_csv_tx, state, &m_node.chainman->ActiveChainstate().CoinsTip(), true, PolicyConstants::STANDARD_NOT_MANDATORY_VERIFY_FLAGS, true, true, m_node.chainman->ValidationCaches(), nullptr));
+            BOOST_CHECK(!CheckInputs(invalid_with_csv_tx, state, &m_node.chainman->ActiveChainstate().CoinsTip(), true, PolicyConstants::STANDARD_SCRIPT_VERIFY_FLAGS, true, true, m_node.chainman->ValidationCaches(), nullptr));
 
             // Make it valid, and check again
             invalid_with_csv_tx.vin[0].scriptSig = CScript() << vchSig << 100;
-            BOOST_CHECK(CheckInputs(invalid_with_csv_tx, state, &g_chainstate_manager.ActiveChainstate().CoinsTip(), true, 0, true, true, g_chainstate_manager.ValidationCaches(), nullptr));
-            BOOST_CHECK(CheckInputs(invalid_with_csv_tx, state, &g_chainstate_manager.ActiveChainstate().CoinsTip(), true, PolicyConstants::STANDARD_NOT_MANDATORY_VERIFY_FLAGS, true, true, g_chainstate_manager.ValidationCaches(), nullptr));
-            BOOST_CHECK(CheckInputs(invalid_with_csv_tx, state, &g_chainstate_manager.ActiveChainstate().CoinsTip(), true, PolicyConstants::STANDARD_SCRIPT_VERIFY_FLAGS, true, true, g_chainstate_manager.ValidationCaches(), nullptr));
+            BOOST_CHECK(CheckInputs(invalid_with_csv_tx, state, &m_node.chainman->ActiveChainstate().CoinsTip(), true, 0, true, true, m_node.chainman->ValidationCaches(), nullptr));
+            BOOST_CHECK(CheckInputs(invalid_with_csv_tx, state, &m_node.chainman->ActiveChainstate().CoinsTip(), true, PolicyConstants::STANDARD_NOT_MANDATORY_VERIFY_FLAGS, true, true, m_node.chainman->ValidationCaches(), nullptr));
+            BOOST_CHECK(CheckInputs(invalid_with_csv_tx, state, &m_node.chainman->ActiveChainstate().CoinsTip(), true, PolicyConstants::STANDARD_SCRIPT_VERIFY_FLAGS, true, true, m_node.chainman->ValidationCaches(), nullptr));
         }
     }
 }

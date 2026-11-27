@@ -11,6 +11,7 @@
 #include <txdb.h>
 
 #include <algorithm>
+#include <iterator>
 #include <utility>
 
 BlockIndexMap::BlockIndexMap() = default;
@@ -20,18 +21,18 @@ BlockIndexMap::~BlockIndexMap() = default;
 CBlockIndex* BlockIndexMap::LookupBlockIndex(const uint256& hash) const
 {
     AssertLockHeld(cs_main);
-    BlockMap::const_iterator it = mapBlockIndex.find(hash);
-    return it == mapBlockIndex.end() ? nullptr : it->second;
+    BlockMap::const_iterator it = m_entries.find(hash);
+    return it == m_entries.end() ? nullptr : it->second;
 }
 
-CBlockIndex* BlockIndexMap::AddToBlockIndex(const CBlockHeader& block, CBlockIndex*& pindexBestHeader)
+CBlockIndex* BlockIndexMap::AddToBlockIndex(const CBlockHeader& block)
 {
     AssertLockHeld(cs_main);
 
     // Check for duplicate
     uint256 hash = block.GetHash();
-    BlockMap::iterator it = mapBlockIndex.find(hash);
-    if (it != mapBlockIndex.end())
+    BlockMap::iterator it = m_entries.find(hash);
+    if (it != m_entries.end())
         return it->second;
 
     // Construct new block index object
@@ -40,10 +41,10 @@ CBlockIndex* BlockIndexMap::AddToBlockIndex(const CBlockHeader& block, CBlockInd
     // to avoid miners withholding blocks but broadcasting headers, to get a
     // competitive advantage.
     pindexNew->nSequenceId = 0;
-    BlockMap::iterator mi = mapBlockIndex.insert(std::make_pair(hash, pindexNew)).first;
+    BlockMap::iterator mi = m_entries.insert(std::make_pair(hash, pindexNew)).first;
     pindexNew->phashBlock = &((*mi).first);
-    BlockMap::iterator miPrev = mapBlockIndex.find(block.hashPrevBlock);
-    if (miPrev != mapBlockIndex.end())
+    BlockMap::iterator miPrev = m_entries.find(block.hashPrevBlock);
+    if (miPrev != m_entries.end())
     {
         pindexNew->pprev = (*miPrev).second;
         pindexNew->nHeight = pindexNew->pprev->nHeight + 1;
@@ -51,10 +52,8 @@ CBlockIndex* BlockIndexMap::AddToBlockIndex(const CBlockHeader& block, CBlockInd
     }
     pindexNew->nTimeMax = (pindexNew->pprev ? std::max(pindexNew->pprev->nTimeMax, pindexNew->nTime) : pindexNew->nTime);
     pindexNew->RaiseValidity(BLOCK_VALID_TREE);
-    if (pindexBestHeader == nullptr || pindexBestHeader->nHeight < pindexNew->nHeight)
-        pindexBestHeader = pindexNew;
 
-    setDirtyBlockIndex.insert(pindexNew);
+    m_dirty.insert(pindexNew);
 
     return pindexNew;
 }
@@ -67,13 +66,13 @@ CBlockIndex* BlockIndexMap::InsertBlockIndex(const uint256& hash)
         return nullptr;
 
     // Return existing
-    BlockMap::iterator mi = mapBlockIndex.find(hash);
-    if (mi != mapBlockIndex.end())
+    BlockMap::iterator mi = m_entries.find(hash);
+    if (mi != m_entries.end())
         return (*mi).second;
 
     // Create new
     CBlockIndex* pindexNew = new CBlockIndex();
-    mi = mapBlockIndex.insert(std::make_pair(hash, pindexNew)).first;
+    mi = m_entries.insert(std::make_pair(hash, pindexNew)).first;
     pindexNew->phashBlock = &((*mi).first);
 
     return pindexNew;
@@ -81,12 +80,12 @@ CBlockIndex* BlockIndexMap::InsertBlockIndex(const uint256& hash)
 
 bool BlockIndexMap::LoadBlockIndex(std::vector<CBlockIndex*>& vSortedByHeight)
 {
-    if (!pblocktreedb->LoadBlockIndexGuts([this](const uint256& hash) EXCLUSIVE_LOCKS_REQUIRED(cs_main) { return this->InsertBlockIndex(hash); }))
+    if (!m_db->LoadBlockIndexGuts([this](const uint256& hash) EXCLUSIVE_LOCKS_REQUIRED(cs_main) { return this->InsertBlockIndex(hash); }))
         return false;
 
     std::vector<std::pair<int, CBlockIndex*> > vHeightAndIndex;
-    vHeightAndIndex.reserve(mapBlockIndex.size());
-    for (const std::pair<const uint256, CBlockIndex*>& item : mapBlockIndex)
+    vHeightAndIndex.reserve(m_entries.size());
+    for (const std::pair<const uint256, CBlockIndex*>& item : m_entries)
     {
         CBlockIndex* pindex = item.second;
         vHeightAndIndex.push_back(std::make_pair(pindex->nHeight, pindex));
@@ -106,7 +105,7 @@ bool BlockIndexMap::LoadBlockIndex(std::vector<CBlockIndex*>& vSortedByHeight)
                     pindex->nChainTx = pindex->pprev->nChainTx + pindex->nTx;
                 } else {
                     pindex->nChainTx = 0;
-                    mapBlocksUnlinked.insert(std::make_pair(pindex->pprev, pindex));
+                    m_unlinked.insert(std::make_pair(pindex->pprev, pindex));
                 }
             } else {
                 pindex->nChainTx = pindex->nTx;
@@ -114,7 +113,7 @@ bool BlockIndexMap::LoadBlockIndex(std::vector<CBlockIndex*>& vSortedByHeight)
         }
         if (!(pindex->nStatus & BLOCK_FAILED_MASK) && pindex->pprev && (pindex->pprev->nStatus & BLOCK_FAILED_MASK)) {
             pindex->nStatus |= BLOCK_FAILED_CHILD;
-            setDirtyBlockIndex.insert(pindex);
+            m_dirty.insert(pindex);
         }
         if (pindex->pprev)
             pindex->BuildSkip();
@@ -124,12 +123,60 @@ bool BlockIndexMap::LoadBlockIndex(std::vector<CBlockIndex*>& vSortedByHeight)
     return true;
 }
 
+bool BlockIndexMap::WriteDirty(const std::vector<std::pair<int, const CBlockFileInfo*>>& files, int last_file)
+{
+    AssertLockHeld(cs_main);
+    std::vector<const CBlockIndex*> blocks(m_dirty.begin(), m_dirty.end());
+    m_dirty.clear();
+    return m_db->WriteBatchSync(files, last_file, blocks);
+}
+
+std::vector<CBlockIndex*> BlockIndexMap::TakeUnlinkedChildren(CBlockIndex* parent)
+{
+    AssertLockHeld(cs_main);
+    std::vector<CBlockIndex*> children;
+    const auto range{m_unlinked.equal_range(parent)};
+    for (auto it = range.first; it != range.second; ++it) children.push_back(it->second);
+    m_unlinked.erase(range.first, range.second);
+    return children;
+}
+
+void BlockIndexMap::RemoveUnlinked(const CBlockIndex* pindex)
+{
+    AssertLockHeld(cs_main);
+    const auto range{m_unlinked.equal_range(pindex->pprev)};
+    for (auto it = range.first; it != range.second;) {
+        it = it->second == pindex ? m_unlinked.erase(it) : std::next(it);
+    }
+}
+
+bool BlockIndexMap::IsUnlinked(const CBlockIndex* pindex) const
+{
+    AssertLockHeld(cs_main);
+    const auto range{m_unlinked.equal_range(pindex->pprev)};
+    return std::any_of(range.first, range.second, [pindex](const auto& entry) { return entry.second == pindex; });
+}
+
+void BlockIndexMap::OpenDB(size_t cache_size, bool in_memory, bool wipe)
+{
+    AssertLockHeld(cs_main);
+    // A new database deletes the existing files when wiping, which fails while they are still open.
+    m_db.reset();
+    m_db = std::make_unique<CBlockTreeDB>(cache_size, in_memory, wipe);
+}
+
+void BlockIndexMap::CloseDB()
+{
+    AssertLockHeld(cs_main);
+    m_db.reset();
+}
+
 void BlockIndexMap::Unload()
 {
-    mapBlocksUnlinked.clear();
-    setDirtyBlockIndex.clear();
-    for (BlockMap::value_type& entry : mapBlockIndex) {
+    m_unlinked.clear();
+    m_dirty.clear();
+    for (BlockMap::value_type& entry : m_entries) {
         delete entry.second;
     }
-    mapBlockIndex.clear();
+    m_entries.clear();
 }

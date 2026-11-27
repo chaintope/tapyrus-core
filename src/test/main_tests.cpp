@@ -44,7 +44,7 @@ static void TestBlockSubsidyHalvings(const ConsensusSettings& settings)
 
 BOOST_AUTO_TEST_CASE(block_subsidy_test)
 {
-    TestBlockSubsidyHalvings(g_chainstate_manager.Settings()); // As in prod
+    TestBlockSubsidyHalvings(m_node.chainman->Settings()); // As in prod
     TestBlockSubsidyHalvings(ConsensusSettings(ReadGenesisBlock(), TAPYRUS_OP_MODE::DEV, FederationParams().NetworkId())); // As in dev
     TestBlockSubsidyHalvings(HalvingIntervalSettings(1000)); // Just another interval
 }
@@ -53,7 +53,7 @@ BOOST_AUTO_TEST_CASE(subsidy_limit_test)
 {
     CAmount nSum = 0;
     for (int nHeight = 0; nHeight < 14000000; nHeight += 1000) {
-        CAmount nSubsidy = g_chainstate_manager.Settings().BlockSubsidy(nHeight);
+        CAmount nSubsidy = m_node.chainman->Settings().BlockSubsidy(nHeight);
         BOOST_CHECK(nSubsidy <= 50 * ConsensusConstants::COIN);
         nSum += nSubsidy * 1000;
         BOOST_CHECK(MoneyRange(nSum));

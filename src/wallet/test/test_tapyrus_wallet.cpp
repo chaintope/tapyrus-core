@@ -57,6 +57,10 @@ void TestWalletSetup::initWallet()
             coinbasePubKeyHash.data());
 
     wallet = MakeUnique<CWallet>(m_chain.get(), "mock", WalletDatabase::CreateMock());
+    {
+        LOCK(wallet->cs_wallet);
+        wallet->SetLastBlockProcessed(m_node.chainman->ActiveChain().Height(), m_node.chainman->ActiveChain().Tip()->GetBlockHash());
+    }
     bool firstRun;
     wallet->LoadWallet(firstRun);
 }
@@ -66,16 +70,20 @@ bool TestWalletSetup::ProcessBlockAndScanForWalletTxns(const CTransactionRef tx)
     MempoolAcceptResult accept_result;
     {
         LOCK(cs_main);
-        if(!g_chainstate_manager.ActiveChainstate().AcceptToMemoryPool(tx, opt, accept_result)) {
+        if(!m_node.chainman->ActiveChainstate().AcceptToMemoryPool(tx, opt, accept_result)) {
             return false;
         }
     }
     CreateAndProcessBlock({ CMutableTransaction(*tx) }, CScript() <<  ToByteVector(coinbaseKey.GetPubKey()) << OP_CHECKSIG);
+    {
+        LOCK(wallet->cs_wallet);
+        wallet->SetLastBlockProcessed(m_node.chainman->ActiveChain().Height(), m_node.chainman->ActiveChain().Tip()->GetBlockHash());
+    }
 
     WalletRescanReserver reserver(wallet.get());
     reserver.reserve();
 
-    if(wallet->ScanForWalletTransactions(g_chainstate_manager.ActiveChain().Genesis(), nullptr, reserver, true)) {
+    if (wallet->ScanForWalletTransactions(m_node.chainman->ActiveChain().Genesis()->GetBlockHash(), 0, {}, reserver, true).status != CWallet::ScanResult::SUCCESS) {
         return false;
     }
 

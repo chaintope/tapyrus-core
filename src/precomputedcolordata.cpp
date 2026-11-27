@@ -10,9 +10,10 @@
 #include <primitives/transaction.h>
 #include <script/interpreter.h>
 
-PrecomputedColorData::PrecomputedColorData(const CTransaction& tx, const CCoinsViewCache& inputs, int32_t blockHeight)
+
+PrecomputedColorData::PrecomputedColorData(const CTransaction& tx, const CCoinsViewCache& inputs, const ConsensusSettings& settings, int32_t blockHeight, const CIssuedColorIds& issued)
     : m_coinbase(tx.IsCoinBase()),
-      m_cp2sh_colored_active(g_chainstate_manager.Settings().IsActive(SCRIPT_VERIFY_CP2SH_COLORED, blockHeight))
+      m_cp2sh_colored_active(settings.IsActive(SCRIPT_VERIFY_CP2SH_COLORED, blockHeight))
 {
     // Outputs first, so the inputs hash only the colorids some output can issue.
     bool needScriptColorId{false};
@@ -27,6 +28,8 @@ PrecomputedColorData::PrecomputedColorData(const CTransaction& tx, const CCoinsV
             needScriptColorId = true;
         else if (out.colorId.type != TokenTypes::NONE)
             needOutpointColorId = true;
+        if (out.colorId.type == TokenTypes::NON_REISSUABLE || out.colorId.type == TokenTypes::NFT)
+            out.issued = issued.IsIssued(out.colorId);
         m_output_balances[out.colorId] += out.value;
         m_outputs.push_back(std::move(out));
     }
@@ -59,14 +62,6 @@ PrecomputedColorData::PrecomputedColorData(const CTransaction& tx, const CCoinsV
         m_inputs.push_back(std::move(in));
     }
 
-}
-
-void PrecomputedColorData::SetIssued(const CIssuedColorIds& issued)
-{
-    for (Output& out : m_outputs) {
-        if (out.colorId.type == TokenTypes::NON_REISSUABLE || out.colorId.type == TokenTypes::NFT)
-            out.issued = issued.IsIssued(out.colorId);
-    }
 }
 
 CAmount PrecomputedColorData::TpcIn() const

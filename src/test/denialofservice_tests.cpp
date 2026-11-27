@@ -60,7 +60,7 @@ BOOST_AUTO_TEST_CASE(outbound_slow_chain_eviction)
 {
     // Mock an outbound peer
     CAddress addr1(ip(0xa0b0c001), NODE_NONE);
-    CNode dummyNode1(id++, ServiceFlags(NODE_NETWORK), 0, INVALID_SOCKET, addr1, 0, 0, CAddress(), "", /*fInboundIn=*/ false);
+    CNode dummyNode1(id++, ServiceFlags(NODE_NETWORK), INVALID_SOCKET, addr1, 0, 0, CAddress(), "", /*fInboundIn=*/ false);
     dummyNode1.SetSendVersion(PROTOCOL_VERSION);
 
     m_node.peerman->InitializeNode(&dummyNode1);
@@ -69,7 +69,7 @@ BOOST_AUTO_TEST_CASE(outbound_slow_chain_eviction)
 
     {
         LOCK(cs_main);
-        BOOST_CHECK(g_chainstate_manager.ActiveChain().Tip() != nullptr);
+        BOOST_CHECK(m_node.chainman->ActiveChain().Tip() != nullptr);
     }
 
     // Test starts here
@@ -112,7 +112,7 @@ BOOST_AUTO_TEST_CASE(outbound_slow_chain_eviction)
 static void AddRandomOutboundPeer(std::vector<CNode *> &vNodes, PeerManager &peerman, CConnman& connman)
 {
     CAddress addr(ip(GetRandInt(0xffffffff)), NODE_NONE);
-    vNodes.emplace_back(new CNode(id++, ServiceFlags(NODE_NETWORK), 0, INVALID_SOCKET, addr, 0, 0, CAddress(), "", /*fInboundIn=*/ false));
+    vNodes.emplace_back(new CNode(id++, ServiceFlags(NODE_NETWORK), INVALID_SOCKET, addr, 0, 0, CAddress(), "", /*fInboundIn=*/ false));
     CNode &node = *vNodes.back();
     node.SetSendVersion(PROTOCOL_VERSION);
 
@@ -202,7 +202,7 @@ BOOST_AUTO_TEST_CASE(DoS_banning)
 
     m_node.connman->ClearBanned();
     CAddress addr1(ip(0xa0b0c001), NODE_NONE);
-    CNode dummyNode1(id++, NODE_NETWORK, 0, INVALID_SOCKET, addr1, 0, 0, CAddress(), "", true);
+    CNode dummyNode1(id++, NODE_NETWORK, INVALID_SOCKET, addr1, 0, 0, CAddress(), "", true);
     dummyNode1.SetSendVersion(PROTOCOL_VERSION);
     m_node.peerman->InitializeNode(&dummyNode1);
     dummyNode1.nVersion = 1;
@@ -220,7 +220,7 @@ BOOST_AUTO_TEST_CASE(DoS_banning)
     BOOST_CHECK(!m_node.connman->IsDiscouraged(ip(0xa0b0c001|0x0000ff00))); // Different IP, not discouraged
 
     CAddress addr2(ip(0xa0b0c002), NODE_NONE);
-    CNode dummyNode2(id++, NODE_NETWORK, 0, INVALID_SOCKET, addr2, 1, 1, CAddress(), "", true);
+    CNode dummyNode2(id++, NODE_NETWORK, INVALID_SOCKET, addr2, 1, 1, CAddress(), "", true);
     dummyNode2.SetSendVersion(PROTOCOL_VERSION);
     m_node.peerman->InitializeNode(&dummyNode2);
     dummyNode2.nVersion = 1;
@@ -256,7 +256,7 @@ BOOST_AUTO_TEST_CASE(DoS_banscore)
     m_node.connman->ClearBanned();
     gArgs.ForceSetArg("-banscore", "111"); // because 11 is my favorite number
     CAddress addr1(ip(0xa0b0c001), NODE_NONE);
-    CNode dummyNode1(id++, NODE_NETWORK, 0, INVALID_SOCKET, addr1, 3, 1, CAddress(), "", true);
+    CNode dummyNode1(id++, NODE_NETWORK, INVALID_SOCKET, addr1, 3, 1, CAddress(), "", true);
     dummyNode1.SetSendVersion(PROTOCOL_VERSION);
     m_node.peerman->InitializeNode(&dummyNode1);
     dummyNode1.nVersion = 1;
@@ -301,7 +301,7 @@ BOOST_AUTO_TEST_CASE(DoS_discourage_lasts)
     SetMockTime(nStartTime); // Overrides future calls to GetTime()
 
     CAddress addr(ip(0xa0b0c001), NODE_NONE);
-    CNode dummyNode(id++, NODE_NETWORK, 0, INVALID_SOCKET, addr, 4, 4, CAddress(), "", true);
+    CNode dummyNode(id++, NODE_NETWORK, INVALID_SOCKET, addr, 4, 4, CAddress(), "", true);
     dummyNode.SetSendVersion(PROTOCOL_VERSION);
     m_node.peerman->InitializeNode(&dummyNode);
     dummyNode.nVersion = 1;
@@ -348,7 +348,7 @@ BOOST_AUTO_TEST_CASE(DoS_mapOrphans)
         tx.vout[0].nValue = 1*CENT;
         tx.vout[0].scriptPubKey = GetScriptForDestination(key.GetPubKey().GetID());
 
-        orphans.AddOrphanTx(MakeTransactionRef(tx), i);
+        orphans.AddOrphanTx(MakeTransactionRef(tx), i, MaxBlockSize());
     }
 
     // ... and 50 that depend on other orphans:
@@ -365,7 +365,7 @@ BOOST_AUTO_TEST_CASE(DoS_mapOrphans)
         tx.vout[0].scriptPubKey = GetScriptForDestination(key.GetPubKey().GetID());
         SignSignature(keystore, *txPrev, tx, 0, SIGHASH_ALL);
 
-        orphans.AddOrphanTx(MakeTransactionRef(tx), i);
+        orphans.AddOrphanTx(MakeTransactionRef(tx), i, MaxBlockSize());
     }
 
     // This really-big orphan should be ignored:
@@ -389,7 +389,7 @@ BOOST_AUTO_TEST_CASE(DoS_mapOrphans)
         for (unsigned int j = 1; j < tx.vin.size(); j++)
             tx.vin[j].scriptSig = tx.vin[0].scriptSig;
 
-        BOOST_CHECK(!orphans.AddOrphanTx(MakeTransactionRef(tx), i));
+        BOOST_CHECK(!orphans.AddOrphanTx(MakeTransactionRef(tx), i, MaxBlockSize()));
     }
 
     // Test EraseOrphansFor:
@@ -425,11 +425,11 @@ BOOST_AUTO_TEST_CASE(DoS_orphan_size_limit)
     OrphanTxPoolTest orphans;
     {
         PolicySettingsOverride smallOrphans({{"-maxorphantxsize", std::to_string(size - 1)}});
-        BOOST_CHECK(!orphans.AddOrphanTx(tx, 0));
+        BOOST_CHECK(!orphans.AddOrphanTx(tx, 0, MaxBlockSize()));
     }
     {
         PolicySettingsOverride exactOrphans({{"-maxorphantxsize", std::to_string(size)}});
-        BOOST_CHECK(orphans.AddOrphanTx(tx, 0));
+        BOOST_CHECK(orphans.AddOrphanTx(tx, 0, MaxBlockSize()));
     }
 }
 

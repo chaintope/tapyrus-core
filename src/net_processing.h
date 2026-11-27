@@ -37,6 +37,7 @@ class CBlock;
 class CBlockHeader;
 class CBlockHeaderAndShortTxIDs;
 class CChainParams;
+class ChainstateManager;
 class CTxMemPool;
 struct CNodeStateStats;
 
@@ -44,11 +45,13 @@ struct CNodeStateStats;
 class PeerManager final : public CValidationInterface, public NetEventsInterface {
 private:
     CConnman& m_connman;
+    //! The chain peers sync from us and blocks they send are processed into.
+    ChainstateManager& m_chainman;
     //! Transactions peers send are accepted into it and relayed from it.
     CTxMemPool& m_mempool;
 
 public:
-    PeerManager(CConnman& connman, CTxMemPool& mempool, CScheduler& scheduler, PeerNotifications& notifications);
+    PeerManager(CConnman& connman, ChainstateManager& chainman, CTxMemPool& mempool, CScheduler& scheduler, PeerNotifications& notifications);
 
     /**
      * Overridden from CValidationInterface.
@@ -103,8 +106,12 @@ public:
     bool GetNodeStateStats(NodeId nodeid, CNodeStateStats &stats);
     /** Increment a peer's misbehavior score; past `-banscore` the peer is disconnected and discouraged. */
     void Misbehaving(NodeId pnode, int howmuch, const std::string& message = "") EXCLUSIVE_LOCKS_REQUIRED(cs_main);
+    //! Announces tx to every connected peer.
+    void RelayTransaction(const CTransaction& tx);
     /** Sets a peer's last block announcement time; used by the stale-tip eviction tests. */
     void UpdateLastBlockAnnounceTime(NodeId node, int64_t time_in_seconds);
+    //! Sets the height sent in version messages until the next tip update.
+    void SetBestHeight(int height) { m_best_height = height; }
 
 private:
     int64_t m_stale_tip_check_time; //! Next time to check for stale tip
@@ -162,14 +169,14 @@ private:
 
     /** When our tip was last updated. */
     std::atomic<int64_t> m_last_tip_update{0};
+    //! The height of the best chain, for the version message.
+    std::atomic<int> m_best_height{-1};
 
     /** Relay map */
     typedef std::map<uint256, CTransactionRef> MapRelay;
     MapRelay mapRelay GUARDED_BY(cs_main);
     /** Expiration-time ordered list of (expire time, relay map entry) pairs. */
     std::deque<std::pair<int64_t, MapRelay::iterator>> vRelayExpiration GUARDED_BY(cs_main);
-
-    std::atomic<int64_t> nTimeBestReceived{0}; // Used only to inform the wallet of when we last received a block
 
     /** Guards the orphan pool and the compact-block extra-transaction ring.
      *  Taken after cs_main and before mempool.cs. Never held across ProcessNewBlock,
@@ -190,18 +197,18 @@ private:
     uint256 most_recent_block_hash GUARDED_BY(cs_most_recent_block);
 
     CNodeState* State(NodeId pnode) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
-    void UpdatePreferredDownload(CNode* node, CNodeState* state) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
+    void UpdatePreferredDownload(CNode* node) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
     bool MarkBlockAsReceived(const uint256& hash, std::optional<NodeId> from_peer) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
     bool MarkBlockAsInFlight(NodeId nodeid, const uint256& hash, const CBlockIndex* pindex = nullptr, std::list<QueuedBlock>::iterator** pit = nullptr) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
     void ProcessBlockAvailability(NodeId nodeid) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
     void UpdateBlockAvailability(NodeId nodeid, const uint256& hash) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
     bool TipMayBeStale() EXCLUSIVE_LOCKS_REQUIRED(cs_main);
-    static bool CanDirectFetch() EXCLUSIVE_LOCKS_REQUIRED(cs_main);
+    bool CanDirectFetch() EXCLUSIVE_LOCKS_REQUIRED(cs_main);
     static bool PeerHasHeader(CNodeState* state, const CBlockIndex* pindex) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
     void FindNextBlocksToDownload(NodeId nodeid, unsigned int count, std::vector<const CBlockIndex*>& vBlocks, NodeId& nodeStaller) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
     static bool IsOutboundDisconnectionCandidate(const CNode* node);
     void AddToCompactExtraTransactions(const CTransactionRef& tx) EXCLUSIVE_LOCKS_REQUIRED(m_tx_download_mutex);
-    static bool BlockRequestAllowed(const CBlockIndex* pindex);
+    bool BlockRequestAllowed(const CBlockIndex* pindex);
     bool AlreadyHave(const CInv& inv) EXCLUSIVE_LOCKS_REQUIRED(cs_main, m_tx_download_mutex);
     CTransactionRef FindTxForGetData(const CNode* peer, const uint256& txid, std::chrono::seconds mempool_req, std::chrono::seconds now);
 
@@ -225,8 +232,5 @@ struct CNodeStateStats {
     uint64_t m_addr_processed = 0;
     uint64_t m_addr_rate_limited = 0;
 };
-
-/** Relay a transaction to all our peers*/
-void RelayTransaction(const CTransaction& tx, CConnman* connman);
 
 #endif // BITCOIN_NET_PROCESSING_H

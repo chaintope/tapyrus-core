@@ -64,7 +64,7 @@ BlockFileManager::BlockFileManager(const Options& options, BlockIndexMap& blockI
 bool BlockFileManager::LoadBlockFileInfo()
 {
     LOCK(cs_LastBlockFile);
-    CBlockTreeDB& blocktree = *m_block_index.pblocktreedb;
+    CBlockTreeDB& blocktree = m_block_index.DB();
 
     // Load block file info
     blocktree.ReadLastBlockFile(nLastBlockFile);
@@ -86,7 +86,7 @@ bool BlockFileManager::LoadBlockFileInfo()
     // Check presence of blk files
     LogPrintf("Checking all blk files are present...\n");
     std::set<int> setBlkDataFiles;
-    for (const std::pair<const uint256, CBlockIndex*>& item : m_block_index.mapBlockIndex)
+    for (const std::pair<const uint256, CBlockIndex*>& item : m_block_index.Entries())
     {
         CBlockIndex* pindex = item.second;
         if (pindex->nStatus & BLOCK_HAVE_DATA) {
@@ -285,7 +285,7 @@ bool BlockFileManager::WriteUndoDataForBlock(const CBlockUndo& blockundo, CValid
         // update nUndoPos in block index
         pindex->nUndoPos = _pos.nPos;
         pindex->nStatus |= BLOCK_HAVE_UNDO;
-        m_block_index.setDirtyBlockIndex.insert(pindex);
+        m_block_index.MarkDirty(pindex);
     }
 
     return true;
@@ -509,7 +509,7 @@ void BlockFileManager::PruneOneBlockFile(const int fileNumber)
 {
     LOCK(cs_LastBlockFile);
 
-    for (const auto& entry : m_block_index.mapBlockIndex) {
+    for (const auto& entry : m_block_index.Entries()) {
         CBlockIndex* pindex = entry.second;
         if (pindex->nFile == fileNumber) {
             pindex->nStatus &= ~BLOCK_HAVE_DATA;
@@ -517,20 +517,13 @@ void BlockFileManager::PruneOneBlockFile(const int fileNumber)
             pindex->nFile = 0;
             pindex->nDataPos = 0;
             pindex->nUndoPos = 0;
-            m_block_index.setDirtyBlockIndex.insert(pindex);
+            m_block_index.MarkDirty(pindex);
 
-            // Prune from mapBlocksUnlinked -- any block we prune would have
+            // Prune from the unlinked blocks -- any block we prune would have
             // to be downloaded again in order to consider its chain, at which
             // point it would be considered as a candidate for
-            // mapBlocksUnlinked or setBlockIndexCandidates.
-            std::pair<std::multimap<CBlockIndex*, CBlockIndex*>::iterator, std::multimap<CBlockIndex*, CBlockIndex*>::iterator> range = m_block_index.mapBlocksUnlinked.equal_range(pindex->pprev);
-            while (range.first != range.second) {
-                std::multimap<CBlockIndex *, CBlockIndex *>::iterator _it = range.first;
-                range.first++;
-                if (_it->second == pindex) {
-                    m_block_index.mapBlocksUnlinked.erase(_it);
-                }
-            }
+            // the unlinked blocks or setBlockIndexCandidates.
+            m_block_index.RemoveUnlinked(pindex);
         }
     }
 
@@ -653,14 +646,7 @@ bool BlockFileManager::WriteBlockIndexDB()
         vFiles.push_back(std::make_pair(*it, &vinfoBlockFile[*it]));
         setDirtyFileInfo.erase(it++);
     }
-    std::vector<const CBlockIndex*> vBlocks;
-    std::set<CBlockIndex*>& setDirtyBlockIndex = m_block_index.setDirtyBlockIndex;
-    vBlocks.reserve(setDirtyBlockIndex.size());
-    for (std::set<CBlockIndex*>::iterator it = setDirtyBlockIndex.begin(); it != setDirtyBlockIndex.end(); ) {
-        vBlocks.push_back(*it);
-        setDirtyBlockIndex.erase(it++);
-    }
-    return m_block_index.pblocktreedb->WriteBatchSync(vFiles, nLastBlockFile, vBlocks);
+    return m_block_index.WriteDirty(vFiles, nLastBlockFile);
 }
 
 void BlockFileManager::CleanupBlockRevFiles() const

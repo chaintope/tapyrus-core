@@ -14,6 +14,7 @@
 #include <genesisfile.h>
 #include <genesisblock.h>
 #include <issuedcolorids.h>
+#include <mempoolaccept.h>
 #include <notificationhub.h>
 #include <policy/fees.h>
 #include <policy/mempoolfeelistener.h>
@@ -84,35 +85,35 @@ BasicTestingSetup::BasicTestingSetup(const std::string& chainName)
         SetupEnvironment();
         SetupNetworking();
         m_node.cache = std::make_unique<const CacheSettings>(gArgs);
+        m_node.chainman = std::make_unique<ChainstateManager>();
+        ChainstateManager& chainman = *m_node.chainman;
         {
             LOCK(cs_main);
-            g_chainstate_manager.ValidationCaches().Resize(m_node.cache->nValidationCacheBytes);
+            chainman.ValidationCaches().Resize(m_node.cache->nValidationCacheBytes);
         }
         // No subscribers: a fatal error in a test is recorded, not shown or shut down on.
-        g_chainstate_manager.SetNotifications(&m_node.notifications);
+        chainman.SetNotifications(&m_node.notifications);
         SelectParams(TAPYRUS_OP_MODE::PROD);
         SetDataDir("tempdir");
         writeTestGenesisBlockToFile(GetDataDir());
         SelectFederationParams(TAPYRUS_OP_MODE::PROD);
-        g_chainstate_manager.InitConsensusSettings(std::make_unique<const ConsensusSettings>(ReadGenesisBlock(), TAPYRUS_OP_MODE::PROD, FederationParams().NetworkId()));
+        chainman.InitConsensusSettings(std::make_unique<const ConsensusSettings>(ReadGenesisBlock(), TAPYRUS_OP_MODE::PROD, FederationParams().NetworkId()));
         noui_connect();
         m_node.policy = std::make_unique<const PolicySettings>(gArgs, TAPYRUS_OP_MODE::PROD);
         g_policy_settings = m_node.policy.get();
-        g_chainstate_manager.InitXFieldHistory(g_chainstate_manager.Settings().GenesisBlock());
-        pxFieldHistory = &g_chainstate_manager.XFieldHistory();
-        g_chainstate_manager.InitOptions(ChainstateOptionsOverride::TestOptions({}));
-        g_chainstate_manager.InitBlockFileManager(BlockFileManager::Options(gArgs, Params().PruneAfterHeight()), m_node.notifications);
+        chainman.InitXFieldHistory();
+        pxFieldHistory = &chainman.XFieldHistory();
+        chainman.InitOptions(ChainstateOptionsOverride::TestOptions({}));
+        chainman.InitBlockFileManager(BlockFileManager::Options(gArgs, Params().PruneAfterHeight()));
         m_node.fee_estimator = std::make_unique<CBlockPolicyEstimator>();
-        CTxMemPool::Options mempool_options;
+        CTxMemPool::Options mempool_options(gArgs, /*default_consistency_checks=*/true);
         mempool_options.check_ratio = 1;
-        mempool_options.expiry = m_node.policy->mempoolExpiry;
-        mempool_options.max_size = m_node.policy->maxMempool;
         m_node.mempool = std::make_unique<CTxMemPool>(mempool_options);
         // Recreated for each test, as it holds a reference to this test's mempool.
-        g_chainstate_manager.InitializeChainstate(*m_node.mempool);
+        chainman.InitializeChainstate(*m_node.mempool);
         {
             LOCK(cs_main);
-            g_chainstate_manager.IssuedColorIds() = CIssuedColorIds();
+            chainman.IssuedColorIds() = CIssuedColorIds();
         }
     } catch (...) {
         // ~BasicTestingSetup() never runs for a throwing constructor, so
@@ -127,12 +128,10 @@ BasicTestingSetup::~BasicTestingSetup()
 {
     {
         LOCK(cs_main);
-        g_chainstate_manager.IssuedColorIds() = CIssuedColorIds();
+        m_node.chainman->IssuedColorIds() = CIssuedColorIds();
     }
-    g_chainstate_manager.ReleaseBlockFileManager();
-    g_chainstate_manager.ReleaseChainstate();
-    // The xfield history is left alone: it belongs to g_chainstate_manager,
-    // which lives for the whole test binary. See pxFieldHistory in test_tapyrus.h.
+    m_node.chainman.reset();
+    pxFieldHistory = nullptr;
     ClearDatadirCache();
     fs::remove_all(m_path_root);
     ECC_Stop();
@@ -167,15 +166,20 @@ ChainstateManager::Options ChainstateOptionsOverride::TestOptions(const std::vec
     return ChainstateManager::Options(argsManager, /*defaultConsistencyChecks=*/true, coinCacheUsage);
 }
 
-ChainstateOptionsOverride::ChainstateOptionsOverride(const ChainstateManager::Options& options)
-    : m_previous(g_chainstate_manager.GetOptions())
+ChainstateOptionsOverride::ChainstateOptionsOverride(ChainstateManager& chainman, const ChainstateManager::Options& options)
+    : m_chainman(chainman), m_previous(chainman.GetOptions())
 {
-    g_chainstate_manager.InitOptions(options);
+    m_chainman.InitOptions(options);
 }
 
 ChainstateOptionsOverride::~ChainstateOptionsOverride()
 {
-    g_chainstate_manager.InitOptions(m_previous);
+    m_chainman.InitOptions(m_previous);
+}
+
+uint32_t BasicTestingSetup::MaxBlockSize() const
+{
+    return m_node.chainman->RulesLatest().MaxBlockSize();
 }
 
 fs::path BasicTestingSetup::SetDataDir(const std::string& name)
@@ -193,7 +197,7 @@ fs::path BasicTestingSetup::GetDataDir()
 
 TestingSetup::TestingSetup(const std::string& chainName) : BasicTestingSetup(chainName)
 {
-    BlockIndexMap& blockIndex = g_chainstate_manager.BlockIndex();
+    BlockIndexMap& blockIndex = m_node.chainman->BlockIndex();
         SetDataDir("tempdir");
         // Ideally we'd move all the RPC tests to the functional testing framework
         // instead of unit tests, but for now we need these here.
@@ -212,24 +216,24 @@ TestingSetup::TestingSetup(const std::string& chainName) : BasicTestingSetup(cha
         try {
             {
                 LOCK(cs_main);
-                blockIndex.pblocktreedb.reset(new CBlockTreeDB(1 << 20, true));
-                Chainstate& chainstate = g_chainstate_manager.ActiveChainstate();
-                chainstate.InitCoinsDB(g_chainstate_manager.IssuedColorIds(), 1 << 23, true, false);
+                blockIndex.OpenDB(1 << 20, true, false);
+                Chainstate& chainstate = m_node.chainman->ActiveChainstate();
+                chainstate.InitCoinsDB(1 << 23, true, false);
                 chainstate.InitCoinsCache();
             }
-            if (!LoadGenesisBlock()) {
+            if (!m_node.chainman->ActiveChainstate().LoadGenesisBlock()) {
                 throw std::runtime_error("LoadGenesisBlock failed.");
             }
             {
                 CValidationState state;
-                if (!ActivateBestChain(state)) {
+                if (!m_node.chainman->ActiveChainstate().ActivateBestChain(state, nullptr)) {
                     throw std::runtime_error(strprintf("ActivateBestChain failed. (%s)", FormatStateMessage(state)));
                 }
             }
-            g_chainstate_manager.InitOptions(ChainstateOptionsOverride::TestOptions({{"-par", SCRIPT_CHECK_PAR}}));
-            StartScriptCheckWorkerThreads(g_chainstate_manager.GetOptions().nScriptCheckThreads);
+            m_node.chainman->InitOptions(ChainstateOptionsOverride::TestOptions({{"-par", SCRIPT_CHECK_PAR}}));
+            m_node.chainman->StartScriptCheckWorkerThreads();
             m_node.connman = std::unique_ptr<CConnman>(new CConnman(0x1337, 0x1337)); // Deterministic randomness for tests.
-            m_node.peerman.reset(new PeerManager(*m_node.connman, *m_node.mempool, scheduler, m_node.notifications));
+            m_node.peerman.reset(new PeerManager(*m_node.connman, *m_node.chainman, *m_node.mempool, scheduler, m_node.notifications));
         } catch (...) {
             // ~TestingSetup() never runs for a throwing constructor, so the
             // scheduler thread started above must be stopped here. Left
@@ -246,7 +250,7 @@ TestingSetup::TestingSetup(const std::string& chainName) : BasicTestingSetup(cha
 
 void TestingSetup::TearDown()
 {
-        BlockIndexMap& blockIndex = g_chainstate_manager.BlockIndex();
+        BlockIndexMap& blockIndex = m_node.chainman->BlockIndex();
         scheduler.stop();
         GetMainSignals().FlushBackgroundCallbacks();
         m_node.mempool_fee_listener.reset();
@@ -254,10 +258,10 @@ void TestingSetup::TearDown()
         GetMainSignals().UnregisterBackgroundSignalScheduler();
         m_node.peerman.reset();
         m_node.connman.reset();
-        UnloadBlockIndex(m_node.mempool.get());
+        m_node.chainman->UnloadBlockIndex();
         LOCK(cs_main);
-        g_chainstate_manager.ActiveChainstate().ResetCoinsViews();
-        blockIndex.pblocktreedb.reset();
+        m_node.chainman->ActiveChainstate().ResetCoinsViews();
+        blockIndex.CloseDB();
 }
 
 TestingSetup::~TestingSetup()
@@ -303,8 +307,7 @@ TestChainSetup::CreateAndProcessBlock(const std::vector<CMutableTransaction>& tx
     {
         // Held across both, so the template builds on the tip the options read.
         LOCK(cs_main);
-        const BlockAssembler::Options options(*m_node.policy, gArgs, g_chainstate_manager);
-        pblocktemplate = BlockAssembler(g_chainstate_manager, *m_node.mempool, options).CreateNewBlock(scriptPubKey);
+        pblocktemplate = BlockAssembler(*m_node.chainman, *m_node.policy, gArgs).CreateNewBlock(scriptPubKey);
     }
     CBlock& block = pblocktemplate->block;
 
@@ -316,10 +319,10 @@ TestChainSetup::CreateAndProcessBlock(const std::vector<CMutableTransaction>& tx
     {
         LOCK(cs_main);
         unsigned int extraNonce = 0;
-        IncrementExtraNonce(&block, g_chainstate_manager.ActiveChain().Tip(), extraNonce);
+        IncrementExtraNonce(&block, m_node.chainman->ActiveChain().Tip(), extraNonce);
     }
     XFieldAggPubKey aggpubkeyChange;
-    g_chainstate_manager.XFieldHistory().GetLatest(TAPYRUS_XFIELDTYPES::AGGPUBKEY, aggpubkeyChange);
+    m_node.chainman->XFieldHistory().GetLatest(TAPYRUS_XFIELDTYPES::AGGPUBKEY, aggpubkeyChange);
     CPubKey aggpubkey(aggpubkeyChange.getPubKey());
     std::vector<unsigned char> blockProof;
     createSignedBlockProof(pblocktemplate->block, blockProof);
@@ -328,11 +331,20 @@ TestChainSetup::CreateAndProcessBlock(const std::vector<CMutableTransaction>& tx
     assert(block.proof.size() == CPubKey::SCHNORR_SIGNATURE_SIZE);
 
     std::shared_ptr<const CBlock> shared_pblock = std::make_shared<const CBlock>(block);
-    ProcessNewBlock(shared_pblock, true, nullptr);
+    m_node.chainman->ProcessNewBlock(shared_pblock, true, nullptr);
     if(block.GetHeight() > 5)
         m_coinbase_txns.push_back(block.vtx[0]);
 
     return block;
+}
+
+bool TestChainSetup::AcceptToMempool(const CTransactionRef& tx)
+{
+    MempoolAcceptOptions opt;
+    opt.bypass_limits = true;
+    MempoolAcceptResult accept_result;
+    LOCK(cs_main);
+    return m_node.chainman->ActiveChainstate().AcceptToMemoryPool(tx, opt, accept_result) && accept_result.state.IsValid();
 }
 
 void TestChainSetup::refillCoinbase(int count) {

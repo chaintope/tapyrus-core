@@ -5,9 +5,7 @@
 
 #include <bench/bench.h>
 
-#include <chainstatemanager.h>
 #include <crypto/sha256.h>
-#include <consensussettings.h>
 #include <eccverifyhandle.h>
 #include <genesisfile.h>
 #include <key.h>
@@ -15,7 +13,6 @@
 #include <utilstrencodings.h>
 #include <validation.h>
 #include <streams.h>
-#include <xfieldhistory.h>
 
 #include <memory>
 
@@ -77,8 +74,6 @@ int main(int argc, char** argv)
     SetupEnvironment();
     writeTestGenesisBlockToFile(GetDataDir(false));
     SelectFederationParams(TAPYRUS_OP_MODE::PROD);
-    g_chainstate_manager.InitConsensusSettings(std::make_unique<const ConsensusSettings>(ReadGenesisBlock(), TAPYRUS_OP_MODE::PROD, FederationParams().NetworkId()));
-    g_chainstate_manager.InitXFieldHistory(g_chainstate_manager.Settings().GenesisBlock());
     const PolicySettings policy(gArgs, TAPYRUS_OP_MODE::PROD);
     g_policy_settings = &policy;
 

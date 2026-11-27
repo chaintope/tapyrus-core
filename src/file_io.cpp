@@ -22,8 +22,7 @@ static const uint64_t MEMPOOL_DUMP_VERSION = 1;
 
 bool Chainstate::LoadMempool()
 {
-    CTxMemPool& pool = m_mempool;
-    int64_t nExpiryTimeout = pool.Expiry();
+    int64_t nExpiryTimeout = m_mempool.Expiry();
     FILE* filestr = fsbridge::fopen(GetDataDir() / "mempool.dat", "rb");
     CAutoFile file(filestr, SER_DISK, CLIENT_VERSION);
     if (file.IsNull()) {
@@ -55,7 +54,7 @@ bool Chainstate::LoadMempool()
 
             CAmount amountdelta = nFeeDelta;
             if (amountdelta) {
-                pool.PrioritiseTransaction(tx->GetHashMalFix(), amountdelta);
+                m_mempool.PrioritiseTransaction(tx->GetHashMalFix(), amountdelta);
             }
             MempoolAcceptResult result;
             if (nTime + nExpiryTimeout > nNow) {
@@ -70,7 +69,7 @@ bool Chainstate::LoadMempool()
                     // wallet(s) having loaded it while we were processing
                     // mempool transactions; consider these as valid, instead of
                     // failed, but mark them as 'already there'
-                    if (pool.exists(tx->GetHashMalFix())) {
+                    if (m_mempool.exists(tx->GetHashMalFix())) {
                         ++already_there;
                     } else {
                         ++failed;
@@ -86,7 +85,7 @@ bool Chainstate::LoadMempool()
         file >> mapDeltas;
 
         for (const auto& i : mapDeltas) {
-            pool.PrioritiseTransaction(i.first, i.second);
+            m_mempool.PrioritiseTransaction(i.first, i.second);
         }
     } catch (const std::exception& e) {
         LogPrintf("Failed to deserialize mempool data on disk: %s. Continuing anyway.\n", e.what());
@@ -150,10 +149,9 @@ bool DumpMempool(const CTxMemPool& pool)
 
 bool ChainstateManager::LoadExternalBlockFile(FILE* fileIn, CDiskBlockPos *dbp, CXFieldHistoryMap* pxfieldHistory)
 {
-    BlockIndexMap& blockIndex = BlockIndex();
     int64_t nStart = GetTimeMillis();
 
-    uint32_t maxBlockSize = XFieldHistory().GetCurrentMaxBlockSize();
+    uint32_t maxBlockSize = m_xfield_history.GetCurrentMaxBlockSize();
     uint32_t bufferSize;
 
     if (dbp != nullptr) {
@@ -223,7 +221,7 @@ bool ChainstateManager::LoadExternalBlockFile(FILE* fileIn, CDiskBlockPos *dbp, 
                 {
                     LOCK(cs_main);
                     // detect out of order blocks, and store them for later
-                    if (hash != Settings().GenesisBlock().GetHash() && !blockIndex.LookupBlockIndex(block.hashPrevBlock)) {
+                    if (hash != Settings().GenesisBlock().GetHash() && !m_block_index.LookupBlockIndex(block.hashPrevBlock)) {
                         LogPrint(BCLog::REINDEX, "%s: Out of order block %s, parent %s not known\n", __func__, hash.ToString(),
                                 block.hashPrevBlock.ToString());
                         if (dbp)
@@ -232,7 +230,7 @@ bool ChainstateManager::LoadExternalBlockFile(FILE* fileIn, CDiskBlockPos *dbp, 
                     }
 
                     // process in case the block isn't known yet
-                    CBlockIndex* pindex = blockIndex.LookupBlockIndex(hash);
+                    CBlockIndex* pindex = m_block_index.LookupBlockIndex(hash);
                     if (!pindex || (pindex->nStatus & BLOCK_HAVE_DATA) == 0) {
                         CValidationState state;
                         if (ActiveChainstate().AcceptBlock(pblock, state, nullptr, true, dbp, nullptr, pxfieldHistory)) {
@@ -249,7 +247,7 @@ bool ChainstateManager::LoadExternalBlockFile(FILE* fileIn, CDiskBlockPos *dbp, 
                 // Activate the genesis block so normal node progress can continue
                 if (hash == Settings().GenesisBlock().GetHash()) {
                     CValidationState state;
-                    if (!ActivateBestChain(state)) {
+                    if (!ActiveChainstate().ActivateBestChain(state, nullptr)) {
                         break;
                     }
                 }
@@ -266,8 +264,8 @@ bool ChainstateManager::LoadExternalBlockFile(FILE* fileIn, CDiskBlockPos *dbp, 
                     while (range.first != range.second) {
                         std::multimap<uint256, CDiskBlockPos>::iterator it = range.first;
                         std::shared_ptr<CBlock> pblockrecursive = std::make_shared<CBlock>();
-                        const CXFieldHistoryMap& history = pxfieldHistory ? *pxfieldHistory : XFieldHistory();
-                        if (GetBlockFileManager().ReadBlockFromDisk(*pblockrecursive, it->second, RulesLatest(history)))
+                        const CXFieldHistoryMap& history = pxfieldHistory ? *pxfieldHistory : m_xfield_history;
+                        if (m_block_file_manager->ReadBlockFromDisk(*pblockrecursive, it->second, RulesLatest(history)))
                         {
                             LogPrint(BCLog::REINDEX, "%s: Processing out of order child %s of %s\n", __func__, pblockrecursive->GetHash().ToString(),
                                     head.ToString());
