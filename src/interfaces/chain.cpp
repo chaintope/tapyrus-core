@@ -4,6 +4,8 @@
 
 #include <interfaces/chain.h>
 
+#include <blockindex.h>
+#include <chain.h>
 #include <chainstate.h>
 #include <chainstatemanager.h>
 #include <connman.h>
@@ -14,9 +16,15 @@
 #include <policy/fees.h>
 #include <policy/policysettings.h>
 #include <policy/rbf.h>
+#include <primitives/block.h>
+#include <primitives/xfieldvalues.h>
+#include <pubkey.h>
+#include <rpc/mining.h>
 #include <txmempool.h>
 #include <utilmemory.h>
 #include <validation.h>
+#include <validationinterface.h>
+#include <xfieldhistory.h>
 
 namespace interfaces {
 namespace {
@@ -77,7 +85,7 @@ public:
             MempoolAcceptOptions options;
             options.max_tx_fee = max_tx_fee;
             MempoolAcceptResult result;
-            if (!g_chainstate_manager.ActiveChainstate().AcceptToMemoryPool(tx, options, result)) {
+            if (!m_node.chainman->ActiveChainstate().AcceptToMemoryPool(tx, options, result)) {
                 state = result.state;
                 return false;
             }
@@ -93,7 +101,251 @@ public:
         return m_node.notifications;
     }
 
+    bool isReadyToBroadcast() override
+    {
+        return !Chainman().LoadingBlocks() && !Chainman().ActiveChainstate().IsInitialBlockDownload();
+    }
+
+    std::optional<int> getHeight() override
+    {
+        LOCK(cs_main);
+        const int height = ActiveChain().Height();
+        if (height >= 0) return height;
+        return std::nullopt;
+    }
+
+    uint256 getBlockHash(int height) override
+    {
+        LOCK(cs_main);
+        const CBlockIndex* block = ActiveChain()[height];
+        assert(block);
+        return block->GetBlockHash();
+    }
+
+    bool haveBlockOnDisk(int height) override
+    {
+        LOCK(cs_main);
+        const CBlockIndex* block = ActiveChain()[height];
+        return block && (block->nStatus & BLOCK_HAVE_DATA) != 0 && block->nTx > 0;
+    }
+
+    CBlockLocator getTipLocator() override
+    {
+        LOCK(cs_main);
+        return ActiveChain().GetLocator();
+    }
+
+    std::optional<int> findLocatorFork(const CBlockLocator& locator) override
+    {
+        LOCK(cs_main);
+        if (const CBlockIndex* fork = Chainman().ActiveChainstate().FindForkInGlobalIndex(locator)) {
+            return fork->nHeight;
+        }
+        return std::nullopt;
+    }
+
+    bool checkFinalTx(const CTransaction& tx) override
+    {
+        LOCK(cs_main);
+        return Chainman().ActiveChainstate().CheckFinalTx(tx);
+    }
+
+    bool findBlock(const uint256& hash, const FoundBlock& block) override
+    {
+        const CBlockIndex* index;
+        {
+            LOCK(cs_main);
+            index = Chainman().BlockIndex().LookupBlockIndex(hash);
+            if (!FillIndexData(index, block)) return false;
+        }
+        FillBlockData(index, block);
+        return true;
+    }
+
+    bool findNextBlock(const uint256& block_hash, int block_height, const FoundBlock& next, bool* reorg) override
+    {
+        const CBlockIndex* index;
+        {
+            LOCK(cs_main);
+            const CBlockIndex* block = ActiveChain()[block_height];
+            if (block && block->GetBlockHash() != block_hash) block = nullptr;
+            if (reorg) *reorg = !block;
+            index = block ? ActiveChain()[block_height + 1] : nullptr;
+            if (!FillIndexData(index, next)) return false;
+        }
+        FillBlockData(index, next);
+        return true;
+    }
+
+    bool findFirstBlockWithTimeAndHeight(int64_t min_time, int min_height, const FoundBlock& block) override
+    {
+        const CBlockIndex* index;
+        {
+            LOCK(cs_main);
+            index = ActiveChain().FindEarliestAtLeast(min_time, min_height);
+            if (!FillIndexData(index, block)) return false;
+        }
+        FillBlockData(index, block);
+        return true;
+    }
+
+    bool findAncestorByHeight(const uint256& block_hash, int ancestor_height, const FoundBlock& ancestor_out) override
+    {
+        const CBlockIndex* ancestor = nullptr;
+        {
+            LOCK(cs_main);
+            if (const CBlockIndex* block = Chainman().BlockIndex().LookupBlockIndex(block_hash)) {
+                ancestor = block->GetAncestor(ancestor_height);
+            }
+            if (!FillIndexData(ancestor, ancestor_out)) return false;
+        }
+        FillBlockData(ancestor, ancestor_out);
+        return true;
+    }
+
+    bool findAncestorByHash(const uint256& block_hash, const uint256& ancestor_hash, const FoundBlock& ancestor_out) override
+    {
+        const CBlockIndex* ancestor;
+        {
+            LOCK(cs_main);
+            const CBlockIndex* block = Chainman().BlockIndex().LookupBlockIndex(block_hash);
+            ancestor = Chainman().BlockIndex().LookupBlockIndex(ancestor_hash);
+            if (block && ancestor && block->GetAncestor(ancestor->nHeight) != ancestor) ancestor = nullptr;
+            if (!FillIndexData(ancestor, ancestor_out)) return false;
+        }
+        FillBlockData(ancestor, ancestor_out);
+        return true;
+    }
+
+    bool findCommonAncestor(const uint256& block_hash1, const uint256& block_hash2, const FoundBlock& ancestor_out, const FoundBlock& block1_out, const FoundBlock& block2_out) override
+    {
+        const CBlockIndex* block1;
+        const CBlockIndex* block2;
+        const CBlockIndex* ancestor;
+        bool found;
+        {
+            LOCK(cs_main);
+            block1 = Chainman().BlockIndex().LookupBlockIndex(block_hash1);
+            block2 = Chainman().BlockIndex().LookupBlockIndex(block_hash2);
+            ancestor = block1 && block2 ? LastCommonAncestor(block1, block2) : nullptr;
+            // Fill all three, even if the ancestor is missing.
+            found = FillIndexData(ancestor, ancestor_out) & FillIndexData(block1, block1_out) & FillIndexData(block2, block2_out);
+        }
+        FillBlockData(ancestor, ancestor_out);
+        FillBlockData(block1, block1_out);
+        FillBlockData(block2, block2_out);
+        return found;
+    }
+
+    bool hasBlocks(const uint256& block_hash, int min_height, std::optional<int> max_height) override
+    {
+        // hasBlocks returns true if all ancestors of block_hash in specified
+        // range have block data (are not pruned), false if any ancestors in
+        // specified range are missing data.
+        //
+        // For simplicity and robustness, min_height and max_height are only
+        // used to limit the range, and passing min_height that's too low or
+        // max_height that's too high will not crash or change the result.
+        LOCK(cs_main);
+        if (const CBlockIndex* block = Chainman().BlockIndex().LookupBlockIndex(block_hash)) {
+            if (max_height && block->nHeight >= *max_height) block = block->GetAncestor(*max_height);
+            for (; block->nStatus & BLOCK_HAVE_DATA; block = block->pprev) {
+                // Check pprev to not segfault if min_height is too low
+                if (block->nHeight <= min_height || !block->pprev) return true;
+            }
+        }
+        return false;
+    }
+
+    double guessVerificationProgress(const uint256& block_hash) override
+    {
+        LOCK(cs_main);
+        return Chainman().Progress().Guess(Chainman().BlockIndex().LookupBlockIndex(block_hash));
+    }
+
+    bool havePruned() override
+    {
+        LOCK(cs_main);
+        return Chainman().HavePruned();
+    }
+
+    bool isPruneMode() override
+    {
+        return Chainman().GetBlockFileManager().GetOptions().fPruneMode;
+    }
+
+    bool isInitialBlockDownload() override
+    {
+        return Chainman().ActiveChainstate().IsInitialBlockDownload();
+    }
+
+    void waitForNotificationsIfTipChanged(const uint256& old_tip) override
+    {
+        if (!old_tip.IsNull()) {
+            LOCK(cs_main);
+            if (const CBlockIndex* tip = ActiveChain().Tip(); tip && old_tip == tip->GetBlockHash()) return;
+        }
+        SyncWithValidationInterfaceQueue();
+    }
+
+    uint32_t getMaxBlockSize() override
+    {
+        return Chainman().XFieldHistory().GetCurrentMaxBlockSize();
+    }
+
+    CPubKey getAggregatePubkey() override
+    {
+        XFieldAggPubKey aggpubkey;
+        Chainman().XFieldHistory().GetLatest(TAPYRUS_XFIELDTYPES::AGGPUBKEY, aggpubkey);
+        return aggpubkey.getPubKey();
+    }
+
+    void findCoins(std::map<COutPoint, Coin>& coins) override
+    {
+        Chainman().ActiveChainstate().FindCoins(coins);
+    }
+
+    CTransactionRef findTransaction(const uint256& txid) override
+    {
+        CTransactionRef tx;
+        uint256 block_hash;
+        if (!GetTransaction(Chainman(), txid, tx, block_hash, /*fAllowSlow=*/true)) return nullptr;
+        return tx;
+    }
+
+    std::vector<uint256> generateBlocks(std::shared_ptr<CReserveScript> coinbase_script, int num_blocks, const CKey& privkey) override
+    {
+        assert(m_node.policy);
+        const UniValue hashes{::generateBlocks(Chainman(), *m_node.policy, coinbase_script, num_blocks, /*keepScript=*/true, privkey)};
+        std::vector<uint256> result;
+        for (size_t i = 0; i < hashes.size(); ++i) result.push_back(uint256S(hashes[i].get_str()));
+        return result;
+    }
+
 private:
+    ChainstateManager& Chainman() const { assert(m_node.chainman); return *m_node.chainman; }
+    CChain& ActiveChain() EXCLUSIVE_LOCKS_REQUIRED(cs_main) { return Chainman().ActiveChain(); }
+
+    //! Fills what the index entry holds; false if there is no entry.
+    bool FillIndexData(const CBlockIndex* index, const FoundBlock& block) EXCLUSIVE_LOCKS_REQUIRED(cs_main)
+    {
+        if (!index) return false;
+        if (block.m_hash) *block.m_hash = index->GetBlockHash();
+        if (block.m_height) *block.m_height = index->nHeight;
+        if (block.m_time) *block.m_time = index->GetBlockTime();
+        if (block.m_max_time) *block.m_max_time = index->GetBlockTimeMax();
+        if (block.m_mtp_time) *block.m_mtp_time = index->GetMedianTimePast();
+        if (block.m_in_active_chain) *block.m_in_active_chain = ActiveChain()[index->nHeight] == index;
+        return true;
+    }
+
+    //! Reads the block from disk if asked for, without cs_main, so the node
+    //! never waits on the read; a block without data reads as null.
+    void FillBlockData(const CBlockIndex* index, const FoundBlock& block) LOCKS_EXCLUDED(cs_main)
+    {
+        if (index && block.m_data && !Chainman().ReadBlock(*block.m_data, index)) block.m_data->SetNull();
+    }
+
     NodeContext& m_node;
 };
 

@@ -228,7 +228,8 @@ public:
     //!check if the outbound target is reached
     // if param historicalBlockServingLimit is set true, the function will
     // response true if the limit for serving historical blocks has been reached
-    bool OutboundTargetReached(bool historicalBlockServingLimit);
+    // max_block_size sizes the buffer kept for serving each new block once
+    bool OutboundTargetReached(bool historicalBlockServingLimit, uint32_t max_block_size);
 
     //!response the bytes left in the current max outbound cycle
     // in case of no limit, it will always response 0

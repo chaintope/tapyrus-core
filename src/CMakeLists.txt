@@ -508,6 +508,8 @@ target_link_libraries(tapyrus_wallet_interface
     core_interface
     tapyrus_chainstate
     tapyrus_peer
+    # Chain::generateBlocks mines through rpc/mining's generateBlocks.
+    tapyrus_rpc
     Boost::headers
 )
 

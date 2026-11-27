@@ -7,12 +7,13 @@
 
 #include <zmq/zmqabstractnotifier.h>
 
+class CBlock;
 class CBlockIndex;
 
 class CZMQAbstractPublishNotifier : public CZMQAbstractNotifier
 {
 private:
-    uint32_t nSequence; //!< upcounting per message sequence number
+    uint32_t nSequence{0}; //!< upcounting per message sequence number
 
 public:
 
@@ -43,7 +44,13 @@ public:
 class CZMQPublishRawBlockNotifier : public CZMQAbstractPublishNotifier
 {
 public:
+    /** get_block_by_index reads the block of an index entry, as the chainstate manager does. */
+    explicit CZMQPublishRawBlockNotifier(std::function<bool(CBlock&, const CBlockIndex*)> get_block_by_index)
+        : m_get_block_by_index(std::move(get_block_by_index)) {}
     bool NotifyBlock(const CBlockIndex *pindex) override;
+
+private:
+    const std::function<bool(CBlock&, const CBlockIndex*)> m_get_block_by_index;
 };
 
 class CZMQPublishRawTransactionNotifier : public CZMQAbstractPublishNotifier

@@ -210,7 +210,7 @@ BOOST_AUTO_TEST_CASE(merkle_block_1)
 
     std::vector<uint256> vMatched;
     std::vector<unsigned int> vIndex;
-    BOOST_CHECK(merkleBlock.txn.ExtractMatches(vMatched, vIndex) == block.hashImMerkleRoot);
+    BOOST_CHECK(merkleBlock.txn.ExtractMatches(vMatched, vIndex, MaxBlockSize()) == block.hashImMerkleRoot);
     BOOST_CHECK(block.hashMerkleRoot != block.hashImMerkleRoot);
     BOOST_CHECK(vMatched.size() == merkleBlock.vMatchedTxn.size());
     for (unsigned int i = 0; i < vMatched.size(); i++)
@@ -228,7 +228,7 @@ BOOST_AUTO_TEST_CASE(merkle_block_1)
     BOOST_CHECK(merkleBlock.vMatchedTxn[0].second == uint256S("0x82c68f1bca780c5dbcbbb78b95b65bf9111a1c98aee91772d4e0a4202a7df4a2"));
     BOOST_CHECK(merkleBlock.vMatchedTxn[0].first == 7);
 
-    BOOST_CHECK(merkleBlock.txn.ExtractMatches(vMatched, vIndex) == block.hashImMerkleRoot);
+    BOOST_CHECK(merkleBlock.txn.ExtractMatches(vMatched, vIndex, MaxBlockSize()) == block.hashImMerkleRoot);
     BOOST_CHECK(block.hashMerkleRoot != block.hashImMerkleRoot);
     BOOST_CHECK(vMatched.size() == merkleBlock.vMatchedTxn.size());
     for (unsigned int i = 0; i < vMatched.size(); i++)
@@ -264,7 +264,7 @@ BOOST_AUTO_TEST_CASE(merkle_block_2)
 
     std::vector<uint256> vMatched;
     std::vector<unsigned int> vIndex;
-    BOOST_CHECK(merkleBlock.txn.ExtractMatches(vMatched, vIndex) == block.hashImMerkleRoot);
+    BOOST_CHECK(merkleBlock.txn.ExtractMatches(vMatched, vIndex, MaxBlockSize()) == block.hashImMerkleRoot);
     BOOST_CHECK(block.hashMerkleRoot != block.hashImMerkleRoot);
     BOOST_CHECK(vMatched.size() == merkleBlock.vMatchedTxn.size());
     for (unsigned int i = 0; i < vMatched.size(); i++)
@@ -291,7 +291,7 @@ BOOST_AUTO_TEST_CASE(merkle_block_2)
     BOOST_CHECK(merkleBlock.vMatchedTxn[3].second == uint256S("0x0c9d9e8cdf03f96e8c88f2b300ad0e0f98fad3a84bd40435c875bc8ed459ccf4"));
     BOOST_CHECK(merkleBlock.vMatchedTxn[3].first == 3);
 
-    BOOST_CHECK(merkleBlock.txn.ExtractMatches(vMatched, vIndex) == block.hashImMerkleRoot);
+    BOOST_CHECK(merkleBlock.txn.ExtractMatches(vMatched, vIndex, MaxBlockSize()) == block.hashImMerkleRoot);
     BOOST_CHECK(block.hashMerkleRoot != block.hashImMerkleRoot);
     BOOST_CHECK(vMatched.size() == merkleBlock.vMatchedTxn.size());
     for (unsigned int i = 0; i < vMatched.size(); i++)
@@ -326,7 +326,7 @@ BOOST_AUTO_TEST_CASE(merkle_block_2_with_update_none)
 
     std::vector<uint256> vMatched;
     std::vector<unsigned int> vIndex;
-    BOOST_CHECK(merkleBlock.txn.ExtractMatches(vMatched, vIndex) == block.hashImMerkleRoot);
+    BOOST_CHECK(merkleBlock.txn.ExtractMatches(vMatched, vIndex, MaxBlockSize()) == block.hashImMerkleRoot);
     BOOST_CHECK(block.hashMerkleRoot != block.hashImMerkleRoot);
     BOOST_CHECK(vMatched.size() == merkleBlock.vMatchedTxn.size());
     for (unsigned int i = 0; i < vMatched.size(); i++)
@@ -350,7 +350,7 @@ BOOST_AUTO_TEST_CASE(merkle_block_2_with_update_none)
     BOOST_CHECK(merkleBlock.vMatchedTxn[2].second == uint256S("0x0c9d9e8cdf03f96e8c88f2b300ad0e0f98fad3a84bd40435c875bc8ed459ccf4"));
     BOOST_CHECK(merkleBlock.vMatchedTxn[2].first == 3);
 
-    BOOST_CHECK(merkleBlock.txn.ExtractMatches(vMatched, vIndex) == block.hashImMerkleRoot);
+    BOOST_CHECK(merkleBlock.txn.ExtractMatches(vMatched, vIndex, MaxBlockSize()) == block.hashImMerkleRoot);
     BOOST_CHECK(block.hashMerkleRoot != block.hashImMerkleRoot);
     BOOST_CHECK(vMatched.size() == merkleBlock.vMatchedTxn.size());
     for (unsigned int i = 0; i < vMatched.size(); i++)
@@ -380,7 +380,7 @@ BOOST_AUTO_TEST_CASE(merkle_block_3_and_serialize)
 
     std::vector<uint256> vMatched;
     std::vector<unsigned int> vIndex;
-    BOOST_CHECK(merkleBlock.txn.ExtractMatches(vMatched, vIndex) == block.hashImMerkleRoot);
+    BOOST_CHECK(merkleBlock.txn.ExtractMatches(vMatched, vIndex, MaxBlockSize()) == block.hashImMerkleRoot);
     BOOST_CHECK(block.hashMerkleRoot != block.hashImMerkleRoot);
     BOOST_CHECK(vMatched.size() == merkleBlock.vMatchedTxn.size());
     for (unsigned int i = 0; i < vMatched.size(); i++)
@@ -430,7 +430,7 @@ BOOST_AUTO_TEST_CASE(merkle_block_4)
 
     std::vector<uint256> vMatched;
     std::vector<unsigned int> vIndex;
-    BOOST_CHECK(merkleBlock.txn.ExtractMatches(vMatched, vIndex) == block.hashImMerkleRoot);
+    BOOST_CHECK(merkleBlock.txn.ExtractMatches(vMatched, vIndex, MaxBlockSize()) == block.hashImMerkleRoot);
     BOOST_CHECK(block.hashMerkleRoot != block.hashImMerkleRoot);
     BOOST_CHECK(vMatched.size() == merkleBlock.vMatchedTxn.size());
     for (unsigned int i = 0; i < vMatched.size(); i++)
@@ -448,7 +448,7 @@ BOOST_AUTO_TEST_CASE(merkle_block_4)
 
     BOOST_CHECK(merkleBlock.vMatchedTxn[1] == pair);
 
-    BOOST_CHECK(merkleBlock.txn.ExtractMatches(vMatched, vIndex) == block.hashImMerkleRoot);
+    BOOST_CHECK(merkleBlock.txn.ExtractMatches(vMatched, vIndex, MaxBlockSize()) == block.hashImMerkleRoot);
     BOOST_CHECK(block.hashMerkleRoot != block.hashImMerkleRoot);
     BOOST_CHECK(vMatched.size() == merkleBlock.vMatchedTxn.size());
     for (unsigned int i = 0; i < vMatched.size(); i++)

@@ -8,18 +8,21 @@
 #include <script/standard.h>
 
 #include <cstdint>
+#include <map>
 #include <vector>
 
 class CBasicKeyStore;
+class Coin;
+class COutPoint;
 class CTxIn;
-class CTxMemPool;
 class CTxOut;
 struct CMutableTransaction;
 class UniValue;
 enum class SignatureScheme;
 
-/** Sign a transaction with the given keystore and previous transactions */
-UniValue SignTransaction(const CTxMemPool& mempool, CMutableTransaction& mtx, const UniValue& prevTxs, CBasicKeyStore *keystore, bool tempKeystore, const UniValue& hashType, const SignatureScheme sigScheme);
+/** Sign a transaction with the given keystore, against coins holding the outputs it spends. Previous
+ *  outputs given in prevTxs are added to coins. */
+UniValue SignTransaction(CMutableTransaction& mtx, const UniValue& prevTxs, CBasicKeyStore *keystore, std::map<COutPoint, Coin>& coins, bool tempKeystore, const UniValue& hashType, const SignatureScheme sigScheme);
 
 /** Build the output for one destination and amount; shared by ConstructTransaction and the PSTT output RPCs */
 CTxOut BuildDestinationTxOut(const CTxDestination& destination, const UniValue& value);

@@ -505,7 +505,7 @@ static void CheckMempoolResult(TestChainSetup& setup, const CTransactionRef& tx,
     MempoolAcceptResult accept_result;
     {
         LOCK(cs_main);
-        BOOST_CHECK_EQUAL(expect_success, g_chainstate_manager.ActiveChainstate().AcceptToMemoryPool(tx, opt, accept_result));
+        BOOST_CHECK_EQUAL(expect_success, setup.m_node.chainman->ActiveChainstate().AcceptToMemoryPool(tx, opt, accept_result));
     }
     if (expect_success) {
         BOOST_CHECK(accept_result.state.IsValid());

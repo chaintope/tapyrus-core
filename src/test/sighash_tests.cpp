@@ -197,7 +197,7 @@ BOOST_AUTO_TEST_CASE(sighash_from_data)
           stream >> tx;
 
           CValidationState state;
-          BOOST_CHECK_MESSAGE(CheckTransaction(*tx, state, g_chainstate_manager.XFieldHistory().GetCurrentMaxBlockSize()), strTest);
+          BOOST_CHECK_MESSAGE(CheckTransaction(*tx, state, m_node.chainman->XFieldHistory().GetCurrentMaxBlockSize()), strTest);
           BOOST_CHECK(state.IsValid());
 
           std::vector<unsigned char> raw = ParseHex(raw_script);

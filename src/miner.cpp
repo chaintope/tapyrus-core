@@ -69,8 +69,13 @@ BlockAssembler::Options::Options(const PolicySettings& policy, const ArgsManager
 {
 }
 
-BlockAssembler::BlockAssembler(ChainstateManager& chainman, const CTxMemPool& mempool, const Options& options)
-    : m_chainman(chainman), m_mempool(mempool), m_options(options)
+BlockAssembler::BlockAssembler(ChainstateManager& chainman, const Options& options)
+    : m_chainman(chainman), m_mempool(chainman.ActiveChainstate().GetMempool()), m_options(options)
+{
+}
+
+BlockAssembler::BlockAssembler(ChainstateManager& chainman, const PolicySettings& policy, const ArgsManager& args)
+    : BlockAssembler(chainman, Options(policy, args, chainman))
 {
 }
 
@@ -134,7 +139,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     pblocktemplate->vTxSigOpsCost[0] = GetLegacySigOpCount(*pblock->vtx[0]);
 
     CValidationState state;
-    if (!TestBlockValidity(state, *pblock, pindexPrev, false, false)) {
+    if (!m_chainman.ActiveChainstate().TestBlockValidity(state, *pblock, false, false)) {
         throw std::runtime_error(strprintf("%s: TestBlockValidity failed: %s", __func__, FormatStateMessage(state)));
     }
     int64_t nTime2 = GetTimeMicros();

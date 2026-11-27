@@ -11,6 +11,7 @@
 #include <tapyrus-config.h>
 
 #include <test/fuzz/fuzz_code/fuzz_policy_settings.h>
+#include <consensusconstants.h>
 #include <policy/policy.h>
 #include <primitives/transaction.h>
 #include <streams.h>
@@ -37,7 +38,7 @@ static int test_one_input_isstandardtx(const uint8_t* data, size_t size)
 
     const CTransaction tx(mtx);
     std::string reason;
-    IsStandardTx(tx, reason);
+    IsStandardTx(tx, reason, ConsensusConstants::MAX_BLOCK_SIZE);
     return 0;
 }
 

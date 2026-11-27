@@ -5,6 +5,7 @@
 #ifndef BITCOIN_INDEX_BASE_H
 #define BITCOIN_INDEX_BASE_H
 
+#include <cs_main.h>
 #include <dbwrapper.h>
 #include <primitives/block.h>
 #include <primitives/transaction.h>
@@ -13,6 +14,7 @@
 #include <validationinterface.h>
 
 class CBlockIndex;
+class ChainstateManager;
 class IndexNotifications;
 
 /**
@@ -37,9 +39,15 @@ protected:
     };
 
     /// What the index reports to; NodeContext owns it.
+    //! Whose active chain the index follows; NodeContext owns it.
+    ChainstateManager& m_chainman;
     IndexNotifications& m_notifications;
 
 private:
+    /// The active chain's block after pindex_prev, or after its fork point if
+    /// pindex_prev left the chain; the genesis block when pindex_prev is null.
+    const CBlockIndex* NextSyncBlock(const CBlockIndex* pindex_prev) const EXCLUSIVE_LOCKS_REQUIRED(cs_main);
+
     /// Whether the index is in sync with the main chain. The flag is flipped
     /// from false to true once, after which point this starts processing
     /// ValidationInterface notifications to stay in sync.
@@ -62,7 +70,7 @@ private:
     bool WriteBestBlock(const CBlockIndex* block_index);
 
 protected:
-    explicit BaseIndex(IndexNotifications& notifications) : m_notifications(notifications) {}
+    BaseIndex(ChainstateManager& chainman, IndexNotifications& notifications) : m_chainman(chainman), m_notifications(notifications) {}
 
     void BlockConnected(const std::shared_ptr<const CBlock>& block, const CBlockIndex* pindex,
                         const std::vector<CTransactionRef>& txn_conflicted) override;

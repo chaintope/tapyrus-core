@@ -196,8 +196,8 @@ BOOST_AUTO_TEST_CASE(disconnect_result_edge_cases)
 BOOST_AUTO_TEST_CASE(chainstate_initialization_edge_cases)
 {
     // Access global chainstate
-    Chainstate& chainstate = g_chainstate_manager.ActiveChainstate();
-    BlockIndexMap& blockIndex = g_chainstate_manager.BlockIndex();
+    Chainstate& chainstate = m_node.chainman->ActiveChainstate();
+    BlockIndexMap& blockIndex = m_node.chainman->BlockIndex();
     LOCK(cs_main);
 
     // Verify mapBlockIndex is accessible and has entries (genesis + chain blocks loaded by fixture)
@@ -207,7 +207,7 @@ BOOST_AUTO_TEST_CASE(chainstate_initialization_edge_cases)
     BOOST_CHECK(chainstate.m_chain.Height() >= 0);
 
     // Verify the best invalid block starts as nullptr
-    BOOST_CHECK(g_chainstate_manager.BestInvalid() == nullptr);
+    BOOST_CHECK(m_node.chainman->BestInvalid() == nullptr);
 
     // Test mapBlocksUnlinked (multimap) - should be empty in a clean chain
     BOOST_CHECK(blockIndex.mapBlocksUnlinked.empty());
@@ -586,7 +586,7 @@ BOOST_AUTO_TEST_CASE(block_status_flags_edge_cases)
  */
 BOOST_AUTO_TEST_CASE(block_sequence_id_edge_cases)
 {
-    BlockIndexMap& blockIndex = g_chainstate_manager.BlockIndex();
+    BlockIndexMap& blockIndex = m_node.chainman->BlockIndex();
     CScript scriptPubKey = CScript() << ToByteVector(coinbaseKey.GetPubKey()) << OP_CHECKSIG;
 
     // Case 1: Test header-only block (sequence ID should be 0)
@@ -598,7 +598,7 @@ BOOST_AUTO_TEST_CASE(block_sequence_id_edge_cases)
         LOCK(cs_main);
         CValidationState state;
         // AcceptBlockHeader adds just the header to mapBlockIndex with sequence ID 0
-        bool accepted = g_chainstate_manager.ActiveChainstate().AcceptBlockHeader(header, state, &pindexHeader);
+        bool accepted = m_node.chainman->ActiveChainstate().AcceptBlockHeader(header, state, &pindexHeader);
 
         if (accepted && pindexHeader) {
             // Verify that header-only blocks have sequence ID 0
@@ -626,12 +626,12 @@ BOOST_AUTO_TEST_CASE(block_sequence_id_edge_cases)
     BOOST_CHECK(originalSeqId1 > 0);
 
     // Write the block to disk
-    CDiskBlockPos diskPos1 = g_chainstate_manager.GetBlockFileManager().SaveBlockToDisk(block1, block1.GetHeight(), nullptr);
+    CDiskBlockPos diskPos1 = m_node.chainman->GetBlockFileManager().SaveBlockToDisk(block1, block1.GetHeight(), nullptr);
     BOOST_CHECK(diskPos1.IsNull() == false);
 
     // Read the block back from disk
     CBlock blockFromDisk1;
-    BOOST_REQUIRE(g_chainstate_manager.GetBlockFileManager().ReadBlockFromDisk(blockFromDisk1, diskPos1, g_chainstate_manager.RulesLatest()));
+    BOOST_REQUIRE(m_node.chainman->GetBlockFileManager().ReadBlockFromDisk(blockFromDisk1, diskPos1, m_node.chainman->RulesLatest()));
 
     // Verify the block content is the same
     BOOST_CHECK(blockFromDisk1.GetHash() == hash1);
@@ -657,12 +657,12 @@ BOOST_AUTO_TEST_CASE(block_sequence_id_edge_cases)
     BOOST_CHECK(originalSeqId2 > originalSeqId1);
 
     // Write block2 to disk
-    CDiskBlockPos diskPos2 = g_chainstate_manager.GetBlockFileManager().SaveBlockToDisk(block2, block2.GetHeight(), nullptr);
+    CDiskBlockPos diskPos2 = m_node.chainman->GetBlockFileManager().SaveBlockToDisk(block2, block2.GetHeight(), nullptr);
     BOOST_CHECK(diskPos2.IsNull() == false);
 
     // Read block2 back from disk
     CBlock blockFromDisk2;
-    BOOST_REQUIRE(g_chainstate_manager.GetBlockFileManager().ReadBlockFromDisk(blockFromDisk2, diskPos2, g_chainstate_manager.RulesLatest()));
+    BOOST_REQUIRE(m_node.chainman->GetBlockFileManager().ReadBlockFromDisk(blockFromDisk2, diskPos2, m_node.chainman->RulesLatest()));
 
     // Verify the block content is the same
     BOOST_CHECK(blockFromDisk2.GetHash() == hash2);
@@ -699,7 +699,7 @@ BOOST_AUTO_TEST_CASE(check_block_header_orphan_uses_latest_aggpubkey)
 
     // CTempXFieldHistory copies the chain's history (genesis key only) then
     // lets us append a rotation entry without touching the real history.
-    CTempXFieldHistory tempHistory(g_chainstate_manager.XFieldHistory());
+    CTempXFieldHistory tempHistory(m_node.chainman->XFieldHistory());
     tempHistory.Add(TAPYRUS_XFIELDTYPES::AGGPUBKEY,
                     XFieldChange(XFieldAggPubKey(rotatedPubKey), 5, uint256()));
 
@@ -720,7 +720,7 @@ BOOST_AUTO_TEST_CASE(check_block_header_orphan_uses_latest_aggpubkey)
     // signature is valid.
     {
         CValidationState state;
-        BOOST_CHECK(CheckBlockHeader(header, state, g_chainstate_manager.RulesLatest(tempHistory)));
+        BOOST_CHECK(CheckBlockHeader(header, state, m_node.chainman->RulesLatest(tempHistory)));
     }
 
     // AcceptBlockHeader must reject for "prev-blk-not-found", not "bad-proof".
@@ -730,7 +730,7 @@ BOOST_AUTO_TEST_CASE(check_block_header_orphan_uses_latest_aggpubkey)
         LOCK(cs_main);
         CValidationState state;
         CBlockIndex* pindex = nullptr;
-        g_chainstate_manager.ActiveChainstate().AcceptBlockHeader(header, state, &pindex, &tempHistory);
+        m_node.chainman->ActiveChainstate().AcceptBlockHeader(header, state, &pindex, &tempHistory);
         BOOST_CHECK_EQUAL(state.GetRejectReason(), "prev-blk-not-found");
     }
 }
@@ -813,33 +813,33 @@ BOOST_AUTO_TEST_CASE(disconnect_block_dry_run_preserves_colorid_state)
     // ConnectBlock must have recorded the colorId in the issued colorIds.
     {
         LOCK(cs_main);
-        BOOST_REQUIRE(g_chainstate_manager.IssuedColorIds().IsIssued(colorid));
+        BOOST_REQUIRE(m_node.chainman->IssuedColorIds().IsIssued(colorid));
     }
 
     // Call DisconnectBlock(fDryRun=true) directly on the live issued colorIds.
     // Before the fix, this called IssuedColorIds().Erase(colorid) unconditionally.
     {
         LOCK(cs_main);
-        CBlockIndex* pindex = g_chainstate_manager.ActiveChain().Tip();
+        CBlockIndex* pindex = m_node.chainman->ActiveChain().Tip();
         BOOST_REQUIRE(pindex->GetBlockHash() == issueBlock.GetHash());
 
-        CCoinsViewCache coins(&g_chainstate_manager.ActiveChainstate().CoinsTip());
-        DisconnectResult res = g_chainstate_manager.ActiveChainstate().DisconnectBlock(
-            issueBlock, pindex, coins, g_chainstate_manager.IssuedColorIds(), /*fDryRun=*/true);
+        CCoinsViewCache coins(&m_node.chainman->ActiveChainstate().CoinsTip());
+        DisconnectResult res = m_node.chainman->ActiveChainstate().DisconnectBlock(
+            issueBlock, pindex, coins, m_node.chainman->IssuedColorIds(), /*fDryRun=*/true);
         BOOST_CHECK(res != DISCONNECT_FAILED);
     }
 
     // The issued colorIds must be unchanged: the colorId survives the dry-run disconnect.
     {
         LOCK(cs_main);
-        BOOST_CHECK(g_chainstate_manager.IssuedColorIds().IsIssued(colorid));
+        BOOST_CHECK(m_node.chainman->IssuedColorIds().IsIssued(colorid));
     }
 
     // Level 3 disconnects without reconnecting, so it must erase from a copy, not the live set.
     {
         LOCK(cs_main);
-        BOOST_REQUIRE(CVerifyDB().VerifyDB(&g_chainstate_manager.ActiveChainstate().CoinsTip(), 3, 0));
-        BOOST_CHECK(g_chainstate_manager.IssuedColorIds().IsIssued(colorid));
+        BOOST_REQUIRE(CVerifyDB().VerifyDB(m_node.chainman->ActiveChainstate(), &m_node.chainman->ActiveChainstate().CoinsTip(), 3, 0));
+        BOOST_CHECK(m_node.chainman->IssuedColorIds().IsIssued(colorid));
     }
 }
 
@@ -922,7 +922,7 @@ BOOST_AUTO_TEST_CASE(duplicate_nonreissuable_issuance_rejected)
     // colorId is now in the confirmed issued colorIds; definingUtxo is spent.
     {
         LOCK(cs_main);
-        BOOST_REQUIRE(g_chainstate_manager.IssuedColorIds().IsIssued(colorid));
+        BOOST_REQUIRE(m_node.chainman->IssuedColorIds().IsIssued(colorid));
     }
 
     // Build a synthetic CCoinsViewCache that presents definingUtxo as unspent,
@@ -951,8 +951,8 @@ BOOST_AUTO_TEST_CASE(duplicate_nonreissuable_issuance_rejected)
         reissueTx.vout[0].scriptPubKey = colorScript;
 
         CValidationState state;
-        PrecomputedColorData colorData(CTransaction(reissueTx), syntheticView, g_chainstate_manager.ActiveChain().Tip()->nHeight);
-        colorData.SetIssued(g_chainstate_manager.IssuedColorIds());
+        PrecomputedColorData colorData(CTransaction(reissueTx), syntheticView, m_node.chainman->Settings(), m_node.chainman->ActiveChain().Tip()->nHeight);
+        colorData.SetIssued(m_node.chainman->IssuedColorIds());
         bool valid = TransactionColorChecker(colorData).CheckOutputColorIds(state);
 
         BOOST_CHECK(!valid);
@@ -1045,7 +1045,7 @@ BOOST_AUTO_TEST_CASE(duplicate_nft_issuance_after_burn_rejected)
 
     {
         LOCK(cs_main);
-        BOOST_REQUIRE(g_chainstate_manager.IssuedColorIds().IsIssued(colorid));
+        BOOST_REQUIRE(m_node.chainman->IssuedColorIds().IsIssued(colorid));
     }
 
     // Block: burn the NFT — spend issueTx:0 (the only live unit) plus a TPC
@@ -1084,7 +1084,7 @@ BOOST_AUTO_TEST_CASE(duplicate_nft_issuance_after_burn_rejected)
     // must still remember it was issued -- Erase() is reorg-only.
     {
         LOCK(cs_main);
-        BOOST_REQUIRE(g_chainstate_manager.IssuedColorIds().IsIssued(colorid));
+        BOOST_REQUIRE(m_node.chainman->IssuedColorIds().IsIssued(colorid));
     }
 
     // Build a synthetic CCoinsViewCache that presents definingUtxo as unspent
@@ -1113,8 +1113,8 @@ BOOST_AUTO_TEST_CASE(duplicate_nft_issuance_after_burn_rejected)
         reissueTx.vout[0].scriptPubKey = colorScript;
 
         CValidationState state;
-        PrecomputedColorData colorData(CTransaction(reissueTx), syntheticView, g_chainstate_manager.ActiveChain().Tip()->nHeight);
-        colorData.SetIssued(g_chainstate_manager.IssuedColorIds());
+        PrecomputedColorData colorData(CTransaction(reissueTx), syntheticView, m_node.chainman->Settings(), m_node.chainman->ActiveChain().Tip()->nHeight);
+        colorData.SetIssued(m_node.chainman->IssuedColorIds());
         bool valid = TransactionColorChecker(colorData).CheckOutputColorIds(state);
 
         BOOST_CHECK(!valid);
@@ -1182,7 +1182,7 @@ BOOST_AUTO_TEST_CASE(verifytoken_no_tpc_input_dos_score_is_zero)
     CValidationState state;
     CAmount minRelayFee = 1000;
     LOCK(cs_main);
-    const PrecomputedColorData colorData(CTransaction(tx), view, std::numeric_limits<int32_t>::max());
+    const PrecomputedColorData colorData(CTransaction(tx), view, m_node.chainman->Settings(), std::numeric_limits<int32_t>::max());
     bool ok = TransactionColorChecker(colorData).CheckTokenBalances(state, minRelayFee);
 
     // Must be rejected …
@@ -1203,7 +1203,7 @@ BOOST_AUTO_TEST_CASE(verifytoken_no_tpc_input_dos_score_is_zero)
 class TokenBalanceInputs
 {
 public:
-    TokenBalanceInputs() : m_view(&m_dummy)
+    explicit TokenBalanceInputs(const ConsensusSettings& settings) : m_settings(settings), m_view(&m_dummy)
     {
         CKey key;
         key.MakeNewKey(true);
@@ -1229,7 +1229,7 @@ public:
     {
         const CAmount minRelayFee{1000};
         LOCK(cs_main);
-        const PrecomputedColorData colorData(CTransaction(m_tx), m_view, std::numeric_limits<int32_t>::max());
+        const PrecomputedColorData colorData(CTransaction(m_tx), m_view, m_settings, std::numeric_limits<int32_t>::max());
         return TransactionColorChecker(colorData).CheckTokenBalances(state, minRelayFee);
     }
 
@@ -1246,6 +1246,7 @@ private:
         m_tx.vin.emplace_back(outpoint);
     }
 
+    const ConsensusSettings& m_settings;
     CCoinsView m_dummy;
     CCoinsViewCache m_view;
     CMutableTransaction m_tx;
@@ -1264,7 +1265,7 @@ static void CheckInputValuesOutOfRange(const CValidationState& state)
 
 BOOST_AUTO_TEST_CASE(verifytoken_colorid_input_sum_at_max_money_accepted)
 {
-    TokenBalanceInputs inputs;
+    TokenBalanceInputs inputs{m_node.chainman->Settings()};
     const CAmount half{ConsensusConstants::MAX_MONEY / 2};
     inputs.AddColoredInput(half);
     inputs.AddColoredInput(ConsensusConstants::MAX_MONEY - half);
@@ -1281,7 +1282,7 @@ BOOST_AUTO_TEST_CASE(verifytoken_colorid_input_sum_over_max_money_rejected)
 {
     // Each input is in range; only their sum exceeds MAX_MONEY. Part of it is
     // burned, so the outputs alone are valid.
-    TokenBalanceInputs inputs;
+    TokenBalanceInputs inputs{m_node.chainman->Settings()};
     const CAmount half{ConsensusConstants::MAX_MONEY / 2};
     inputs.AddColoredInput(half);
     inputs.AddColoredInput(ConsensusConstants::MAX_MONEY - half + 1);
@@ -1301,7 +1302,7 @@ BOOST_AUTO_TEST_CASE(verifytoken_colorid_input_sum_out_of_range_all_burned)
     // check rejects it. Two MAX_MONEY inputs are enough, as the check stops at
     // the second. Without it, 4393 such inputs would overflow a signed 64-bit
     // sum, which a test cannot observe as it is undefined behaviour.
-    TokenBalanceInputs inputs;
+    TokenBalanceInputs inputs{m_node.chainman->Settings()};
     inputs.AddColoredInput(ConsensusConstants::MAX_MONEY);
     inputs.AddColoredInput(ConsensusConstants::MAX_MONEY);
     inputs.AddTpcInput(ConsensusConstants::COIN);

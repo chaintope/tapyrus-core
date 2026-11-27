@@ -14,9 +14,8 @@
 
 namespace Checkpoints {
 
-    CBlockIndex* GetLastCheckpoint(const CCheckpointData& data)
+    CBlockIndex* GetLastCheckpoint(BlockIndexMap& blockIndex, const CCheckpointData& data)
     {
-        BlockIndexMap& blockIndex = g_chainstate_manager.BlockIndex();
         AssertLockHeld(cs_main);
         const MapCheckpoints& checkpoints = data.mapCheckpoints;
 

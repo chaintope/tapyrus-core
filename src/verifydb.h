@@ -7,12 +7,15 @@
 
 #include <coinsview.h>
 
+class Chainstate;
+
 /** RAII wrapper for VerifyDB: Verify consistency of the block and coin databases */
 class CVerifyDB {
 public:
     CVerifyDB();
     ~CVerifyDB();
-    bool VerifyDB(CCoinsView *coinsview, int nCheckLevel, int nCheckDepth);
+    /** Checks the last nCheckDepth blocks of chainstate's active chain at nCheckLevel, reading coins through coinsview. */
+    bool VerifyDB(Chainstate& chainstate, CCoinsView *coinsview, int nCheckLevel, int nCheckDepth);
 };
 
 #endif //BITCOIN_VERIFYDB_H

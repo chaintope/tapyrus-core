@@ -28,19 +28,19 @@ BOOST_AUTO_TEST_CASE(file_io_find_block_pos)
     // the file position tracking was incorrect because the 8-byte serialization header
     // (4 bytes magic + 4 bytes size) was not properly accounted for.
 
-    const CBlock& genesisBlock = g_chainstate_manager.Settings().GenesisBlock();
+    const CBlock& genesisBlock = m_node.chainman->Settings().GenesisBlock();
 
     // Scenario 1: Normal block addition (first block written to disk)
     // When a genesis block is added normally, it should be written at offset 8
     // (after the 8-byte serialization header)
-    CDiskBlockPos pos1 = g_chainstate_manager.GetBlockFileManager().SaveBlockToDisk(genesisBlock, 0, nullptr);
+    CDiskBlockPos pos1 = m_node.chainman->GetBlockFileManager().SaveBlockToDisk(genesisBlock, 0, nullptr);
     BOOST_CHECK_EQUAL(pos1.nPos, BlockFileManager::STORAGE_HEADER_BYTES);
 
     // Scenario 2: Simulate what happens during reindex
     // During reindex, blocks are found at known positions in the blk file.
     // The genesis block is found at offset 8 (after its serialization header).
     CDiskBlockPos knownPos(0, BlockFileManager::STORAGE_HEADER_BYTES);
-    CDiskBlockPos pos2 = g_chainstate_manager.GetBlockFileManager().SaveBlockToDisk(genesisBlock, 0, &knownPos);
+    CDiskBlockPos pos2 = m_node.chainman->GetBlockFileManager().SaveBlockToDisk(genesisBlock, 0, &knownPos);
     BOOST_CHECK_EQUAL(pos2.nPos, BlockFileManager::STORAGE_HEADER_BYTES);
 
     // Scenario 3: After reindex, when a new block is processed
@@ -49,7 +49,7 @@ BOOST_AUTO_TEST_CASE(file_io_find_block_pos)
     // 8 bytes (serialization header)
     // + size of genesis block
     // + 8 bytes (serialization header for the new block)
-    CDiskBlockPos pos3 = g_chainstate_manager.GetBlockFileManager().SaveBlockToDisk(genesisBlock, 1, nullptr);
+    CDiskBlockPos pos3 = m_node.chainman->GetBlockFileManager().SaveBlockToDisk(genesisBlock, 1, nullptr);
     unsigned int expectedPos = BlockFileManager::STORAGE_HEADER_BYTES +
                                ::GetSerializeSize(genesisBlock, SER_DISK, CLIENT_VERSION) +
                                BlockFileManager::STORAGE_HEADER_BYTES;

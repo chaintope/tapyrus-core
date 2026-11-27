@@ -61,7 +61,7 @@ bool IsStandard(const CScript& scriptPubKey, txnouttype& whichType)
     return whichType != TX_NONSTANDARD;
 }
 
-bool IsStandardTx(const CTransaction& tx, std::string& reason)
+bool IsStandardTx(const CTransaction& tx, std::string& reason, uint32_t max_block_size)
 {
     if (tx.nFeatures > CTransaction::MAX_STANDARD_FEATURES || tx.nFeatures < 1) {
         reason = "features";
@@ -73,7 +73,7 @@ bool IsStandardTx(const CTransaction& tx, std::string& reason)
     // computing signature hashes is O(ninputs*txsize). Limiting transactions
     // to -maxstandardtxsize mitigates CPU exhaustion attacks.
     unsigned int sz = GetSerializeSize(tx, SER_NETWORK, PROTOCOL_VERSION);
-    if (sz > g_policy_settings->MaxStandardTxSize()) {
+    if (sz > g_policy_settings->MaxStandardTxSize(max_block_size)) {
         reason = "tx-size";
         return false;
     }

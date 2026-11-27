@@ -57,7 +57,7 @@ struct TestSubscriber : public CValidationInterface {
         m_expected_tip = block->GetHash();
     }
 
-    void BlockDisconnected(const std::shared_ptr<const CBlock>& block) override
+    void BlockDisconnected(const std::shared_ptr<const CBlock>& block, const CBlockIndex* pindex) override
     {
         BOOST_CHECK_EQUAL(m_expected_tip, block->GetHash());
 
@@ -68,7 +68,7 @@ struct TestSubscriber : public CValidationInterface {
 std::shared_ptr<CBlock> RegtestingSetup::Block(const uint256& prev_hash, int height)
 {
     static int i = 0;
-    static uint64_t time = g_chainstate_manager.Settings().GenesisBlock().nTime;
+    static uint64_t time = m_node.chainman->Settings().GenesisBlock().nTime;
 
     CScript pubKey;
     pubKey << i++ << OP_TRUE;
@@ -77,8 +77,7 @@ std::shared_ptr<CBlock> RegtestingSetup::Block(const uint256& prev_hash, int hei
     {
         // Held across both, so the template builds on the tip the options read.
         LOCK(cs_main);
-        const BlockAssembler::Options options(*g_policy_settings, gArgs, g_chainstate_manager);
-        ptemplate = BlockAssembler(g_chainstate_manager, *m_node.mempool, options).CreateNewBlock(pubKey, false);
+        ptemplate = BlockAssembler(*m_node.chainman, *g_policy_settings, gArgs).CreateNewBlock(pubKey, false);
     }
     auto pblock = std::make_shared<CBlock>(ptemplate->block);
     pblock->hashPrevBlock = prev_hash;
@@ -99,7 +98,7 @@ std::shared_ptr<CBlock> RegtestingSetup::FinalizeBlock(std::shared_ptr<CBlock> p
     pblock->hashImMerkleRoot = BlockMerkleRoot(*pblock, nullptr, true);
 
     XFieldAggPubKey aggpubkeyChange;
-    g_chainstate_manager.XFieldHistory().GetLatest(TAPYRUS_XFIELDTYPES::AGGPUBKEY, aggpubkeyChange);
+    m_node.chainman->XFieldHistory().GetLatest(TAPYRUS_XFIELDTYPES::AGGPUBKEY, aggpubkeyChange);
     CPubKey aggpubkey(aggpubkeyChange.getPubKey());
     std::vector<unsigned char> blockProof;
     createSignedBlockProof(*pblock, blockProof);
@@ -173,7 +172,7 @@ public:
     ForkReportSetup()
     {
         bool ignored;
-        ProcessNewBlock(std::make_shared<CBlock>(g_chainstate_manager.Settings().GenesisBlock()), true, &ignored);
+        m_node.chainman->ProcessNewBlock(std::make_shared<CBlock>(m_node.chainman->Settings().GenesisBlock()), true, &ignored);
         m_node.notifications.Subscribe(m_reports);
     }
     ~ForkReportSetup()
@@ -186,7 +185,7 @@ public:
     //! so the whole chain is tried.
     void ProcessInvalidChain(int32_t length)
     {
-        std::vector<std::shared_ptr<const CBlock>> blocks{BadBlock(g_chainstate_manager.Settings().GenesisBlock().GetHash(), 1)};
+        std::vector<std::shared_ptr<const CBlock>> blocks{BadBlock(m_node.chainman->Settings().GenesisBlock().GetHash(), 1)};
         for (int32_t height = 2; height <= length; ++height) blocks.push_back(GoodBlock(blocks.back()->GetHash(), height));
         Process(blocks, std::vector<std::shared_ptr<const CBlock>>(blocks.rbegin(), blocks.rend()));
     }
@@ -194,7 +193,7 @@ public:
     //! length valid blocks on genesis.
     void ProcessValidChain(int32_t length)
     {
-        std::vector<std::shared_ptr<const CBlock>> blocks{GoodBlock(g_chainstate_manager.Settings().GenesisBlock().GetHash(), 1)};
+        std::vector<std::shared_ptr<const CBlock>> blocks{GoodBlock(m_node.chainman->Settings().GenesisBlock().GetHash(), 1)};
         for (int32_t height = 2; height <= length; ++height) blocks.push_back(GoodBlock(blocks.back()->GetHash(), height));
         Process(blocks, blocks);
     }
@@ -209,9 +208,9 @@ private:
         CValidationState state;
         std::vector<CBlockHeader> headers;
         for (const auto& block : blocks) headers.push_back(block->GetBlockHeader());
-        BOOST_REQUIRE(ProcessNewBlockHeaders(headers, state));
+        BOOST_REQUIRE(m_node.chainman->ProcessNewBlockHeaders(headers, state));
         bool ignored;
-        for (const auto& block : order) ProcessNewBlock(block, true, &ignored);
+        for (const auto& block : order) m_node.chainman->ProcessNewBlock(block, true, &ignored);
     }
 };
 
@@ -255,7 +254,7 @@ BOOST_AUTO_TEST_CASE(processnewblock_signals_ordering)
     std::vector<std::shared_ptr<const CBlock>> blocks;
     while (blocks.size() < 50) {
         blocks.clear();
-        BuildChain(g_chainstate_manager.Settings().GenesisBlock().GetHash(), 1, 15, 10, 500, blocks);
+        BuildChain(m_node.chainman->Settings().GenesisBlock().GetHash(), 1, 15, 10, 500, blocks);
     }
 
     bool ignored;
@@ -264,17 +263,17 @@ BOOST_AUTO_TEST_CASE(processnewblock_signals_ordering)
     std::transform(blocks.begin(), blocks.end(), std::back_inserter(headers), [](std::shared_ptr<const CBlock> b) { return b->GetBlockHeader(); });
 
     // Process all the headers so we understand the toplogy of the chain
-    BOOST_CHECK(ProcessNewBlockHeaders(headers, state));
+    BOOST_CHECK(m_node.chainman->ProcessNewBlockHeaders(headers, state));
 
     // Connect the genesis block and drain any outstanding events
-    ProcessNewBlock(std::make_shared<CBlock>(g_chainstate_manager.Settings().GenesisBlock()), true, &ignored);
+    m_node.chainman->ProcessNewBlock(std::make_shared<CBlock>(m_node.chainman->Settings().GenesisBlock()), true, &ignored);
     SyncWithValidationInterfaceQueue();
 
     // subscribe to events (this subscriber will validate event ordering)
     const CBlockIndex* initial_tip = nullptr;
     {
         LOCK(cs_main);
-        initial_tip = g_chainstate_manager.ActiveChain().Tip();
+        initial_tip = m_node.chainman->ActiveChain().Tip();
     }
     TestSubscriber sub(initial_tip->GetBlockHash());
     RegisterValidationInterface(&sub);
@@ -284,24 +283,24 @@ BOOST_AUTO_TEST_CASE(processnewblock_signals_ordering)
     // will subscribe to events generated during block validation and assert on ordering invariance
     std::vector<std::thread> threads;
     for (int i = 0; i < 10; i++) {
-        threads.emplace_back([&blocks]() {
+        threads.emplace_back([this, &blocks]() {
             bool ignored;
             for (int i = 0; i < 1000; i++) {
                 auto block = blocks[GetRand(blocks.size() - 1)];
                 BOOST_CHECK_EQUAL(block->proof.size(), 64);
                 CValidationState state;
-                BOOST_CHECK(CheckBlockHeader(*block, state, g_chainstate_manager.RulesLatest()));
-                ProcessNewBlock(block, true, &ignored);
+                BOOST_CHECK(CheckBlockHeader(*block, state, m_node.chainman->RulesLatest()));
+                m_node.chainman->ProcessNewBlock(block, true, &ignored);
             }
 
             // to make sure that eventually we process the full chain - do it here
             for (auto block : blocks) {
                 BOOST_CHECK_EQUAL(block->proof.size(), 64);
                 CValidationState state;
-                BOOST_CHECK(CheckBlockHeader(*block, state, g_chainstate_manager.RulesLatest()));
-                ProcessNewBlock(block, true, &ignored);
+                BOOST_CHECK(CheckBlockHeader(*block, state, m_node.chainman->RulesLatest()));
+                m_node.chainman->ProcessNewBlock(block, true, &ignored);
                 if (block->vtx.size() == 1) {
-                    bool processed = ProcessNewBlock(block, true, &ignored);
+                    bool processed = m_node.chainman->ProcessNewBlock(block, true, &ignored);
                     assert(processed);
                 }
             }
@@ -317,8 +316,8 @@ BOOST_AUTO_TEST_CASE(processnewblock_signals_ordering)
 
     UnregisterValidationInterface(&sub);
 
-    BOOST_CHECK_EQUAL(sub.m_expected_tip, g_chainstate_manager.ActiveChain().Tip()->GetBlockHash());
-    BOOST_CHECK(g_chainstate_manager.ActiveChain().Tip()->nHeight != 0);
+    BOOST_CHECK_EQUAL(sub.m_expected_tip, m_node.chainman->ActiveChain().Tip()->GetBlockHash());
+    BOOST_CHECK(m_node.chainman->ActiveChain().Tip()->nHeight != 0);
 }
 
 BOOST_AUTO_TEST_SUITE_END()

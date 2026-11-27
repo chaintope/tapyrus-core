@@ -9,6 +9,7 @@
 
 #include <map>
 
+class BlockIndexMap;
 class CBlockIndex;
 struct CCheckpointData;
 
@@ -20,7 +21,7 @@ namespace Checkpoints
 {
 
 //! Returns last CBlockIndex* that is a checkpoint
-CBlockIndex* GetLastCheckpoint(const CCheckpointData& data);
+CBlockIndex* GetLastCheckpoint(BlockIndexMap& blockIndex, const CCheckpointData& data);
 
 } //namespace Checkpoints
 

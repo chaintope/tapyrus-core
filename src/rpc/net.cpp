@@ -2,6 +2,8 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
+#include <chainstatemanager.h>
+#include <rpc/blockchain.h>
 #include <rpc/server.h>
 #include <rpc/jsonrpcrequest.h>
 #include <rpc/rpctable.h>
@@ -400,8 +402,9 @@ static UniValue getnettotals(const JSONRPCRequest& request)
     UniValue outboundLimit(UniValue::VOBJ);
     outboundLimit.pushKV("timeframe", connman.GetMaxOutboundTimeframe());
     outboundLimit.pushKV("target", connman.GetMaxOutboundTarget());
-    outboundLimit.pushKV("target_reached", connman.OutboundTargetReached(false));
-    outboundLimit.pushKV("serve_historical_blocks", !connman.OutboundTargetReached(true));
+    ChainstateManager& chainman = EnsureChainman(request.context);
+    outboundLimit.pushKV("target_reached", connman.OutboundTargetReached(false, chainman.XFieldHistory().GetCurrentMaxBlockSize()));
+    outboundLimit.pushKV("serve_historical_blocks", !connman.OutboundTargetReached(true, chainman.XFieldHistory().GetCurrentMaxBlockSize()));
     outboundLimit.pushKV("bytes_left_in_cycle", connman.GetOutboundTargetBytesLeft());
     outboundLimit.pushKV("time_left_in_cycle", connman.GetMaxOutboundTimeLeftInCycle());
     obj.pushKV("uploadtarget", outboundLimit);

@@ -71,7 +71,7 @@ int main(int argc, char *argv[])
         if (QTest::qExec(&test1) != 0) {
             fInvalid = true;
         }
-        RPCNestedTests test3;
+        RPCNestedTests test3(test.m_node);
         if (QTest::qExec(&test3) != 0) {
             fInvalid = true;
         }

@@ -6,12 +6,10 @@
 
 #include <amount.h>
 #include <blockindex.h>
-#include <chainstatemanager.h>
 #include <coloridentifier.h>
 #include <consensus/validation.h>
 #include <core_io.h>
 #include <httpserver.h>
-#include <init.h>
 #include <interfaces/chain.h>
 #include <validation.h>
 #include <key_io.h>
@@ -46,7 +44,6 @@
 #include <wallet/walletutil.h>
 #include <walletinitinterface.h>
 #include <xfieldhistory.h>
-#include <blockfilemanager.h>
 
 #include <stdexcept>
 #include <stdint.h>
@@ -114,17 +111,19 @@ void EnsureWalletIsUnlocked(CWallet * const pwallet)
 
 static void WalletTxToJSON(const CWallet* const pwallet, const CWalletTx& wtx, UniValue& entry)
 {
-    BlockIndexMap& blockIndex = g_chainstate_manager.BlockIndex();
     int confirms = wtx.GetDepthInMainChain();
     entry.pushKV("confirmations", confirms);
     if (wtx.IsCoinBase())
         entry.pushKV("generated", true);
     if (confirms > 0)
     {
-        AssertLockHeld(cs_main);
-        entry.pushKV("blockhash", wtx.hashBlock.GetHex());
-        entry.pushKV("blockindex", wtx.nIndex);
-        entry.pushKV("blocktime", blockIndex.LookupBlockIndex(wtx.hashBlock)->GetBlockTime());
+        entry.pushKV("blockhash", wtx.m_confirm.hashBlock.GetHex());
+        entry.pushKV("blockindex", wtx.m_confirm.nIndex);
+        int64_t block_time;
+        if (!pwallet->chain().findBlock(wtx.m_confirm.hashBlock, interfaces::FoundBlock().time(block_time))) {
+            throw JSONRPCError(RPC_INTERNAL_ERROR, "The transaction's block is not in the block index");
+        }
+        entry.pushKV("blocktime", block_time);
     } else {
         entry.pushKV("trusted", wtx.IsTrusted());
     }
@@ -694,7 +693,7 @@ static UniValue getreceivedbyaddress(const JSONRPCRequest& request)
     CAmount nAmount = 0;
     for (const std::pair<const uint256, CWalletTx>& pairWtx : pwallet->mapWallet) {
         const CWalletTx& wtx = pairWtx.second;
-        if (wtx.IsCoinBase() || !CheckFinalTx(*wtx.tx))
+        if (wtx.IsCoinBase() || !pwallet->chain().checkFinalTx(*wtx.tx))
             continue;
 
         for (const CTxOut& txout : wtx.tx->vout)
@@ -760,7 +759,7 @@ static UniValue getreceivedbylabel(const JSONRPCRequest& request)
     TxColoredCoinBalancesMap lable_balance;
     for (const std::pair<const uint256, CWalletTx>& pairWtx : pwallet->mapWallet) {
         const CWalletTx& wtx = pairWtx.second;
-        if (wtx.IsCoinBase() || !CheckFinalTx(*wtx.tx))
+        if (wtx.IsCoinBase() || !pwallet->chain().checkFinalTx(*wtx.tx))
             continue;
 
         for (const CTxOut& txout : wtx.tx->vout)
@@ -1121,7 +1120,7 @@ static UniValue ListReceived(CWallet * const pwallet, const UniValue& params, bo
     for (const std::pair<const uint256, CWalletTx>& pairWtx : pwallet->mapWallet) {
         const CWalletTx& wtx = pairWtx.second;
 
-        if (wtx.IsCoinBase() || !CheckFinalTx(*wtx.tx))
+        if (wtx.IsCoinBase() || !pwallet->chain().checkFinalTx(*wtx.tx))
             continue;
 
         int nDepth = wtx.GetDepthInMainChain();
@@ -1622,7 +1621,6 @@ UniValue listtransactions(const JSONRPCRequest& request)
 
 static UniValue listsinceblock(const JSONRPCRequest& request)
 {
-    BlockIndexMap& blockIndex = g_chainstate_manager.BlockIndex();
     std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
     CWallet* const pwallet = wallet.get();
 
@@ -1684,24 +1682,20 @@ static UniValue listsinceblock(const JSONRPCRequest& request)
 
     LOCK2(cs_main, pwallet->cs_wallet);
 
-    const CBlockIndex* pindex = nullptr;    // Block index of the specified block or the common ancestor, if the block provided was in a deactivated chain.
-    const CBlockIndex* paltindex = nullptr; // Block index of the specified block, even if it's in a deactivated chain.
+    std::optional<int> height; // Height of the specified block or the common ancestor, if the block provided was in a deactivated chain.
+    std::optional<int> altheight; // Height of the specified block, even if it's in a deactivated chain.
     int target_confirms = 1;
     isminefilter filter = ISMINE_SPENDABLE;
 
+    uint256 blockId;
     if (!request.params[0].isNull() && !request.params[0].get_str().empty()) {
-        uint256 blockId;
-
         blockId.SetHex(request.params[0].get_str());
-        paltindex = pindex = blockIndex.LookupBlockIndex(blockId);
-        if (!pindex) {
+        height.emplace();
+        altheight.emplace();
+        // A block of a deactivated chain is read at its last common ancestor
+        // with the active chain, not at its own height.
+        if (!pwallet->chain().findCommonAncestor(blockId, pwallet->GetLastBlockHash(), /* ancestor out */ interfaces::FoundBlock().height(*height), /* blockId out */ interfaces::FoundBlock().height(*altheight))) {
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Block not found");
-        }
-        if (g_chainstate_manager.ActiveChain()[pindex->nHeight] != pindex) {
-            // the block being asked for is a part of a deactivated chain;
-            // we don't want to depend on its perceived height in the block
-            // chain, we want to instead use the last common ancestor
-            pindex = g_chainstate_manager.ActiveChain().FindFork(pindex);
         }
     }
 
@@ -1719,7 +1713,7 @@ static UniValue listsinceblock(const JSONRPCRequest& request)
 
     bool include_removed = (request.params[3].isNull() || request.params[3].get_bool());
 
-    int depth = pindex ? (1 + g_chainstate_manager.ActiveChain().Height() - pindex->nHeight) : -1;
+    int depth = height ? pwallet->GetLastBlockHeight() + 1 - *height : -1;
 
     UniValue transactions(UniValue::VARR);
 
@@ -1734,9 +1728,9 @@ static UniValue listsinceblock(const JSONRPCRequest& request)
     // when a reorg'd block is requested, we also list any relevant transactions
     // in the blocks of the chain that was detached
     UniValue removed(UniValue::VARR);
-    while (include_removed && paltindex && paltindex != pindex) {
+    while (include_removed && altheight && *altheight > *height) {
         CBlock block;
-        if (!g_chainstate_manager.ReadBlock(block, paltindex)) {
+        if (!pwallet->chain().findBlock(blockId, interfaces::FoundBlock().data(block)) || block.IsNull()) {
             throw JSONRPCError(RPC_INTERNAL_ERROR, "Can't read block from disk");
         }
         for (const CTransactionRef& tx : block.vtx) {
@@ -1747,11 +1741,13 @@ static UniValue listsinceblock(const JSONRPCRequest& request)
                 ListTransactions(pwallet, it->second, -100000000, true, removed, filter);
             }
         }
-        paltindex = paltindex->pprev;
+        blockId = block.hashPrevBlock;
+        --*altheight;
     }
 
-    CBlockIndex *pblockLast = g_chainstate_manager.ActiveChain()[g_chainstate_manager.ActiveChain().Height() + 1 - target_confirms];
-    uint256 lastblock = pblockLast ? pblockLast->GetBlockHash() : uint256();
+    // All zeros when target_confirms reaches below the genesis block.
+    uint256 lastblock;
+    pwallet->chain().findAncestorByHeight(pwallet->GetLastBlockHash(), pwallet->GetLastBlockHeight() + 1 - target_confirms, interfaces::FoundBlock().hash(lastblock));
 
     UniValue ret(UniValue::VOBJ);
     ret.pushKV("transactions", transactions);
@@ -2579,7 +2575,7 @@ static UniValue loadwallet(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_WALLET_ERROR, "Wallet file verification failed: " + error);
     }
 
-    std::shared_ptr<CWallet> const wallet = CWallet::CreateWalletFromFile(g_wallet_init_interface.GetChainInterface(), wallet_file, wallet_path);
+    std::shared_ptr<CWallet> const wallet = CWallet::CreateWalletFromFile(g_wallet_init_interface.GetChainInterface(), *g_wallet_init_interface.GetWalletEvents(), wallet_file, wallet_path);
     if (!wallet) {
         throw JSONRPCError(RPC_WALLET_ERROR, "Wallet loading failed.");
     }
@@ -2633,7 +2629,7 @@ static UniValue createwallet(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_WALLET_ERROR, "Wallet file verification failed: " + error);
     }
 
-    std::shared_ptr<CWallet> const wallet = CWallet::CreateWalletFromFile(g_wallet_init_interface.GetChainInterface(), wallet_name, wallet_path, (disable_privatekeys ? (uint64_t)WALLET_FLAG_DISABLE_PRIVATE_KEYS : 0));
+    std::shared_ptr<CWallet> const wallet = CWallet::CreateWalletFromFile(g_wallet_init_interface.GetChainInterface(), *g_wallet_init_interface.GetWalletEvents(), wallet_name, wallet_path, (disable_privatekeys ? (uint64_t)WALLET_FLAG_DISABLE_PRIVATE_KEYS : 0));
     if (!wallet) {
         throw JSONRPCError(RPC_WALLET_ERROR, "Wallet creation failed.");
     }
@@ -2683,7 +2679,7 @@ static UniValue unloadwallet(const JSONRPCRequest& request)
     if (!RemoveWallet(wallet)) {
         throw JSONRPCError(RPC_MISC_ERROR, "Requested wallet already unloaded");
     }
-    UnregisterValidationInterface(wallet.get());
+    g_wallet_init_interface.GetWalletEvents()->Unregister(*wallet);
 
     // The wallet can be in use so it's not possible to explicitly unload here.
     // Just notify the unload intent so that all shared pointers are released.
@@ -3190,10 +3186,16 @@ UniValue signrawtransactionwithwallet(const JSONRPCRequest& request)
 
     SignatureScheme sigScheme = ParseSigSchemeString(request.params[3]);
 
+    // Fetch previous transactions (inputs):
+    std::map<COutPoint, Coin> coins;
+    for (const CTxIn& txin : mtx.vin) {
+        coins[txin.prevout]; // Create empty map entry keyed by prevout.
+    }
+    pwallet->chain().findCoins(coins);
+
     // Sign the transaction
     LOCK2(cs_main, pwallet->cs_wallet);
-    assert(request.context.mempool);
-    return SignTransaction(*request.context.mempool, mtx, request.params[1], pwallet, false, request.params[2], sigScheme);
+    return SignTransaction(mtx, request.params[1], pwallet, coins, false, request.params[2], sigScheme);
 }
 
 static UniValue bumpfee(const JSONRPCRequest& request)
@@ -3405,7 +3407,7 @@ UniValue generate(const JSONRPCRequest& request)
     int num_generate = request.params[0].get_int();
 
     // Skip IBD check in DEV mode
-    if (gArgs.GetChainMode() != TAPYRUS_OP_MODE::DEV && IsInitialBlockDownload()) {
+    if (gArgs.GetChainMode() != TAPYRUS_OP_MODE::DEV && pwallet->chain().isInitialBlockDownload()) {
         throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Tapyrus is in initial sync and waiting for blocks...");
     }
 
@@ -3413,10 +3415,7 @@ UniValue generate(const JSONRPCRequest& request)
     if(!cPrivKey.IsValid())
         throw JSONRPCError(RPC_WALLET_INVALID_PRIVATE_KEY, "No private key given or invalid private key.");
 
-    XFieldAggPubKey aggpubkeyChange;
-    g_chainstate_manager.XFieldHistory().GetLatest(TAPYRUS_XFIELDTYPES::AGGPUBKEY, aggpubkeyChange);
-
-    if(cPrivKey.GetPubKey() != aggpubkeyChange.getPubKey())
+    if(cPrivKey.GetPubKey() != pwallet->chain().getAggregatePubkey())
         throw JSONRPCError(RPC_WALLET_INVALID_AGGREGATE_KEY, "Given private key doesn't correspond to the Aggregate Key.");
 
     std::shared_ptr<CReserveScript> coinbase_script;
@@ -3432,8 +3431,11 @@ UniValue generate(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_INTERNAL_ERROR, "No coinbase script available");
     }
 
-    assert(request.context.mempool);
-    return generateBlocks(*request.context.mempool, coinbase_script, num_generate, true, cPrivKey);
+    UniValue block_hashes(UniValue::VARR);
+    for (const uint256& hash : pwallet->chain().generateBlocks(coinbase_script, num_generate, cPrivKey)) {
+        block_hashes.push_back(hash.GetHex());
+    }
+    return block_hashes;
 }
 
 UniValue rescanblockchain(const JSONRPCRequest& request)
@@ -3468,58 +3470,53 @@ UniValue rescanblockchain(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_WALLET_ERROR, "Wallet is currently rescanning. Abort existing rescan or wait.");
     }
 
-    CBlockIndex *pindexStart = nullptr;
-    CBlockIndex *pindexStop = nullptr;
-    CBlockIndex *pChainTip = nullptr;
+    int start_height = 0;
+    std::optional<int> stop_height;
+    uint256 start_block;
     {
-        LOCK(cs_main);
-        pindexStart = g_chainstate_manager.ActiveChain().Genesis();
-        pChainTip = g_chainstate_manager.ActiveChain().Tip();
+        LOCK2(cs_main, pwallet->cs_wallet);
+        int tip_height = pwallet->GetLastBlockHeight();
 
         if (!request.params[0].isNull()) {
-            pindexStart = g_chainstate_manager.ActiveChain()[request.params[0].get_int()];
-            if (!pindexStart) {
+            start_height = request.params[0].get_int();
+            if (start_height < 0 || start_height > tip_height) {
                 throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid start_height");
             }
         }
 
         if (!request.params[1].isNull()) {
-            pindexStop = g_chainstate_manager.ActiveChain()[request.params[1].get_int()];
-            if (!pindexStop) {
+            stop_height = request.params[1].get_int();
+            if (*stop_height < 0 || *stop_height > tip_height) {
                 throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid stop_height");
-            }
-            else if (pindexStop->nHeight < pindexStart->nHeight) {
+            } else if (*stop_height < start_height) {
                 throw JSONRPCError(RPC_INVALID_PARAMETER, "stop_height must be greater than start_height");
             }
         }
-    }
 
-    // We can't rescan beyond non-pruned blocks, stop and throw an error
-    if (g_chainstate_manager.GetBlockFileManager().GetOptions().fPruneMode) {
-        LOCK(cs_main);
-        CBlockIndex *block = pindexStop ? pindexStop : pChainTip;
-        while (block && block->nHeight >= pindexStart->nHeight) {
-            if (!(block->nStatus & BLOCK_HAVE_DATA)) {
-                throw JSONRPCError(RPC_MISC_ERROR, "Can't rescan beyond pruned data. Use RPC call getblockchaininfo to determine your pruned height.");
-            }
-            block = block->pprev;
+        // We can't rescan beyond non-pruned blocks, stop and throw an error
+        if (!pwallet->chain().hasBlocks(pwallet->GetLastBlockHash(), start_height, stop_height)) {
+            throw JSONRPCError(RPC_MISC_ERROR, "Can't rescan beyond pruned data. Use RPC call getblockchaininfo to determine your pruned height.");
+        }
+
+        if (!pwallet->chain().findAncestorByHeight(pwallet->GetLastBlockHash(), start_height, interfaces::FoundBlock().hash(start_block))) {
+            throw JSONRPCError(RPC_INTERNAL_ERROR, "Start block is not an ancestor of the wallet's last processed block");
         }
     }
 
-    CBlockIndex *stopBlock = pwallet->ScanForWalletTransactions(pindexStart, pindexStop, reserver, true);
-    if (!stopBlock) {
-        if (pwallet->IsAbortingRescan()) {
-            throw JSONRPCError(RPC_MISC_ERROR, "Rescan aborted.");
-        }
-        // if we got a nullptr returned, ScanForWalletTransactions did rescan up to the requested stopindex
-        stopBlock = pindexStop ? pindexStop : pChainTip;
-    }
-    else {
+    CWallet::ScanResult result =
+        pwallet->ScanForWalletTransactions(start_block, start_height, stop_height, reserver, true /* fUpdate */);
+    switch (result.status) {
+    case CWallet::ScanResult::SUCCESS:
+        break;
+    case CWallet::ScanResult::FAILURE:
         throw JSONRPCError(RPC_MISC_ERROR, "Rescan failed. Potentially corrupted data files.");
+    case CWallet::ScanResult::USER_ABORT:
+        throw JSONRPCError(RPC_MISC_ERROR, "Rescan aborted.");
+        // no default case, so the compiler can warn about missing cases
     }
     UniValue response(UniValue::VOBJ);
-    response.pushKV("start_height", pindexStart->nHeight);
-    response.pushKV("stop_height", stopBlock->nHeight);
+    response.pushKV("start_height", start_height);
+    response.pushKV("stop_height", result.last_scanned_height ? *result.last_scanned_height : UniValue());
     return response;
 }
 
@@ -3868,7 +3865,7 @@ UniValue sethdseed(const JSONRPCRequest& request)
             );
     }
 
-    if (IsInitialBlockDownload()) {
+    if (pwallet->chain().isInitialBlockDownload()) {
         throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Cannot set a new HD seed while still in Initial Block Download");
     }
 
@@ -4402,9 +4399,8 @@ UniValue walletfundpsttfee(const JSONRPCRequest& request)
         // the fee_input is the provider's own coin, but nothing here requires
         // it to be *this* wallet specifically, matching signpsttwithkey's own
         // no-wallet-required Signer path.
-        CTransactionRef feeTx;
-        uint256 hashBlock;
-        if (!GetTransaction(request.context.mempool.get(), txid, feeTx, hashBlock, true)) {
+        const CTransactionRef feeTx{pwallet->chain().findTransaction(txid)};
+        if (!feeTx) {
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "fee_input's txid not found");
         }
         if ((unsigned int)nOutput >= feeTx->vout.size()) {

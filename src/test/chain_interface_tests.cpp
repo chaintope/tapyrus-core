@@ -2,17 +2,24 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
+#include <chain.h>
+#include <chainstatemanager.h>
+#include <coin.h>
 #include <consensus/validation.h>
 #include <consensusconstants.h>
 #include <interfaces/chain.h>
 #include <policy/fees.h>
 #include <policy/rbf.h>
+#include <primitives/block.h>
 #include <primitives/transaction.h>
+#include <pubkey.h>
 #include <script/script.h>
 #include <script/transactionsignatureserializer.h>
 #include <test/test_tapyrus.h>
 #include <txmempool.h>
 #include <validation.h>
+
+#include <univalue.h>
 
 #include <boost/test/unit_test.hpp>
 
@@ -24,6 +31,13 @@ public:
     static constexpr CAmount MAX_TX_FEE{ConsensusConstants::COIN};
 
     std::unique_ptr<interfaces::Chain> m_chain{interfaces::MakeChain(m_node)};
+
+    //! The active tip, read under cs_main.
+    const CBlockIndex* Tip()
+    {
+        LOCK(cs_main);
+        return m_node.chainman->ActiveChain().Tip();
+    }
 
     //! Spends output 0 of parent, paying it less FEE back to the coinbase key.
     CTransactionRef Spend(const CTransactionRef& parent, uint32_t sequence = ConsensusConstants::SEQUENCE_FINAL)
@@ -152,6 +166,200 @@ BOOST_AUTO_TEST_CASE(without_data_there_is_no_fee_estimate_or_mempool_minimum)
 {
     BOOST_CHECK(m_chain->estimateSmartFee(2, false, nullptr) == CFeeRate(0));
     BOOST_CHECK(m_chain->mempoolMinFee() == CFeeRate(0));
+}
+
+BOOST_AUTO_TEST_CASE(a_synced_node_is_ready_to_broadcast)
+{
+    BOOST_REQUIRE(!m_node.chainman->ActiveChainstate().IsInitialBlockDownload());
+    BOOST_CHECK(m_chain->isReadyToBroadcast());
+}
+
+// Negative case: a node loading blocks must not rebroadcast.
+
+BOOST_AUTO_TEST_CASE(a_node_importing_or_reindexing_is_not_ready_to_broadcast)
+{
+    m_node.chainman->GetBlockFileManager().SetImporting(true);
+    BOOST_CHECK(!m_chain->isReadyToBroadcast());
+    m_node.chainman->GetBlockFileManager().SetImporting(false);
+
+    m_node.chainman->SetReindexing(true);
+    BOOST_CHECK(!m_chain->isReadyToBroadcast());
+    m_node.chainman->SetReindexing(false);
+    BOOST_CHECK(m_chain->isReadyToBroadcast());
+}
+
+// The chain lookups, read against the fixture's active chain.
+
+BOOST_AUTO_TEST_CASE(the_tip_and_heights_match_the_active_chain)
+{
+    LOCK(cs_main);
+    const CChain& active = m_node.chainman->ActiveChain();
+    BOOST_CHECK_EQUAL(*m_chain->getHeight(), active.Height());
+    BOOST_CHECK_EQUAL(m_chain->getBlockHash(active.Height()), active.Tip()->GetBlockHash());
+    BOOST_CHECK(m_chain->haveBlockOnDisk(active.Height()));
+    BOOST_CHECK_EQUAL(*m_chain->findLocatorFork(m_chain->getTipLocator()), active.Height());
+}
+
+BOOST_AUTO_TEST_CASE(a_known_block_returns_what_was_asked_for)
+{
+    const CBlockIndex* tip = Tip();
+    uint256 hash;
+    int height{-1};
+    int64_t time{0}, max_time{0}, mtp_time{0};
+    bool in_active_chain{false};
+    CBlock block;
+    BOOST_CHECK(m_chain->findBlock(tip->GetBlockHash(), interfaces::FoundBlock().hash(hash).height(height).time(time).maxTime(max_time).mtpTime(mtp_time).inActiveChain(in_active_chain).data(block)));
+    BOOST_CHECK_EQUAL(hash, tip->GetBlockHash());
+    BOOST_CHECK_EQUAL(height, tip->nHeight);
+    BOOST_CHECK_EQUAL(time, tip->GetBlockTime());
+    BOOST_CHECK_EQUAL(max_time, tip->GetBlockTimeMax());
+    BOOST_CHECK_EQUAL(mtp_time, tip->GetMedianTimePast());
+    BOOST_CHECK(in_active_chain);
+    BOOST_CHECK_EQUAL(block.GetHash(), tip->GetBlockHash());
+}
+
+BOOST_AUTO_TEST_CASE(ancestors_are_found_by_height_hash_and_common_descent)
+{
+    const CBlockIndex* tip = Tip();
+    const CBlockIndex* lower = tip->GetAncestor(tip->nHeight - 3);
+    uint256 hash;
+    BOOST_CHECK(m_chain->findAncestorByHeight(tip->GetBlockHash(), lower->nHeight, interfaces::FoundBlock().hash(hash)));
+    BOOST_CHECK_EQUAL(hash, lower->GetBlockHash());
+    int height{-1};
+    BOOST_CHECK(m_chain->findAncestorByHash(tip->GetBlockHash(), lower->GetBlockHash(), interfaces::FoundBlock().height(height)));
+    BOOST_CHECK_EQUAL(height, lower->nHeight);
+    uint256 ancestor;
+    BOOST_CHECK(m_chain->findCommonAncestor(tip->GetBlockHash(), lower->GetBlockHash(), interfaces::FoundBlock().hash(ancestor)));
+    BOOST_CHECK_EQUAL(ancestor, lower->GetBlockHash());
+    BOOST_CHECK(m_chain->findFirstBlockWithTimeAndHeight(0, lower->nHeight, interfaces::FoundBlock().hash(hash)));
+    BOOST_CHECK_EQUAL(hash, lower->GetBlockHash());
+}
+
+BOOST_AUTO_TEST_CASE(the_progress_size_and_key_come_from_the_chain)
+{
+    const uint256 tip = Tip()->GetBlockHash();
+    const double progress{m_chain->guessVerificationProgress(tip)};
+    BOOST_CHECK(progress > 0.0 && progress <= 1.0);
+    BOOST_CHECK(!m_chain->havePruned());
+    BOOST_CHECK(!m_chain->isPruneMode());
+    BOOST_CHECK_EQUAL(m_chain->getMaxBlockSize(), m_node.chainman->XFieldHistory().GetCurrentMaxBlockSize());
+    BOOST_CHECK(m_chain->getAggregatePubkey().IsFullyValid());
+}
+
+BOOST_AUTO_TEST_CASE(the_next_block_and_block_data_follow_the_active_chain)
+{
+    const CBlockIndex* tip = Tip();
+    const CBlockIndex* prev = tip->pprev;
+    uint256 next;
+    bool reorg{true};
+    BOOST_CHECK(m_chain->findNextBlock(prev->GetBlockHash(), prev->nHeight, interfaces::FoundBlock().hash(next), &reorg));
+    BOOST_CHECK(!reorg);
+    BOOST_CHECK_EQUAL(next, tip->GetBlockHash());
+    BOOST_CHECK(m_chain->hasBlocks(tip->GetBlockHash(), 0, tip->nHeight));
+    // Returns at once when the tip is the one given.
+    m_chain->waitForNotificationsIfTipChanged(tip->GetBlockHash());
+}
+
+// Negative cases: what the lookups must report as not found.
+
+BOOST_AUTO_TEST_CASE(the_tip_has_no_next_block_and_an_off_chain_block_reports_a_reorg)
+{
+    const CBlockIndex* tip = Tip();
+    bool reorg{true};
+    BOOST_CHECK(!m_chain->findNextBlock(tip->GetBlockHash(), tip->nHeight, {}, &reorg));
+    BOOST_CHECK(!reorg);
+    BOOST_CHECK(!m_chain->findNextBlock(uint256S("01"), tip->nHeight - 1, {}, &reorg));
+    BOOST_CHECK(reorg);
+    BOOST_CHECK(!m_chain->hasBlocks(uint256S("01")));
+}
+
+BOOST_AUTO_TEST_CASE(an_unknown_block_is_not_found_and_leaves_the_outputs)
+{
+    int height{-7};
+    CBlock block;
+    BOOST_CHECK(!m_chain->findBlock(uint256S("01"), interfaces::FoundBlock().height(height).data(block)));
+    BOOST_CHECK_EQUAL(height, -7);
+    BOOST_CHECK(!m_chain->findAncestorByHeight(uint256S("01"), 0));
+    BOOST_CHECK(!m_chain->findCommonAncestor(uint256S("01"), uint256S("02")));
+}
+
+BOOST_AUTO_TEST_CASE(lookups_past_the_tip_or_off_the_ancestry_fail)
+{
+    const CBlockIndex* tip = Tip();
+    BOOST_CHECK(!m_chain->haveBlockOnDisk(tip->nHeight + 1));
+    BOOST_CHECK(!m_chain->findAncestorByHeight(tip->GetBlockHash(), tip->nHeight + 1));
+    BOOST_CHECK(!m_chain->findFirstBlockWithTimeAndHeight(0, tip->nHeight + 1));
+    // The tip does not descend from a later block.
+    const CBlockIndex* lower = tip->GetAncestor(tip->nHeight - 3);
+    BOOST_CHECK(!m_chain->findAncestorByHash(lower->GetBlockHash(), tip->GetBlockHash()));
+}
+
+BOOST_AUTO_TEST_CASE(coins_are_found_in_the_utxo_set_and_the_mempool)
+{
+    const CTransactionRef unconfirmed{Spend(m_coinbase_txns[0])};
+    Submit(unconfirmed);
+    const COutPoint confirmed_out{m_coinbase_txns[1]->GetHashMalFix(), 0};
+    const COutPoint unconfirmed_out{unconfirmed->GetHashMalFix(), 0};
+    std::map<COutPoint, Coin> coins{{confirmed_out, Coin()}, {unconfirmed_out, Coin()}};
+    m_chain->findCoins(coins);
+    BOOST_CHECK(!coins[confirmed_out].IsSpent());
+    BOOST_CHECK_EQUAL(coins[confirmed_out].out.nValue, m_coinbase_txns[1]->vout[0].nValue);
+    BOOST_CHECK(!coins[unconfirmed_out].IsSpent());
+    BOOST_CHECK_EQUAL(coins[unconfirmed_out].out.nValue, unconfirmed->vout[0].nValue);
+}
+
+BOOST_AUTO_TEST_CASE(a_transaction_is_found_in_the_mempool_and_in_a_block)
+{
+    const CTransactionRef unconfirmed{Spend(m_coinbase_txns[0])};
+    Submit(unconfirmed);
+    const CTransactionRef in_mempool{m_chain->findTransaction(unconfirmed->GetHashMalFix())};
+    BOOST_REQUIRE(in_mempool);
+    BOOST_CHECK(*in_mempool == *unconfirmed);
+    const CTransactionRef in_block{m_chain->findTransaction(m_coinbase_txns[1]->GetHashMalFix())};
+    BOOST_REQUIRE(in_block);
+    BOOST_CHECK(*in_block == *m_coinbase_txns[1]);
+}
+
+BOOST_AUTO_TEST_CASE(generated_blocks_extend_the_tip)
+{
+    CKey key;
+    key.Set(validAggPrivateKey, validAggPrivateKey + 32, true);
+    auto script{std::make_shared<CReserveScript>()};
+    script->reserveScript = CScript() << ToByteVector(coinbaseKey.GetPubKey()) << OP_CHECKSIG;
+    const int height{*m_chain->getHeight()};
+    const std::vector<uint256> hashes{m_chain->generateBlocks(script, 2, key)};
+    BOOST_REQUIRE_EQUAL(hashes.size(), 2U);
+    BOOST_CHECK_EQUAL(*m_chain->getHeight(), height + 2);
+    BOOST_CHECK_EQUAL(Tip()->GetBlockHash(), hashes[1]);
+}
+
+BOOST_AUTO_TEST_CASE(unknown_coins_are_cleared)
+{
+    const CTransactionRef unconfirmed{Spend(m_coinbase_txns[0])};
+    Submit(unconfirmed);
+    const COutPoint unknown_tx{uint256S("01"), 0};
+    const COutPoint past_the_outputs{unconfirmed->GetHashMalFix(), 5};
+    Coin filled{m_coinbase_txns[1]->vout[0], 1, false};
+    std::map<COutPoint, Coin> coins{{unknown_tx, filled}, {past_the_outputs, filled}};
+    m_chain->findCoins(coins);
+    BOOST_CHECK(coins[unknown_tx].IsSpent());
+    BOOST_CHECK(coins[past_the_outputs].IsSpent());
+}
+
+BOOST_AUTO_TEST_CASE(an_unknown_transaction_is_not_found)
+{
+    BOOST_CHECK(!m_chain->findTransaction(uint256S("01")));
+}
+
+BOOST_AUTO_TEST_CASE(blocks_signed_with_another_key_are_not_generated)
+{
+    CKey key;
+    key.MakeNewKey(true);
+    auto script{std::make_shared<CReserveScript>()};
+    script->reserveScript = CScript() << ToByteVector(coinbaseKey.GetPubKey()) << OP_CHECKSIG;
+    const uint256 tip{Tip()->GetBlockHash()};
+    BOOST_CHECK_THROW(m_chain->generateBlocks(script, 1, key), UniValue);
+    BOOST_CHECK_EQUAL(Tip()->GetBlockHash(), tip);
 }
 
 BOOST_AUTO_TEST_SUITE_END()

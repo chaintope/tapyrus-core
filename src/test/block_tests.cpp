@@ -112,7 +112,7 @@ BOOST_AUTO_TEST_CASE(AbsorbBlockProof_test) {
     ssBlockProof << blockProof;
 
     XFieldAggPubKey aggpubkeyChange;
-    g_chainstate_manager.XFieldHistory().GetLatest(TAPYRUS_XFIELDTYPES::AGGPUBKEY, aggpubkeyChange);
+    m_node.chainman->XFieldHistory().GetLatest(TAPYRUS_XFIELDTYPES::AGGPUBKEY, aggpubkeyChange);
     CPubKey aggpubkey(aggpubkeyChange.getPubKey());
     // add proof to the block
     BOOST_CHECK(block.AbsorbBlockProof(blockProof, aggpubkey));
@@ -143,7 +143,7 @@ BOOST_AUTO_TEST_CASE(AbsorbBlockProof_invlalid_test) {
 
     //returns false as all signatures in proof are not added to the block
     XFieldAggPubKey aggpubkeyChange;
-    g_chainstate_manager.XFieldHistory().GetLatest(TAPYRUS_XFIELDTYPES::AGGPUBKEY, aggpubkeyChange);
+    m_node.chainman->XFieldHistory().GetLatest(TAPYRUS_XFIELDTYPES::AGGPUBKEY, aggpubkeyChange);
     CPubKey aggpubkey(aggpubkeyChange.getPubKey());
     BOOST_CHECK_EQUAL(false, block.AbsorbBlockProof(blockProof, aggpubkey));
 
@@ -287,7 +287,7 @@ BOOST_AUTO_TEST_CASE(blockHeaderWithxfieldType3_maxxfieldtype)
 BOOST_AUTO_TEST_CASE(checkblock_tx_size_uses_block_height_limit)
 {
     const uint32_t laterLimit{2000};
-    CXFieldHistory history(g_chainstate_manager.Settings().GenesisBlock());
+    CXFieldHistory history(m_node.chainman->Settings().GenesisBlock());
     history.Add(TAPYRUS_XFIELDTYPES::MAXBLOCKSIZE, XFieldChange(XFieldMaxBlockSize(laterLimit), 100, uint256()));
 
     CMutableTransaction coinbase;
@@ -319,13 +319,13 @@ BOOST_AUTO_TEST_CASE(checkblock_tx_size_uses_block_height_limit)
     CBlockIndex at50;
     at50.nHeight = 50;
     CValidationState state;
-    const bool ok = CheckBlock(block, state, g_chainstate_manager.RulesAt(at50, history), false, false);
+    const bool ok = CheckBlock(block, state, m_node.chainman->RulesAt(at50, history), false, false);
     BOOST_CHECK_MESSAGE(ok, FormatStateMessage(state));
 
     CBlockIndex at150;
     at150.nHeight = 150;
     CValidationState laterState;
-    BOOST_CHECK(!CheckBlock(block, laterState, g_chainstate_manager.RulesAt(at150, history), false, false));
+    BOOST_CHECK(!CheckBlock(block, laterState, m_node.chainman->RulesAt(at150, history), false, false));
     BOOST_CHECK_EQUAL(laterState.GetRejectReason(), "bad-blk-length");
 }
 

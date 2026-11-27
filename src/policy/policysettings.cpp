@@ -170,26 +170,27 @@ PolicySettings::PolicySettings(const ArgsManager& args, TAPYRUS_OP_MODE mode)
 {
 }
 
-uint32_t PolicySettings::MaxStandardTxSize() const
+uint32_t PolicySettings::MaxStandardTxSize(uint32_t max_block_size) const
 {
-    return std::min(maxStandardTxSize, g_chainstate_manager.RulesLatest().MaxBlockSize());
+    return std::min(maxStandardTxSize, max_block_size);
 }
 
-uint32_t PolicySettings::MinStandardTxSize() const
+uint32_t PolicySettings::MinStandardTxSize(uint32_t max_block_size) const
 {
-    return std::min(minStandardTxSize, MaxStandardTxSize());
+    return std::min(minStandardTxSize, MaxStandardTxSize(max_block_size));
 }
 
-uint32_t PolicySettings::MaxOrphanTxSize() const
+uint32_t PolicySettings::MaxOrphanTxSize(uint32_t max_block_size) const
 {
-    return std::min(maxOrphanTxSize, MaxStandardTxSize());
+    return std::min(maxOrphanTxSize, MaxStandardTxSize(max_block_size));
 }
 
-std::string PolicySettings::CheckMinStandardTxSize() const
+std::string PolicySettings::CheckMinStandardTxSize(uint32_t max_block_size) const
 {
-    const uint32_t maxSize = MaxStandardTxSize();
+    const uint32_t maxSize = MaxStandardTxSize(max_block_size);
     if (minStandardTxSize > maxSize) {
         return strprintf("-minstandardtxsize value %u is above the largest standard transaction size %u (-maxstandardtxsize, capped at the block size limit)", minStandardTxSize, maxSize);
     }
     return "";
 }
+

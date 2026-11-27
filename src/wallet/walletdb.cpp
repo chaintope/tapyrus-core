@@ -5,7 +5,7 @@
 
 #include <wallet/walletdb.h>
 
-#include <chainstatemanager.h>
+#include <interfaces/chain.h>
 #include <consensus/tx_check.h>
 #include <consensus/validation.h>
 #include <fs.h>
@@ -274,7 +274,9 @@ ReadKeyValue(CWallet* pwallet, CDataStream& ssKey, CDataStream& ssValue,
             CWalletTx wtx(nullptr /* pwallet */, MakeTransactionRef());
             ssValue >> wtx;
             CValidationState state;
-            if (!(CheckTransaction(*wtx.tx, state, g_chainstate_manager.XFieldHistory().GetCurrentMaxBlockSize()) && (wtx.GetHash() == hash) && state.IsValid()))
+            // Without a node the block size limit is unknown, so only the node bounds the size.
+            const uint32_t max_block_size = pwallet->HaveChain() ? pwallet->chain().getMaxBlockSize() : std::numeric_limits<uint32_t>::max();
+            if (!(CheckTransaction(*wtx.tx, state, max_block_size) && (wtx.GetHash() == hash) && state.IsValid()))
                 return false;
 
             // Undo serialize changes in 31600

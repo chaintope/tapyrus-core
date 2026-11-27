@@ -104,8 +104,10 @@ public:
     bool Verify() const override {return true;}
     void SetChainInterface(interfaces::Chain* chain) const override {}
     interfaces::Chain* GetChainInterface() const override {return nullptr;}
+    WalletEvents* GetWalletEvents() const override {return nullptr;}
+    void SyncWalletEvents() const override {}
     bool Open() const override {LogPrintf("No wallet support compiled in!\n"); return true;}
-    void Start(CScheduler& scheduler) const override {}
+    void Start() const override {}
     void Flush() const override {}
     void Stop() const override {}
     void Close() const override {}
@@ -238,15 +240,17 @@ void Shutdown(NodeContext& node)
     bool fCanFlush = false;
     {
         LOCK(cs_main);
-        fCanFlush = g_chainstate_manager.HasChainstate() && g_chainstate_manager.ActiveChainstate().CanFlushToDisk();
+        fCanFlush = node.chainman && node.chainman->HasChainstate() && node.chainman->ActiveChainstate().CanFlushToDisk();
     }
     if (fCanFlush) {
-        FlushStateToDisk();
+        node.chainman->ActiveChainstate().ForceFlushStateToDisk();
     }
 
     // After there are no more peers/RPC left to give us new data which may generate
     // CValidationInterface callbacks, flush them...
     GetMainSignals().FlushBackgroundCallbacks();
+    // Delivers the events just flushed to the wallet thread while the chainstate still exists.
+    g_wallet_init_interface.Stop();
 
     // Any future callbacks will be dropped. This should absolutely be safe - if
     // missing a callback results in an unrecoverable situation, unclean shutdown
@@ -254,21 +258,21 @@ void Shutdown(NodeContext& node)
     // up with our current chain to avoid any strange pruning edge cases and make
     // next startup faster by avoiding rescan.
 
-    {
+    // Absent when start-up failed before the manager or its chainstate was created.
+    if (node.chainman) {
         LOCK(cs_main);
-        // Absent when start-up failed before the chainstate was created.
-        if (g_chainstate_manager.HasChainstate()) {
-            Chainstate& chainstate = g_chainstate_manager.ActiveChainstate();
+        ChainstateManager& chainman = *node.chainman;
+        if (chainman.HasChainstate()) {
+            Chainstate& chainstate = chainman.ActiveChainstate();
             if (chainstate.CanFlushToDisk()) {
-                FlushStateToDisk();
+                chainstate.ForceFlushStateToDisk();
             }
             chainstate.ResetCoinsViews();
         }
-        g_chainstate_manager.IssuedColorIds() = CIssuedColorIds();
-        g_chainstate_manager.BlockIndex().pblocktreedb.reset();
-        g_chainstate_manager.ReleaseBlockFileManager();
+        chainman.IssuedColorIds() = CIssuedColorIds();
+        chainman.BlockIndex().pblocktreedb.reset();
+        chainman.ReleaseBlockFileManager();
     }
-    g_wallet_init_interface.Stop();
 
 #if ENABLE_ZMQ
     if (g_zmq_notification_interface) {
@@ -292,8 +296,9 @@ void Shutdown(NodeContext& node)
     g_wallet_init_interface.Close();
     // The chain interface reads the NodeContext, which the caller destroys after this.
     g_wallet_init_interface.SetChainInterface(nullptr);
-    // The chainstate refers to the node's mempool, which the caller destroys after this.
-    g_chainstate_manager.ReleaseChainstate();
+    // The chainstate refers to the node's mempool, and the manager to the
+    // notifications; both outlive it.
+    node.chainman.reset();
     globalVerifyHandle.reset();
     ECC_Stop();
     LogPrintf("%s: done\n", __func__);
@@ -339,11 +344,11 @@ static void OnRPCStarted()
     uiInterface.NotifyBlockTip.connect(&RPCNotifyBlockChange);
 }
 
-static void OnRPCStopped()
+static void OnRPCStopped(NodeContext& node)
 {
     uiInterface.NotifyBlockTip.disconnect(&RPCNotifyBlockChange);
     RPCNotifyBlockChange(false, nullptr);
-    g_chainstate_manager.m_best_block_cv.notify_all();
+    if (node.chainman) node.chainman->m_best_block_cv.notify_all();
     LogPrint(BCLog::RPC, "RPC stopped.\n");
 }
 
@@ -604,34 +609,37 @@ static void BlockNotifyGenesisWait(bool, const CBlockIndex *pBlockIndex, double)
 
 struct CImportingNow
 {
-    CImportingNow() {
-        assert(g_chainstate_manager.GetBlockFileManager().IsImporting() == false);
-        g_chainstate_manager.GetBlockFileManager().SetImporting(true);
+    explicit CImportingNow(BlockFileManager& block_files) : m_block_files(block_files) {
+        assert(m_block_files.IsImporting() == false);
+        m_block_files.SetImporting(true);
     }
 
     ~CImportingNow() {
-        assert(g_chainstate_manager.GetBlockFileManager().IsImporting() == true);
-        g_chainstate_manager.GetBlockFileManager().SetImporting(false);
+        assert(m_block_files.IsImporting() == true);
+        m_block_files.SetImporting(false);
     }
+
+    BlockFileManager& m_block_files;
 };
 
 
 static void ThreadImport(NodeContext& node, std::vector<fs::path> vImportFiles)
 {
-    BlockIndexMap& blockIndex = g_chainstate_manager.BlockIndex();
+    ChainstateManager& chainman = *node.chainman;
+    BlockIndexMap& blockIndex = chainman.BlockIndex();
     RenameThread("tapyrus-loadblk");
     ScheduleBatchPriority();
-    CTempXFieldHistory tempXFieldHistory(g_chainstate_manager.XFieldHistory());
+    CTempXFieldHistory tempXFieldHistory(chainman.XFieldHistory());
 
     {
-    CImportingNow imp;
+    CImportingNow imp{chainman.GetBlockFileManager()};
     std::vector<XFieldAggpubkey> xFieldList;
 
     // -reindex
-    BlockFileManager& blockFileManager = g_chainstate_manager.GetBlockFileManager();
-    if (g_chainstate_manager.ShouldWipeBlockTree()) {
+    BlockFileManager& blockFileManager = chainman.GetBlockFileManager();
+    if (chainman.ShouldWipeBlockTree()) {
         // To avoid ending up in a situation without genesis block, initialize it:
-        LoadGenesisBlock();
+        chainman.ActiveChainstate().LoadGenesisBlock();
 
         int nFile = 0;
         while (true) {
@@ -642,14 +650,14 @@ static void ThreadImport(NodeContext& node, std::vector<fs::path> vImportFiles)
             if (!file)
                 break; // This error is logged in OpenBlockFile
             LogPrintf("Reindexing block file blk%05u.dat...\n", (unsigned int)nFile);
-            g_chainstate_manager.LoadExternalBlockFile(file, &pos, &tempXFieldHistory);
+            chainman.LoadExternalBlockFile(file, &pos, &tempXFieldHistory);
             nFile++;
         }
         {
             LOCK(cs_main);
             blockIndex.pblocktreedb->WriteReindexing(false);
         }
-        g_chainstate_manager.SetReindexing(false);
+        chainman.SetReindexing(false);
         LogPrintf("Reindexing finished\n");
     }
 
@@ -660,7 +668,7 @@ static void ThreadImport(NodeContext& node, std::vector<fs::path> vImportFiles)
         if (file) {
             fs::path pathBootstrapOld = GetDataDir() / "bootstrap.dat.old";
             LogPrintf("Importing bootstrap.dat...\n");
-            g_chainstate_manager.LoadExternalBlockFile(file, nullptr, &tempXFieldHistory);
+            chainman.LoadExternalBlockFile(file, nullptr, &tempXFieldHistory);
             RenameOver(pathBootstrap, pathBootstrapOld);
         } else {
             LogPrintf("Warning: Could not open bootstrap file %s\n", pathBootstrap.string());
@@ -672,7 +680,7 @@ static void ThreadImport(NodeContext& node, std::vector<fs::path> vImportFiles)
         FILE *file = fsbridge::fopen(path, "rb");
         if (file) {
             LogPrintf("Importing blocks file %s...\n", path.string());
-            g_chainstate_manager.LoadExternalBlockFile(file, nullptr, &tempXFieldHistory);
+            chainman.LoadExternalBlockFile(file, nullptr, &tempXFieldHistory);
         } else {
             LogPrintf("Warning: Could not open blocks file %s\n", path.string());
         }
@@ -680,17 +688,17 @@ static void ThreadImport(NodeContext& node, std::vector<fs::path> vImportFiles)
 
     // scan for better chains in the block chain database, that are not yet connected in the active best chain
     CValidationState state;
-    if (!ActivateBestChain(state)) {
+    if (!chainman.ActiveChainstate().ActivateBestChain(state, nullptr)) {
         LogPrintf("Failed to connect best block (%s)\n", FormatStateMessage(state));
         StartShutdown();
         return;
     }
 
-    if (g_chainstate_manager.GetOptions().fReloadXField) {
+    if (chainman.GetOptions().fReloadXField) {
         // Rebuild the persisted xfield list from the active chain only.
         // tempXFieldHistory was populated from all processed blocks including orphans;
         // after ActivateBestChain the chain's CXFieldHistory only contains active-chain entries.
-        CXFieldHistory& xfieldHistory = g_chainstate_manager.XFieldHistory();
+        CXFieldHistory& xfieldHistory = chainman.XFieldHistory();
         for (const auto& type : XFIELDTYPES_INIT_LIST) {
             XFieldChangeList changes = xfieldHistory.GetListCopy(type);
             if (!changes.empty()) {
@@ -707,7 +715,7 @@ static void ThreadImport(NodeContext& node, std::vector<fs::path> vImportFiles)
     }
     } // End scope of CImportingNow
     if (g_policy_settings->persistMempool) {
-        g_chainstate_manager.ActiveChainstate().LoadMempool();
+        chainman.ActiveChainstate().LoadMempool();
     }
     node.mempool_loaded = !ShutdownRequested();
 }
@@ -734,7 +742,7 @@ static bool InitSanityCheck(void)
 static bool AppInitServers(NodeContext& node)
 {
     RPCServer::OnStarted(&OnRPCStarted);
-    RPCServer::OnStopped(&OnRPCStopped);
+    RPCServer::OnStopped([&node] { OnRPCStopped(node); });
     if (!InitHTTPServer())
         return false;
     StartRPC();
@@ -1040,17 +1048,19 @@ bool AppInitParameterInteraction(NodeContext& node)
     }
 
     node.cache = std::make_unique<const CacheSettings>(gArgs);
-    g_chainstate_manager.InitOptions(ChainstateManager::Options(gArgs, chainparams.DefaultConsistencyChecks(), node.cache->nCoinCacheUsage));
+    node.chainman = std::make_unique<ChainstateManager>();
+    ChainstateManager& chainman = *node.chainman;
+    chainman.InitOptions(ChainstateManager::Options(gArgs, chainparams.DefaultConsistencyChecks(), node.cache->nCoinCacheUsage));
     node.notifications.Subscribe(FatalErrorDialog::Instance());
     node.notifications.Subscribe(NodeShutdown::Instance());
-    g_chainstate_manager.SetNotifications(&node.notifications);
-    const uint256& hashAssumeValid = g_chainstate_manager.GetOptions().hashAssumeValid;
+    chainman.SetNotifications(&node.notifications);
+    const uint256& hashAssumeValid = chainman.GetOptions().hashAssumeValid;
     if (!hashAssumeValid.IsNull())
         LogPrintf("Assuming ancestors of block %s have valid signatures.\n", hashAssumeValid.GetHex());
     else
         LogPrintf("Validating signatures for all blocks.\n");
     try {
-        g_chainstate_manager.InitBlockFileManager(BlockFileManager::Options(gArgs, Params().PruneAfterHeight()), node.notifications);
+        chainman.InitBlockFileManager(BlockFileManager::Options(gArgs, Params().PruneAfterHeight()), node.notifications);
     } catch (const std::exception& e) {
         return InitError(e.what());
     }
@@ -1061,7 +1071,7 @@ bool AppInitParameterInteraction(NodeContext& node)
     mempool_options.expiry = node.policy->mempoolExpiry;
     mempool_options.max_size = node.policy->maxMempool;
     node.mempool = std::make_unique<CTxMemPool>(mempool_options);
-    g_chainstate_manager.InitializeChainstate(*node.mempool);
+    chainman.InitializeChainstate(*node.mempool);
 
     // Option to startup with mocktime set (used for regression testing):
     SetMockTime(gArgs.GetArg("-mocktime", 0)); // SetMockTime(0) is a no-op
@@ -1127,7 +1137,8 @@ bool AppInitLockDataDirectory()
 
 bool AppInitMain(NodeContext& node)
 {
-    BlockIndexMap& blockIndex = g_chainstate_manager.BlockIndex();
+    ChainstateManager& chainman = *node.chainman;
+    BlockIndexMap& blockIndex = chainman.BlockIndex();
     // ********************************************************* Step 4a: application initialization
 #ifndef WIN32
     CreatePidFile(GetPidFile(), getpid());
@@ -1163,36 +1174,36 @@ bool AppInitMain(NodeContext& node)
     //Read genesis block from file now - we are sure that data dir exists.
     try {
         SelectFederationParams(gArgs.GetChainMode());
-        g_chainstate_manager.InitConsensusSettings(std::make_unique<const ConsensusSettings>(ReadGenesisBlock(), gArgs.GetChainMode(), FederationParams().NetworkId()));
-        g_chainstate_manager.InitXFieldHistory(g_chainstate_manager.Settings().GenesisBlock());
+        chainman.InitConsensusSettings(std::make_unique<const ConsensusSettings>(ReadGenesisBlock(), gArgs.GetChainMode(), FederationParams().NetworkId()));
+        chainman.InitXFieldHistory(chainman.Settings().GenesisBlock());
     } catch (const std::exception& e) {
         fprintf(stderr, "Error: %s\n", e.what());
         return false;
     }
-    LogPrintf("Genesis Block [%s] of Tapyrus network [%s] Loaded successfully\n", g_chainstate_manager.Settings().GenesisBlock().GetHash().ToString(), FederationParams().NetworkIDString());
+    LogPrintf("Genesis Block [%s] of Tapyrus network [%s] Loaded successfully\n", chainman.Settings().GenesisBlock().GetHash().ToString(), FederationParams().NetworkIDString());
 
     // Seed the verification progress estimate from the genesis block timestamp
     // so that it produces meaningful values during IBD.
     // nTime is wall-clock time (so nNow - nTime ≈ 0 and fTxTotal ≈ nTxCount),
     // and nTxCount is the expected total transactions from genesis to now.
-    if (!g_chainstate_manager.Settings().GenesisBlock().vtx.empty()) {
-        const int64_t genesisTime = g_chainstate_manager.Settings().GenesisBlock().nTime;
+    if (!chainman.Settings().GenesisBlock().vtx.empty()) {
+        const int64_t genesisTime = chainman.Settings().GenesisBlock().nTime;
         const double dTxRate = 1.0 / CFederationParams::EXPECTED_BLOCK_TIME;
         const int64_t nNow = time(nullptr);
         const int64_t nTxCount = std::max(int64_t(1),
             static_cast<int64_t>((nNow - genesisTime) * dTxRate));
-        g_chainstate_manager.Progress().Set({nNow, nTxCount, dTxRate});
+        chainman.Progress().Set({nNow, nTxCount, dTxRate});
     }
 
     {
         LOCK(cs_main);
-        g_chainstate_manager.ValidationCaches().Resize(node.cache->nValidationCacheBytes);
+        chainman.ValidationCaches().Resize(node.cache->nValidationCacheBytes);
     }
 
-    const int nScriptCheckThreads = g_chainstate_manager.GetOptions().nScriptCheckThreads;
+    const int nScriptCheckThreads = chainman.GetOptions().nScriptCheckThreads;
     LogPrintf("Using %u threads for script verification\n", nScriptCheckThreads);
     if (nScriptCheckThreads) {
-        StartScriptCheckWorkerThreads(nScriptCheckThreads);
+        chainman.StartScriptCheckWorkerThreads();
     }
 
     // Start the lightweight task scheduler thread
@@ -1250,7 +1261,7 @@ bool AppInitMain(NodeContext& node)
     node.connman = std::unique_ptr<CConnman>(new CConnman(GetRand(std::numeric_limits<uint64_t>::max()), GetRand(std::numeric_limits<uint64_t>::max())));
     CConnman& connman = *node.connman;
 
-    node.peerman.reset(new PeerManager(connman, *node.mempool, scheduler, node.notifications));
+    node.peerman.reset(new PeerManager(connman, chainman, *node.mempool, scheduler, node.notifications));
     RegisterValidationInterface(node.peerman.get());
 
     // sanitize comments per BIP-0014, format user agent and check total size
@@ -1340,7 +1351,8 @@ bool AppInitMain(NodeContext& node)
     }
 
 #if ENABLE_ZMQ
-    g_zmq_notification_interface = CZMQNotificationInterface::Create();
+    g_zmq_notification_interface = CZMQNotificationInterface::Create(
+        [&chainman = *node.chainman](CBlock& block, const CBlockIndex* pindex) { return chainman.ReadBlock(block, pindex); });
 
     if (g_zmq_notification_interface) {
         RegisterValidationInterface(g_zmq_notification_interface);
@@ -1355,8 +1367,8 @@ bool AppInitMain(NodeContext& node)
 
     // ********************************************************* Step 7: load block chain
 
-    BlockFileManager& blockFileManager = g_chainstate_manager.GetBlockFileManager();
-    g_chainstate_manager.SetReindexing(gArgs.GetBoolArg("-reindex", false));
+    BlockFileManager& blockFileManager = chainman.GetBlockFileManager();
+    chainman.SetReindexing(gArgs.GetBoolArg("-reindex", false));
 
     const CacheSettings& cache = *node.cache;
     int64_t nMempoolSizeMax = node.mempool->MaxSize();
@@ -1371,7 +1383,7 @@ bool AppInitMain(NodeContext& node)
     bool fLoaded = false;
     while (!fLoaded && !ShutdownRequested()) {
         // Taken before LoadBlockIndex, which can switch reindexing on to resume an interrupted reindex.
-        const bool wipeBlockTree = g_chainstate_manager.ShouldWipeBlockTree();
+        const bool wipeBlockTree = chainman.ShouldWipeBlockTree();
         std::string strLoadError;
 
         uiInterface.InitMessage(_("Loading block index..."));
@@ -1381,8 +1393,8 @@ bool AppInitMain(NodeContext& node)
         do {
             const int64_t load_block_index_start_time = GetTimeMillis();
             try {
-                UnloadBlockIndex(node.mempool.get());
-                g_chainstate_manager.ActiveChainstate().ResetCoinsViews();
+                chainman.UnloadBlockIndex();
+                chainman.ActiveChainstate().ResetCoinsViews();
                 // new CBlockTreeDB tries to delete the existing file, which
                 // fails if it's still open from the previous loop. Close it first:
                 blockIndex.pblocktreedb.reset();
@@ -1401,20 +1413,20 @@ bool AppInitMain(NodeContext& node)
                 // block file from disk.
                 // Note that it also sets the reindexing flag based on the disk flag!
                 // From here on out IsReindexing() and wipeBlockTree mean something different!
-                if (!LoadBlockIndex()) {
+                if (!chainman.LoadBlockIndex()) {
                     strLoadError = _("Error loading block database");
                     break;
                 }
 
                 // If the loaded chain has a wrong genesis, bail out immediately
                 // (we're likely using a testnet datadir, or the other way around).
-                if (!blockIndex.mapBlockIndex.empty() && !blockIndex.LookupBlockIndex(g_chainstate_manager.Settings().GenesisBlock().GetHash())) {
+                if (!blockIndex.mapBlockIndex.empty() && !blockIndex.LookupBlockIndex(chainman.Settings().GenesisBlock().GetHash())) {
                     return InitError(_("Incorrect or no genesis block found. Wrong datadir for network?"));
                 }
 
                 // Check for changed -prune state.  What we are concerned about is a user who has pruned blocks
                 // in the past, but is now trying to run unpruned.
-                if (g_chainstate_manager.HavePruned() && !blockFileManager.GetOptions().fPruneMode) {
+                if (chainman.HavePruned() && !blockFileManager.GetOptions().fPruneMode) {
                     strLoadError = _("You need to rebuild the database using -reindex to go back to unpruned mode.  This will redownload the entire blockchain");
                     break;
                 }
@@ -1423,49 +1435,49 @@ bool AppInitMain(NodeContext& node)
                 // If we're not mid-reindex (based on disk + args), add a genesis block on disk
                 // (otherwise we use the one already on disk).
                 // This is called again in ThreadImport after the reindex completes.
-                if (!g_chainstate_manager.IsReindexing() && !LoadGenesisBlock()) {
+                if (!chainman.IsReindexing() && !chainman.ActiveChainstate().LoadGenesisBlock()) {
                     strLoadError = _("Error initializing block database");
                     break;
                 } else {
                     // Initialize xfieldHistory here as it is not initialized
                     // when genesis block is loaded from the file during reindex
-                    g_chainstate_manager.InitXFieldHistory(g_chainstate_manager.Settings().GenesisBlock());
+                    chainman.InitXFieldHistory(chainman.Settings().GenesisBlock());
                 }
 
                 // At this point we're either in reindex or we've loaded a useful
                 // block tree into mapBlockIndex!
 
-                g_chainstate_manager.ActiveChainstate().InitCoinsDB(g_chainstate_manager.IssuedColorIds(), cache.nCoinDBCache, false, wipeBlockTree || g_chainstate_manager.GetOptions().fReindexChainState);
+                chainman.ActiveChainstate().InitCoinsDB(chainman.IssuedColorIds(), cache.nCoinDBCache, false, wipeBlockTree || chainman.GetOptions().fReindexChainState);
 
                 // Reset the issued colorIds before ReplayBlocks so that DisconnectBlock
                 // inside the replay can stage erases that CommitToBatch writes atomically
                 // with the replay's UTXO flush.  cs_main is already held by the outer LOCK.
-                g_chainstate_manager.IssuedColorIds() = CIssuedColorIds();
+                chainman.IssuedColorIds() = CIssuedColorIds();
 
                 // If necessary, upgrade from older database format.
                 // This is a no-op if we cleared the coinsviewdb with -reindex or -reindex-chainstate
-                if (!g_chainstate_manager.ActiveChainstate().CoinsDB().Upgrade()) {
+                if (!chainman.ActiveChainstate().CoinsDB().Upgrade()) {
                     strLoadError = _("Error upgrading chainstate database");
                     break;
                 }
 
                 // ReplayBlocks is a no-op if we cleared the coinsviewdb with -reindex or -reindex-chainstate
-                if (!ReplayBlocks(&g_chainstate_manager.ActiveChainstate().CoinsDB(), g_chainstate_manager.IssuedColorIds())) {
+                if (!chainman.ActiveChainstate().ReplayBlocks(&chainman.ActiveChainstate().CoinsDB(), chainman.IssuedColorIds())) {
                     strLoadError = _("Unable to replay blocks. You will need to rebuild the database using -reindex-chainstate.");
                     break;
                 }
 
                 // The on-disk coinsdb is now in a good state, create the cache
-                g_chainstate_manager.ActiveChainstate().InitCoinsCache();
+                chainman.ActiveChainstate().InitCoinsCache();
 
-                bool is_coinsview_empty = wipeBlockTree || g_chainstate_manager.GetOptions().fReindexChainState || g_chainstate_manager.ActiveChainstate().CoinsTip().GetBestBlock().IsNull();
+                bool is_coinsview_empty = wipeBlockTree || chainman.GetOptions().fReindexChainState || chainman.ActiveChainstate().CoinsTip().GetBestBlock().IsNull();
                 if (!is_coinsview_empty) {
                     // LoadChainTip sets the active chain based on the coins tip's best block
-                    if (!LoadChainTip()) {
+                    if (!chainman.ActiveChainstate().LoadChainTip()) {
                         strLoadError = _("Error initializing block database");
                         break;
                     }
-                    assert(g_chainstate_manager.ActiveChain().Tip() != nullptr);
+                    assert(chainman.ActiveChain().Tip() != nullptr);
                 }
 
                 if (!wipeBlockTree) {
@@ -1473,13 +1485,13 @@ bool AppInitMain(NodeContext& node)
                     // It reduces validity/have-data flags in mapBlockIndex and rebuilds
                     // setBlockIndexCandidates for the current active chain.
                     uiInterface.InitMessage(_("Rewinding blocks..."));
-                    if (!RewindBlockIndex()) {
+                    if (!chainman.RewindBlockIndex()) {
                         strLoadError = _("Unable to rewind the database to a pre-fork state. You will need to redownload the blockchain");
                         break;
                     }
                 }
                 // Step 7a: Load Xfield data from db
-                CXFieldHistory& xFieldHistory = g_chainstate_manager.XFieldHistory();
+                CXFieldHistory& xFieldHistory = chainman.XFieldHistory();
                 for(auto x : XFIELDTYPES_INIT_LIST)
                 {
                     const char key = xFieldHistory.DBKey(x);
@@ -1496,21 +1508,21 @@ bool AppInitMain(NodeContext& node)
                 // cs_main is already held by the outer LOCK.
                 {
                     std::set<ColorIdentifier> colorIds;
-                    if (!g_chainstate_manager.ActiveChainstate().CoinsDB().LoadIssuedColorIds(colorIds)) {
+                    if (!chainman.ActiveChainstate().CoinsDB().LoadIssuedColorIds(colorIds)) {
                         strLoadError = _("Failed to load issued colorId set from chainstate database");
                         break;
                     }
-                    g_chainstate_manager.IssuedColorIds().SetConfirmed(std::move(colorIds));
+                    chainman.IssuedColorIds().SetConfirmed(std::move(colorIds));
                 }
 
                 if (!is_coinsview_empty) {
                     uiInterface.InitMessage(_("Verifying blocks..."));
-                    if (g_chainstate_manager.HavePruned() && gArgs.GetArg("-checkblocks", DEFAULT_CHECKBLOCKS) > BlockFileManager::MIN_BLOCKS_TO_KEEP) {
+                    if (chainman.HavePruned() && gArgs.GetArg("-checkblocks", DEFAULT_CHECKBLOCKS) > BlockFileManager::MIN_BLOCKS_TO_KEEP) {
                         LogPrintf("Prune: pruned datadir may not have more than %d blocks; only checking available blocks\n",
                             BlockFileManager::MIN_BLOCKS_TO_KEEP);
                     }
 
-                    CBlockIndex* tip = g_chainstate_manager.ActiveChain().Tip();
+                    CBlockIndex* tip = chainman.ActiveChain().Tip();
                     RPCNotifyBlockChange(true, tip);
                     if (tip && tip->nTime > GetAdjustedTime() + 2 * 60 * 60) {
                         strLoadError = _("The block database contains a block which appears to be from the future. "
@@ -1519,7 +1531,7 @@ bool AppInitMain(NodeContext& node)
                         break;
                     }
 
-                    if (!CVerifyDB().VerifyDB(&g_chainstate_manager.ActiveChainstate().CoinsDB(), gArgs.GetArg("-checklevel", DEFAULT_CHECKLEVEL),
+                    if (!CVerifyDB().VerifyDB(chainman.ActiveChainstate(), &chainman.ActiveChainstate().CoinsDB(), gArgs.GetArg("-checklevel", DEFAULT_CHECKLEVEL),
                                   gArgs.GetArg("-checkblocks", DEFAULT_CHECKBLOCKS))) {
                         strLoadError = _("Corrupted block database detected");
                         break;
@@ -1543,7 +1555,7 @@ bool AppInitMain(NodeContext& node)
                     strLoadError + ".\nPlease restart with -reindex or -reindex-chainstate to recover.",
                     "", CClientUIInterface::MSG_ERROR | CClientUIInterface::BTN_ABORT);
                 if (fRet) {
-                    g_chainstate_manager.SetReindexing(true);
+                    chainman.SetReindexing(true);
                     AbortShutdown();
                 } else {
                     LogPrintf("Aborted block database rebuild. Exiting.\n");
@@ -1565,7 +1577,7 @@ bool AppInitMain(NodeContext& node)
 
     // The block size limit that caps -maxstandardtxsize is known only now. With -reindex the
     // xfield history holds only the genesis entries here, so this checks the genesis limit.
-    const std::string standardSizeError = node.policy->CheckMinStandardTxSize();
+    const std::string standardSizeError = node.policy->CheckMinStandardTxSize(chainman.RulesLatest().MaxBlockSize());
     if (!standardSizeError.empty()) {
         return InitError(standardSizeError);
     }
@@ -1579,7 +1591,7 @@ bool AppInitMain(NodeContext& node)
 
     // ********************************************************* Step 8: start indexers
     if (gArgs.GetBoolArg("-txindex", DEFAULT_TXINDEX)) {
-        g_txindex = MakeUnique<TxIndex>(node.notifications, cache.nTxIndexCache, false, g_chainstate_manager.IsReindexing());
+        g_txindex = MakeUnique<TxIndex>(chainman, node.notifications, cache.nTxIndexCache, false, chainman.IsReindexing());
         g_txindex->Start();
     }
 
@@ -1593,9 +1605,9 @@ bool AppInitMain(NodeContext& node)
     if (blockFileManager.GetOptions().fPruneMode) {
         LogPrintf("Unsetting NODE_NETWORK on prune mode\n");
         nLocalServices = ServiceFlags(nLocalServices & ~NODE_NETWORK);
-        if (!g_chainstate_manager.IsReindexing()) {
+        if (!chainman.IsReindexing()) {
             uiInterface.InitMessage(_("Pruning blockstore..."));
-            PruneAndFlush();
+            chainman.ActiveChainstate().PruneAndFlush();
         }
     }
 
@@ -1606,7 +1618,7 @@ bool AppInitMain(NodeContext& node)
 
     // Either install a handler to notify us when genesis activates, or set fHaveGenesis directly.
     // No locking, as this happens before any background thread is started.
-    if (g_chainstate_manager.ActiveChain().Tip() == nullptr) {
+    if (chainman.ActiveChain().Tip() == nullptr) {
         uiInterface.NotifyBlockTip.connect(&BlockNotifyGenesisWait);
     } else {
         fHaveGenesis = true;
@@ -1646,7 +1658,7 @@ bool AppInitMain(NodeContext& node)
     {
         LOCK(cs_main);
         LogPrintf("mapBlockIndex.size() = %u\n", blockIndex.mapBlockIndex.size());
-        chain_active_height = g_chainstate_manager.ActiveChain().Height();
+        chain_active_height = chainman.ActiveChain().Height();
     }
     LogPrintf("nBestHeight = %d\n", chain_active_height);
 
@@ -1804,7 +1816,7 @@ bool AppInitMain(NodeContext& node)
     SetRPCWarmupFinished();
     uiInterface.InitMessage(_("Done loading"));
 
-    g_wallet_init_interface.Start(scheduler);
+    g_wallet_init_interface.Start();
 
     return true;
 }

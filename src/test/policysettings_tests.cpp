@@ -104,9 +104,9 @@ BOOST_AUTO_TEST_CASE(max_standard_tx_size_capped_at_block_size)
     // The fixture's history has the genesis block size limit, 1,000,000 bytes.
     ArgsManager args;
     args.ForceSetArg("-maxstandardtxsize", "4000000");
-    BOOST_CHECK_EQUAL(PolicySettings(args, TAPYRUS_OP_MODE::PROD).MaxStandardTxSize(), ConsensusConstants::MAX_BLOCK_SIZE);
+    BOOST_CHECK_EQUAL(PolicySettings(args, TAPYRUS_OP_MODE::PROD).MaxStandardTxSize(MaxBlockSize()), ConsensusConstants::MAX_BLOCK_SIZE);
     args.ForceSetArg("-maxstandardtxsize", "500000");
-    BOOST_CHECK_EQUAL(PolicySettings(args, TAPYRUS_OP_MODE::PROD).MaxStandardTxSize(), 500000U);
+    BOOST_CHECK_EQUAL(PolicySettings(args, TAPYRUS_OP_MODE::PROD).MaxStandardTxSize(MaxBlockSize()), 500000U);
 }
 
 BOOST_AUTO_TEST_CASE(min_standard_tx_size_checked_against_capped_max)
@@ -116,36 +116,36 @@ BOOST_AUTO_TEST_CASE(min_standard_tx_size_checked_against_capped_max)
     args.ForceSetArg("-maxstandardtxsize", "4000000");
     args.ForceSetArg("-minstandardtxsize", "2000000");
     const PolicySettings tooLarge(args, TAPYRUS_OP_MODE::PROD);
-    BOOST_CHECK_EQUAL(tooLarge.CheckMinStandardTxSize(), "-minstandardtxsize value 2000000 is above the largest standard transaction size 1000000 (-maxstandardtxsize, capped at the block size limit)");
-    BOOST_CHECK_EQUAL(tooLarge.MinStandardTxSize(), ConsensusConstants::MAX_BLOCK_SIZE);
+    BOOST_CHECK_EQUAL(tooLarge.CheckMinStandardTxSize(MaxBlockSize()), "-minstandardtxsize value 2000000 is above the largest standard transaction size 1000000 (-maxstandardtxsize, capped at the block size limit)");
+    BOOST_CHECK_EQUAL(tooLarge.MinStandardTxSize(MaxBlockSize()), ConsensusConstants::MAX_BLOCK_SIZE);
 
     args.ForceSetArg("-minstandardtxsize", "1000000");
     const PolicySettings atLimit(args, TAPYRUS_OP_MODE::PROD);
-    BOOST_CHECK_EQUAL(atLimit.CheckMinStandardTxSize(), "");
-    BOOST_CHECK_EQUAL(atLimit.MinStandardTxSize(), 1000000U);
+    BOOST_CHECK_EQUAL(atLimit.CheckMinStandardTxSize(MaxBlockSize()), "");
+    BOOST_CHECK_EQUAL(atLimit.MinStandardTxSize(MaxBlockSize()), 1000000U);
 }
 
 BOOST_AUTO_TEST_CASE(max_orphan_tx_size_capped_at_max_standard_tx_size)
 {
     ArgsManager args;
     args.ForceSetArg("-maxorphantxsize", "200000");
-    BOOST_CHECK_EQUAL(PolicySettings(args, TAPYRUS_OP_MODE::PROD).MaxOrphanTxSize(), DEFAULT_MAX_STANDARD_TX_SIZE);
+    BOOST_CHECK_EQUAL(PolicySettings(args, TAPYRUS_OP_MODE::PROD).MaxOrphanTxSize(MaxBlockSize()), DEFAULT_MAX_STANDARD_TX_SIZE);
     args.ForceSetArg("-maxorphantxsize", "50000");
-    BOOST_CHECK_EQUAL(PolicySettings(args, TAPYRUS_OP_MODE::PROD).MaxOrphanTxSize(), 50000U);
+    BOOST_CHECK_EQUAL(PolicySettings(args, TAPYRUS_OP_MODE::PROD).MaxOrphanTxSize(MaxBlockSize()), 50000U);
     // Independent of -maxstandardtxsize below it.
     args.ForceSetArg("-maxstandardtxsize", "1000000");
-    BOOST_CHECK_EQUAL(PolicySettings(args, TAPYRUS_OP_MODE::PROD).MaxOrphanTxSize(), 50000U);
+    BOOST_CHECK_EQUAL(PolicySettings(args, TAPYRUS_OP_MODE::PROD).MaxOrphanTxSize(MaxBlockSize()), 50000U);
 }
 
 BOOST_AUTO_TEST_CASE(bare_multisig_options)
 {
     std::string reason;
-    BOOST_CHECK(IsStandardTx(CTransaction(SpendTo(BareMultisig(3))), reason));
-    BOOST_CHECK(!IsStandardTx(CTransaction(SpendTo(BareMultisig(4))), reason));
+    BOOST_CHECK(IsStandardTx(CTransaction(SpendTo(BareMultisig(3))), reason, MaxBlockSize()));
+    BOOST_CHECK(!IsStandardTx(CTransaction(SpendTo(BareMultisig(4))), reason, MaxBlockSize()));
     BOOST_CHECK_EQUAL(reason, "scriptpubkey");
     {
         PolicySettingsOverride fourKeys({{"-maxbaremultisigkeys", "4"}});
-        BOOST_CHECK(IsStandardTx(CTransaction(SpendTo(BareMultisig(4))), reason));
+        BOOST_CHECK(IsStandardTx(CTransaction(SpendTo(BareMultisig(4))), reason, MaxBlockSize()));
     }
 }
 
@@ -156,15 +156,15 @@ BOOST_AUTO_TEST_CASE(size_options)
     const CMutableTransaction tx = SpendTo(GetScriptForDestination(key.GetPubKey().GetID()));
     const uint32_t size = ::GetSerializeSize(tx, SER_NETWORK, PROTOCOL_VERSION);
     std::string reason;
-    BOOST_CHECK(IsStandardTx(CTransaction(tx), reason));
+    BOOST_CHECK(IsStandardTx(CTransaction(tx), reason, MaxBlockSize()));
     {
         PolicySettingsOverride smallTx({{"-maxstandardtxsize", std::to_string(size - 1)}});
-        BOOST_CHECK(!IsStandardTx(CTransaction(tx), reason));
+        BOOST_CHECK(!IsStandardTx(CTransaction(tx), reason, MaxBlockSize()));
         BOOST_CHECK_EQUAL(reason, "tx-size");
     }
     {
         PolicySettingsOverride smallScriptSig({{"-maxscriptsigsize", std::to_string(tx.vin[0].scriptSig.size() - 1)}});
-        BOOST_CHECK(!IsStandardTx(CTransaction(tx), reason));
+        BOOST_CHECK(!IsStandardTx(CTransaction(tx), reason, MaxBlockSize()));
         BOOST_CHECK_EQUAL(reason, "scriptsig-size");
     }
 }

@@ -36,11 +36,6 @@ struct FederationParamsTestingSetup {
         ECC_Start();
         SetupEnvironment();
         SetupNetworking();
-        {
-            LOCK(cs_main);
-            g_chainstate_manager.ValidationCaches().Resize(CacheSettings(gArgs).nValidationCacheBytes);
-        }
-        g_chainstate_manager.InitOptions(ChainstateOptionsOverride::TestOptions({}));
         SetDataDir("tempdir");
         writeTestGenesisBlockToFile(GetDataDir());
         noui_connect();

@@ -20,5 +20,4 @@ NodeContext::NodeContext() = default;
 NodeContext::~NodeContext()
 {
     if (g_policy_settings == policy.get()) g_policy_settings = nullptr;
-    if (g_chainstate_manager.ReportsTo(notifications)) g_chainstate_manager.SetNotifications(nullptr);
 }
