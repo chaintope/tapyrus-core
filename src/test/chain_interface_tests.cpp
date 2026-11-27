@@ -2,6 +2,7 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
+#include <chain.h>
 #include <consensus/validation.h>
 #include <consensusconstants.h>
 #include <interfaces/chain.h>
@@ -152,6 +153,73 @@ BOOST_AUTO_TEST_CASE(without_data_there_is_no_fee_estimate_or_mempool_minimum)
 {
     BOOST_CHECK(m_chain->estimateSmartFee(2, false, nullptr) == CFeeRate(0));
     BOOST_CHECK(m_chain->mempoolMinFee() == CFeeRate(0));
+}
+
+BOOST_AUTO_TEST_CASE(a_synced_node_is_ready_to_broadcast)
+{
+    BOOST_REQUIRE(!IsInitialBlockDownload());
+    BOOST_CHECK(m_chain->isReadyToBroadcast());
+}
+
+// Negative case: a node loading blocks must not rebroadcast.
+
+BOOST_AUTO_TEST_CASE(a_node_importing_or_reindexing_is_not_ready_to_broadcast)
+{
+    g_chainstate_manager.GetBlockFileManager().SetImporting(true);
+    BOOST_CHECK(!m_chain->isReadyToBroadcast());
+    g_chainstate_manager.GetBlockFileManager().SetImporting(false);
+
+    g_chainstate_manager.SetReindexing(true);
+    BOOST_CHECK(!m_chain->isReadyToBroadcast());
+    g_chainstate_manager.SetReindexing(false);
+    BOOST_CHECK(m_chain->isReadyToBroadcast());
+}
+
+BOOST_AUTO_TEST_CASE(the_chain_reads_follow_the_blocks_the_node_connects)
+{
+    const CScript script{CScript() << ToByteVector(coinbaseKey.GetPubKey()) << OP_CHECKSIG};
+    const int start{m_chain->getHeight()};
+    const CBlock first{CreateAndProcessBlock({}, script)};
+    const CBlock second{CreateAndProcessBlock({}, script)};
+
+    BOOST_CHECK_EQUAL(m_chain->getHeight(), start + 2);
+    CBlockIndex* const tip{m_chain->getTip()};
+    BOOST_CHECK(tip->GetBlockHash() == second.GetHash());
+    CBlockIndex* const pindex{m_chain->lookupBlockIndex(first.GetHash())};
+    BOOST_REQUIRE(pindex);
+    BOOST_CHECK_EQUAL(pindex->nHeight, start + 1);
+    BOOST_CHECK(m_chain->isInActiveChain(pindex));
+    BOOST_CHECK_EQUAL(m_chain->getBlockAtHeight(start + 1), pindex);
+    BOOST_CHECK_EQUAL(m_chain->getNext(pindex), tip);
+    BOOST_CHECK(m_chain->getNext(tip) == nullptr);
+    BOOST_CHECK_EQUAL(m_chain->findFork(tip), tip);
+    BOOST_CHECK_EQUAL(m_chain->findLocatorFork(m_chain->getTipLocator()), tip);
+    BOOST_CHECK_EQUAL(m_chain->getGenesis()->nHeight, 0);
+    BOOST_CHECK_EQUAL(m_chain->findEarliestAtLeast(0), m_chain->getGenesis());
+
+    CBlock block;
+    BOOST_REQUIRE(m_chain->readBlock(block, pindex));
+    BOOST_CHECK(block.GetHash() == first.GetHash());
+    BOOST_CHECK(block.vtx[0]->GetHashMalFix() == first.vtx[0]->GetHashMalFix());
+
+    // A lock time below the next block's height is final; one above it is not.
+    CMutableTransaction mtx;
+    mtx.vin.emplace_back(COutPoint(m_coinbase_txns[0]->GetHashMalFix(), 0), CScript(), 0);
+    mtx.vout.emplace_back(m_coinbase_txns[0]->vout[0].nValue, script);
+    mtx.nLockTime = m_chain->getHeight();
+    BOOST_CHECK(m_chain->checkFinalTx(CTransaction(mtx)));
+    mtx.nLockTime = m_chain->getHeight() + 2;
+    BOOST_CHECK(!m_chain->checkFinalTx(CTransaction(mtx)));
+}
+
+// Error case: a block the node never connected is not found.
+
+BOOST_AUTO_TEST_CASE(a_block_the_node_never_saw_is_not_found)
+{
+    CBlock unseen;
+    unseen.nTime = 1;
+    BOOST_CHECK(m_chain->lookupBlockIndex(unseen.GetHash()) == nullptr);
+    BOOST_CHECK(m_chain->getBlockAtHeight(m_chain->getHeight() + 1) == nullptr);
 }
 
 BOOST_AUTO_TEST_SUITE_END()

@@ -4,8 +4,7 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <chain.h>
-#include <blockfilemanager.h>
-#include <chainstatemanager.h>
+#include <interfaces/chain.h>
 #include <blockindex.h>
 #include <clientversion.h>
 #include <key_io.h>
@@ -186,7 +185,7 @@ UniValue importprivkey(const JSONRPCRequest& request)
         if (!request.params[2].isNull())
             fRescan = request.params[2].get_bool();
 
-        if (fRescan && g_chainstate_manager.GetBlockFileManager().GetOptions().fPruneMode)
+        if (fRescan && pwallet->chain().isPruneMode())
             throw JSONRPCError(RPC_WALLET_ERROR, "Rescan is disabled in pruned mode");
 
         if (fRescan && !reserver.reserve()) {
@@ -330,7 +329,7 @@ UniValue importaddress(const JSONRPCRequest& request)
     if (!request.params[2].isNull())
         fRescan = request.params[2].get_bool();
 
-    if (fRescan && g_chainstate_manager.GetBlockFileManager().GetOptions().fPruneMode)
+    if (fRescan && pwallet->chain().isPruneMode())
         throw JSONRPCError(RPC_WALLET_ERROR, "Rescan is disabled in pruned mode");
 
     WalletRescanReserver reserver(pwallet);
@@ -370,7 +369,6 @@ UniValue importaddress(const JSONRPCRequest& request)
 
 UniValue importprunedfunds(const JSONRPCRequest& request)
 {
-    BlockIndexMap& blockIndex = g_chainstate_manager.BlockIndex();
     std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
     CWallet* const pwallet = wallet.get();
     if (!EnsureWalletIsAvailable(pwallet, request.fHelp)) {
@@ -403,8 +401,8 @@ UniValue importprunedfunds(const JSONRPCRequest& request)
     if (merkleBlock.txn.ExtractMatches(vMatch, vIndex) == merkleBlock.header.hashImMerkleRoot) {
 
         LOCK(cs_main);
-        const CBlockIndex* pindex = blockIndex.LookupBlockIndex(merkleBlock.header.GetHash());
-        if (!pindex || !g_chainstate_manager.ActiveChain().Contains(pindex)) {
+        const CBlockIndex* pindex = pwallet->chain().lookupBlockIndex(merkleBlock.header.GetHash());
+        if (!pindex || !pwallet->chain().isInActiveChain(pindex)) {
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Block not found in chain");
         }
 
@@ -508,7 +506,7 @@ UniValue importpubkey(const JSONRPCRequest& request)
     if (!request.params[2].isNull())
         fRescan = request.params[2].get_bool();
 
-    if (fRescan && g_chainstate_manager.GetBlockFileManager().GetOptions().fPruneMode)
+    if (fRescan && pwallet->chain().isPruneMode())
         throw JSONRPCError(RPC_WALLET_ERROR, "Rescan is disabled in pruned mode");
 
     WalletRescanReserver reserver(pwallet);
@@ -564,7 +562,7 @@ UniValue importwallet(const JSONRPCRequest& request)
             + HelpExampleRpc("importwallet", "\"test\"")
         );
 
-    if (g_chainstate_manager.GetBlockFileManager().GetOptions().fPruneMode)
+    if (pwallet->chain().isPruneMode())
         throw JSONRPCError(RPC_WALLET_ERROR, "Importing wallets is disabled in pruned mode");
 
     WalletRescanReserver reserver(pwallet);
@@ -584,7 +582,7 @@ UniValue importwallet(const JSONRPCRequest& request)
         if (!file.is_open()) {
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Cannot open wallet dump file");
         }
-        nTimeBegin = g_chainstate_manager.ActiveChain().Tip()->GetBlockTime();
+        nTimeBegin = pwallet->chain().getTip()->GetBlockTime();
 
         int64_t nFilesize = std::max((int64_t)1, (int64_t)file.tellg());
         file.seekg(0, file.beg);
@@ -797,8 +795,8 @@ UniValue dumpwallet(const JSONRPCRequest& request)
     // produce output
     file << strprintf("# Wallet dump created by Tapyrus %s\n", FormatFullVersion());
     file << strprintf("# * Created on %s\n", FormatISO8601DateTime(GetTime()));
-    file << strprintf("# * Best block at time of backup was %i (%s),\n", g_chainstate_manager.ActiveChain().Height(), g_chainstate_manager.ActiveChain().Tip()->GetBlockHash().ToString());
-    file << strprintf("#   mined on %s\n", FormatISO8601DateTime(g_chainstate_manager.ActiveChain().Tip()->GetBlockTime()));
+    file << strprintf("# * Best block at time of backup was %i (%s),\n", pwallet->chain().getHeight(), pwallet->chain().getTip()->GetBlockHash().ToString());
+    file << strprintf("#   mined on %s\n", FormatISO8601DateTime(pwallet->chain().getTip()->GetBlockTime()));
     file << "\n";
 
     // add the base58check encoded extended master if the wallet uses HD
@@ -1260,15 +1258,15 @@ UniValue importmulti(const JSONRPCRequest& mainRequest)
         EnsureWalletIsUnlocked(pwallet);
 
         // Verify all timestamps are present before importing any keys.
-        now = g_chainstate_manager.ActiveChain().Tip() ? g_chainstate_manager.ActiveChain().Tip()->GetMedianTimePast() : 0;
+        now = pwallet->chain().getTip() ? pwallet->chain().getTip()->GetMedianTimePast() : 0;
         for (const UniValue& data : requests.getValues()) {
             GetImportTimestamp(data, now);
         }
 
         const int64_t minimumTimestamp = 1;
 
-        if (fRescan && g_chainstate_manager.ActiveChain().Tip()) {
-            nLowestTimestamp = g_chainstate_manager.ActiveChain().Tip()->GetBlockTime();
+        if (fRescan && pwallet->chain().getTip()) {
+            nLowestTimestamp = pwallet->chain().getTip()->GetBlockTime();
         } else {
             fRescan = false;
         }

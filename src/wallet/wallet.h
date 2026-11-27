@@ -36,6 +36,19 @@
 
 class CWallet;
 
+//! Where a wallet gets its validation events from; WalletEventQueue delivers them on the wallet thread.
+class WalletEvents
+{
+public:
+    virtual ~WalletEvents() = default;
+    //! Delivers later events to wallet.
+    virtual void Register(CWallet& wallet) = 0;
+    //! Stops delivery to wallet, waiting for a delivery in progress to finish.
+    virtual void Unregister(CWallet& wallet) = 0;
+    //! Waits until the events queued before the call are delivered.
+    virtual void Sync() = 0;
+};
+
 bool AddWallet(const std::shared_ptr<CWallet>& wallet);
 bool RemoveWallet(const std::shared_ptr<CWallet>& wallet);
 bool HasWallets();
@@ -248,14 +261,6 @@ public:
 
     void SetMerkleBranch(const CBlockIndex* pIndex, int posInBlock);
 
-    /**
-     * Return depth of transaction in blockchain:
-     * <0  : conflicts with a transaction this deep in the blockchain
-     *  0  : in memory pool, waiting to be included in a block
-     * >=1 : this many blocks deep in the main chain
-     */
-    int GetDepthInMainChain() const;
-    bool IsInMainChain() const { return GetDepthInMainChain() > 0; }
     bool hashUnset() const { return (hashBlock.IsNull() || hashBlock == ABANDON_HASH); }
     bool isAbandoned() const { return (hashBlock == ABANDON_HASH); }
     void setAbandoned() { hashBlock = ABANDON_HASH; }
@@ -454,6 +459,15 @@ public:
 
     // True if only scriptSigs are different
     bool IsEquivalentTo(const CWalletTx& tx) const;
+
+    /**
+     * Return depth of transaction in blockchain:
+     * <0  : conflicts with a transaction this deep in the blockchain
+     *  0  : in memory pool, waiting to be included in a block, or the wallet has no node
+     * >=1 : this many blocks deep in the main chain
+     */
+    int GetDepthInMainChain() const;
+    bool IsInMainChain() const { return GetDepthInMainChain() > 0; }
 
     bool InMempool() const;
     bool IsTrusted() const;
@@ -671,6 +685,10 @@ private:
     int64_t nNextResend = 0;
     int64_t nLastResend = 0;
     bool fBroadcastTransactions = false;
+    // Local time that the tip block was received. Used to schedule wallet rebroadcasts.
+    std::atomic<int64_t> m_best_block_time {0};
+    //! The queue delivering this wallet's validation events; null while it gets none.
+    std::atomic<WalletEvents*> m_event_queue{nullptr};
 
     /**
      * Used to keep track of spent outpoints, and
@@ -943,11 +961,12 @@ public:
     void TransactionAddedToMempool(const CTransactionRef& tx) override;
     void BlockConnected(const std::shared_ptr<const CBlock>& pblock, const CBlockIndex *pindex, const std::vector<CTransactionRef>& vtxConflicted) override;
     void BlockDisconnected(const std::shared_ptr<const CBlock>& pblock) override;
+    void UpdatedBlockTip(const CBlockIndex* pindexNew, const CBlockIndex* pindexFork, bool fInitialDownload) override;
     int64_t RescanFromTime(int64_t startTime, const WalletRescanReserver& reserver, bool update);
     CBlockIndex* ScanForWalletTransactions(CBlockIndex* pindexStart, CBlockIndex* pindexStop, const WalletRescanReserver& reserver, bool fUpdate = false);
     void TransactionRemovedFromMempool(const CTransactionRef &ptx) override;
     void ReacceptWalletTransactions();
-    void ResendWalletTransactions(int64_t nBestBlockTime) override;
+    void ResendWalletTransactions();
     // ResendWalletTransactionsBefore may only be called if fBroadcastTransactions!
     std::vector<uint256> ResendWalletTransactionsBefore(int64_t nTime) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
     TxColoredCoinBalancesMap GetBalance(const isminefilter& filter=ISMINE_SPENDABLE, const int min_depth=0) const;
@@ -1138,7 +1157,7 @@ public:
     static bool Verify(std::string wallet_file, bool salvage_wallet, std::string& error_string, std::optional<SalvagedWalletFile>& salvaged);
 
     /* Initializes the wallet, returns a new CWallet instance or a null pointer in case of an error */
-    static std::shared_ptr<CWallet> CreateWalletFromFile(interfaces::Chain* chain, const std::string& name, const fs::path& path, uint64_t wallet_creation_flags = 0);
+    static std::shared_ptr<CWallet> CreateWalletFromFile(interfaces::Chain* chain, WalletEvents& events, const std::string& name, const fs::path& path, uint64_t wallet_creation_flags = 0);
 
     /**
      * Wallet post-init setup
@@ -1174,6 +1193,9 @@ public:
      * deadlock
      */
     void BlockUntilSyncedToCurrentChain() LOCKS_EXCLUDED(cs_wallet);
+
+    //! Set by WalletEvents when it starts or stops delivering to this wallet.
+    void SetEventQueue(WalletEvents* queue) { m_event_queue = queue; }
 
     /** set a single wallet flag */
     void SetWalletFlag(uint64_t flags);

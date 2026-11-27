@@ -37,6 +37,9 @@
 #include <util.h>
 #include <utilstrencodings.h>
 #include <validationinterface.h>
+#if ENABLE_WALLET
+#include <walletinitinterface.h>
+#endif
 #include <xfieldhistory.h>
 #include <verifydb.h>
 #include <blockfilemanager.h>
@@ -320,13 +323,17 @@ static UniValue syncwithvalidationinterfacequeue(const JSONRPCRequest& request)
     if (request.fHelp || request.params.size() > 0) {
         throw std::runtime_error(
             "syncwithvalidationinterfacequeue\n"
-            "\nWaits for the validation interface queue to catch up on everything that was there when we entered this function.\n"
+            "\nWaits for the validation interface queue, and the wallets' event queue after it, to catch up on everything that was there when we entered this function.\n"
             "\nExamples:\n"
             + HelpExampleCli("syncwithvalidationinterfacequeue","")
             + HelpExampleRpc("syncwithvalidationinterfacequeue","")
         );
     }
     SyncWithValidationInterfaceQueue();
+#if ENABLE_WALLET
+    // The node's queue has handed the wallets' events on to the wallet thread; wait for those too.
+    g_wallet_init_interface.SyncWalletEvents();
+#endif
     return NullUniValue;
 }
 

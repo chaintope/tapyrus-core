@@ -28,6 +28,7 @@ add_library(tapyrus_wallet STATIC
         tokenissuance.cpp
         wallet.cpp
         walletdb.cpp
+        walleteventqueue.cpp
         walletutil.cpp
 )
 target_link_libraries(tapyrus_wallet

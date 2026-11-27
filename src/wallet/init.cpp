@@ -4,10 +4,8 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <chainparams.h>
-#include <init.h>
 #include <interfaces/chain.h>
 #include <net.h>
-#include <scheduler.h>
 #include <outputtype.h>
 #include <policy/policysettings.h>
 #include <util.h>
@@ -181,10 +179,12 @@ bool WalletInit::Open() const
         return true;
     }
 
+    m_events.Start();
+
     for (const std::string& walletFile : gArgs.GetArgs("-wallet")) {
         fs::path wallet_path = fs::path(walletFile).is_absolute() ? fs::path(walletFile) : GetWalletDir() / fs::path(walletFile);
 
-        std::shared_ptr<CWallet> pwallet = CWallet::CreateWalletFromFile(m_chain, walletFile, wallet_path);
+        std::shared_ptr<CWallet> pwallet = CWallet::CreateWalletFromFile(m_chain, m_events, walletFile, wallet_path);
         if (!pwallet) {
             return false;
         }
@@ -194,18 +194,21 @@ bool WalletInit::Open() const
     return true;
 }
 
-void WalletInit::Start(CScheduler& scheduler) const
+void WalletInit::Start() const
 {
     for (const std::shared_ptr<CWallet>& pwallet : GetWallets()) {
         pwallet->postInitProcess();
     }
 
-    // Run a thread to flush wallet periodically
-    scheduler.scheduleEvery(MaybeCompactWalletDB, 500);
+    // Periodic wallet flushes and tx rebroadcasts run on the wallet thread
+    m_events.ScheduleEvery(MaybeCompactWalletDB, std::chrono::milliseconds{500});
+    m_events.ScheduleEvery([this] { m_events.ResendWalletTransactions(); }, std::chrono::milliseconds{1000});
 }
 
 void WalletInit::Flush() const
 {
+    // Shutdown has begun: the resend uses the network and the block files, which go away next.
+    m_events.CancelTasks();
     for (const std::shared_ptr<CWallet>& pwallet : GetWallets()) {
         pwallet->Flush(false);
     }
@@ -213,6 +216,8 @@ void WalletInit::Flush() const
 
 void WalletInit::Stop() const
 {
+    // Deliver the events still queued before the wallets flush.
+    m_events.Stop();
     for (const std::shared_ptr<CWallet>& pwallet : GetWallets()) {
         pwallet->Flush(true);
     }

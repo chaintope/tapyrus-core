@@ -4,6 +4,7 @@
 
 #include <interfaces/chain.h>
 
+#include <chain.h>
 #include <chainstate.h>
 #include <chainstatemanager.h>
 #include <connman.h>
@@ -91,6 +92,109 @@ public:
     WalletNotifications& notifications() const override
     {
         return m_node.notifications;
+    }
+
+    bool isReadyToBroadcast() override
+    {
+        return !g_chainstate_manager.LoadingBlocks() && !IsInitialBlockDownload();
+    }
+
+    CBlockIndex* getTip() override
+    {
+        LOCK(::cs_main);
+        return g_chainstate_manager.ActiveChain().Tip();
+    }
+
+    int getHeight() override
+    {
+        LOCK(::cs_main);
+        return g_chainstate_manager.ActiveChain().Height();
+    }
+
+    CBlockIndex* getGenesis() override
+    {
+        LOCK(::cs_main);
+        return g_chainstate_manager.ActiveChain().Genesis();
+    }
+
+    CBlockIndex* getBlockAtHeight(int height) override
+    {
+        LOCK(::cs_main);
+        return g_chainstate_manager.ActiveChain()[height];
+    }
+
+    CBlockIndex* getNext(const CBlockIndex* pindex) override
+    {
+        LOCK(::cs_main);
+        return g_chainstate_manager.ActiveChain().Next(pindex);
+    }
+
+    bool isInActiveChain(const CBlockIndex* pindex) override
+    {
+        LOCK(::cs_main);
+        return g_chainstate_manager.ActiveChain().Contains(pindex);
+    }
+
+    const CBlockIndex* findFork(const CBlockIndex* pindex) override
+    {
+        LOCK(::cs_main);
+        return g_chainstate_manager.ActiveChain().FindFork(pindex);
+    }
+
+    CBlockIndex* findEarliestAtLeast(int64_t time) override
+    {
+        LOCK(::cs_main);
+        return g_chainstate_manager.ActiveChain().FindEarliestAtLeast(time);
+    }
+
+    CBlockIndex* findLocatorFork(const CBlockLocator& locator) override
+    {
+        LOCK(::cs_main);
+        return FindForkInGlobalIndex(g_chainstate_manager.ActiveChain(), locator);
+    }
+
+    CBlockIndex* lookupBlockIndex(const uint256& hash) override
+    {
+        LOCK(::cs_main);
+        return g_chainstate_manager.BlockIndex().LookupBlockIndex(hash);
+    }
+
+    CBlockLocator getTipLocator() override
+    {
+        LOCK(::cs_main);
+        return g_chainstate_manager.ActiveChain().GetLocator();
+    }
+
+    bool readBlock(CBlock& block, const CBlockIndex* pindex) override
+    {
+        return g_chainstate_manager.ReadBlock(block, pindex);
+    }
+
+    double guessVerificationProgress(const CBlockIndex* pindex) override
+    {
+        LOCK(::cs_main);
+        return g_chainstate_manager.Progress().Guess(pindex);
+    }
+
+    bool isPruneMode() override
+    {
+        return g_chainstate_manager.GetBlockFileManager().GetOptions().fPruneMode;
+    }
+
+    bool isInitialBlockDownload() override
+    {
+        return IsInitialBlockDownload();
+    }
+
+    uint32_t getMaxBlockSize() override
+    {
+        return g_chainstate_manager.XFieldHistory().GetCurrentMaxBlockSize();
+    }
+
+    bool checkFinalTx(const CTransaction& tx) override
+    {
+        LOCK(::cs_main);
+        return CheckFinalTx(tx);
     }
 
 private:
